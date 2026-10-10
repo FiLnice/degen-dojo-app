@@ -2,7 +2,7 @@
 
 > ORE gets mined every minute. We gave it something to buy.
 
-Degen Dojo is a Solana dApp built for the **Seeker**: trade, mint, mine and play — all priced in **ORE**, with **SKR** accepted across the app. Built for the Solana Mobile **CLOCK IN** hackathon (ORE track).
+Degen Dojo is a Solana dApp built for the **Seeker**: trade, mint, mine and play — priced in **ORE**, with **SKR** for game coins. Built for the Solana Mobile **CLOCK IN** hackathon (ORE track).
 
 - **Live dApp:** https://store.degendojo.xyz
 - **Site:** https://degendojo.xyz
@@ -13,7 +13,7 @@ Degen Dojo is a Solana dApp built for the **Seeker**: trade, mint, mine and play
 
 | Feature | What it does | Where |
 |---|---|---|
-| **ORE marketplace** | List any NFT, buy any NFT, paid in ORE (ORE → SOL swap via Jupiter, then the buy). Magic Eden, Tensor and our own non-custodial AuctionHouse listings. 6.5% back in ORE (5% in SKR). | `store/src/store-template.html`, `store/src/dojo-buy.js`, `store/functions/` |
+| **ORE marketplace** | List any NFT, buy any NFT, paid in ORE (ORE → SOL swap via Jupiter, then the buy). Magic Eden, Tensor and our own non-custodial AuctionHouse listings. 6.5% back in ORE. | `store/src/store-template.html`, `store/src/dojo-buy.js`, `store/functions/` |
 | **Mine the Mint** | An anti-rug, anti-bot launchpad: commit 1 ORE, everyone gets one NFT, one drips out per minute at random; funds stay in escrow until milestones. | `store/src/launch.html` |
 | **ORE grid miner** | Mine real ORE on a 5×5 grid of Degens — native ORE program instructions, auto-mining, live slot timing. | `miner/` (Next.js) |
 | **Your own miner** | Any collection pastes its collection address and gets its own branded 25-NFT ORE grid (5 ORE setup). | `miner/app/create`, `miner/app/whitelabel` |
@@ -25,7 +25,7 @@ Degen Dojo is a Solana dApp built for the **Seeker**: trade, mint, mine and play
 - **Mobile Wallet Adapter / Seed Vault:** `store/mwa-build/` bundles `@solana-mobile/wallet-standard-mobile` into `mwa.js`, registered as a Wallet-Standard wallet so the Seeker's Seed Vault appears in the wallet picker (`store/src/wallet-picker.js`) and the session is restored silently across pages.
   The build applies two asserted bundle-time patches: a grace period for Chrome's Local-Network-Access prompt (which never appeared on the Seeker, hanging the connect) and a 60s association timeout. See the comments in `store/mwa-build/build.mjs`.
 - **Seeker Connect** (experimental): MWA over a Nostr relay, offered on Seeker devices.
-- **SKR:** list/buy in SKR, buy game coins with SKR, SKR feeds the weekly Dojo Pot.
+- **SKR:** players buy game coins with SKR (alongside ORE and SOL); the SKR from coin sales feeds the weekly Dojo Pot.
 
 ## Repository layout
 
