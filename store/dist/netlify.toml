@@ -1,0 +1,8 @@
+[functions]
+  directory = "netlify/functions"
+
+[images]
+  remote_images = ['https://degendojo\.s3\.us-west-1\.amazonaws\.com/.*']
+
+[build.environment]
+  SECRETS_SCAN_OMIT_KEYS = "TREASURY_PUBKEY,TREASURY_WALLET,OPERATOR_PUBKEYS"

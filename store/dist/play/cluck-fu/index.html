@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>window.DOJO_LOCAL_ECON=1;</script>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>CLUCK-FU — Dojo Derby</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Inter:wght@400;500;600&family=Noto+Serif+JP:wght@700;900&family=Teko:wght@600;700&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --ink:#140d0a; --sand:#5c4428; --sand-d:#3f2d19; --wood:#6b4a28; --wood-d:#2a1c0e;
+  --gold:#e8b84b; --red:#c0392b; --red2:#8b1a10; --text:#f3ead6; --muted:#a99a80; --skr:#7c5cff;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Inter',sans-serif;color:var(--text);height:100vh;height:100dvh;overflow:hidden;display:flex;flex-direction:column;
+  background:radial-gradient(700px 460px at 50% -6%, rgba(192,57,43,.5), transparent 60%),linear-gradient(#2a1712,#1c110c 40%,#140d0a);}
+.wrap{max-width:1080px;margin:0 auto;padding:0 16px 8px;flex:1;min-height:0;width:100%;display:flex;flex-direction:column;}
+
+.top{display:flex;align-items:center;gap:14px;padding:8px 4px 4px;flex:none;}
+.brand b{font-family:'Cinzel',serif;font-size:19px;font-weight:900;letter-spacing:.14em;
+  background:linear-gradient(180deg,#f7e6b6,#e8b84b 55%,#a9781f);-webkit-background-clip:text;background-clip:text;color:transparent;}
+.brand .jp{font-family:'Noto Serif JP',serif;color:var(--gold);font-size:12px;letter-spacing:.3em;}
+.wallet{margin-left:auto;display:flex;gap:8px;align-items:center;}
+.ic-btn{width:34px;height:34px;flex:0 0 auto;border-radius:50%;border:1px solid rgba(232,184,75,.35);background:rgba(0,0,0,.35);color:var(--gold);font-size:15px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-family:'Cinzel',serif;font-weight:700;}
+.ic-btn:hover{border-color:var(--gold);}
+.dc-mid{display:inline-flex;align-items:center;gap:3px;font-family:'Teko',sans-serif;font-size:17px;line-height:1;color:var(--gold);border:1px solid rgba(232,184,75,.35);border-radius:9px;padding:4px 11px;background:rgba(232,184,75,.08);white-space:nowrap;}
+.cf-modal{position:fixed;inset:0;background:rgba(8,6,5,.8);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;z-index:60;padding:20px;}
+.cf-modal.show{display:flex;}
+.cf-box{background:#1a120c;border:1px solid var(--gold);border-radius:14px;padding:22px 24px;max-width:420px;color:var(--text);}
+.cf-box h3{font-family:'Cinzel',serif;margin:0 0 12px;color:var(--gold);}
+.cf-box ul{margin:0;padding-left:18px;line-height:1.7;font-size:14px;} .cf-box p{line-height:1.6;font-size:14px;}
+.cf-box b{color:var(--gold);}
+.cf-box button{margin-top:16px;font-family:'Teko',sans-serif;font-size:19px;letter-spacing:.05em;text-transform:uppercase;padding:8px 22px;border-radius:10px;cursor:pointer;border:1px solid var(--gold);background:linear-gradient(135deg,#c8962a,#8b6018);color:#160f06;}
+.chip{display:flex;align-items:center;gap:6px;background:rgba(0,0,0,.35);border:1px solid rgba(232,184,75,.25);
+  border-radius:999px;padding:7px 13px;font-family:'Teko',sans-serif;font-size:15px;}
+.chip .d{width:16px;height:16px;border-radius:50%;display:inline-block;}
+.chip .skr{background:linear-gradient(135deg,#9a7dff,#5c3cff);} .chip .ore{background:linear-gradient(135deg,#f4d06a,#c89a2a);}
+.chip b{color:var(--gold);}
+
+.hero{text-align:center;margin:6px 0 6px;flex:none;}
+.cf-eyebrow{font-family:'Cinzel',serif;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);font-size:12px;opacity:.9;}
+.hero h1{font-family:'Teko',sans-serif;font-weight:700;text-transform:uppercase;font-size:clamp(30px,7vw,50px);line-height:.82;margin:1px 0 3px;letter-spacing:.03em;
+  background:linear-gradient(180deg,#f4e2b4,#e8b84b 45%,#c9973a);-webkit-background-clip:text;background-clip:text;color:transparent;}
+.cf-tag{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;color:#a99a7e;font-size:13.5px;letter-spacing:.02em;}
+.cf-tag .cf-desc{color:#a99a7e;}
+#cfInfo{font-style:italic;}
+
+.pot{display:flex;align-items:center;gap:16px;flex-wrap:wrap;justify-content:center;margin:0 auto 6px;max-width:820px;flex:none;
+  background:linear-gradient(120deg,rgba(124,92,255,.16),rgba(192,57,43,.14));border:1px solid rgba(232,184,75,.3);border-radius:14px;padding:7px 18px;}
+.pot .amt{font-family:'Cinzel',serif;font-weight:900;font-size:22px;color:#fff2cf;display:flex;align-items:center;gap:8px;}
+.pot .lbl{font-family:'Teko',sans-serif;letter-spacing:.16em;text-transform:uppercase;font-size:12px;color:var(--gold);}
+.pot .split{font-family:'Teko',sans-serif;font-size:14px;color:#cdbfa2;line-height:1.35;max-width:400px;}
+.pot .split b{color:var(--gold);}
+
+.arena{position:relative;border-radius:18px;overflow:hidden;border:3px solid rgba(232,184,75,.28);
+  background:
+    repeating-linear-gradient(90deg, rgba(232,184,75,.07) 0 1px, transparent 1px 46px),
+    radial-gradient(700px 300px at 50% -20%, rgba(232,184,75,.06), transparent 60%),
+    linear-gradient(180deg,#1d140b,#100b06);
+  box-shadow:0 22px 50px -24px rgba(0,0,0,.85), inset 0 2px 0 rgba(232,184,75,.14);padding:4px 0;flex:1;min-height:0;}
+#lanes{height:100%;display:flex;flex-direction:column;}
+
+.lane{position:relative;display:flex;align-items:center;flex:1;min-height:0;cursor:pointer;border-top:1px dashed rgba(232,184,75,.16);}
+.lane:first-child{border-top:none;}
+.lane.sel{background:linear-gradient(90deg,rgba(232,184,75,.22),transparent 60%);}
+.tagno{width:28px;text-align:center;font-family:'Cinzel',serif;font-weight:900;font-size:15px;color:#e0cfa8;flex:none;}
+.paddock{width:150px;flex:none;padding-right:8px;}
+.paddock .pname{font-family:'Cinzel',serif;font-weight:900;font-size:12.5px;color:#f3ead6;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.paddock .pool{font-family:'Teko',sans-serif;font-size:13px;color:#b3a488;letter-spacing:.02em;margin-top:1px;}
+.paddock .pool b{color:#f0b64f;font-weight:400;}
+.paddock .pool .retb{color:#6fd89a;}
+.paddock .sel-tag{display:none;font-family:'Teko',sans-serif;font-size:11px;background:var(--gold);color:#2a1a06;
+  border-radius:4px;padding:0 6px;font-weight:700;margin-top:2px;}
+.lane.sel .sel-tag{display:inline-block;}
+
+/* the running track */
+.track{position:relative;flex:1;height:100%;}
+.track .finish{position:absolute;right:62px;top:5px;bottom:5px;width:5px;border-radius:2px;
+  background:repeating-linear-gradient(180deg,#0f0a06 0 9px,#f3ead6 9px 18px);opacity:.9;}
+.runner{position:absolute;left:6px;bottom:3px;z-index:2;transform:translateX(0);will-change:transform;text-align:center;}
+.runner svg{display:block;width:46px;height:41px;margin:0 auto;}
+.runner .rname{font-family:'Cinzel',serif;font-weight:900;font-size:9px;color:#f3ead6;margin-top:-3px;white-space:nowrap;text-shadow:0 1px 3px rgba(0,0,0,.7);}
+/* bob the SVG (not the runner) so it never overrides the runner's translateX */
+.runner.run svg{animation:bob .28s infinite;}
+@keyframes bob{0%,100%{transform:translateY(0) rotate(-1deg);}50%{transform:translateY(-3px) rotate(1deg);}}
+.leg{transform-origin:top center;}
+.runner.run .leg1{animation:step .28s infinite;}
+.runner.run .leg2{animation:step .28s infinite .14s;}
+@keyframes step{0%,100%{transform:rotate(15deg);}50%{transform:rotate(-15deg);}}
+.win-glow{filter:drop-shadow(0 0 9px rgba(232,184,75,.95));}
+.gagfx{position:absolute;left:44px;bottom:14px;font-size:22px;pointer-events:none;white-space:nowrap;}
+/* the Degen handler (a chicken-wielder), standing just RIGHT of the finish line — full colour */
+.handler{position:absolute;right:7px;bottom:3px;width:48px;height:48px;border-radius:9px;object-fit:cover;z-index:2;
+  border:2px solid rgba(255,255,255,.14);opacity:.92;
+  transition:opacity .4s ease, transform .4s ease, box-shadow .4s ease, border-color .4s ease;}
+.handler.win{opacity:1;transform:scale(1.16);border-color:var(--gold);box-shadow:0 0 16px rgba(232,184,75,.9);}
+/* rotating Japanese rising-sun behind the winning Degen */
+.sunburst{position:absolute;right:-8px;bottom:-8px;width:80px;height:80px;z-index:1;display:none;pointer-events:none;
+  background:repeating-conic-gradient(from 0deg, rgba(232,184,75,.55) 0 9deg, rgba(192,57,43,.22) 9deg 18deg);
+  border-radius:50%;-webkit-mask:radial-gradient(circle, transparent 30%, #000 34%, #000 60%, transparent 74%);
+  mask:radial-gradient(circle, transparent 30%, #000 34%, #000 60%, transparent 74%);animation:spin 8s linear infinite;}
+.sunburst.show{display:block;}
+@keyframes spin{to{transform:rotate(360deg);}}
+/* MOBILE: 2-line names, slimmer paddock so the birds sit further left with more running room, smaller birds */
+@media(max-width:600px){
+  .tagno{width:18px;font-size:13px;}
+  .paddock{width:84px;padding-right:6px;}
+  .paddock .pname{white-space:normal;overflow:visible;text-overflow:clip;font-size:11px;line-height:1.08;}
+  .runner{left:2px;}
+  .runner svg{width:33px;height:29px;}
+  .runner .rname{font-size:8px;}
+  .gagfx{left:32px;font-size:18px;}
+  .track .finish{right:48px;}
+  .handler{width:37px;height:37px;right:5px;}
+  .sunburst{width:58px;height:58px;right:-6px;bottom:-6px;}
+}
+/* a laid egg — dropped at the spot and left behind as the bird runs on */
+.laidegg{position:absolute;bottom:8px;font-size:17px;z-index:1;pointer-events:none;animation:eggplop .35s ease;}
+@keyframes eggplop{0%{transform:scale(.2) translateY(-9px);opacity:0;}70%{transform:scale(1.2);opacity:1;}100%{transform:scale(1);}}
+/* the amorous rooster that runs in from the start line */
+.rooster{position:absolute;left:0;bottom:4px;z-index:3;transform:translateX(0);}
+.rooster svg{width:66px;height:58px;display:block;}
+.roobody{transform:scaleX(-1);transform-origin:center;}   /* face right, toward the chicken */
+.rooster.runroo .roobody{animation:roohop .24s infinite;}
+@keyframes roohop{0%,100%{transform:scaleX(-1) translateY(0) rotate(-2deg);}50%{transform:scaleX(-1) translateY(-3px) rotate(2deg);}}
+/* running back home → face LEFT */
+.rooster.goback .roobody{animation:rooback .24s infinite;}
+@keyframes rooback{0%,100%{transform:scaleX(1) translateY(0) rotate(2deg);}50%{transform:scaleX(1) translateY(-3px) rotate(-2deg);}}
+/* flip / fly flourish — a quick 360 with a big hop, no time lost */
+.runner.flip svg{animation:flip .7s ease;}
+@keyframes flip{0%{transform:translateY(0) rotate(0);}45%{transform:translateY(-22px) rotate(200deg);}100%{transform:translateY(0) rotate(360deg);}}
+/* the chicken turning to face its suitor */
+.runner.turn svg{transform:scaleX(-1);}
+
+.betbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center;margin:8px auto 0;flex:none;}
+.pickname{font-family:'Cinzel',serif;font-weight:900;font-size:15px;color:var(--gold);min-width:150px;text-align:center;}
+.cur{display:flex;border:1px solid rgba(232,184,75,.35);border-radius:10px;overflow:hidden;}
+.cur button{background:transparent;border:none;color:var(--muted);font-family:'Teko',sans-serif;font-size:15px;padding:9px 15px;cursor:pointer;}
+.cur button.on{background:linear-gradient(135deg,#c8962a,#8b6018);color:#160f06;font-weight:700;}
+.amt-in{background:#0e0a08;border:1px solid rgba(232,184,75,.35);color:var(--gold);border-radius:10px;font-family:'Teko',sans-serif;font-size:17px;padding:8px 12px;width:100px;}
+.amt-in:focus{outline:none;border-color:var(--gold);}
+.fixedcost{width:auto;min-width:44px;text-align:center;font-size:22px;font-weight:700;cursor:default;display:flex;align-items:center;justify-content:center;}
+.cur button[disabled]{background:linear-gradient(135deg,#c8962a,#8b6018);color:#160f06;font-weight:700;opacity:1;cursor:default;}
+.place{background:linear-gradient(135deg,#c8962a,#8b6018);border:none;color:#160f06;font-family:'Cinzel',serif;font-weight:900;font-size:13px;letter-spacing:.06em;padding:11px 20px;border-radius:10px;cursor:pointer;}
+.go{background:linear-gradient(135deg,#e05a4a,#8b1a10);color:#fff;font-family:'Cinzel',serif;font-weight:900;font-size:15px;letter-spacing:.09em;padding:13px 30px;border-radius:12px;border:none;cursor:pointer;box-shadow:0 8px 20px -8px rgba(224,90,74,.7);}
+.go:disabled{opacity:.5;cursor:default;}
+.mybet{font-family:'Teko',sans-serif;font-size:13px;color:#cdbfa2;text-align:center;margin-top:5px;min-height:16px;flex:none;}
+.mybet b{color:var(--gold);}
+
+.overlay{position:absolute;inset:0;z-index:20;display:none;align-items:center;justify-content:center;background:rgba(15,9,6,.5);backdrop-filter:blur(2px);}
+.overlay.show{display:flex;}
+.count{font-family:'Cinzel',serif;font-weight:900;font-size:120px;color:#fff2cf;filter:drop-shadow(0 4px 0 var(--red2));animation:pop .6s ease;}
+@keyframes pop{0%{transform:scale(.3);opacity:0;}60%{transform:scale(1.15);opacity:1;}100%{transform:scale(1);}}
+.result{text-align:center;background:linear-gradient(180deg,#241610,#160f0a);border:2px solid var(--gold);border-radius:18px;padding:24px 32px;box-shadow:0 20px 50px rgba(0,0,0,.7);animation:pop .4s ease;max-width:400px;}
+.result .rk{font-family:'Teko',sans-serif;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);font-size:13px;}
+.result .rw{font-family:'Cinzel',serif;font-weight:900;font-size:24px;margin:4px 0 8px;color:#fff2cf;display:flex;align-items:center;justify-content:center;gap:8px;}
+.result .rp{font-family:'Teko',sans-serif;font-size:18px;}
+.result .rp.win{color:#7fe0a0;} .result .rp.lose{color:#e0846f;}
+.result button{margin-top:14px;background:linear-gradient(135deg,#c8962a,#8b6018);border:none;color:#160f06;font-family:'Cinzel',serif;font-weight:900;font-size:12px;letter-spacing:.06em;padding:10px 22px;border-radius:9px;cursor:pointer;}
+
+.foot{text-align:center;margin:5px auto 0;max-width:820px;font-family:'Teko',sans-serif;font-size:11.5px;color:var(--muted);line-height:1.4;flex:none;}
+.foot b{color:#cdbfa2;} .foot .skrt{color:#a68cff;}
+</style>
+</head>
+<body>
+<style>
+  .gsite-nav{position:sticky;top:0;z-index:200;display:flex;justify-content:center;gap:4px;flex-wrap:nowrap;overflow-x:auto;background:rgba(10,10,15,.96);backdrop-filter:blur(12px);border-bottom:1px solid rgba(200,150,42,.25);padding:8px 10px;-webkit-overflow-scrolling:touch;}
+  .gsite-nav::-webkit-scrollbar{display:none;}
+  .gsite-nav a{font-family:'Cinzel',serif;font-weight:700;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:#b9a988;text-decoration:none;padding:6px 10px;border-radius:8px;white-space:nowrap;flex:none;}
+  .gsite-nav a.on{color:#e8c24a;background:rgba(200,150,42,.14);}
+  .gsite-nav a:hover{color:#e8c24a;}
+  .gback{width:100%;max-width:1080px;margin:0 auto;padding:9px 16px 0;}
+  .gback a{color:#c8962a;font-family:'Cinzel',serif;font-size:12px;letter-spacing:.12em;text-transform:uppercase;text-decoration:none;}
+  @media(max-width:600px){ .gsite-nav{justify-content:flex-start;gap:2px;padding:6px 8px;} .gsite-nav a{font-size:11px;padding:5px 8px;letter-spacing:.02em;} .gback{padding:7px 14px 0;} }
+</style>
+<style>.dn-ham{display:none}.dn-connect{display:none}.dn-extra{margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}@media(max-width:640px){.dn-bar{gap:10px!important;padding:10px 14px!important;}.dn-extra{display:none!important;}.dn-connect{display:block!important;}.dn-ham{display:flex!important;align-items:center;justify-content:center;width:44px;height:44px;border-radius:10px;cursor:pointer;background:rgba(201,151,58,.12);border:1px solid rgba(201,151,58,.45);color:#e8b84b;font-size:22px;line-height:1;margin-left:auto;flex:0 0 auto;}.dn-links{position:absolute!important;top:calc(100% - 2px);right:10px;min-width:214px;flex-direction:column!important;align-items:stretch;gap:5px!important;background:rgba(12,10,18,.98);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(201,151,58,.4);border-radius:12px;padding:9px;box-shadow:0 16px 36px rgba(0,0,0,.6);display:none!important;z-index:80;}.dn-links.dn-open{display:flex!important;}.dn-links a{text-align:left;font-size:13px!important;padding:11px 13px!important;}}</style><div class="dn-bar" style="position:sticky;top:0;z-index:72;background:rgba(10,10,15,.94);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-bottom:1px solid rgba(201,151,58,.18);display:flex;align-items:center;gap:16px;padding:11px 20px;flex-wrap:wrap;font-family:'Cinzel',serif;"><a href="/" style="display:flex;align-items:center;gap:11px;text-decoration:none;color:#efe6d2;"><img src="/dd-mark.jpg" alt="Degen Dojo" style="width:40px;height:40px;border-radius:9px;object-fit:cover;display:block;box-shadow:0 0 0 1px rgba(201,151,58,.35);" onerror="this.style.display='none'"/><div style="text-align:left;"><b style="font-family:'Cinzel',serif;font-size:15px;letter-spacing:.16em;display:block;color:#efe6d2;">DEGEN DOJO</b><small style="font-family:'Cinzel',serif;font-size:9px;letter-spacing:.26em;color:#a99a7e;">PLAY</small></div></a><nav class="dn-links" style="display:flex;gap:8px;flex-wrap:wrap;"><a href="#" class="dn-connect" onclick="var b=this.closest('.dn-bar').querySelector('.dn-extra button');if(b)b.click();return false;" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#e8b84b;border:1px solid rgba(201,151,58,.5);background:rgba(201,151,58,.12);">🔑 Connect</a><a href="/" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">⌂ Store</a><a href="/market" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">🛒 Market</a><a href="/launch" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">🚀 Launch</a><a href="/list" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">🏷 List</a><a href="/play" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#e8b84b;border:1px solid rgba(201,151,58,.6);background:rgba(201,151,58,.14);">▶ Play</a><a href="/mine" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">⛏ Mine</a><a href="/pot" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">🏆 Pot</a><a href="/become-a-preacher" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">📣 Preacher</a></nav><span class="dn-extra"><button id="dojoNavWallet" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#0a0814;background:linear-gradient(135deg,#c8962a,#8b6018);border:none;padding:9px 16px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;">Connect wallet</button></span><button class="dn-ham" type="button" aria-label="Menu" onclick="var n=this.closest('.dn-bar').querySelector('.dn-links');if(n)n.classList.toggle('dn-open');">☰</button></div>
+<div class="gback"><a href="/play">‹ Games</a></div>
+<div class="wrap">
+  <div class="hero">
+    <div class="cf-eyebrow">Degen Dojo</div>
+    <h1>CLUCK-FU</h1>
+    <div class="cf-tag"><button class="ic-btn" id="cfInfo" type="button" title="How to play">i</button><span class="dc-mid" data-dc-credits="icon" title="Your credits — one balance across every game"></span><button class="ic-btn" id="cfSb" type="button" title="Scoreboard">🏆</button><span class="cf-desc">🐔 Choose your Chicken, first past the line wins.</span></div>
+  </div>
+
+  <div class="arena" id="arena">
+    <div id="lanes"></div>
+    <div class="overlay" id="overlay"></div>
+  </div>
+
+  <div class="betbar" style="justify-content:center">
+    <button class="go" id="goBtn" onclick="startRace()">🐔 START THE SCRAMBLE</button>
+  </div>
+  <div class="mybet dojo-econ" id="myBet">Your bet joins that bird's pool — the more that's bet on a bird, the smaller each winner's cut.</div>
+
+</div>
+
+<div class="cf-modal" id="cfInfoModal"><div class="cf-box">
+  <h3>🐔 How to play</h3>
+  <ul>
+    <li><b>Choose a bird</b> by tapping its row.</li>
+    <li class="dojo-econ">Backing a bird costs <b>1 coin</b> per race.</li>
+    <li>Hit <b>Start the scramble</b>; first past the line wins.</li>
+    <li class="dojo-econ">Winners split <b>7/8</b> of the pot by how much each backer put in.</li>
+    <li class="dojo-econ">The last <b>1/8</b> feeds the <b>weekly Dojo Pot</b>.</li>
+    <li>Provably-fair from a future block.</li>
+  </ul>
+  <button onclick="document.getElementById('cfInfoModal').classList.remove('show')">Got it</button>
+</div></div>
+<div class="cf-modal" id="cfSbModal"><div class="cf-box">
+  <h3>🏆 Scoreboard</h3>
+  <div id="cfSbBoard"></div>
+  <button onclick="document.getElementById('cfSbModal').classList.remove('show')">Close</button>
+</div></div>
+<script src="/dojo-credits.js"></script>
+<script src="/dojo-scores.js"></script>
+<script src="/wallet-picker.js"></script>
+<script src="/dojo-wallet.js"></script>
+<script>
+// palette pulled from the Frightened-Fugu chicken: cream plumage, maple-leaf
+// spots, red comb, orange beak & legs, comedic X eye — recoloured per racer.
+const BIRDS = [
+  { name:'Colonel Cluck', c:{body:'#f1e8d4',comb:'#c0392b',beak:'#e8913f',leg:'#e0842f',spot:'#cf9a52',band:'#1c1c28'} },
+  { name:'Fugu Fury',     c:{body:'#dfe7ea',comb:'#e8663f',beak:'#e8913f',leg:'#e0842f',spot:'#8fb0c0',band:'#2b2f8f'} },
+  { name:'Kung Pow',      c:{body:'#e6c79a',comb:'#c0392b',beak:'#d9772f',leg:'#c96a1f',spot:'#a9702f',band:'#7c1d12'} },
+  { name:'Yolko Ono',     c:{body:'#f3ecd8',comb:'#b03a5b',beak:'#e8913f',leg:'#e0842f',spot:'#d99ab0',band:'#8e44ad'} },
+  { name:'Sensei Wings',  c:{body:'#cfc7bb',comb:'#c0392b',beak:'#e8913f',leg:'#e0842f',spot:'#8a7f6f',band:'#101014'} },
+  { name:'Drumstick',     c:{body:'#e8c86a',comb:'#c0392b',beak:'#d9772f',leg:'#c96a1f',spot:'#c99a3a',band:'#8b6018'} },
+  { name:'McNugget',      c:{body:'#f0e6cf',comb:'#e8663f',beak:'#e8b84b',leg:'#e0a42f',spot:'#e0c06a',band:'#1f7a5a'} },
+  { name:'Beak Cena',     c:{body:'#f3ead6',comb:'#c0392b',beak:'#e8913f',leg:'#e0842f',spot:'#c0b090',band:'#c0392b'} },
+];
+// The handlers are real Degens who wield the CHICKEN weapon — they stand at each
+// finish line in full colour; the winner gets a rotating rising-sun behind them.
+// Pool of every Degen that wields the CHICKEN weapon (demons excluded) — 8 random ones
+// are drawn as the lane handlers each game, so they change every scramble.
+const DDIMGS = [
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/JEG5LP2h1F4zfzktWytk1v6Z8FrzrfGtmNym692gfwoL.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/J7LH4SxibuexwSwr7mzMKpzEYuZ3PsEY8GBcLYt6tPRm.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/J4P4Cf9SVzQG5uyxDaLiCPQiDwqWagpjwQjgkSMAg971.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/J91VJHWxP76hwVHkjbc9bCRqkao8FeEFzZ8GeDrT4QbY.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/HxUu5RcWWKM414UP8q4jArVavxsNW78pFXQH5jWH1i3D.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/JAVFThrszsRW5ydCqbHV72ZJVTgsfMdM1ZUX2Nobm8n9.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/HupzjorsSCcvqbWJwjTwv6toBx5cFJWFg53EkjoBy6gU.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/Hr7dWkADMYe1uYXLTMYh9ASUrZV45pAnWPWQe5tgXPVk.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/HeaF49vxZ3Y8vKFo9tfDEmxdmShhj7V5ApvvH36nPjte.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/HWWFTYb4HJHF6MYsoxzTSfTWfmKoJLTiTjQ7MHmDTM3V.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/HTHbBrXCvV8vFwRSMcwaLec1517xABqALG4VcpeZqvE5.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/H8XYxZhJQthLJsxFaeg5mDfirNZ8vLargMoeeQP2rAP1.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/H5BFxAHcYc46Vf5dmygPkqwY5sLbdcF12ehZoe8vsahp.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/GzUjmTbK9kqfVhuaHcm8g5GR9k8z3oKDnKWmtGebRB1a.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/GWE4zS1r8F4r3ZXM69ZSR2vCKJQS6LUicQWAEbGMVbJd.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/GPcDVqXuZvuR6FRKXyNaNAmSxnycpYyVVV7HoN4SrcAh.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/GLVmtQ6kiHQN4uzhMEUEQoXkfMzLN6dT4QdgFmXzH9ZT.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/GGRgm9ySepR4SgVVnqt7L5D1QjFjYU8XkxAkeB44AfoM.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/G5yAp8BXUrpeYx3hvQjg9pc5Ytj2LYWZ3WbVRriExtrL.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/Fz3pGcScEGmfHuEXhdCKvcdnpFxVY4AcRALMwuWBBQNy.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/FvUq7nD8izVdtWaECU9CSh4rWoewQ47uBEhQWbyJWpiW.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/FtnYuUowdmap6FAvs8oBqzWvLDeGs71vWq8UwtprHwKY.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/FpYPghqhCTPfjMnLfx5ABD4q9DjbHmYTmnnqh4HLQSfZ.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/FdfZMmZYmhyhTgfVy94CjfsGXg4NDKTju6kKDHnbtJ2c.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/FL3mE47WViFkVv2F7AVPN5FK3Wz1dUbiSs7eFhB5xA1c.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/FDWCTLtCMUNJyq1fynpNB8wtHhwkKViyxQn1sytNjMWY.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/F7daPMB2FQnq2ZvuVpryEYkaBwzkANPrpz6RZ4aN1itG.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/F5qzgsvYeFMHwWU2WDPC24n4258GU35mJzdKjza2hCjv.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/Ekd27jpq9prZZJGdBfzB7uGNYcZBa3aMWdavBj7qvSQZ.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/Egt34w2BME4GG8CxfwctLwFgt5zpPh6rWN3npmDi62db.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/Ea6sJBTyfVfgBHxB7de8iLWZon5dF4zBQLkQoftyKwmz.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/EUrZXxrSLxLtYtryp9qioF6q4ECy38grDvfYDvUcczBk.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/ELDj4tpmUBKddwgruF8Zta4QphYz4fFQPGVz8typTfvR.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/EK97GSEyeFAPHc9M6kJdXNHQWPnsp9pTN7yRdqFmhw6K.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/EDHXZkUqfXxtrZiEF5yVcuQF3rT6uhHKLAna4EyQg5Hw.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/EBXpDna1VPxMWihoMpwbBd8wChHLDPf9Gr9KxVs1bTFL.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/E8ALFoYtEkSnEL78bUv3wUXjAEifNqB5iaMTc7G7kQsV.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/DsHw9qmVK3nX59N4yizh3tbG6w61P4pjTUNdzZeKkiMq.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/DeEzjfGzLroR62EjFVPm278qWUw4sPthFib8rH3BdpL7.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/Dck1VCDS8ocH2Hr7vH9A6Qk3zniUBDggBo22fPUdHB6P.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/DXvdWuQnJUE16mkKHVLMj8kagcAViAQCFVAgw67kRB8o.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/DX5SgYd7AywfGYg6ScdQofQtnsFKrLXb32Us4fgSXYjF.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/DVRdJxXeijVbJbiBuTzSHjjE1m7BVQ4MbtDmbNU4wmgY.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/DUvBDHhPjaJsT4KoCZugerhBV2yq2mrj1qUNNGgq51Nt.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/DSQzkAR9aWgSptRyEAgihXKLDZgWf8mBWnzUHYYVJZ76.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/DH6y1R3m92n5b8wuwiFswsu7CgEwZZq6vTGmT5rZjXo2.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/DENXEUgV9d8uNG3Xm8Dv4sMLAZwEC94NXgse4vHuM3MW.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/DAm1jCDn6AAs6qWW1WFVjMMFWsVd9FqdYKAKusoaV2Hm.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/D9miAtX8kb7ig5mHF1JNXKq1xCnrBQramo4LaFmVjht6.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/D8GQdX9aV374ULt6QhorQycqSwUhoH93FuV1BaTmNGUu.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/D4UCABx2FDD7S7aaYAMdPrFZR596dKqVrcEgLNWLUrP8.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/D2NqBcm1V6cyv2SGTPkPj6Mpy7Gp2NubtkbKhhMxrcfj.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/D1aZWfeRJ7B3nEdyt5hYA7vgbRvRjbir6YnbEnSTej3p.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/Cy96su2ScxN7trJiWaQFbGvnGNTd12yppbtNgK3NtorE.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/CsgXi7zht4syfEYY2ETWdqWxEekXF7j4uZJb4qcPprYN.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/Cn66Xvxhhxq12Xbj9uV6PL7ZtdkgH9EDc6g6RoFjCKYk.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/CkgmnwjbHiyU6JD7LMqNoLbgV6EoNA6CfF1X2Tbg1tV4.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/CdaWB5rJ4urv6GxcWHsrDAjm6YQ2F7cWVmUaXxLRk9G9.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/CXPRd5PEfQg7eJ7qxo7LiwM3CX6sjVM9172KQ1tJbWNT.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/CVCF9wXB1StaxUCDFD5k8yCA6rZSkDoE8stZVoWydFjJ.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/CSLtjfM2Eg8P9pdf8WfAvfoSe5ytsTWxz2dY6kt4YW3C.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/CPDGG2owh2bGtsBwwUcyqerxtxJLy6DVF996ngmosaxt.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/CML9nQ6s1a72tqruNmVnhDKJBdvWydWpfjQNDez5wSeC.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/CJf9KFJtED9yb2TRHFfgEn1ho5H4K9eJHBjjZt2AyUHn.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/CJ3fFbPEXGkeY9CjUFaxJFBgUpHvSXLxHiazKSMPpem3.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/CEFXPMg1CeKwVUsFkXeLrYqQzQxxKy7Xnwzws9MEhbvj.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/C8efprhSmBHjR8n242UZYf4h3uF1dL7bkxHBjJXmN3r8.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/C6dYD7qRx26hB6QmBvFVSYErFwxxSabQqGZXTEBoiWiP.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/C5WVdqgpfeCbduSFKQwwBXkV5S4E2MgfMVrtpG2ApE2k.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/BN6d2DMYYqvqeKmG9iinRVj7pvG8Ue4AWexgPXGZ5HZ4.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/B6rw1KrPgixhADfQfn2CbpSKLP2LsHH8Y3UdvKbWtKKk.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/B4jWquF4koJ4YpL97RyYneoXamQdQwb98CjU97QabWP9.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/ARqForM8GxDf7zUVuLj4PdkQvc84btiL3aMSyeqAAr2x.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/ALBK4s5zZVX6H7SxwHm45H45d3iYRtES4NP3YwQ8B7Pe.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/AGR1ftD2XSFp7JwyZJvmpb9Ps4TAYUYJNumrbFKduGn5.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/ADrguyeXdFazja6Kmi96cXb6PWhkPw5E2uFkeKBuVwCN.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/A5REPnkoH9sXAiiB5vx1f6UHVymsvaTzSeYDUPd3dkM2.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/A53yxMn1bDLub8WV2UtLthycrA41xwmGmeKYXx5Pje5H.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/9waYJRFnZq7sTDSm9W591kia5jFJK1tPEKqHQcoBErwe.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/9rvAWM264ismNTTj5JgWHZc1zVW7WsBcWvJQhDL3LQuY.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/9nmQkdxviR58fx9BZZ67r3iiQMVT5aopMtYnRi846TK1.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/9ivcbixhBMwkWhtWPZJawa4XApGi9Bryei7XG1r5GnYb.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/9f5F9smvRBuVyoCkHiPtsiiijV6uJJPMbAhRDvfS3CU1.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/9axpxWJwhm3qnaZwbvSup18Zu8KsaFJa2FG7eYupqWsu.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/9ZVDBeXw6d2vSqvmP1VmubXbVXBQPRmqsPsx11CJ25cD.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/9RiYh4Jqxm3sDXsvm4vyLY2La7C9hsLdfNAhtogNQiEr.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/9PW5CT3d8pqHbKFJFkBrPp2aNGWSbWdnR1TDpwiNHk2J.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/9DK9JJvUyrBVdDjbzqwZc6cV2P8QYZyiDmBe1MmGNchr.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/8wvRwMuS1gFxWA5s9GNEBWev1AVoFSMKgFnwEkAqS7RT.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/8ifUya6Skz3yin2VpaVLKTqVRjtSMbyJi9KSvQNRWE2T.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/8bJACVNsUXfftVnPQ2TUJwbefh2EUv3DbySUpuo2wnX3.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/8WHJBHMxyhzWgM6xfL8WgmKcVH7X9bncmxzeu771Q31R.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/8CAEBEAKdpnDZ5vCw7qd9RFGVRj1P7tKxAHHk8qVoim3.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/836aZQr5qtJ97HYWySiomND3AJnYNKUGBNvmECeFcm46.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/7yZJ9oPaC9beUMm1LTV4EiqMDZCKSjtLDqHfb6WHyVPq.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/7fn86wtUXUrowdPTPz6dzK1Z7jtxF8HxfGjgApAyGdyL.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/7eYKZvaddMbayvBkJQYZe3yMgQYBjkEiSBoAxYq9FPSb.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/7ZCotJooGoP6GTYKDheu9g8crd46EdWTUcVSkYjhDxCK.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/7Qfy9gBVoWMGtgrt2nYni46TPfKg9svZ4QPzKkbW5rxZ.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/7LXmdQvf9LXEbYKUGCidL1LqSn55v79FtqEBJPUVwFaS.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/7GSqhMdsLUb92ZMQvnGCmFfWkFNGCeM1g9WWUVYQS5jK.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/7Fqcoozvq2YZbyaezNHm93qB7UerEUeRnibLzjNDSJ6X.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/78UincALxKzafqBK8c197c5qFSRCPAqFmja3b93DKToo.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/6mcAM3FpsVcSncCJkF1iVLMAdcBCbY9iMV5aSFkkk3n5.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/6gEhhrztyRTr17ryUGGvvoFxyLrHhizow79Vku6BYJaX.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/6PtsZ4VZ4FsYy6pLNcrTDw2bLRSvgmNCQmjmaiiasdKo.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/6M5rSjyi1vrCNNgDBpBbs76WjjiNATnYiZPeWH3Ambkr.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/6G8KBvjf3B1jAeudDBaxs7K2bCKwRhmV9Va4NotWSCeL.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/62k1vAfduJCjFwX3wnq8uZfQfPEXzHRL3mA5LEPHmyph.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/5zjnmZenY49BG8DEk4CXkiWaCtSeMykPBt5MTU4wDfXM.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/5xEXuH7Qd1YT47cz9eSc9AiQZzzCKen7qmvSaYFjkToA.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/5wcp5KF2zgAv3yofgK3trfWHRXucJBPVgYJV3DvPVE1F.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/5siu1yqAwmbCP7BtFAhUk9X5cSEyUxnDNjoSG2r4NrzL.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/5nDUzJZLGofPdZJWAPpGuqJPSixWDPJ4SZZuHyaTbRMW.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/5gigik7auQDGWMDvVNjRTKjfGhfJXxGrLqhMsE3ixSZh.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/5beLMxYMYf4F1f47xZU5LA6JBjotGZeiekM2dNfRSuA8.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/5bSbAQEhF2bK22k1d4H9LLj54LMcSkpV2qrZf87vXiHC.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/5YgQFVzghhC5pHvSFGmbKZw28SLEej9kntPePmWkQ15e.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/5WJmuGS3SUS12mFBYZuTx7inmTbqyxfxxjSzKgshzBtE.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/5WND3LtcjM1dqRtRRKAbSY8PBbVUXHH5tajvAe249eKK.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/5Tn1wMKSiLvZkhdfWjSDZSumy2PDkpojYsKPhggx6KNc.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/5S5USQxew14Z7nxnxnnShArf3QknGnjDBSG7zRHoZpGR.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/5CFbyRyATpEMJTCjEtzSkg3WnK5Sk8nfRCyTpQFT5EeF.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/53WajhHGe45qAQ2hE6kMaZctYsKJn7GfU3TbD2PLJ4Gg.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/4zyosKbepTEqSRTkLN54YynfmGGLiF2hZN1jRouYfCW9.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/4rzjkxiJPJwXvw8qvhthKdjPSe3QZBfqN1tAHZZvFxWS.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/4j5S9j78fD3JubmgnvjFqAAkcGictQpyg7KW4nC7mgLK.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/4dK1V6z3j2ujk2AUJ5nWv8Ne73yBhLpWQSLpFhPgnGNQ.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/4XXd3Hcm7k8Xj4XegzJuMyvJhJzikMXNUuYBbciAYE9P.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/4Tkx3Dx6zG5DXNckeXkUhYHAL5bMjMAxJ5QyLzyxVXXZ.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/4NpD5tEkdZccATrAVgMsYrfYa5aZ8BQhwQJdRzaw5MTf.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/4MZHb3FcTVvsRiavTfBtnmXnEzkjKRPYLUzYeK3EtSp4.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/4E1scnhG7yhXG7KaRwqnmmKDSYw731CqWqU91uD3RXqp.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/4Czi46twZHWmswGMjeTeWqRxZeprJTSdcvfQw3SipUvP.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/42KmjBufY8V1Q6cP5LZF1M9c3cAWgscZtk883TZmp1HX.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/46fie7CczvYjpjhaPPj2KbLcyWd6ZFNMuyWR1gPixqrC.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/3iYCck3fTHBtZ1K3quvhCwwTtfdU7Sw4bRR8cTbPrwaT.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/3guNzQNqAzADoaMBvzZjXstzV6quAPeeNDirnF6A2Rdh.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/3etdBdpSt3bHjYK2Bv5iZ28dBZfh96oEAvrrEJni3juz.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/3fDW6A7Dy7EuCjvQG6ZyDozduk26ZveL8zU7PnFBhgUr.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/3ZiaxcjwMQWWPSL7bGQkeYKmz6YkPNioUaPkMRE9SGgK.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/3Y6J19DWzvTVT5Fzh1QMraSdTuPVassDfH4ukT79CXW9.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/3P6WTaod6G3YrvR2UrViqvQPeL7ZHwQntWMM4UX321VH.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/3Ev46Bo2iG55hvKVsGp7Ma5H4DEbFZTtBVKLMHgkCGwV.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/3B48vkT8TXKFDrF3P8bZ7Ba2pfqWivBizk5JNqvzXge3.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/33p7gaehN9DdCfEUNt6jdSHTwmZpZb8h4BLk81bPjtes.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/2m8J3pexRXSNoR6dbVL26AmJgDzKkwp2VEEn7xJ99mGG.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/2kxZ9eFCtVSHWw1RwxVtSDnVBdxd9TcqBLXoFfJnLXzk.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/2X46WT3TyZRb5H7b6nDJAmYhYPWHjx5xKUXciD3edr1o.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/2SJASeSgHyxqUwEnd9QeP6FHLeQ66oeXhBqecKcBHECD.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/2RMrQcH7a1YyXuks27VZCMfMW8RQ2a7Es3scTHeRTzqV.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/2FUYWnBiAEbsYy7ec2ku3ktLh1GoHGYriddgbTkQT5WR.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/xSLYCTPb57EW6Y2qUaziXgTRFcTQ8y9fE4omNph7PyU.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/uoqrv8ZhMie1vp2qFoiU2JW3X7MAwRngdmuEHALfYKn.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/ccR4jiBeWVUkyVXpfCtWRcqVhRscB321wqb5JXq6WdQ.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/ScAe3mG7dLpmLuQZ6nKeQ2sVrnLKLEAkUWaRyWXjFgC.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/QkeVr9egxQpjEvBsmvcvAc15GtG1yF4smhhZLSQuhaC.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/Kz4QngDWxeAmuziJoGa6ugU8eJPsdXckwWfuuVpaLzh.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/Gj6D2CRCG3CfdsWThKobbFxTeosKK2rEwbAgBPFsKT1.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/DgGNMxKzqKcTmP1Ri3HiydZ9Ja4cyMAMZztLzn8K8QP.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/BZwMLKq5TbiKEJW1WbgFsYS5bLSUCgQKpUX6viu3Ld5.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/96Q8MJquyRMNvBHEEcpE2NirhyhiVWSP74CjVX1LNMC.png",
+ "https://degendojo.s3.us-west-1.amazonaws.com/degen/img/6Qj6iy6TDQQCUbB4H5QrR7pSyB4BbxCegT6xjU1mwEk.png"
+];
+const handImg = u => `https://wsrv.nl/?url=${encodeURIComponent(u)}&w=96&h=96&fit=cover&output=webp`;
+// seed each bird's existing pool of bets (SKR), so pari-mutuel ratios are live
+BIRDS.forEach(b => b.pool = 40 + Math.round(Math.random()*170));
+const HOUSE = 1/8;                      // 1 of 8 chunks leaves the winners' side
+const SKREQ = { SKR:1, ORE:40, SOL:200 };
+let SEL = null, CUR = 'SKR', bet = null, racing = false;
+// ---- provably-fair outcome: the winner is derived from a Solana blockhash fetched
+// AFTER bets lock, so no one (not even us) can predict or rig it. The blockhash is
+// shown so anyone can re-derive the winner. (The server-authoritative commit-reveal
+// version — a FUTURE block committed before bets — lands with the anti-cheat backend.)
+let BLOCK = null, RIGGED = null, RAND = null;
+// When signed in, the race is server-authoritative: the backend commits a seed,
+// we send our pick, and IT decides the winner + mints the ticket. LIVE holds that
+// result; without a wallet the page runs the local demo (blockhash) flow above.
+let COMMIT = null, PLAYRES = null;
+function isLive(){ return !window.DOJO_LOCAL_ECON && !!(window.DojoWallet && DojoWallet.signedIn()); }
+async function fetchBlock(){
+  // publicnode is CORS-open from the browser; api.mainnet-beta blocks browser origins (403).
+  const rpcs = ['https://solana-rpc.publicnode.com','https://api.mainnet-beta.solana.com'];
+  for(const url of rpcs){
+    try{ const r = await fetch(url,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'getLatestBlockhash',params:[{commitment:'finalized'}]})});
+      const bh = (await r.json())?.result?.value?.blockhash; if(bh) return bh; }catch(e){}
+  }
+  return null;
+}
+function hashInt(s){ let h=2166136261>>>0; for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619); } return h>>>0; }
+function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+const $ = id => document.getElementById(id);
+
+// Faithful to the Frightened-Fugu chicken the Degens hold: fluffy cream silkie
+// body with orange maple-leaf spots, floppy red comb, orange beak, X eye, orange legs.
+function chickenSVG(c, xeye){
+  const eye = xeye
+    ? `<g stroke="#1c110c" stroke-width="2.4" stroke-linecap="round"><line x1="45" y1="13.5" x2="50" y2="18.5"/><line x1="50" y1="13.5" x2="45" y2="18.5"/></g>`
+    : `<circle cx="47.6" cy="15.8" r="2.2" fill="#1c110c"/><circle cx="48.4" cy="15" r=".7" fill="#fff"/>`;
+  const leaf = (x,y,s,rot)=>`<path transform="translate(${x} ${y}) scale(${s}) rotate(${rot})" fill="${c.spot}" opacity=".8"
+     d="M0 -5 l1.3 -1.2 l.6 2 l1.8 -1.4 l-.5 2.3 l2.3 .1 l-1.8 1.4 l1 1.9 l-2.3 -.5 l.1 2.4 l-1.5 -1.9 l-1.5 1.9 l.1 -2.4 l-2.3 .5 l1 -1.9 l-1.8 -1.4 l2.3 -.1 l-.5 -2.3 l1.8 1.4 l.6 -2 z"/>`;
+  return `<svg viewBox="0 0 64 56">
+    <!-- tail fluff -->
+    <path d="M6 34 q-6 -8 0 -13 q2 6 9 6 q-7 4 -3 11 z" fill="${c.body}" stroke="#00000018"/>
+    <!-- legs -->
+    <g class="leg leg1"><line x1="27" y1="42" x2="25" y2="53" stroke="${c.leg}" stroke-width="3" stroke-linecap="round"/>
+      <path d="M25 53 l-4 3 M25 53 l0 4 M25 53 l4 3" stroke="${c.leg}" stroke-width="2" fill="none" stroke-linecap="round"/></g>
+    <g class="leg leg2"><line x1="34" y1="42" x2="36" y2="53" stroke="${c.leg}" stroke-width="3" stroke-linecap="round"/>
+      <path d="M36 53 l-4 3 M36 53 l0 4 M36 53 l4 3" stroke="${c.leg}" stroke-width="2" fill="none" stroke-linecap="round"/></g>
+    <!-- fluffy silkie body -->
+    <path d="M12 42 q-5 -3 -2 -8 q-4 -5 2 -8 q-1 -6 5 -6 q0 -6 7 -5 q3 -5 9 -2 q7 -2 9 4 q6 0 6 7 q5 2 2 8 q3 5 -3 8 q0 5 -7 5 q-5 4 -12 1 q-7 3 -14 -1 q-6 0 -6 -5 z"
+      fill="${c.body}" stroke="#00000018"/>
+    <path d="M15 31 q3 3 7 2 M28 37 q4 2 9 0 M18 39 q3 2 7 1 M31 27 q3 2 7 1" stroke="${c.spot}" stroke-width="1.8" fill="none" stroke-linecap="round" opacity=".45"/>
+    ${leaf(22,29,1.1,-10)}${leaf(34,35,1,25)}${leaf(28,23,.8,60)}
+    <!-- head + neck -->
+    <path d="M38 36 q5 -13 5 -19 q4 -4 9 -1 q3 5 -1 10 q1 8 -5 14 z" fill="${c.body}" stroke="#00000018"/>
+    <!-- floppy comb -->
+    <path d="M43 0 q3 -4 5 -1 q3 -4 5 0 q2 -3 4 1 q0 6 -6 7 q-6 1 -8 -3 q-1 -3 0 -4z" fill="${c.comb}"/>
+    <!-- headband -->
+    <rect x="41" y="9" width="14" height="3.6" rx="1.2" fill="${c.band}" transform="rotate(-7 48 11)"/>
+    <!-- beak -->
+    <path d="M53 14.5 l10 2.5 l-10 3 z" fill="${c.beak}"/>
+    <!-- wattle -->
+    <path d="M53 21 q3 5 -1 7 q-3 -1 -2 -6z" fill="${c.comb}"/>${eye}</svg>`;
+}
+function roosterSVG(){ return `<svg viewBox="0 0 60 54">
+  <path d="M52 30 Q62 16 54 10 Q51 20 44 22 Q54 26 48 34 Z" fill="#2a2a2a"/>
+  <ellipse cx="34" cy="30" rx="18" ry="14" fill="#2a2a2a"/>
+  <path d="M24 34 q-4 -12 -4 -18 q-4 -4 -8 -1 q-3 5 1 9 q-1 8 4 13 z" fill="#2a2a2a"/>
+  <path d="M20 -2 q-2 -5 -4 -1 q-2 -5 -4 -1 q-2 -4 -4 0 q1 6 7 7 q4 0 5 -5z" fill="#c0392b"/>
+  <path d="M11 15 l-9 2 l9 3 z" fill="#e8913f"/>
+  <path d="M11 21 q-2 5 1 7 q3 -1 2 -6z" fill="#c0392b"/>
+  <circle cx="17" cy="16" r="2" fill="#fff"/><circle cx="17.5" cy="16.5" r="1" fill="#000"/>
+  <line x1="30" y1="42" x2="28" y2="52" stroke="#e0842f" stroke-width="3" stroke-linecap="round"/>
+  <line x1="38" y1="42" x2="40" y2="52" stroke="#e0842f" stroke-width="3" stroke-linecap="round"/></svg>`; }
+
+function ratios(){
+  const T = BIRDS.reduce((s,b)=>s+b.pool,0);
+  // no-house-loss pari-mutuel: a winner always gets their stake back PLUS a share
+  // of the losing side. The house cut (1/8) is taken ONLY from the losing side, so
+  // if everyone backed the winner the house takes 0 and you just get your stake back.
+  // Return ratio is therefore always ≥ 1×.
+  return { T, r: BIRDS.map(b => b.pool>0 ? 1 + (T-b.pool)*(1-HOUSE)/b.pool : 1) };
+}
+function paintPools(){
+  const {T,r} = ratios();
+  const _pa=$('potAmt'); if(_pa) _pa.textContent = T.toLocaleString('en-US',{maximumFractionDigits:0});
+  BIRDS.forEach((b,i)=>{ const p=$('pool'+i), rr=$('ret'+i);
+    if(p) p.textContent = b.pool.toLocaleString('en-US'); if(rr) rr.textContent = r[i].toFixed(2)+'×'; });
+}
+let HANDLERS = [];
+function render(){
+  HANDLERS = DDIMGS.slice().sort(()=>Math.random()-0.5).slice(0, BIRDS.length);   // fresh set of handler Degens each game
+  $('lanes').innerHTML = BIRDS.map((b,i)=>`
+    <div class="lane" id="lane${i}" onclick="selectBird(${i})">
+      <div class="tagno">${i+1}</div>
+      <div class="paddock">
+        <div class="pname">${b.name}</div>
+        <div class="pool dojo-econ">🪙 <b id="pool${i}">0</b> SKR · <b id="ret${i}" class="retb">0×</b></div>
+        <div class="sel-tag">YOUR BIRD</div>
+      </div>
+      <div class="track">
+        <div class="finish"></div>
+        <div class="sunburst" id="sun${i}"></div>
+        <img class="handler" id="hand${i}" src="${handImg(HANDLERS[i])}" data-raw="${HANDLERS[i]}" alt="handler" onerror="if(this.dataset.raw){this.src=this.dataset.raw;this.removeAttribute('data-raw')}else{this.style.display='none'}"/>
+        <div class="runner" id="run${i}">${chickenSVG(b.c, i%3===0)}<div class="gagfx" id="gag${i}"></div></div>
+      </div>
+    </div>`).join('');
+  paintPools();
+}
+function selectBird(i){ if(racing) return; SEL=i;
+  document.querySelectorAll('.lane').forEach((l,k)=>l.classList.toggle('sel',k===i));
+  if($('pickName')) $('pickName').textContent = BIRDS[i].name; }
+function setCur(){}   // currency picker is gone — every race is a flat 1-credit entry
+function updateBetLine(){
+  $('myBet').innerHTML = bet ? `Backing <b>${BIRDS[bet.i].name}</b> for <b>1 coin</b> — if it wins you get <b>3 chances in the weekly Dojo Pot</b> 🎟, otherwise 1.`
+    : `Pick a bird — <b>1 coin</b> to enter. A win = <b>3 chances in the weekly Dojo Pot</b> 🎟; just playing = 1.`; }
+
+function placeBet(){
+  if(racing) return;
+  if(SEL===null){ cfToast('Tap a bird to choose your fighter ↑'); return; }
+  const amt=1;                       // fixed: 1 coin per race
+  BIRDS[SEL].pool += amt;
+  const {r} = ratios();
+  bet = { i:SEL, amt, cur:'credits', skr:amt, est: amt*r[SEL] };
+  paintPools(); updateBetLine();
+}
+
+async function startRace(){
+  if(racing) return;
+  if(SEL===null){ cfToast('Tap a bird to choose your fighter ↑'); return; }
+  BLOCK=null; RIGGED=null; RAND=null; COMMIT=null; PLAYRES=null;
+
+  if(isLive()){
+    // ── server-authoritative: debit a coin, commit the seed, let the backend pick ──
+    $('goBtn').disabled=true; $('goBtn').textContent='…';
+    try{
+      const s = await DojoWallet.startPlay('cluck');          // debits 1 coin, commits seed
+      COMMIT = s.commitHash;
+      const res = await DojoWallet.finishPlay(s.playId, { pick: SEL });   // server decides the winner
+      PLAYRES = res; RIGGED = res.winner;
+      RAND = mulberry32(hashInt(String(res.seed)));            // reproducible visuals from the revealed seed
+    }catch(e){
+      $('goBtn').disabled=false; $('goBtn').textContent='🐔 START THE SCRAMBLE';
+      cfToast(String(e.message||e).replace(/^Error:\s*/,''));
+      return;
+    }
+    bet = { i: SEL };                                         // your pick, for the result line
+  } else {
+    // ── demo (no wallet): keep the local blockhash flow so the page works in preview ──
+    if(window.DojoCredits && !DojoCredits.play('Cluck-Fu')) return;   // one local credit per race
+    fetchBlock().then(bh=>{ if(bh){ BLOCK=bh; RIGGED=hashInt(bh)%BIRDS.length; RAND=mulberry32(hashInt(bh)^0x9e3779b9); } });
+    if(!bet) bet = { i: SEL };
+  }
+
+  racing=true; $('goBtn').disabled=true;
+  const ov=$('overlay'); ov.classList.add('show'); let n=3; ov.innerHTML=`<div class="count">${n}</div>`;
+  const cd=setInterval(()=>{ n--; if(n>0) ov.innerHTML=`<div class="count">${n}</div>`;
+    else if(n===0) ov.innerHTML=`<div class="count">GO!</div>`;
+    else { clearInterval(cd); ov.classList.remove('show'); runRace(); } }, 720);
+}
+function cfToast(msg){
+  let t=document.getElementById('cfToast');
+  if(!t){ t=document.createElement('div'); t.id='cfToast'; t.style.cssText='position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#2a1e14;border:1px solid #c9973a;color:#f1e6d0;font:600 14px/1.4 system-ui;padding:11px 18px;border-radius:10px;z-index:9999;max-width:86%;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,.5)'; document.body.appendChild(t); }
+  t.textContent=msg; t.style.opacity='1'; clearTimeout(t._h); t._h=setTimeout(()=>t.style.opacity='0',3600);
+}
+
+// the rooster runs in from the start line, catches the chicken, and gets a kiss
+function courtScene(s){
+  const runner=$('run'+s.i), track=runner.parentElement, chickX=6+s.x;
+  const roo=document.createElement('div'); roo.className='rooster runroo';
+  roo.innerHTML=`<div class="roobody">${roosterSVG()}</div>`; roo.style.left='0px'; track.appendChild(roo);
+  // dash in toward the chicken (~1s)
+  requestAnimationFrame(()=>{ roo.style.transition='transform 1s linear'; roo.style.transform=`translateX(${Math.max(0,chickX-44)}px)`; });
+  // arrives → chicken turns to face him + a kiss
+  setTimeout(()=>{ if(s.done) return; runner.classList.add('turn'); $('gag'+s.i).innerHTML='💋'; roo.classList.remove('runroo'); }, 1000);
+  // after the kiss he runs BACK to the start line he came from (turns around, faces left)
+  setTimeout(()=>{ roo.classList.add('goback','runroo'); roo.style.transition='transform 1s ease'; roo.style.transform='translateX(0px)'; }, 1650);
+  // scene over → chicken faces forward and resumes; the rooster (now home) is removed
+  setTimeout(()=>{ runner.classList.remove('turn'); $('gag'+s.i).innerHTML=''; roo.style.opacity='0'; if(!s.done) runner.classList.add('run'); }, 2650);
+  setTimeout(()=>{ roo.remove(); }, 2900);
+}
+
+function runRace(){
+  const W = document.querySelector('.track').clientWidth;
+  const finishX = W - 114;                          // stop the bird at the checkered line (Degen sits beyond it)
+  // the gags: 1–2 birds lay an egg, 1 gets courted by a rooster, 1–2 do a flip
+  const rnd = RAND || Math.random;   // seeded from the blockhash when available → the race is reproducible
+  const idx=[...BIRDS.keys()];
+  const shuffled=idx.slice().sort(()=>rnd()-0.5);
+  const eggers=new Set(shuffled.filter(i=>i!==RIGGED).slice(0,1+Math.round(rnd()))); // 1–2, never the winner
+  const kisser=shuffled.find(i=>!eggers.has(i) && i!==RIGGED);
+  const flippers=new Set(shuffled.slice(-(1+Math.round(rnd()))).filter(i=>i!==kisser)); // 1–2 (cosmetic, no pause)
+  const st = BIRDS.map((b,i)=>{
+    const gags=[];
+    if(eggers.has(i))  gags.push({at:0.28+rnd()*0.3, dur:900,  type:'egg',  fired:false});
+    if(i===kisser)     gags.push({at:0.34+rnd()*0.24, dur:2200, type:'kiss', fired:false});
+    if(flippers.has(i))gags.push({at:0.25+rnd()*0.4,  dur:0,    type:'flip', fired:false});
+    // the blockhash-derived winner is fastest and never pauses → it crosses first, deterministically
+    const spd = (RIGGED!=null && i===RIGGED) ? finishX/7.4 : finishX/(8.6+rnd()*1.6);
+    return { i, x:0, spd, pauseUntil:0, gags, done:false };
+  });
+  BIRDS.forEach((b,i)=>{ $('run'+i).classList.add('run'); $('gag'+i).innerHTML=''; });
+  const order=[]; let last=performance.now();
+  function frame(t){
+    const dt=Math.min(0.05,(t-last)/1000); last=t;
+    for(const s of st){
+      if(s.done) continue;
+      const now=performance.now();
+      if(now < s.pauseUntil) continue;              // paused (laying / kissing)
+      for(const g of s.gags){
+        if(g.fired || s.x/finishX < g.at) continue;
+        g.fired=true;
+        if(g.type==='flip'){
+          // a quick 360 / fly — no time lost, keeps running
+          $('run'+s.i).classList.add('flip');
+          setTimeout(()=>$('run'+s.i).classList.remove('flip'), 700);
+          continue;
+        }
+        // egg + kiss both pause the bird
+        s.pauseUntil=now+g.dur; $('run'+s.i).classList.remove('run');
+        if(g.type==='egg'){
+          const track=$('run'+s.i).parentElement;
+          const egg=document.createElement('div'); egg.className='laidegg'; egg.textContent='🥚';
+          egg.style.left=(6 + s.x + 8)+'px'; track.appendChild(egg);   // left behind at this spot
+          setTimeout(()=>{ if(!s.done) $('run'+s.i).classList.add('run'); }, g.dur);
+        } else {
+          courtScene(s);   // rooster runs in from the line and smooches this bird
+        }
+        break;
+      }
+      if(now < s.pauseUntil) continue;
+      s.x += s.spd*dt*(0.9+rnd()*0.2);
+      if(s.x>=finishX){ s.x=finishX; s.done=true; order.push(s.i); }
+      $('run'+s.i).style.transform=`translateX(${s.x}px)`;
+    }
+    if(order.length < st.length) requestAnimationFrame(frame);
+    else finish(order[0]);
+  }
+  requestAnimationFrame(frame);
+}
+
+function finish(winner){
+  BIRDS.forEach((b,i)=>{ $('run'+i).classList.remove('run');
+    if(i===winner){ $('run'+i).querySelector('svg').classList.add('win-glow'); $('hand'+i).classList.add('win'); $('sun'+i).classList.add('show'); } });
+  const b=BIRDS[winner];
+  const won = bet && bet.i===winner;
+  // Tickets: in LIVE mode the SERVER already minted them (PLAYRES); only the local
+  // demo records to the client-side scoreboard.
+  if(!isLive() && bet && window.DojoScores) DojoScores.record('cluck', won);
+  const awarded = (isLive() && PLAYRES) ? PLAYRES.awarded : (won ? 3 : 1);
+  const grandSlam = isLive() && PLAYRES && PLAYRES.grandSlam;
+  const fairLine = isLive()
+    ? (COMMIT ? `<div style="font-size:11px;color:#8a7a5e;margin-top:6px">🔒 Provably fair · outcome committed as <span style="font-family:ui-monospace,monospace;color:#cdbfa2">${COMMIT.slice(0,8)}…${COMMIT.slice(-6)}</span> before your pick, verified server-side.</div>` : '')
+    : (BLOCK ? `<div style="font-size:11px;color:#8a7a5e;margin-top:6px">🔒 Provably fair · winner from block <span style="font-family:ui-monospace,monospace;color:#cdbfa2">${BLOCK.slice(0,8)}…${BLOCK.slice(-6)}</span></div>` : '');
+  const ov=$('overlay');
+  ov.innerHTML = `<div class="result">
+    <div class="rk">winner · bird #${winner+1}</div>
+    <div class="rw"><span style="width:50px;display:inline-block">${chickenSVG(b.c,false)}</span>${b.name}</div>
+    ${bet ? (won
+      ? `<div class="rp win">🎉 <b>${BIRDS[bet.i].name}</b> won! You earned <b>${awarded} raffle ${awarded===1?'chance':'chances'}</b> 🎟${grandSlam?' <b>(incl. +3 grand-slam!)</b>':''}<br><span style="font-size:13px;color:#cdbfa2">Chances go into the weekly Dojo Pot draw.</span></div>`
+      : `<div class="rp lose">${BIRDS[bet.i].name} didn't make it — <b>${awarded} raffle chance</b> 🎟 for playing.<br><span style="font-size:13px;color:#cdbfa2">Every race earns chances toward the weekly pot.</span></div>`)
+      : `<div class="rp" style="color:#cdbfa2">No bird backed — pick one next scramble to earn tickets.</div>`}
+    ${fairLine}
+    <button onclick="reset()">Next scramble →</button></div>`;
+  ov.classList.add('show');
+}
+function reset(){ racing=false; bet=null; SEL=null; PLAYRES=null; COMMIT=null;
+  $('goBtn').disabled=false; $('goBtn').textContent='🐔 START THE SCRAMBLE';
+  $('overlay').classList.remove('show'); if($('pickName')) $('pickName').textContent='Pick a bird ↑';
+  BIRDS.forEach(b => b.pool = 40 + Math.round(Math.random()*170));
+  document.querySelectorAll('.runner').forEach(r=>{ r.style.transform='translateX(0)'; r.querySelector('svg').classList.remove('win-glow'); });
+  render(); updateBetLine(); }
+
+render(); updateBetLine();
+// info + scoreboard modals (credits between them are updated by dojo-credits.js)
+$('cfInfo').onclick=()=>$('cfInfoModal').classList.add('show');
+$('cfSb').onclick=()=>{ if(window.DojoScores) DojoScores.renderBoard($('cfSbBoard'),'cluck'); $('cfSbModal').classList.add('show'); };
+document.querySelectorAll('.cf-modal').forEach(m=>m.addEventListener('click',e=>{ if(e.target===m) m.classList.remove('show'); }));
+
+// ── wallet strip: connect to spend real (server-held) coins & earn verified tickets ──
+(function mountWallet(){
+  if(!window.DojoWallet || !(window.dojoRankedOn && window.dojoRankedOn())) return;   // hidden until ranked mode
+  const bar=document.createElement('div');
+  bar.style.cssText='position:fixed;top:10px;right:10px;z-index:900;display:flex;align-items:center;gap:8px;font:600 13px/1 system-ui';
+  bar.innerHTML='<span id="wCoins" style="display:none;background:#241a12;border:1px solid #4a3c2a;color:#e8b84b;padding:7px 11px;border-radius:9px">🪙 0</span>'
+    +'<button id="wBtn" style="background:linear-gradient(180deg,#e8b84b,#c9973a);border:1px solid #c9973a;color:#1a1206;padding:7px 13px;border-radius:9px;cursor:pointer;font:inherit">Connect wallet</button>';
+  document.body.appendChild(bar);
+  const btn=bar.querySelector('#wBtn'), coins=bar.querySelector('#wCoins');
+  btn.onclick=async()=>{
+    if(DojoWallet.signedIn()){ DojoWallet.signOut(); return; }
+    btn.textContent='…'; try{ await DojoWallet.signIn(); }catch(e){ cfToast(String(e.message||e).replace(/^Error:\s*/,'')); btn.textContent='Connect wallet'; }
+  };
+  DojoWallet.on(s=>{
+    if(s.signedIn){ coins.style.display=''; coins.textContent='🪙 '+s.coins; btn.textContent=(s.wallet.slice(0,4)+'…'+s.wallet.slice(-4)); }
+    else { coins.style.display='none'; btn.textContent='Connect wallet'; }
+  });
+})();
+</script>
+<script src="/dojo-credits.js"></script><script src="/dojo-profile.js"></script><script src="/mwa.js"></script><script src="/wallet-picker.js"></script><script>/*navwallet-wire*/(function(){var b=document.getElementById('dojoNavWallet');if(!b)return;var A=null,sh=function(p){return p.slice(0,4)+'\u2026'+p.slice(-4);};var G="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#0a0814;background:linear-gradient(135deg,#c8962a,#8b6018);border:none;padding:9px 16px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;",C="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#e8b84b;background:rgba(201,151,58,.12);border:1px solid rgba(201,151,58,.5);padding:9px 14px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;";function set(a){A=a;window.DOJO_WALLET=a||null;window.dispatchEvent(new Event('dojo-wallet-change'));if(a){b.textContent='\u25ce '+sh(a.pubkey);b.setAttribute('style',C);}else{b.textContent='Connect wallet';b.setAttribute('style',G);}}b.onclick=function(){if(A){var dc=function(){try{A.disconnect&&A.disconnect();}catch(e){}set(null);};if(window.DojoProfile)DojoProfile.menu(b,A.pubkey,dc);else dc();return;}if(window.DojoWalletPicker)DojoWalletPicker.pick().then(set).catch(function(){});};if(window.DojoWalletPicker&&DojoWalletPicker.autoConnect)DojoWalletPicker.autoConnect().then(function(a){if(a&&!A)set(a);});})();</script></body>
+</html>

@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Launchpad — Degen Dojo</title>
+<style>
+  :root{
+    --bg:#0a0a0f; --panel:#12121a; --panel2:#171722; --line:rgba(201,151,58,.20);
+    --line2:rgba(255,255,255,.07); --gold:#c8962a; --goldl:#e8b84b; --ink:#efe6d2;
+    --mut:#a99a7e; --mut2:#7c7365; --grn:#59c07a; --red:#d8654e;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:'Segoe UI',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;}
+  .cin{font-family:'Cinzel','Times New Roman',serif;letter-spacing:.04em;}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 20px 60px;}
+  a{color:inherit;text-decoration:none;}
+  .mockflag{position:fixed;top:10px;right:12px;z-index:99;font-size:10px;letter-spacing:.2em;
+    color:var(--mut2);border:1px solid var(--line2);border-radius:6px;padding:4px 8px;background:var(--panel);}
+  /* nav */
+  .nav{position:sticky;top:0;z-index:60;background:rgba(10,10,15,.94);backdrop-filter:blur(12px);
+    border-bottom:1px solid var(--line);display:flex;align-items:center;gap:16px;padding:11px 20px;flex-wrap:wrap;}
+  .brand{display:flex;align-items:center;gap:11px;}
+  .mark{width:40px;height:40px;border-radius:9px;background:#c0392b;display:flex;align-items:center;
+    justify-content:center;font-weight:800;color:#fff;font-size:16px;box-shadow:0 0 0 1px rgba(201,151,58,.35);}
+  .brand b{font-size:15px;letter-spacing:.16em;display:block;}
+  .brand small{font-size:9px;letter-spacing:.26em;color:var(--mut);}
+  .pills{display:flex;gap:8px;flex-wrap:wrap;}
+  .pill{font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;
+    border:1px solid rgba(201,151,58,.32);color:var(--ink);}
+  .pill.on{color:var(--goldl);border-color:rgba(201,151,58,.6);background:rgba(201,151,58,.14);}
+  .wbtn{margin-left:auto;font-size:11px;font-weight:700;letter-spacing:.05em;color:#0a0814;
+    background:linear-gradient(135deg,#c8962a,#8b6018);border:none;padding:9px 16px;border-radius:8px;}
+  /* hero */
+  .eyebrow{color:var(--gold);font-size:11px;letter-spacing:.34em;text-align:center;margin:40px 0 10px;font-weight:700;}
+  h1{font-size:37px;line-height:1.12;letter-spacing:.01em;text-align:center;margin:0 0 12px;color:var(--goldl);}
+  .lede{text-align:center;color:var(--mut);max-width:600px;margin:0 auto 34px;font-size:14.5px;line-height:1.65;}
+  .lede b{color:var(--ink);}
+  /* launch card */
+  .launch{display:grid;grid-template-columns:1fr 400px;gap:0;border:1px solid var(--line);
+    border-radius:18px;overflow:hidden;background:var(--panel);}
+  /* left column = the living wall (25 tiles) */
+  .wall{padding:22px 22px 18px;border-right:1px solid var(--line);background:var(--panel2);}
+  .wall .sechd{margin-bottom:12px;}
+  .wall .grid{max-width:none;}
+  .wall .walllbl{font-size:12px;color:var(--mut2);margin-top:12px;}
+  .art{aspect-ratio:1/1;background:radial-gradient(circle at 50% 35%,#2a2036,#11101a);position:relative;
+    display:flex;align-items:center;justify-content:center;}
+  .art .torii{font-size:120px;opacity:.20;}
+  .art .fox{position:absolute;bottom:16px;left:16px;right:16px;font-size:12px;color:var(--mut);}
+  .ldetail{padding:24px 26px;}
+  .badge{display:inline-block;font-size:10px;letter-spacing:.18em;font-weight:700;color:var(--goldl);
+    border:1px solid var(--line);border-radius:999px;padding:5px 11px;margin-bottom:12px;}
+  .ldetail h2{margin:0 0 4px;font-size:26px;}
+  .by{color:var(--mut);font-size:13px;margin-bottom:18px;}
+  .row{display:flex;gap:26px;flex-wrap:wrap;margin-bottom:18px;}
+  .stat .k{font-size:11px;letter-spacing:.12em;color:var(--mut2);text-transform:uppercase;}
+  .stat .v{font-size:22px;font-weight:700;color:var(--ink);}
+  .stat .v .u{font-size:13px;color:var(--gold);font-weight:600;}
+  .bar{height:9px;border-radius:6px;background:#20202c;overflow:hidden;margin:4px 0 6px;}
+  .bar > i{display:block;height:100%;width:37.6%;background:linear-gradient(90deg,#c8962a,#e8b84b);}
+  .barlbl{display:flex;justify-content:space-between;font-size:12px;color:var(--mut);}
+  .drop{margin-top:18px;border:1px solid var(--line);border-radius:12px;background:var(--panel2);padding:14px 16px;}
+  .drop .lead{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+  .drop .lead .t{font-size:12px;letter-spacing:.14em;color:var(--mut);text-transform:uppercase;}
+  .timer{font-family:'Cinzel',serif;font-size:22px;color:var(--goldl);font-weight:700;}
+  .feed{display:flex;flex-direction:column;gap:7px;}
+  .fitem{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--ink);}
+  .fitem .dot{width:7px;height:7px;border-radius:50%;background:var(--grn);}
+  .fitem .who{color:var(--gold);}
+  .fitem .ago{margin-left:auto;color:var(--mut2);font-size:11px;}
+  /* grid block */
+  .sec{margin-top:44px;}
+  .sechd{display:flex;align-items:baseline;gap:10px;margin-bottom:6px;}
+  .sechd h3{margin:0;font-size:19px;color:var(--goldl);}
+  .sechd span{color:var(--mut);font-size:12.5px;}
+  .grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;max-width:520px;}
+  .tile{aspect-ratio:1/1;border-radius:12px;border:1px solid var(--line2);position:relative;overflow:hidden;
+    display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--mut2);}
+  .tile.mint{border-color:rgba(201,151,58,.5);background:radial-gradient(circle at 50% 40%,#2a2036,#141019);color:var(--ink);}
+  .tile.mint .n{font-family:'Cinzel',serif;font-size:12px;color:var(--goldl);}
+  .tile.live{border-color:var(--goldl);box-shadow:0 0 0 2px rgba(232,184,75,.35);}
+  .tile .torii{font-size:26px;opacity:.5;}
+  /* two column lower */
+  .lower{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:44px;}
+  .box{border:1px solid var(--line);border-radius:16px;background:var(--panel);padding:22px 24px;}
+  .box h3{margin:0 0 3px;font-size:18px;color:var(--goldl);}
+  .box .sub{color:var(--mut);font-size:12.5px;margin-bottom:16px;line-height:1.5;}
+  .youbig{font-size:15px;line-height:1.6;margin:8px 0 16px;}
+  .youbig b{color:var(--goldl);}
+  .cta{width:100%;padding:14px 0;border:none;border-radius:12px;background:linear-gradient(135deg,#c8962a,#8b6018);
+    color:#1a1206;font-weight:800;font-size:15px;letter-spacing:.03em;font-family:'Cinzel',serif;cursor:pointer;}
+  .ghost{width:100%;padding:12px 0;border:1px solid rgba(201,151,58,.5);border-radius:12px;background:transparent;
+    color:var(--goldl);font-weight:700;font-size:13px;cursor:pointer;}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;}
+  .chip{font-size:11px;color:var(--mut);border:1px solid var(--line2);border-radius:999px;padding:5px 10px;}
+  /* escrow */
+  .escrow-head{display:flex;align-items:center;gap:10px;margin-bottom:4px;}
+  .lock{width:34px;height:34px;border-radius:9px;background:rgba(89,192,122,.12);border:1px solid rgba(89,192,122,.4);
+    display:flex;align-items:center;justify-content:center;font-size:16px;}
+  .escstats{display:flex;gap:18px;margin:14px 0 18px;flex-wrap:wrap;}
+  .escstats .e{flex:1;min-width:90px;border:1px solid var(--line2);border-radius:10px;padding:10px 12px;background:var(--panel2);}
+  .escstats .e .k{font-size:10px;letter-spacing:.12em;color:var(--mut2);text-transform:uppercase;}
+  .escstats .e .v{font-size:20px;font-weight:700;}
+  .escstats .e .v.g{color:var(--grn);} .escstats .e .v.h{color:var(--goldl);}
+  .mile{display:flex;gap:12px;padding:12px 0;border-top:1px solid var(--line2);}
+  .mile:first-of-type{border-top:none;}
+  .mdot{width:22px;height:22px;border-radius:50%;flex:0 0 22px;display:flex;align-items:center;justify-content:center;
+    font-size:12px;margin-top:2px;}
+  .mdot.done{background:rgba(89,192,122,.15);border:1px solid rgba(89,192,122,.5);color:var(--grn);}
+  .mdot.wait{background:rgba(201,151,58,.12);border:1px solid rgba(201,151,58,.5);color:var(--goldl);}
+  .mdot.lock{background:#20202c;border:1px solid var(--line2);color:var(--mut2);}
+  .minfo{flex:1;}
+  .minfo .mt{font-size:14px;font-weight:600;}
+  .minfo .md{font-size:12px;color:var(--mut);margin-top:2px;line-height:1.45;}
+  .mpct{font-family:'Cinzel',serif;font-size:16px;color:var(--goldl);white-space:nowrap;}
+  .mstate{font-size:10px;letter-spacing:.12em;text-transform:uppercase;margin-top:4px;}
+  .mstate.done{color:var(--grn);} .mstate.wait{color:var(--goldl);} .mstate.lock{color:var(--mut2);}
+  .rug{margin-top:16px;border:1px solid rgba(216,101,78,.3);background:rgba(216,101,78,.07);border-radius:10px;
+    padding:11px 13px;font-size:12px;color:#f0c9bf;line-height:1.5;}
+  .rug b{color:var(--red);}
+  /* how */
+  .how{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:44px;}
+  .step{border:1px solid var(--line2);border-radius:14px;padding:18px 18px;background:var(--panel);}
+  .step .num{font-family:'Cinzel',serif;color:var(--gold);font-size:13px;letter-spacing:.2em;margin-bottom:8px;}
+  .step .st{font-size:15px;font-weight:600;margin-bottom:5px;}
+  .step .sd{font-size:12.5px;color:var(--mut);line-height:1.5;}
+  .fair{text-align:center;color:var(--mut2);font-size:12px;margin-top:26px;}
+  /* tile slideshow */
+  .tile .frame{position:absolute;inset:0;opacity:0;transition:opacity .5s;}
+  .tile .frame.on{opacity:1;}
+  .tile .frame .face{position:absolute;inset:0;padding:12%;display:grid;grid-template-columns:repeat(5,1fr);gap:7%;}
+  .tile .frame .face i{border-radius:2px;}
+  .tile .cnt{position:absolute;bottom:5px;right:6px;font-size:10px;color:var(--ink);background:rgba(0,0,0,.5);
+    border-radius:6px;padding:1px 5px;z-index:3;}
+  .tile.live::after{content:'now';position:absolute;top:5px;left:6px;font-size:9px;letter-spacing:.1em;
+    color:#0a0814;background:var(--goldl);border-radius:5px;padding:1px 5px;z-index:3;}
+  /* split */
+  .split{border:1px solid var(--line);border-radius:16px;background:var(--panel);padding:20px 22px;}
+  .sbar{display:flex;height:34px;border-radius:9px;overflow:hidden;margin-bottom:16px;}
+  .seg{display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#0a0814;
+    white-space:nowrap;overflow:hidden;}
+  .skeys{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .skey{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;font-size:13px;}
+  .skey .sw{width:11px;height:11px;border-radius:3px;flex:0 0 11px;align-self:center;}
+  .skey b{color:var(--ink);} .skey .sd{color:var(--mut);font-size:12px;flex-basis:100%;margin-left:19px;}
+  .preview{margin:16px 0 0;text-align:center;font-size:11px;letter-spacing:.14em;color:var(--goldl);
+    border:1px solid var(--line);background:rgba(201,151,58,.07);border-radius:999px;padding:8px 14px;}
+  /* creator */
+  .creator{margin-top:44px;border:1px solid var(--line);border-radius:18px;background:var(--panel);
+    padding:26px 26px 28px;text-align:center;}
+  .creator h3{margin:0 0 6px;font-size:22px;color:var(--goldl);}
+  .creator .sub{color:var(--mut);font-size:14px;max-width:620px;margin:0 auto 20px;line-height:1.55;}
+  .perks{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;max-width:760px;margin:0 auto 22px;text-align:left;}
+  .perk{display:flex;gap:11px;align-items:flex-start;border:1px solid var(--line2);border-radius:12px;
+    background:var(--panel2);padding:14px 15px;}
+  .perk .pi{color:var(--goldl);font-size:16px;line-height:1.3;}
+  .perk .pt{font-size:14px;font-weight:600;}
+  .perk .pd{font-size:12.5px;color:var(--mut);margin-top:2px;line-height:1.45;}
+  .perk .free{font-size:10px;letter-spacing:.1em;color:#0a0814;background:var(--goldl);border-radius:5px;padding:1px 6px;margin-left:6px;}
+  @media(max-width:780px){ .launch{grid-template-columns:1fr;} .lower{grid-template-columns:1fr;} .how{grid-template-columns:1fr;} .perks{grid-template-columns:1fr;} .skeys{grid-template-columns:1fr;} h1{font-size:30px;} }
+</style>
+</head>
+<body>
+<style>.dn-ham{display:none}.dn-connect{display:none}.dn-extra{margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}@media(max-width:640px){.dn-bar{gap:10px!important;padding:10px 14px!important;}.dn-extra{display:none!important;}.dn-connect{display:block!important;}.dn-ham{display:flex!important;align-items:center;justify-content:center;width:44px;height:44px;border-radius:10px;cursor:pointer;background:rgba(201,151,58,.12);border:1px solid rgba(201,151,58,.45);color:#e8b84b;font-size:22px;line-height:1;margin-left:auto;flex:0 0 auto;}.dn-links{position:absolute!important;top:calc(100% - 2px);right:10px;min-width:214px;flex-direction:column!important;align-items:stretch;gap:5px!important;background:rgba(12,10,18,.98);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(201,151,58,.4);border-radius:12px;padding:9px;box-shadow:0 16px 36px rgba(0,0,0,.6);display:none!important;z-index:80;}.dn-links.dn-open{display:flex!important;}.dn-links a{text-align:left;font-size:13px!important;padding:11px 13px!important;}}</style><div class="dn-bar" style="position:sticky;top:0;z-index:72;background:rgba(10,10,15,.94);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-bottom:1px solid rgba(201,151,58,.18);display:flex;align-items:center;gap:16px;padding:11px 20px;flex-wrap:wrap;font-family:'Cinzel',serif;"><a href="/" style="display:flex;align-items:center;gap:11px;text-decoration:none;color:#efe6d2;"><img src="/dd-mark.jpg" alt="Degen Dojo" style="width:40px;height:40px;border-radius:9px;object-fit:cover;display:block;box-shadow:0 0 0 1px rgba(201,151,58,.35);" onerror="this.style.display='none'"/><div style="text-align:left;"><b style="font-family:'Cinzel',serif;font-size:15px;letter-spacing:.16em;display:block;color:#efe6d2;">DEGEN DOJO</b><small style="font-family:'Cinzel',serif;font-size:9px;letter-spacing:.26em;color:#a99a7e;">THE LAUNCHPAD</small></div></a><nav class="dn-links" style="display:flex;gap:8px;flex-wrap:wrap;"><a href="#" class="dn-connect" onclick="var b=this.closest('.dn-bar').querySelector('.dn-extra button');if(b)b.click();return false;" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#e8b84b;border:1px solid rgba(201,151,58,.5);background:rgba(201,151,58,.12);">🔑 Connect</a><a href="/" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">⌂ Store</a><a href="/market" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">🛒 Market</a><a href="/launch" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#e8b84b;border:1px solid rgba(201,151,58,.6);background:rgba(201,151,58,.14);">🚀 Launch</a><a href="/list" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">🏷 List</a><a href="/play" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">▶ Play</a><a href="/mine" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">⛏ Mine</a><a href="/pot" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">🏆 Pot</a><a href="/become-a-preacher" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">📣 Preacher</a></nav><span class="dn-extra"><button id="dojoNavWallet" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#0a0814;background:linear-gradient(135deg,#c8962a,#8b6018);border:none;padding:9px 16px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;">Connect wallet</button></span><button class="dn-ham" type="button" aria-label="Menu" onclick="var n=this.closest('.dn-bar').querySelector('.dn-links');if(n)n.classList.toggle('dn-open');">☰</button></div>
+
+<div class="wrap">
+  <div class="preview cin">PREVIEW · FIRST DROP COMING — this is how launching on Degen Dojo will work</div>
+  <div class="eyebrow cin">採掘 · MINT BY MINING</div>
+  <h1 class="cin">Mine the mint. Everyone wins one.</h1>
+  <p class="lede">Commit <b>1 ORE</b> and you're in the block. Every minute one committed miner is drawn at random and their NFT drips out — <b>everyone who enters gets exactly one</b>. No gas wars, no snipers, no rush. Funds stay locked in escrow until the team hits its milestones.</p>
+
+  <div class="launch">
+    <div class="wall">
+      <div class="sechd"><h3 class="cin">The living wall · 25 tiles</h3></div>
+      <div class="grid" id="grid"></div>
+      <div class="walllbl">each mint lands on a tile · a new grin drips in every minute</div>
+    </div>
+    <div class="ldetail">
+      <span class="badge cin">✓ A DEGEN DOJO ORIGINAL</span>
+      <h2 class="cin">Smileful Grid</h2>
+      <div class="by">by Degen Dojo · 125 supply · a 5×5 grin on the shape of the miner grid</div>
+      <div class="row">
+        <div class="stat"><div class="k">Price</div><div class="v">1 <span class="u">ORE</span></div></div>
+        <div class="stat"><div class="k">Minted</div><div class="v">47 <span class="u">/ 125</span></div></div>
+        <div class="stat"><div class="k">In the block</div><div class="v">33 <span class="u">miners</span></div></div>
+        <div class="stat"><div class="k">Drip rate</div><div class="v">1 <span class="u">/ min</span></div></div>
+      </div>
+      <div class="bar"><i></i></div>
+      <div class="barlbl"><span>37.6% mined</span><span>78 left · ~1.3h at this rate</span></div>
+
+      <div class="drop">
+        <div class="lead"><span class="t cin">Next drip</span><span class="timer" id="timer">00:41</span></div>
+        <div class="feed">
+          <div class="fitem"><span class="dot"></span>Grid #047 dripped to <span class="who">3xk…9f2</span><span class="ago">just now</span></div>
+          <div class="fitem"><span class="dot"></span>Grid #046 dripped to <span class="who">bQ7…au1</span><span class="ago">1 min ago</span></div>
+          <div class="fitem"><span class="dot"></span>Grid #045 dripped to <span class="who">FTr…hiN</span><span class="ago">2 min ago</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sechd"><h3 class="cin">Where your ORE goes</h3><span>every mint splits the same way — creator earns by delivering, the rest flows back</span></div>
+    <div class="split">
+      <div class="sbar">
+        <div class="seg" style="width:85%;background:#c8962a;">Creator · 85%</div>
+        <div class="seg" style="width:10%;background:#2f6b45;color:#eafff0;">10%</div>
+        <div class="seg" style="width:5%;background:#5a4a2a;"></div>
+      </div>
+      <div class="skeys">
+        <div class="skey"><span class="sw" style="background:#c8962a"></span><b>Creator — 85%</b><span class="sd">paid milestone by milestone from escrow (not upfront)</span></div>
+        <div class="skey"><span class="sw" style="background:#2f6b45"></span><b>Minter raffle — 10%</b><span class="sd">split between 10 random minters at sellout</span></div>
+        <div class="skey"><span class="sw" style="background:#5a4a2a"></span><b>Dojo fee — 5%</b><span class="sd">the platform’s cut — covers review, hosting and the whole Degen Dojo stack</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="lower">
+    <div class="box">
+      <h3 class="cin">Your ticket</h3>
+      <div class="sub">Non-custodial — your 1 ORE sits in escrow until your grin drips, then it's the mint price. Leave anytime before your turn and it's refunded.</div>
+      <div class="youbig">You're in the block — <b>1 ORE committed</b>.<br>Guaranteed <b>1 Smileful Grid</b>. Your drip is random; estimated wait <b>~1h</b>.</div>
+      <button class="ghost">Leave block · refund my 1 ORE</button>
+      <div class="chips">
+        <span class="chip">✓ In queue</span><span class="chip">Provably-fair draw</span><span class="chip">Max 3 / wallet</span>
+      </div>
+    </div>
+
+    <div class="box">
+      <div class="escrow-head"><div class="lock">🔒</div><h3 class="cin">Escrow &amp; milestones</h3></div>
+      <div class="sub">Every ORE raised is held by the launchpad. The team is paid <b>only</b> as it clears reviewed milestones — so buyers aren't funding a rug.</div>
+      <div class="escstats">
+        <div class="e"><div class="k">Raised</div><div class="v">47 <span style="font-size:12px;color:var(--gold)">ORE</span></div></div>
+        <div class="e"><div class="k">Released</div><div class="v g">19</div></div>
+        <div class="e"><div class="k">Held</div><div class="v h">28</div></div>
+      </div>
+
+      <div class="mile">
+        <div class="mdot done">✓</div>
+        <div class="minfo"><div class="mt">Art + metadata delivered</div><div class="md">Full collection uploaded and locked on-chain.</div><div class="mstate done cin">Released</div></div>
+        <div class="mpct">20%</div>
+      </div>
+      <div class="mile">
+        <div class="mdot done">✓</div>
+        <div class="minfo"><div class="mt">20% minted</div><div class="md">Live demand proven before more funds unlock.</div><div class="mstate done cin">Released</div></div>
+        <div class="mpct">20%</div>
+      </div>
+      <div class="mile">
+        <div class="mdot wait">◷</div>
+        <div class="minfo"><div class="mt">Utility live (staking + site)</div><div class="md">Under review by Degen Dojo — unlocks on approval.</div><div class="mstate wait cin">In review</div></div>
+        <div class="mpct">30%</div>
+      </div>
+      <div class="mile">
+        <div class="mdot lock">🔒</div>
+        <div class="minfo"><div class="mt">90-day roadmap delivered</div><div class="md">Final tranche after the delivery window.</div><div class="mstate lock cin">Locked</div></div>
+        <div class="mpct">30%</div>
+      </div>
+
+      <div class="rug"><b>Rug-guard:</b> if a milestone fails review, the remaining held ORE is refunded <b>pro-rata to minters</b> — not sent to the team.</div>
+    </div>
+  </div>
+
+  <div class="creator">
+    <h3 class="cin">Launch your collection on Degen Dojo</h3>
+    <div class="sub">We review every collection before it mints. Approved projects launch on the mining drip — and get the whole Degen Dojo stack, free.</div>
+    <div class="perks">
+      <div class="perk"><div class="pi">🏬</div><div><div class="pt">Whitelabel storefront <span class="free">FREE</span></div><div class="pd">Your own branded Degen Dojo–style store — themed to your art, your traits, your own domain.</div></div></div>
+      <div class="perk"><div class="pi">🔒</div><div><div class="pt">Milestone escrow</div><div class="pd">Buyers trust you because funds unlock only as you deliver — fewer refunds, a stronger mint.</div></div></div>
+      <div class="perk"><div class="pi">🛒</div><div><div class="pt">ORE-only secondary market</div><div class="pd">Everything minted through Degen Dojo is bought and listed <b style="color:var(--ink)">only in ORE</b> — never SOL. The moment it mints out.</div></div></div>
+      <div class="perk"><div class="pi">⛏</div><div><div class="pt">Whitelabel mining grid</div><div class="pd">Holders mine ORE on your art — optional tips flow to your wallet.</div></div></div>
+    </div>
+    <a href="/launch/apply" class="cta cin" style="max-width:320px;margin:16px auto 0;display:block;text-align:center;text-decoration:none;">Apply to launch ⟶</a>
+    <div style="font-size:12px;color:var(--mut2);margin-top:12px;">Reviewed by Degen Dojo · you keep 85% · 0% upfront</div>
+  </div>
+
+  <div class="how">
+    <div class="step"><div class="num cin">01</div><div class="st">Commit 1 ORE</div><div class="sd">Join the block. Your ORE escrows — spent only if you mint, refunded if you leave first.</div></div>
+    <div class="step"><div class="num cin">02</div><div class="st">Wait your drip</div><div class="sd">Each minute one miner is drawn from a published seed. No speed advantage — bots have nothing to snipe.</div></div>
+    <div class="step"><div class="num cin">03</div><div class="st">Team earns by delivering</div><div class="sd">Your ORE unlocks to the creator milestone by milestone — or comes back to you.</div></div>
+  </div>
+
+  <div class="fair cin">⛩ Every drip is verifiable — seed published each round, like the Dojo weekly draw.</div>
+</div>
+
+<script>
+  var s=41, t=document.getElementById('timer');
+  setInterval(function(){ s=(s<=0?60:s-1); t.textContent='00:'+(s<10?'0':'')+s; },1000);
+
+  // SMILEFUL GRID — the launchpad's first real drop — rendered CLIENT-SIDE (pure pixel art,
+  // no image hosting needed). 5 ORE-reserve colours × 5 expressions × 5 backgrounds = 125.
+  var GCOLORS=['#a24dd4','#3b82e8','#ef9a2e','#cdb63e','#9aa0a8'];   // SOL · USDC · ZEC · GLDx · ORE
+  var GBG=[['#0f0c12','#1c1822'],['#191009','#2a1c10'],['#191408','#2b2211'],['#0f131a','#1b222e'],['#190b09','#2b1512']];
+  var GEXPR={Smileful:{on:['1,1','1,3','3,0','3,4','4,1','4,2','4,3']},
+    Clown:{on:['1,1','1,3','3,0','3,4','4,1','4,2','4,3'],nose:1},Sunglasses:{on:['1,1','1,2','1,3','3,0','3,4','4,1','4,2','4,3']},
+    Ninja:{fill:1,eyes:['1,1','1,3']},Punk:{on:['0,0','0,2','0,4','1,1','1,3','4,1','4,2','4,3']}};
+  var GORDER=['Smileful','Clown','Sunglasses','Ninja','Punk'];
+  function face(ci,exi,bi){ var e=GEXPR[GORDER[((exi%5)+5)%5]], c=GCOLORS[((ci%5)+5)%5], b=GBG[((bi%5)+5)%5], h='';
+    for(var r=0;r<5;r++)for(var col=0;col<5;col++){ var k=r+','+col, bg=b[1];
+      if(e.fill){ bg = (e.eyes.indexOf(k)>=0)?'#f0ece0':c; }
+      else if(e.nose&&k==='2,2')bg='#d8392f'; else if((e.on||[]).indexOf(k)>=0)bg=c;
+      h+='<i style="background:'+bg+'"></i>'; }
+    return '<div class="face" style="background:'+b[0]+'">'+h+'</div>'; }
+  var g=document.getElementById('grid'), tiles=[];
+  for(var i=0;i<25;i++){
+    var el=document.createElement('div'); el.className='tile mint';
+    if(i===17) el.classList.add('live');
+    var count = i<17 ? (3+(i%4)) : (i===17 ? 2 : (2+(i%3)));   // ~a few grins per tile (125 supply)
+    var frames=Math.min(count,6), inner='';
+    for(var f=0;f<frames;f++){
+      // visible (first) frame = a distinct colour×expression (the full 5×5 matrix across 25 tiles)
+      var ci = (f===0) ? i : (i*7+f*11), exi = (f===0) ? Math.floor(i/5) : (i+f*3), bi = (f===0) ? (i*3) : (i+f*2);
+      inner+='<div class="frame'+(f===0?' on':'')+'">'+face(ci,exi,bi)+'</div>';
+    }
+    el.innerHTML=inner;   // no ×N badge — every piece is a 1/1, nothing is duplicated
+    el.addEventListener('mouseenter',function(){this.dataset.pause='1';});
+    el.addEventListener('mouseleave',function(){this.dataset.pause='';});
+    tiles.push({el:el,frames:frames,cur:0});
+    g.appendChild(el);
+  }
+  // a new grin "drips" in once a MINUTE (matches 1 drip/min) — one tile at a time, calm (no flashing)
+  var _drip=0;
+  setInterval(function(){
+    for(var k=0;k<tiles.length;k++){ var tt=tiles[(_drip+k)%tiles.length];
+      if(tt.frames<2 || tt.el.dataset.pause) continue;
+      var fs=tt.el.querySelectorAll('.frame'); fs[tt.cur].classList.remove('on'); tt.cur=(tt.cur+1)%tt.frames; fs[tt.cur].classList.add('on');
+      _drip=(_drip+k+1)%tiles.length; break; }
+  },60000);
+</script>
+<script src="/dojo-credits.js"></script><script src="/dojo-profile.js"></script><script src="/mwa.js"></script><script src="/wallet-picker.js"></script><script>/*navwallet-wire*/(function(){var b=document.getElementById('dojoNavWallet');if(!b)return;var A=null,sh=function(p){return p.slice(0,4)+'\u2026'+p.slice(-4);};var G="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#0a0814;background:linear-gradient(135deg,#c8962a,#8b6018);border:none;padding:9px 16px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;",C="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#e8b84b;background:rgba(201,151,58,.12);border:1px solid rgba(201,151,58,.5);padding:9px 14px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;";function set(a){A=a;window.DOJO_WALLET=a||null;window.dispatchEvent(new Event('dojo-wallet-change'));if(a){b.textContent='\u25ce '+sh(a.pubkey);b.setAttribute('style',C);}else{b.textContent='Connect wallet';b.setAttribute('style',G);}}b.onclick=function(){if(A){var dc=function(){try{A.disconnect&&A.disconnect();}catch(e){}set(null);};if(window.DojoProfile)DojoProfile.menu(b,A.pubkey,dc);else dc();return;}if(window.DojoWalletPicker)DojoWalletPicker.pick().then(set).catch(function(){});};if(window.DojoWalletPicker&&DojoWalletPicker.autoConnect)DojoWalletPicker.autoConnect().then(function(a){if(a&&!A)set(a);});})();</script></body>
+</html>

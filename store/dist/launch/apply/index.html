@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Apply to launch — Degen Dojo</title>
+<style>
+  :root{ --bg:#0a0a0f; --panel:#12121a; --panel2:#171722; --line:rgba(201,151,58,.20);
+    --line2:rgba(255,255,255,.08); --gold:#c8962a; --goldl:#e8b84b; --ink:#efe6d2; --mut:#a99a7e; --mut2:#7c7365; --red:#d8654e; --grn:#59c07a; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:'Segoe UI',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;}
+  .cin{font-family:'Cinzel','Times New Roman',serif;letter-spacing:.04em;}
+  a{color:inherit;text-decoration:none;}
+  .wrap{max-width:720px;margin:0 auto;padding:0 20px 70px;}
+  .eyebrow{color:var(--gold);font-size:12px;letter-spacing:.3em;text-align:center;margin:34px 0 8px;font-weight:700;}
+  h1{font-size:34px;text-align:center;margin:0 0 8px;color:var(--goldl);}
+  .lede{text-align:center;color:var(--mut);max-width:560px;margin:0 auto 28px;font-size:14.5px;line-height:1.6;}
+  .card{border:1px solid var(--line);border-radius:18px;background:var(--panel);padding:26px 26px 28px;}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px 18px;}
+  .full{grid-column:1 / -1;}
+  label{display:block;font-size:12px;letter-spacing:.06em;color:var(--mut);margin:0 0 6px;text-transform:uppercase;}
+  label .req{color:var(--goldl);}
+  input,textarea,select{width:100%;background:var(--panel2);border:1px solid var(--line2);border-radius:10px;
+    color:var(--ink);font-size:14px;padding:11px 12px;font-family:inherit;outline:none;}
+  input:focus,textarea:focus,select:focus{border-color:rgba(201,151,58,.6);}
+  textarea{resize:vertical;min-height:84px;}
+  .hint{font-size:11.5px;color:var(--mut2);margin-top:5px;line-height:1.4;}
+  .cta{width:100%;margin-top:22px;padding:15px 0;border:none;border-radius:12px;
+    background:linear-gradient(135deg,#c8962a,#8b6018);color:#1a1206;font-weight:800;font-size:16px;
+    letter-spacing:.03em;font-family:'Cinzel',serif;cursor:pointer;}
+  .cta:disabled{opacity:.6;cursor:default;}
+  .msg{margin-top:14px;font-size:13.5px;text-align:center;min-height:18px;}
+  .msg.err{color:var(--red);} .msg.ok{color:var(--grn);}
+  .terms{display:flex;gap:26px;justify-content:center;flex-wrap:wrap;margin-top:20px;color:var(--mut2);font-size:12px;}
+  .terms b{color:var(--goldl);}
+  .done{display:none;text-align:center;padding:12px 0;}
+  .done .big{font-size:44px;}
+  .done h2{color:var(--goldl);margin:8px 0 6px;font-size:24px;}
+  .done p{color:var(--mut);font-size:14px;line-height:1.6;max-width:460px;margin:0 auto;}
+  @media(max-width:620px){ .grid{grid-template-columns:1fr;} h1{font-size:27px;} }
+</style>
+</head>
+<body>
+<style>.dn-ham{display:none}.dn-connect{display:none}.dn-extra{margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}@media(max-width:640px){.dn-bar{gap:10px!important;padding:10px 14px!important;}.dn-extra{display:none!important;}.dn-connect{display:block!important;}.dn-ham{display:flex!important;align-items:center;justify-content:center;width:44px;height:44px;border-radius:10px;cursor:pointer;background:rgba(201,151,58,.12);border:1px solid rgba(201,151,58,.45);color:#e8b84b;font-size:22px;line-height:1;margin-left:auto;flex:0 0 auto;}.dn-links{position:absolute!important;top:calc(100% - 2px);right:10px;min-width:214px;flex-direction:column!important;align-items:stretch;gap:5px!important;background:rgba(12,10,18,.98);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(201,151,58,.4);border-radius:12px;padding:9px;box-shadow:0 16px 36px rgba(0,0,0,.6);display:none!important;z-index:80;}.dn-links.dn-open{display:flex!important;}.dn-links a{text-align:left;font-size:13px!important;padding:11px 13px!important;}}</style><div class="dn-bar" style="position:sticky;top:0;z-index:72;background:rgba(10,10,15,.94);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-bottom:1px solid rgba(201,151,58,.18);display:flex;align-items:center;gap:16px;padding:11px 20px;flex-wrap:wrap;font-family:'Cinzel',serif;"><a href="/" style="display:flex;align-items:center;gap:11px;text-decoration:none;color:#efe6d2;"><img src="/dd-mark.jpg" alt="Degen Dojo" style="width:40px;height:40px;border-radius:9px;object-fit:cover;display:block;box-shadow:0 0 0 1px rgba(201,151,58,.35);" onerror="this.style.display='none'"/><div style="text-align:left;"><b style="font-family:'Cinzel',serif;font-size:15px;letter-spacing:.16em;display:block;color:#efe6d2;">DEGEN DOJO</b><small style="font-family:'Cinzel',serif;font-size:9px;letter-spacing:.26em;color:#a99a7e;">THE LAUNCHPAD</small></div></a><nav class="dn-links" style="display:flex;gap:8px;flex-wrap:wrap;"><a href="#" class="dn-connect" onclick="var b=this.closest('.dn-bar').querySelector('.dn-extra button');if(b)b.click();return false;" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#e8b84b;border:1px solid rgba(201,151,58,.5);background:rgba(201,151,58,.12);">🔑 Connect</a><a href="/" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">⌂ Store</a><a href="/market" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">🛒 Market</a><a href="/launch" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#e8b84b;border:1px solid rgba(201,151,58,.6);background:rgba(201,151,58,.14);">🚀 Launch</a><a href="/list" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">🏷 List</a><a href="/play" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">▶ Play</a><a href="/mine" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">⛏ Mine</a><a href="/pot" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">🏆 Pot</a><a href="/become-a-preacher" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">📣 Preacher</a></nav><span class="dn-extra"><button id="dojoNavWallet" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#0a0814;background:linear-gradient(135deg,#c8962a,#8b6018);border:none;padding:9px 16px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;">Connect wallet</button></span><button class="dn-ham" type="button" aria-label="Menu" onclick="var n=this.closest('.dn-bar').querySelector('.dn-links');if(n)n.classList.toggle('dn-open');">☰</button></div>
+
+<div class="wrap">
+  <div class="eyebrow cin">申請 · APPLY TO LAUNCH</div>
+  <h1 class="cin">Launch your collection</h1>
+  <p class="lede">Every collection is reviewed before it mints on the ORE drip. Approved projects keep <b style="color:var(--ink)">85%</b>, pay <b style="color:var(--ink)">0% upfront</b>, and get the whole Degen Dojo stack — free.</p>
+
+  <div class="card" id="card">
+    <form id="applyForm" novalidate>
+      <div class="grid">
+        <div class="full"><label>Collection name <span class="req">*</span></label><input id="f_name" maxlength="80" placeholder="Ronin Foxes" /></div>
+        <div><label>Total supply <span class="req">*</span></label><input id="f_supply" inputmode="numeric" placeholder="1000" /></div>
+        <div><label>Mint price in ORE <span class="req">*</span></label><input id="f_price" inputmode="decimal" placeholder="1" /></div>
+        <div class="full"><label>Art / preview link <span class="req">*</span></label><input id="f_art" placeholder="Drive, IPFS, or a preview site" /><div class="hint">A folder or sample sheet so we can review the art before approval.</div></div>
+        <div><label>Website</label><input id="f_site" placeholder="https://" /></div>
+        <div><label>X / Twitter</label><input id="f_x" placeholder="@yourproject" /></div>
+        <div><label>Discord</label><input id="f_discord" placeholder="invite link" /></div>
+        <div><label>Team wallet (SOL) <span class="req">*</span></label><input id="f_wallet" placeholder="where proceeds are paid" /></div>
+        <div class="full"><label>Proposed milestones <span class="req">*</span></label><textarea id="f_miles" placeholder="e.g. Art delivered · 20% minted · utility live · 90-day roadmap — what unlocks each escrow tranche"></textarea><div class="hint">Funds release to you only as these clear our review. Be specific.</div></div>
+        <div class="full"><label>Anything else</label><textarea id="f_notes" placeholder="Team, roadmap, why ORE, links to past work…"></textarea></div>
+      </div>
+      <button type="submit" class="cta cin" id="submitBtn">Submit application ⟶</button>
+      <div class="msg" id="msg"></div>
+    </form>
+    <div class="done" id="done">
+      <div class="big">⛩</div>
+      <h2 class="cin">Application received</h2>
+      <p>We review every collection by hand. If it's a fit, we'll reach out on X or Discord with next steps and your escrow milestones. Thank you.</p>
+    </div>
+    <div class="terms cin">
+      <span>✓ Reviewed by hand</span><span><b>85%</b> to you</span><span><b>0%</b> upfront</span><span>Funds in escrow</span>
+    </div>
+  </div>
+</div>
+
+<script>
+  var f = document.getElementById('applyForm'), msg = document.getElementById('msg'),
+      btn = document.getElementById('submitBtn');
+  function val(id){ return (document.getElementById(id).value||'').trim(); }
+  var B58 = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+  f.addEventListener('submit', async function(e){
+    e.preventDefault();
+    msg.className='msg'; msg.textContent='';
+    var d = { name:val('f_name'), supply:val('f_supply'), price:val('f_price'), art:val('f_art'),
+      site:val('f_site'), x:val('f_x'), discord:val('f_discord'), wallet:val('f_wallet'),
+      milestones:val('f_miles'), notes:val('f_notes') };
+    if(!d.name||!d.supply||!d.price||!d.art||!d.wallet||!d.milestones){ msg.className='msg err'; msg.textContent='Fill the required fields (marked *).'; return; }
+    if(!B58.test(d.wallet)){ msg.className='msg err'; msg.textContent='That team wallet doesn’t look like a Solana address.'; return; }
+    btn.disabled=true; btn.textContent='Sending…';
+    try{
+      var r = await fetch('/api/launch-apply', { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify(d) });
+      var j = await r.json();
+      if(!r.ok || !j.ok){ throw new Error(j.error||'Could not submit.'); }
+      f.style.display='none'; document.getElementById('done').style.display='block';
+    }catch(err){ msg.className='msg err'; msg.textContent=(err&&err.message)||'Could not submit — try again.'; btn.disabled=false; btn.textContent='Submit application ⟶'; }
+  });
+</script>
+<script src="/dojo-credits.js"></script><script src="/dojo-profile.js"></script><script src="/mwa.js"></script><script src="/wallet-picker.js"></script><script>/*navwallet-wire*/(function(){var b=document.getElementById('dojoNavWallet');if(!b)return;var A=null,sh=function(p){return p.slice(0,4)+'\u2026'+p.slice(-4);};var G="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#0a0814;background:linear-gradient(135deg,#c8962a,#8b6018);border:none;padding:9px 16px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;",C="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#e8b84b;background:rgba(201,151,58,.12);border:1px solid rgba(201,151,58,.5);padding:9px 14px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;";function set(a){A=a;window.DOJO_WALLET=a||null;window.dispatchEvent(new Event('dojo-wallet-change'));if(a){b.textContent='\u25ce '+sh(a.pubkey);b.setAttribute('style',C);}else{b.textContent='Connect wallet';b.setAttribute('style',G);}}b.onclick=function(){if(A){var dc=function(){try{A.disconnect&&A.disconnect();}catch(e){}set(null);};if(window.DojoProfile)DojoProfile.menu(b,A.pubkey,dc);else dc();return;}if(window.DojoWalletPicker)DojoWalletPicker.pick().then(set).catch(function(){});};if(window.DojoWalletPicker&&DojoWalletPicker.autoConnect)DojoWalletPicker.autoConnect().then(function(a){if(a&&!A)set(a);});})();</script></body>
+</html>

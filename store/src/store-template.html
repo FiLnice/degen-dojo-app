@@ -1,0 +1,2340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>The Dojo Store — Degen Dojo</title>
+<meta name="description" content="Every Degen Dojo fighter for sale, floor by floor. One character per floor, cheapest at the ground, the Kingpin at the summit. Pay in ORE, SKR or SOL." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Inter:wght@300;400;500;600&family=Noto+Serif+JP:wght@400;700&family=Teko:wght@500;600;700&display=swap" rel="stylesheet" />
+<style>
+:root{
+  --ink:#0a0a0f; --panel:#16161f; --border:rgba(255,255,255,0.07);
+  --gold:#c9973a; --gold-l:#e8b84b; --gold-dim:rgba(201,151,58,0.15);
+  --red:#c0392b; --red2:#8b1a10; --text:#e8e0d0; --muted:#7a7570;
+  --per:5;                     /* tiles visible per floor — 3 on mobile */
+  --gap:10px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--ink);color:var(--text);font-family:'Inter',sans-serif;font-size:14px;line-height:1.6;
+  min-height:100vh;overflow-x:hidden;
+  background-image:radial-gradient(120% 70% at 50% 0%,#1c1523 0%,#100d16 42%,#0a0a0f 78%);}
+
+/* ── header ─────────────────────────────────────────────────────── */
+.top{position:sticky;top:0;z-index:60;background:rgba(10,10,15,.94);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--border);display:flex;align-items:center;gap:16px;padding:11px 20px;flex-wrap:wrap;}
+.brand{display:flex;align-items:center;gap:11px;text-decoration:none;color:inherit;}
+.brand .mk{width:40px;height:40px;border-radius:9px;object-fit:cover;display:block;
+  box-shadow:0 0 0 1px rgba(201,151,58,.35);}
+.brand b{font-family:'Cinzel',serif;font-size:15px;letter-spacing:.16em;display:block;}
+.brand small{font-size:9px;letter-spacing:.26em;color:var(--muted);}
+.topnav{display:flex;gap:8px;margin-left:18px;}
+.topnav a{font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--text);
+  border:1px solid rgba(201,151,58,.32);border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;transition:all .15s;}
+.topnav a:hover{border-color:var(--gold);color:var(--gold-l);background:rgba(201,151,58,.08);}
+.stats{display:flex;gap:20px;margin-left:auto;flex-wrap:wrap;}
+.stat .v{font-family:'Cinzel',serif;font-size:16px;font-weight:900;color:var(--gold-l);line-height:1.1;}
+.stat .k{font-size:8.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);font-weight:600;}
+.cta{background:linear-gradient(135deg,#c8962a,#8b6018);border:none;color:#0a0814;font-family:'Cinzel',serif;
+  font-size:11px;font-weight:700;letter-spacing:.1em;padding:10px 20px;border-radius:8px;cursor:pointer;}
+.cta:hover{filter:brightness(1.1);}
+/* mobile hamburger + info button (hidden on desktop) */
+.navham{display:none;background:rgba(201,151,58,.12);border:1px solid rgba(201,151,58,.45);color:#e8b84b;
+  font-size:22px;line-height:1;width:44px;height:44px;border-radius:10px;cursor:pointer;align-items:center;justify-content:center;}
+.navham:hover{background:rgba(201,151,58,.2);}
+.navinfo{display:none;background:rgba(201,151,58,.1);border:1px solid rgba(201,151,58,.4);color:#e8b84b;
+  font-family:'Cinzel',serif;font-size:19px;font-weight:700;line-height:1;width:44px;height:44px;border-radius:10px;cursor:pointer;align-items:center;justify-content:center;}
+.navinfo:hover{background:rgba(201,151,58,.2);}
+/* the menu's Connect entry is for the mobile dropdown only — hide it in the desktop
+   inline nav so it doesn't render as a 2nd wallet pill next to the brand */
+#navConnect{display:none;}
+/* on mobile the header is a compact sticky bar: brand left, (i) + hamburger top-right.
+   stats hide behind the (i) popover, the wallet CTA moves into the menu. */
+@media(max-width:640px){
+  .top{position:sticky;top:0;z-index:72;justify-content:flex-start;text-align:left;gap:8px;padding:10px 14px;align-items:center;flex-wrap:nowrap;}
+  .brand{order:0;}
+  .brand .mk{width:34px;height:34px;}
+  .navham{display:flex;position:absolute;top:9px;right:12px;z-index:73;}
+  .navinfo{display:flex;position:absolute;top:9px;right:64px;z-index:73;}
+  .topnav{order:5;position:absolute;top:calc(100% - 2px);right:10px;min-width:214px;margin:0;
+    flex-direction:column;align-items:stretch;gap:5px;background:rgba(12,10,18,.98);backdrop-filter:blur(10px);
+    border:1px solid rgba(201,151,58,.4);border-radius:12px;padding:9px;z-index:72;
+    box-shadow:0 16px 36px rgba(0,0,0,.6);display:none;}
+  .topnav.open{display:flex;}
+  .topnav a{text-align:left;font-size:13px;padding:11px 13px;}
+  /* stats collapse behind the (i) button → a small popover under the header */
+  .stats{display:none;}
+  .stats.show{display:flex;position:absolute;top:calc(100% - 2px);left:10px;margin:0;width:auto;
+    flex-direction:column;gap:10px;background:rgba(12,10,18,.98);backdrop-filter:blur(10px);
+    border:1px solid rgba(201,151,58,.4);border-radius:12px;padding:13px 18px;z-index:72;
+    box-shadow:0 16px 36px rgba(0,0,0,.6);}
+  .stats.show .stat{display:flex;align-items:baseline;gap:9px;}
+  /* the big Connect CTA is redundant on mobile — connect lives in the ☰ menu */
+  .cta{display:none;}
+  #navConnect{display:block;}
+  /* in-floor ‹ › arrows: slim + red-edged, pinned to the very edge in the card's side
+     margin (NOT over the art). The floor-nav/dots are cleared from the vertical centre
+     (below) so these never collide. !important: the base `.shutter` rules sit later in
+     the file (equal specificity would otherwise win). */
+  /* BIG, easy-to-tap arrows centred in the light-brown gutter between the card and the gold
+     post. --gut (per-side gutter, measured in JS by placeArrows) makes this correct on every
+     device; a 32px-wide arrow centres at gut/2 − 16px, and max() stops it overshooting on a
+     tight gutter. */
+  .shutter{width:32px!important;height:96px!important;border:2px solid rgba(214,64,45,.92)!important;border-radius:6px!important;
+    background:linear-gradient(180deg,rgba(60,26,18,.97),rgba(26,12,9,.97))!important;color:#f3d889!important;
+    font-size:22px!important;line-height:92px!important;box-shadow:0 2px 11px rgba(0,0,0,.6)!important;z-index:7!important;
+    transform:translateY(-50%)!important;}
+  .shutter.l{left:max(-10px, calc(var(--gut,48px) / 2 - 16px))!important;}
+  .shutter.r{right:max(-10px, calc(var(--gut,48px) / 2 - 16px))!important;}
+}
+
+/* ── intro ──────────────────────────────────────────────────────── */
+.intro{max-width:660px;margin:0 auto;padding:34px 20px 10px;text-align:center;}
+.eyebrow{font-family:'Teko',sans-serif;font-size:14px;letter-spacing:.34em;text-transform:uppercase;color:var(--gold);}
+.intro h1{font-family:'Cinzel',serif;font-size:clamp(25px,4.4vw,37px);font-weight:900;letter-spacing:.03em;margin:4px 0 10px;
+  background:linear-gradient(180deg,#f4e2b4,#e8b84b 45%,#8b6020);-webkit-background-clip:text;background-clip:text;color:transparent;}
+.intro p{color:#9c8f7d;font-size:14.5px;line-height:1.65;}
+.intro .jp{font-family:'Noto Serif JP',serif;color:var(--gold);}
+.pastebar{display:flex;gap:8px;justify-content:center;margin:18px auto 0;max-width:540px;}
+.pastebar input{flex:1;background:#0e0c18;border:1px solid rgba(201,151,58,.35);color:#e8d5b4;border-radius:10px;
+  font-family:'Teko',sans-serif;font-size:16px;letter-spacing:.01em;padding:11px 15px;}
+.pastebar input:focus{outline:none;border-color:var(--gold);}
+.pastebar button{background:linear-gradient(135deg,#c8962a,#8b6018);border:none;color:#0a0814;font-family:'Cinzel',serif;
+  font-size:12px;font-weight:700;letter-spacing:.08em;padding:0 20px;border-radius:10px;cursor:pointer;}
+.pastebar button:hover{filter:brightness(1.08);}
+.pastemsg{text-align:center;font-family:'Teko',sans-serif;font-size:13px;letter-spacing:.03em;color:var(--muted);margin-top:8px;min-height:16px;}
+
+/* ── sort control ───────────────────────────────────────────────── */
+.sortbar{max-width:520px;margin:22px auto 0;text-align:center;}
+.sortlab{font-family:'Teko',sans-serif;font-size:13px;letter-spacing:.28em;text-transform:uppercase;color:var(--muted);margin-bottom:9px;}
+.sortbtns{display:flex;gap:8px;justify-content:center;}
+.sortbtn{flex:1;max-width:150px;background:rgba(255,255,255,.03);border:1px solid rgba(201,151,58,.28);border-radius:9px;
+  padding:9px 6px 8px;cursor:pointer;color:#b8ab97;font-family:'Cinzel',serif;font-size:13px;font-weight:700;letter-spacing:.06em;
+  transition:all .16s;}
+.sortbtn small{display:block;font-family:'Teko',sans-serif;font-size:11px;font-weight:500;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--muted);margin-top:2px;}
+.sortbtn:hover{border-color:var(--gold);color:var(--gold-l);}
+.sortbtn.on{background:linear-gradient(135deg,rgba(201,151,58,.18),rgba(139,26,16,.12));border-color:var(--gold);color:var(--gold-l);}
+.sortbtn.on small{color:var(--gold);}
+.sortcap{display:none;}
+.sortcap b{color:var(--gold-l);font-weight:600;}
+
+/* trait filter */
+.filterbar{display:flex;gap:8px;justify-content:center;margin-top:12px;flex-wrap:wrap;}
+.fsel{background:#0e0c18;border:1px solid rgba(201,151,58,.35);color:#e8d5b4;border-radius:8px;
+  font-family:'Teko',sans-serif;font-size:15px;letter-spacing:.03em;padding:7px 10px;cursor:pointer;min-width:150px;}
+.fsel:focus{outline:none;border-color:var(--gold);}
+.fsel:disabled{opacity:.45;cursor:default;}
+.fclear{background:transparent;border:1px solid rgba(224,101,92,.5);color:#e0655c;border-radius:8px;
+  font-family:'Teko',sans-serif;font-size:14px;letter-spacing:.06em;padding:7px 12px;cursor:pointer;}
+.fclear:hover{background:rgba(224,101,92,.12);}
+.filtercap{font-family:'Teko',sans-serif;font-size:13px;letter-spacing:.06em;color:var(--muted);margin-top:8px;min-height:16px;}
+.filtercap b{color:var(--gold-l);font-weight:600;}
+.groundnote b{color:var(--gold-l);}
+
+/* ── the tower ──────────────────────────────────────────────────── */
+/* The floors sit on a dark red-lit backdrop. The rising SUN itself now lives in the
+   fixed #summit header above (so it stays put and can dim per-floor as floors scroll). */
+.tower{position:relative;isolation:isolate;display:flex;flex-direction:column;align-items:center;margin:0 auto;padding:30px 14px 90px;}
+.tower>*{position:relative;z-index:1;}
+/* one CONTINUOUS fixed sky behind everything, so the sun's red doesn't get cropped at a
+   box edge — floors scroll over it and the backdrop stays put, blending into the summit. */
+/* neutral near-black backdrop so the sun's transparent gaps read as the logo black */
+.tower::before{content:'';position:fixed;top:0;left:0;right:0;bottom:0;z-index:-1;pointer-events:none;
+  background:linear-gradient(180deg,#16151b 0%,#100f15 55%,#0a090f 100%);}
+
+/* ── ONE FIXED rising sun behind the whole tower ──
+   A glowing disc + rotating rays, position:FIXED so it stays put while floors scroll/page
+   in front of it (it does NOT re-centre per floor). The opaque floors cover the centre, so
+   the rays only read OUTSIDE the tower; a vertical fade tapers the side-fans so the nav and
+   floors never crop it with a hard edge. z-index:0 sits above the dark ::before backdrop
+   (z-1) and below the tower/floors (which paint on top; their sides are transparent). */
+.risingsun{position:fixed;top:50%;left:50%;z-index:0;pointer-events:none;display:grid;place-items:center;
+  transform:translate(-50%,-50%) scaleY(.95);opacity:.5;}  /* dimmed so it's not too bright */
+.risingsun .fsrays{position:absolute;width:min(200vw,2600px);aspect-ratio:1;border-radius:50%;
+  /* CLEAR rays: distinct red / light-red spokes (hard stops) like the B demo — a crisp
+     rising-sun ray pattern, not a mushy blend. */
+  /* brand sun: logo-RED rays, each lined on both sides with a thin GOLD edge, BLACK gaps
+     (transparent → the black backdrop shows through). Rotates slowly to avoid dizziness. */
+  background:repeating-conic-gradient(from 0deg,#e8b84b 0 0.8deg,#db3a2d 0.8deg 8.2deg,#e8b84b 8.2deg 9deg,transparent 9deg 15deg);
+  /* SOFT sunburst that FILLS to the screen edges: opaque most of the way out (centre hidden
+     behind the tower), only a gentle fade at the very edge — NO ring, no hard crop. */
+  -webkit-mask:radial-gradient(circle,#000 0 64%,rgba(0,0,0,.82) 82%,transparent 100%);
+          mask:radial-gradient(circle,#000 0 64%,rgba(0,0,0,.82) 82%,transparent 100%);
+  /* rotation stopped — a static rising sun (the motion was causing headaches) */}
+.risingsun .fsdisc{width:280px;height:280px;border-radius:50%;
+  background:radial-gradient(circle at 50% 46%,#e8554a,#db3a2d 48%,rgba(219,58,45,.18) 74%,transparent 100%);
+  box-shadow:0 0 70px 16px rgba(219,58,45,.22);}
+@keyframes spin{from{transform:rotate(0);}to{transform:rotate(360deg);}}
+@media(prefers-reduced-motion:reduce){.risingsun .fsrays{animation:none;}}
+/* snap floor-to-floor so the tower jumps cleanly between floors (each lands just under the summit) */
+html{scroll-snap-type:y proximity;scroll-behavior:smooth;}
+.floor{scroll-snap-align:start;scroll-margin-top:calc(var(--navH,64px) + 30px);}
+/* ▲/▼ floor stepper pinned to the right edge */
+.floornav{position:fixed;right:16px;top:50%;transform:translateY(-50%);z-index:60;display:flex;flex-direction:column;align-items:center;gap:8px;}
+.floornav button{width:46px;height:46px;border-radius:50%;cursor:pointer;display:grid;place-items:center;font-size:19px;color:#1a1206;
+  background:linear-gradient(135deg,#e8b84b,#c8962a);border:1px solid #8a5a1e;box-shadow:0 5px 16px rgba(0,0,0,.5),0 0 14px rgba(232,184,75,.3);transition:filter .15s,opacity .15s;}
+.floornav button:hover{filter:brightness(1.08);}
+.floornav button:disabled{opacity:.28;cursor:default;filter:none;}
+.floornav .fcount{font-family:'Teko',sans-serif;font-size:13px;letter-spacing:.04em;color:#e8b84b;background:rgba(20,14,22,.88);
+  border:1px solid rgba(201,151,58,.4);border-radius:10px;padding:3px 6px;text-align:center;min-width:46px;line-height:1.1;}
+/* floor-position dots (scroll indicator) — shown on mobile in place of the counter */
+.floordots{display:none;flex-direction:column;align-items:center;gap:4px;max-height:52vh;overflow:hidden;padding:4px 0;}
+.floordots .fd{width:6px;height:6px;border-radius:50%;background:rgba(201,151,58,.32);cursor:pointer;flex:0 0 auto;transition:all .18s;}
+.floordots .fd.on{background:#e8b84b;height:15px;border-radius:4px;box-shadow:0 0 7px rgba(232,184,75,.6);}
+@media(max-width:640px){
+  .floornav .fcount{display:none;}
+  .floordots{display:none;}   /* dots crowded the in-floor arrows; mobile navigates by swipe + ▲/▼ */
+  /* push the two floor-step buttons to the top & bottom edges so the vertical centre
+     (where the ‹ › arrows sit) stays completely clear of them. pointer-events:none on
+     the (full-height) container is ESSENTIAL — otherwise its empty middle covers the
+     right ‹›  arrow and swallows the tap; only the ▲/▼ buttons take pointer events. */
+  .floornav{right:6px;top:0;bottom:0;transform:none;height:auto;justify-content:space-between;padding:76px 0;gap:0;pointer-events:none;}
+  .floornav button{width:40px;height:40px;font-size:16px;pointer-events:auto;}
+}
+
+/* golden sōrin finial crowning the summit */
+.crown{display:flex;flex-direction:column;align-items:center;margin-bottom:-2px;position:relative;z-index:3;}
+.jewel{width:15px;height:15px;border-radius:50%;margin-bottom:-3px;
+  background:radial-gradient(circle at 35% 30%,#fff3c8,#e8c25a 45%,#9c6f1e);
+  box-shadow:0 0 16px rgba(212,162,58,.85),0 0 4px rgba(255,240,180,.9);}
+.sorin{width:7px;height:52px;position:relative;border-radius:4px 4px 2px 2px;
+  background:linear-gradient(180deg,#f3d889,#d4a23a 45%,#7a5616);box-shadow:0 0 10px rgba(212,162,58,.45);}
+.sorin::before{content:'';position:absolute;left:50%;top:9px;transform:translateX(-50%);width:24px;height:33px;opacity:.95;
+  background:repeating-linear-gradient(180deg,#e6b94a 0 1.5px,transparent 1.5px 5px);
+  clip-path:polygon(50% 0,100% 100%,0 100%);filter:drop-shadow(0 1px 1px rgba(0,0,0,.4));}
+
+/* Floors stack at their natural height so the tower reads as ONE CONNECTED pagoda and the
+   next floor peeks below (a clear "scroll down" cue). .floorbody holds the roof/name/lanterns/
+   shelf and is the positioning context for the absolute lanterns/name. */
+.floor{position:relative;width:100%;z-index:1;display:flex;flex-direction:column;align-items:center;}
+.floorbody{position:relative;width:100%;max-width:1180px;margin-top:-6px;}
+.floor:hover{z-index:5;}
+
+/* tiered temple roof with upturned eaves */
+.roof{position:relative;width:108%;max-width:1280px;height:40px;left:50%;transform:translateX(-50%);z-index:2;
+  background:
+    repeating-linear-gradient(90deg,rgba(0,0,0,.4) 0 1px,rgba(255,255,255,.06) 1px 2px,transparent 2px 11px),
+    linear-gradient(180deg,#4b7d60 0%,#2b5a3e 40%,#17351f 72%,#0c1f14 100%);
+  clip-path:polygon(50% 0%,80% 50%,100% 26%,92% 100%,8% 100%,0 26%,20% 50%);
+  filter:drop-shadow(0 6px 9px rgba(0,0,0,.72));}
+/* warm-red rim light along the tiles, so the roof reads as lit by the red sky */
+.roof::after{content:'';position:absolute;inset:0;clip-path:inherit;pointer-events:none;
+  background:linear-gradient(180deg,rgba(255,170,110,.3),transparent 42%);}
+.ridge{position:absolute;top:-1px;left:50%;transform:translateX(-50%);width:34%;height:7px;border-radius:4px;
+  background:linear-gradient(180deg,#f6dd92,#d4a23a 55%,#a9781f);box-shadow:0 1px 4px rgba(0,0,0,.55);}
+.ridge::before,.ridge::after{content:'';position:absolute;top:0;width:7px;height:7px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,#fff0c0,#d4a23a 60%,#8b6020);box-shadow:0 0 5px rgba(212,162,58,.7);}
+.ridge::before{left:-4px;} .ridge::after{right:-4px;}
+
+/* the character's name hangs from the eaves on a kanban board — this is what
+   makes a floor a chamber rather than a shelf */
+.kanban{position:absolute;left:50%;top:26px;transform:translateX(-50%);z-index:4;
+  display:flex;align-items:center;gap:9px;padding:5px 17px 6px;border-radius:3px;white-space:nowrap;
+  background:linear-gradient(180deg,#2c1a24,#140b12);border:1px solid #6a4a3a;
+  box-shadow:0 5px 16px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,206,140,.2);}
+.kanban::before,.kanban::after{content:'';position:absolute;top:-9px;width:1px;height:9px;background:#6a4a3a;}
+.kanban::before{left:22%;} .kanban::after{right:22%;}
+.kanban .nm{font-family:'Cinzel',serif;font-size:13px;font-weight:700;letter-spacing:.11em;color:#f3d889;text-transform:uppercase;}
+.kanban .from{font-family:'Teko',sans-serif;font-size:14px;letter-spacing:.06em;color:#b99a63;}
+.kanban .from b{color:var(--gold-l);font-weight:600;}
+/* a floor WITH listings lights its name-board: glowing amber plate + dark letters so
+   the live chambers read at a glance (faded/sold-out floors keep the dark board below). */
+.floor:not(.faded) .kanban{background:linear-gradient(180deg,#ffeabc,#f0c879 58%,#e0a347);border-color:#8a5a1e;
+  box-shadow:0 0 20px rgba(255,180,90,.55),0 5px 16px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,245,210,.6);}
+.floor:not(.faded) .kanban .nm{color:#3a1e0a;text-shadow:0 1px 0 rgba(255,235,190,.45);}
+.floor:not(.faded) .kanban::before,.floor:not(.faded) .kanban::after{background:#8a5a1e;}
+
+/* night shoji wall — near-black paper panels, faint kumiko lattice, bold vertical
+   mullions at the quarters, a faint warm glow bleeding in from the lanterns */
+.shelf{position:relative;z-index:1;padding:30px 34px 18px;margin-top:-4px;border-radius:6px;
+  border:3px solid #0c060a;border-bottom:5px solid #060206;
+  background:
+    repeating-linear-gradient(0deg,rgba(195,160,175,.12) 0 1px,transparent 1px 52px),
+    repeating-linear-gradient(90deg,rgba(195,160,175,.12) 0 1px,transparent 1px 68px),
+    repeating-linear-gradient(90deg,transparent 0 24.6%,#2b2030 24.6% 25.4%),
+    linear-gradient(180deg,#1b141c,#100b12);
+  box-shadow:inset 0 0 50px rgba(0,0,0,.55),inset 0 1px 0 rgba(200,150,170,.14),inset 0 0 80px rgba(255,90,60,.1),0 12px 28px rgba(0,0,0,.6);}
+/* gold corner pillars */
+.shelf::before,.shelf::after{content:'';position:absolute;top:7%;height:86%;width:9px;border-radius:3px;
+  background:linear-gradient(180deg,#e6b94a,#7a5616);box-shadow:0 0 4px rgba(0,0,0,.4);}
+.shelf::before{left:-3px;} .shelf::after{right:-3px;}
+/* dougong bracket row beneath each floor */
+.floorbody::after{content:'';display:block;width:90%;max-width:1000px;height:7px;margin:0 auto;border-radius:0 0 4px 4px;
+  background:repeating-linear-gradient(90deg,#241a2a 0 7px,#0c0710 7px 14px);box-shadow:0 4px 8px rgba(0,0,0,.5);}
+
+/* paper lanterns flanking each floor — a sake-bottle / gourd (figure-8) lantern:
+   the TOP bulb shows how many are LISTED, the BOTTOM bulb how many EXIST. */
+.chochin{position:absolute;top:22px;width:46px;z-index:3;pointer-events:none;display:flex;flex-direction:column;align-items:center;}
+.chochin.l{left:-52px;} .chochin.r{right:-52px;}
+/* soft warm halo — dimmer than before, just a glow hint around the lantern */
+.chochin::after{content:'';position:absolute;top:-2px;left:50%;transform:translateX(-50%);width:60px;height:66px;border-radius:50%;z-index:-1;
+  background:radial-gradient(circle,rgba(255,165,85,.26),transparent 70%);pointer-events:none;}
+/* little dark cap at the very top (the lantern's mouth) */
+.chochin::before{content:'';width:9px;height:4px;border-radius:2px 2px 0 0;background:#241a2a;margin-bottom:-1px;}
+/* the two lit paper bulbs — warm amber with horizontal ribs */
+.chochin i,.chochin b{position:relative;display:grid;place-items:center;font-style:normal;font-family:'Cinzel',serif;font-weight:900;transition:filter .3s;}
+/* TOP bulb = LISTED → LIT: dark number on glowing warm paper */
+.chochin i{width:30px;height:27px;border-radius:50%/58% 58% 42% 42%;font-size:13px;color:#5a1a10;z-index:1;
+  border-top:3px solid #241a2a;border-bottom:2px solid rgba(36,26,42,.55);
+  background:repeating-linear-gradient(180deg,rgba(90,30,16,.13) 0 1px,transparent 1px 5px),linear-gradient(180deg,#ffeabc,#f3cd84 60%,#e2a648);
+  box-shadow:inset 0 0 7px rgba(255,175,95,.55),0 0 11px rgba(255,170,90,.5);}
+/* BOTTOM bulb = NOT LISTED (held) → UNLIT: yellow number on dark, no glow (the opposite) */
+.chochin b{width:41px;height:35px;border-radius:50%/42% 42% 58% 58%;font-size:15px;color:#f0c879;border-bottom:3px solid #241a2a;margin-top:-5px;
+  background:repeating-linear-gradient(180deg,rgba(255,220,160,.05) 0 1px,transparent 1px 5px),linear-gradient(180deg,#2a2030,#160f1b);
+  box-shadow:inset 0 0 8px rgba(0,0,0,.6);}
+.chochin b::after{content:'';position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);width:2px;height:6px;border-radius:1px;background:#6e4f1c;} /* tassel */
+.floor:hover .chochin i,.floor:hover .chochin b{filter:brightness(1.08);}
+/* faded floor: both bulbs go dark/unlit (the lamp is out) */
+.floor.faded .chochin i,.floor.faded .chochin b{background:linear-gradient(180deg,#3a241c,#241210);color:#7a6355;box-shadow:none;border-color:#2a1c16;}
+/* on narrow screens there's no room outside the floor, so the lanterns hang from
+   the eaves at the top corners instead — smaller, tucked just inside the edges. */
+@media(max-width:1000px){
+  .chochin{top:12px;width:36px;z-index:6;}
+  .chochin.l{left:2px;} .chochin.r{right:2px;}
+  .chochin i{width:25px;height:22px;font-size:11px;}
+  .chochin b{width:33px;height:28px;font-size:13px;margin-top:-4px;}
+}
+
+/* mobile: tiles are small (3 to a shelf), so tighten the shelf and shrink the
+   price line + its icons enough to keep all three currencies on one line. */
+@media(max-width:640px){
+  .shelf{padding:22px 18px 14px;}
+  /* ONE card per view on mobile — size it by HEIGHT so the whole card (art + stats) fits the
+     screen with the next floor peeking below. width follows the 664:1080 card aspect. */
+  .slot{flex:0 0 100%;align-items:center;justify-content:center;}
+  .tile{width:auto;max-width:100%;height:min(calc(100svh - 300px),66svh);aspect-ratio:664/1080;margin:0 auto;}
+  .fuda .fs,.fuda .fu,.fuda .fo,.fuda .fsym{font-size:13px;}
+  .fuda .tok{width:14px;height:14px;}
+  .pname{font-size:9.5px;}
+}
+
+/* generic token icon (Solana / ORE logos), used in headings and tags */
+.tok{width:12px;height:12px;border-radius:50%;vertical-align:middle;display:inline-block;}
+.stat .v .tok{width:13px;height:13px;margin-top:-2px;}
+.kanban .from .tok{width:11px;height:11px;margin-right:1px;}
+.pricebox .tok,.lrow .tok{width:15px;height:15px;vertical-align:middle;margin-right:2px;}
+
+/* held (not-for-sale) tiles — full colour like the rest, just not clickable and
+   with an OWNED tag instead of a price. No golden hover border. */
+/* held tiles are clickable too (they open their page), so they get the border. */
+.fuda.ntag{background:linear-gradient(180deg,#15120e,#000);}
+.fuda.ntag .owned{font-family:'Cinzel',serif;font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#e8d5b4;}
+
+/* ── the shelf's sliding rail of fighters ───────────────────────── */
+.rail{overflow:hidden;position:relative;z-index:1;}
+.track{display:flex;gap:var(--gap);transition:transform .3s cubic-bezier(.22,.75,.28,1);}
+.slot{flex:0 0 calc((100% - (var(--per) - 1) * var(--gap)) / var(--per));
+  min-width:0;   /* let the flex-basis win so every tile is the same width */
+  display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;}
+
+/* The art is 1175×1208, so the tile carries that exact ratio — object-fit:cover
+   then fills it with zero cropping. No hover zoom (which cropped an edge); hover
+   just lights a golden border around the frame. */
+.tile{width:100%;aspect-ratio:664/1080;border-radius:7px;overflow:hidden;position:relative;padding:9px;
+  border:2px solid #3a2a38;
+  background:radial-gradient(130% 100% at 50% 32%,rgba(255,190,110,.42),rgba(255,150,80,.14) 42%,rgba(14,8,14,.5) 82%);
+  box-shadow:inset 0 0 26px rgba(255,160,80,.3),inset 0 0 0 1px rgba(255,200,130,.12),0 6px 16px rgba(0,0,0,.6);
+  transition:box-shadow .18s ease, background .18s ease, transform .18s ease;}
+/* DESKTOP: cap the card to the viewport height so the price line BELOW it always shows.
+   The card is otherwise width-driven (fills its 1/3 slot) and overflows short screens at
+   100% zoom, pushing the price off the bottom. width:auto keeps the 664:1080 ratio (no
+   distortion); the 610px cap keeps the derived width within the slot so nothing clamps. */
+@media(min-width:641px){
+  .tile{width:auto;max-width:100%;height:min(calc(100svh - 270px),585px);margin:0 auto;}
+}
+/* shoji cross splitting the lit paper pane, sitting behind the card */
+.tile::before,.tile::after{content:'';position:absolute;background:rgba(14,8,14,.72);z-index:0;}
+.tile::before{left:50%;top:7px;bottom:7px;width:2px;transform:translateX(-50%);}
+.tile::after{top:50%;left:7px;right:7px;height:2px;transform:translateY(-50%);}
+/* contain, never cover: cover shaves the top off any art whose ratio isn't an
+   exact match for the box (borders and sub-pixel rounding are enough to do it).
+   contain guarantees the whole fighter is visible — head, topknot and all. */
+.tile img{position:relative;z-index:1;width:100%;height:100%;object-fit:contain;object-position:center center;display:block;
+  filter:drop-shadow(0 4px 9px rgba(0,0,0,.6));}
+/* hover = the window's lamp flares up + a golden ring */
+.slot:hover .tile{background:radial-gradient(130% 100% at 50% 32%,rgba(255,210,130,.6),rgba(255,170,90,.18) 42%,rgba(14,8,14,.5) 82%);
+  box-shadow:inset 0 0 30px rgba(255,180,100,.45),0 0 0 2px var(--gold-l),0 8px 20px rgba(0,0,0,.6);}
+/* a small vermilion seal marks which book the listing came from */
+.src{position:absolute;top:5px;right:5px;z-index:2;width:16px;height:16px;border-radius:3px;display:grid;place-items:center;
+  font-family:'Noto Serif JP',serif;font-size:9px;color:#fff;background:rgba(139,26,16,.92);
+  box-shadow:0 1px 3px rgba(0,0,0,.5);}
+
+/* the price hangs under each fighter on a wooden fuda tag */
+.fuda{position:relative;width:100%;text-align:center;padding:4px 6px 5px;border-radius:2px;
+  background:linear-gradient(180deg,#d9c193,#b99a63);color:#241b16;
+  clip-path:polygon(50% 0,100% 11%,100% 100%,0 100%,0 11%);
+  box-shadow:0 3px 7px rgba(0,0,0,.45);}
+/* single price line: $usdc | [◎]sol | [⛏]ore */
+.fuda{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:7px;white-space:nowrap;
+  font-family:'Teko',sans-serif;line-height:1;}
+.fuda.ntag{display:flex;justify-content:center;}
+.fuda .fs{display:inline-flex;align-items:center;justify-self:end;font-family:'Cinzel',serif;font-size:14px;font-weight:900;color:#241b16;}
+.fuda .fu,.fuda .fo{display:inline-flex;align-items:center;justify-self:start;font-size:14px;font-weight:700;color:#3a2c18;letter-spacing:.01em;}
+.fuda .fsep{font-style:normal;color:#8a7150;font-size:11px;opacity:.6;}
+.fuda .fsym{font-weight:800;font-size:14px;color:#000;}
+.fuda .tok{width:19px;height:19px;border-radius:50%;display:inline-block;vertical-align:middle;}
+/* the price tag brightens on hover — but the OWNED tag stays black, since it
+   isn't a price and shouldn't look like one */
+.slot:hover .fuda:not(.ntag){background:linear-gradient(180deg,#f0dcb0,#cdb072);}
+.slot:hover .fuda.ntag{background:linear-gradient(180deg,#15120e,#000);}
+.pname{font-family:'Cinzel',serif;font-size:8.5px;letter-spacing:.03em;color:#e8dcc0;text-align:center;
+  max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.7);}
+
+/* sliding shutters — only on floors holding more fighters than fit */
+.shutter{position:absolute;top:50%;transform:translateY(-40%);z-index:6;width:26px;height:52px;cursor:pointer;
+  border:1px solid #7a5616;border-radius:3px;color:#f3d889;font-size:14px;line-height:50px;text-align:center;
+  background:repeating-linear-gradient(180deg,rgba(0,0,0,.18) 0 1px,transparent 1px 7px),linear-gradient(180deg,#3a2616,#1c1109);
+  box-shadow:0 4px 10px rgba(0,0,0,.55);transition:filter .16s,transform .16s;}
+.shutter:hover{filter:brightness(1.35);}
+.shutter.l{left:4px;} .shutter.r{right:4px;}
+.shutter[disabled]{opacity:.22;cursor:default;filter:none;}
+.pager{position:absolute;right:14px;bottom:4px;font-family:'Teko',sans-serif;font-size:11px;letter-spacing:.14em;
+  color:rgba(255,225,190,.5);}
+
+/* a chamber with nothing for sale: the lacquer goes dark and the lamps are out,
+   but the fighters themselves stay in full colour. */
+.from.muted{color:#8a7457;font-style:italic;}
+.floor.faded .shelf{background:
+    repeating-linear-gradient(0deg,rgba(150,140,170,.06) 0 1px,transparent 1px 52px),
+    repeating-linear-gradient(90deg,transparent 0 24.6%,#1a1622 24.6% 25.4%),
+    linear-gradient(180deg,#120e15,#0a070d);
+  box-shadow:inset 0 0 50px rgba(0,0,0,.7),0 10px 20px rgba(0,0,0,.6);}
+.floor.faded .shelf::before,.floor.faded .shelf::after{background:linear-gradient(180deg,#3a2f20,#1d1608);}
+.floor.faded .roof{filter:drop-shadow(0 6px 7px rgba(0,0,0,.6)) brightness(.5) saturate(.6);}
+.floor.faded::after{background:repeating-linear-gradient(90deg,#161020 0 7px,#0a0710 7px 14px);}
+.floor.faded .kanban{background:linear-gradient(180deg,#171119,#0c080f);border-color:#4a3640;}
+/* faded windows: unlit paper, no warm glow, no lantern pool */
+.floor.faded .tile{background:linear-gradient(180deg,rgba(22,18,28,.9),rgba(8,7,12,.95));
+  box-shadow:inset 0 0 22px rgba(0,0,0,.7),inset 0 0 0 1px rgba(120,110,150,.05);border-color:#1c1826;}
+.floor.faded .tile img{filter:drop-shadow(0 3px 7px rgba(0,0,0,.6)) brightness(.9);}
+.floor.faded .chochin::after{display:none;}
+
+/* ── base ───────────────────────────────────────────────────────── */
+.base{position:relative;width:96%;max-width:700px;height:38px;margin-top:2px;border-radius:6px 6px 0 0;
+  display:flex;align-items:center;justify-content:center;
+  background:repeating-linear-gradient(90deg,transparent 0 24.6%,#2b2030 24.6% 25.4%),linear-gradient(180deg,#1c1018,#0b0712);
+  box-shadow:inset 0 1px 0 rgba(200,150,170,.18),0 14px 30px rgba(0,0,0,.7);}
+.base span{font-family:'Noto Serif JP',serif;font-size:16px;letter-spacing:.3em;color:#f3d889;
+  text-shadow:0 0 6px rgba(212,162,58,.5);padding-left:.3em;}
+.steps{width:78%;max-width:600px;height:11px;border-radius:0 0 6px 6px;
+  background:linear-gradient(180deg,#140d1a,#080510);box-shadow:0 8px 16px rgba(0,0,0,.6);}
+.groundnote{max-width:560px;margin:26px auto 0;text-align:center;color:var(--muted);font-size:12px;line-height:1.6;}
+
+/* ── the dossier drawer ─────────────────────────────────────────── */
+.scrim{position:fixed;inset:0;z-index:90;background:rgba(4,3,8,.76);backdrop-filter:blur(4px);display:none;}
+.scrim.open{display:block;}
+.drawer{position:fixed;z-index:91;right:0;top:0;bottom:0;width:min(460px,100%);overflow-y:auto;
+  background:linear-gradient(180deg,#171019,#0d0a11);border-left:1px solid rgba(201,151,58,.3);
+  transform:translateX(100%);transition:transform .32s cubic-bezier(.22,.75,.28,1);}
+.drawer.open{transform:none;}
+@media(max-width:560px){.drawer{width:100%;top:auto;height:92vh;border-left:none;border-top:1px solid rgba(201,151,58,.3);
+  border-radius:14px 14px 0 0;transform:translateY(100%);} .drawer.open{transform:none;}}
+.dclose{position:absolute;top:12px;right:14px;z-index:3;width:32px;height:32px;border-radius:8px;cursor:pointer;
+  background:rgba(0,0,0,.5);border:1px solid var(--border);color:var(--text);font-size:16px;}
+.dart{width:100%;aspect-ratio:1175/1208;object-fit:cover;display:block;background:#000;border-bottom:1px solid rgba(201,151,58,.25);}
+.dbody{padding:20px 22px 40px;}
+.dbody h2{font-family:'Cinzel',serif;font-size:23px;font-weight:900;letter-spacing:.02em;}
+.dmeta{font-family:'Teko',sans-serif;font-size:14px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin-top:2px;}
+
+/* special move — the fighter's signature technique, named like a scroll title */
+.move{display:flex;align-items:center;gap:10px;margin-top:15px;padding:11px 14px;border-radius:8px;
+  background:linear-gradient(135deg,rgba(201,151,58,.14),rgba(139,26,16,.10));border:1px solid rgba(201,151,58,.3);}
+.move .mk{font-family:'Noto Serif JP',serif;font-size:17px;color:var(--gold-l);flex:0 0 auto;}
+.move .ml{font-size:8.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);font-weight:600;}
+.move .mv{font-family:'Cinzel',serif;font-size:14.5px;font-weight:700;color:var(--gold-l);margin-top:1px;}
+
+/* combat stats — Degens only (Demons/Oni don't publish them) */
+.statrow{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:12px;}
+.statt{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:6px;padding:9px 4px;text-align:center;}
+.statt .sv{font-family:'Cinzel',serif;font-size:19px;font-weight:900;color:var(--text);line-height:1;}
+.statt .sk{font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-top:4px;}
+
+/* diary — the long 3rd-person story, with the short first-person quote beneath */
+.diary{margin-top:16px;padding:14px 16px;border-radius:9px;
+  background:linear-gradient(180deg,rgba(201,151,58,.07),rgba(0,0,0,0));border:1px solid rgba(201,151,58,.2);}
+.diary .dk{font-family:'Teko',sans-serif;font-size:12px;letter-spacing:.24em;text-transform:uppercase;color:var(--gold);margin-bottom:7px;}
+.diary p{font-size:13.5px;line-height:1.62;color:#cdbfa8;}
+.diary .q{margin-top:10px;padding-top:10px;border-top:1px dashed rgba(201,151,58,.22);font-style:italic;font-size:13px;color:#9c8f7d;}
+
+.dlink{display:inline-block;margin-top:20px;font-family:'Teko',sans-serif;font-size:15px;letter-spacing:.06em;
+  color:var(--gold-l);border-bottom:1px solid rgba(201,151,58,.4);padding-bottom:2px;}
+.dlink:hover{color:#f4e2b4;}
+/* HELD fighter drawer: a held (not-listed) fighter opens the same drawer in a read-only
+   mode — just art + name + this note + the profile link. All the buy/price machinery hides. */
+.heldnote{margin:16px 0 4px;padding:12px 15px;border:1px solid rgba(201,151,58,.3);border-radius:11px;
+  color:#cdbf9f;font-size:13.5px;line-height:1.55;background:rgba(201,151,58,.06);}
+.drawer.held .move,.drawer.held .statrow,.drawer.held .diary,.drawer.held .ledger,
+.drawer.held .paylab,.drawer.held .pays,.drawer.held .quote,.drawer.held .tiprow,
+.drawer.held .tipnote,.drawer.held .rebate,.drawer.held .own,.drawer.held .ownnote,
+.drawer.held .thead,.drawer.held .traits{display:none!important;}
+
+.ledger{margin:18px 0 4px;border-top:1px solid rgba(201,151,58,.22);border-bottom:1px solid rgba(201,151,58,.22);padding:12px 0;}
+.lrow{display:flex;justify-content:space-between;font-size:13px;color:#9c8f7d;padding:3px 0;}
+.lrow b{color:var(--text);font-weight:600;}
+.lrow.tot{border-top:1px dashed rgba(201,151,58,.25);margin-top:7px;padding-top:9px;}
+.lrow.tot span{font-family:'Cinzel',serif;font-size:13px;letter-spacing:.05em;color:var(--gold);}
+.lrow.tot b{font-family:'Cinzel',serif;font-size:19px;font-weight:900;color:var(--gold-l);}
+
+.paylab{font-family:'Teko',sans-serif;font-size:13px;letter-spacing:.24em;text-transform:uppercase;color:var(--muted);margin:18px 0 7px;}
+.pays{display:flex;gap:7px;}
+.pay{flex:1;background:transparent;border:1px solid rgba(201,151,58,.32);border-radius:8px;padding:9px 4px;cursor:pointer;
+  color:#b8ab97;font-family:'Teko',sans-serif;font-size:16px;letter-spacing:.08em;transition:all .16s;}
+.pay:hover{border-color:var(--gold);color:var(--gold-l);}
+.pay.on{background:linear-gradient(135deg,#c8962a,#8b6018);border-color:transparent;color:#0a0814;font-weight:600;}
+.pay small{display:block;font-family:'Inter',sans-serif;font-size:9.5px;letter-spacing:.02em;opacity:.75;}
+.pay .ptok{width:15px;height:15px;border-radius:50%;vertical-align:middle;margin-top:-2px;}
+.pay .pdollar{font-weight:700;}
+.quote{margin-top:11px;font-size:12.5px;color:#9c8f7d;line-height:1.55;min-height:20px;}
+.quote b{color:var(--text);}
+/* optional tip — denominated in whatever currency is selected, feeds the Dojo Pot */
+.tiprow{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;}
+.tiplab{font-family:'Teko',sans-serif;font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);}
+.tiplab small{display:block;font-family:'Inter',sans-serif;font-size:9.5px;letter-spacing:.02em;text-transform:none;opacity:.7;}
+.tipinput{display:flex;align-items:center;gap:6px;background:rgba(0,0,0,.25);border:1px solid rgba(201,151,58,.32);border-radius:9px;padding:5px 10px;}
+.tipinput input{width:74px;background:transparent;border:none;color:var(--text);font-family:'Teko',sans-serif;font-size:19px;text-align:right;outline:none;}
+.tipinput input::-webkit-outer-spin-button,.tipinput input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+.tipcur{display:flex;align-items:center;gap:4px;font-family:'Teko',sans-serif;font-size:16px;color:var(--gold-l);white-space:nowrap;}
+.tipcur img{width:15px;height:15px;border-radius:50%;}
+.tipnote{margin-top:8px;font-size:12px;color:#c9b98f;line-height:1.5;}
+.tipnote b{color:var(--gold-l);}
+.rebate{margin-top:11px;padding:11px 13px;border-radius:9px;font-size:12.5px;line-height:1.55;
+  background:linear-gradient(180deg,rgba(46,204,113,.10),rgba(0,0,0,0));border:1px solid rgba(46,204,113,.34);color:#bfe9cf;}
+.rebate b{color:#7be6a0;}
+.own{margin-top:16px;width:100%;padding:15px 0;border:none;border-radius:9px;cursor:pointer;
+  background:linear-gradient(135deg,#c8962a,#8b6018);color:#0a0814;
+  font-family:'Cinzel',serif;font-size:13px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;}
+.own:hover{filter:brightness(1.1);}
+.own[disabled]{background:#241f19;color:#6b6157;cursor:not-allowed;filter:none;}
+.ownnote{font-size:11.5px;color:var(--muted);text-align:center;margin-top:8px;line-height:1.5;}
+
+.traits{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:22px;}
+.trait{background:rgba(255,255,255,.03);border:1px solid var(--border);border-left:3px solid var(--muted);
+  border-radius:5px;padding:8px 11px;}
+.trait .tl{font-size:8.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);font-weight:600;}
+.trait .tv{font-size:12.5px;font-weight:600;margin-top:2px;}
+.thead{font-family:'Cinzel',serif;font-size:14px;font-weight:700;letter-spacing:.1em;margin-top:24px;color:var(--gold);}
+
+/* ── wallet picker ──────────────────────────────────────────────── */
+.wscrim{position:fixed;inset:0;z-index:100;background:rgba(4,3,8,.72);backdrop-filter:blur(4px);display:none;}
+.wscrim.open{display:block;}
+.wmodal{position:fixed;z-index:101;left:50%;top:50%;transform:translate(-50%,-46%);width:min(360px,92vw);
+  background:linear-gradient(180deg,#181019,#0d0a11);border:1px solid rgba(201,151,58,.34);border-radius:16px;
+  padding:24px 22px 20px;box-shadow:0 30px 70px -20px #000;display:none;}
+.wmodal.open{display:block;transform:translate(-50%,-50%);transition:transform .2s ease;}
+.wtitle{font-family:'Cinzel',serif;font-size:20px;font-weight:900;letter-spacing:.03em;text-align:center;
+  background:linear-gradient(180deg,#f4e2b4,#e8b84b 50%,#8b6020);-webkit-background-clip:text;background-clip:text;color:transparent;}
+.wsub{text-align:center;color:#9c8f7d;font-size:12.5px;margin:4px 0 18px;}
+.wlist{display:flex;flex-direction:column;gap:8px;}
+.wopt{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;cursor:pointer;
+  background:rgba(255,255,255,.03);border:1px solid rgba(201,151,58,.24);transition:all .15s;}
+.wopt:hover{border-color:var(--gold);background:rgba(201,151,58,.08);}
+.wopt .wi{font-size:20px;width:28px;height:28px;text-align:center;display:inline-flex;align-items:center;justify-content:center;}
+.wopt .wi img{width:28px;height:28px;border-radius:7px;object-fit:contain;}
+.wopt .wn{font-family:'Cinzel',serif;font-size:14px;font-weight:700;}
+.wopt .wtag{margin-left:auto;font-family:'Teko',sans-serif;font-size:12px;letter-spacing:.08em;color:var(--muted);}
+.wopt.detected .wtag{color:#7be6a0;}
+.wfoot{text-align:center;font-size:11px;color:var(--muted);margin-top:16px;line-height:1.5;}
+.cta.connected{background:rgba(201,151,58,.12);color:var(--gold-l);border:1px solid rgba(201,151,58,.4);}
+
+/* ── success takeover ───────────────────────────────────────────── */
+.conquest{position:fixed;inset:0;z-index:130;display:none;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;padding:24px;overflow:hidden;
+  background:radial-gradient(900px 600px at 50% 18%, color-mix(in srgb,var(--red) 42%, var(--ink)), var(--ink) 72%);}
+.conquest.open{display:flex;}
+.cq-close{position:absolute;top:18px;right:22px;font-size:24px;color:var(--text);cursor:pointer;opacity:.7;}
+.cq-close:hover{opacity:1;}
+.cq-inner{position:relative;max-width:440px;animation:cqRise .55s cubic-bezier(.2,.8,.2,1);}
+@keyframes cqRise{from{opacity:0;transform:translateY(22px) scale(.96);}to{opacity:1;transform:none;}}
+.cq-gate{font-size:40px;margin-bottom:2px;}
+.cq-kick{font-family:'Teko',sans-serif;font-size:15px;letter-spacing:.32em;text-transform:uppercase;color:var(--gold);font-weight:600;}
+.cq-art{width:200px;height:auto;aspect-ratio:1175/1208;object-fit:cover;margin:18px auto 12px;display:block;border-radius:12px;
+  border:3px solid var(--gold-l);box-shadow:0 24px 60px -20px var(--red),0 0 30px rgba(232,184,75,.35);}
+.conquest h2{font-family:'Cinzel',serif;font-size:30px;font-weight:900;letter-spacing:.02em;
+  background:linear-gradient(180deg,#f4e2b4,#e8b84b 45%,#8b6020);-webkit-background-clip:text;background-clip:text;color:transparent;}
+.conquest p{color:#c9b79f;margin-top:8px;font-size:15px;}
+.cq-btns{display:flex;gap:10px;justify-content:center;margin-top:22px;flex-wrap:wrap;}
+.cq-share{background:linear-gradient(135deg,var(--red),#e8613f)!important;color:#fff!important;}
+.cq-tx{display:inline-block;margin-top:16px;font-family:'Teko',sans-serif;font-size:14px;letter-spacing:.06em;color:var(--muted);
+  border-bottom:1px solid rgba(201,151,58,.35);padding-bottom:2px;}
+.cq-tx:hover{color:var(--gold-l);}
+.cta.ghost{background:transparent!important;color:var(--text)!important;border:1px solid rgba(201,151,58,.4);}
+.cta.ghost:hover{background:rgba(201,151,58,.1);}
+.cq-btns .cta{padding:12px 18px;font-size:12px;}
+
+/* back-to-top — a little gold jewel, bottom-right, fades in after you scroll */
+#toTop{position:fixed;right:20px;bottom:20px;z-index:70;width:46px;height:46px;border-radius:50%;cursor:pointer;
+  border:1px solid rgba(201,151,58,.5);color:#0a0814;font-size:15px;line-height:1;
+  background:radial-gradient(circle at 35% 30%,#fff3c8,#e8c25a 45%,#c8962a);
+  box-shadow:0 8px 22px -6px rgba(0,0,0,.7),0 0 14px rgba(232,184,75,.4);
+  opacity:0;pointer-events:none;transform:translateY(10px);transition:opacity .25s,transform .25s;}
+#toTop.show{opacity:1;pointer-events:auto;transform:none;}
+#toTop:hover{filter:brightness(1.08);}
+@media(max-width:640px){#toTop{right:14px;bottom:14px;width:42px;height:42px;}}
+
+#toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:120;display:none;max-width:90vw;
+  background:#16161f;border:1px solid rgba(201,151,58,.4);color:var(--text);border-radius:10px;
+  padding:11px 18px;font-size:13px;box-shadow:0 18px 40px -18px #000;}
+
+footer{border-top:1px solid var(--border);padding:24px 20px 34px;text-align:center;color:var(--muted);font-size:11.5px;line-height:1.7;}
+footer a{color:var(--gold);text-decoration:none;}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <a class="brand" href="/"><img class="mk" src="dd-mark.jpg" alt="Degen Dojo" />
+    <div><b>DEGEN DOJO</b><small>THE STORE</small></div></a>
+  <button class="navinfo" id="navInfo" onclick="toggleInfo(event)" aria-label="Collection info">i</button>
+  <button class="navham" id="navHam" onclick="toggleTopNav(event)" aria-label="Menu">☰</button>
+  <nav class="topnav" id="topNav">
+    <a href="#" id="navConnect" onclick="walletClick();return false;">🔑 Connect</a>
+    <a href="/">⌂ Store</a>
+    <a href="/market">🛒 Market</a>
+    <a href="/launch">🚀 Launch</a>
+    <a href="/list">🏷 List</a>
+    <a href="/play">▶ Play</a>
+    <a href="/mine">⛏ Mine</a>
+    <a href="/pot">🏆 Pot</a>
+    <a href="/become-a-preacher">📣 Preacher</a>
+  </nav>
+  <div class="stats" id="statStrip">
+    <div class="stat"><div class="v" id="sFloor">—</div><div class="k">Floor</div></div>
+    <div class="stat"><div class="v" id="sListed">—</div><div class="k">Available</div></div>
+    <div class="stat"><div class="v" id="sChars">—</div><div class="k">Chambers</div></div>
+    <div class="stat"><div class="v" id="sSupply">—</div><div class="k">Supply</div></div>
+  </div>
+  <button class="cta" id="walletBtn" onclick="walletClick()">Connect Wallet</button>
+</div>
+
+<!-- wallet picker -->
+<div class="wscrim" id="wScrim" onclick="closeWallet()"></div>
+<div class="wmodal" id="wModal">
+  <div class="wtitle">Enter the Dojo</div>
+  <div class="wsub">Connect a Solana wallet to own a fighter.</div>
+  <div class="wlist" id="wList"></div>
+  <div id="wStatus" style="display:none;font-size:12.5px;line-height:1.55;text-align:center;margin:12px 4px 0;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,.04);border:1px solid rgba(201,151,58,.22)"></div>
+  <div class="wfoot">Your keys stay in your wallet — the store only reads your address.</div>
+</div>
+
+<!-- No intro block: the tower IS the hero — you land straight on the rising-sun summit.
+     Sort + filter live in a floating button (bottom-right) that opens a small panel. -->
+<style>
+.filterfab{position:fixed;right:18px;bottom:18px;z-index:72;display:flex;align-items:center;gap:8px;
+  font-family:'Cinzel',serif;font-size:12px;font-weight:700;letter-spacing:.06em;color:#1a1206;
+  background:linear-gradient(135deg,#e8b84b,#c8962a);border:1px solid #8a5a1e;border-radius:30px;
+  padding:12px 18px;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.55),0 0 18px rgba(232,184,75,.35);transition:opacity .15s;}
+.filterfab .ffic{font-size:15px;line-height:1;}
+.filterfab:hover{filter:brightness(1.06);}
+.filterfab .fdot{position:absolute;top:-3px;right:-3px;width:11px;height:11px;border-radius:50%;background:#c0392b;border:2px solid #120d12;display:none;}
+.filterfab.active .fdot{display:block;}
+/* The panel opens as a slim bar DOCKED to the bottom edge (slides up from offscreen) — it
+   only ever covers the base strip, never the fighters, and is thumb-reachable on mobile
+   where its controls just wrap to a second row. */
+.filterpanel{position:fixed;left:0;right:0;bottom:0;z-index:73;transform:translateY(110%);transition:transform .22s ease;
+  background:linear-gradient(180deg,#1b141c,#120d12);border-top:1px solid rgba(201,151,58,.4);
+  box-shadow:0 -12px 34px rgba(0,0,0,.6);padding:12px 18px;display:flex;gap:14px;align-items:center;justify-content:flex-start;flex-wrap:wrap;}
+.filterpanel.open{transform:translateY(0);}
+.filterpanel .sortbtns{display:flex;gap:8px;}
+.filterpanel .filterbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.filterpanel .sortcap,.filterpanel .filtercap{font-size:11px;color:var(--muted);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+/* unify the sort button, the filter dropdowns and clear/close into ONE pill style */
+.filterpanel .sortbtn,.filterpanel .fsel,.filterpanel .fclear{height:42px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;
+  background:#0e0c18;border:1px solid rgba(201,151,58,.35);border-radius:9px;color:#e8d5b4;
+  font-family:'Teko',sans-serif;font-weight:600;font-size:15px;letter-spacing:.04em;padding:0 16px;cursor:pointer;max-width:none;}
+.filterpanel .sortbtn small{display:inline;margin:0 0 0 7px;font-size:12px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);}
+.filterpanel .sortbtn.on{border-color:var(--gold);color:var(--gold-l);background:linear-gradient(135deg,rgba(201,151,58,.2),rgba(139,26,16,.12));}
+.filterpanel .sortbtn.on small{color:var(--gold);}
+.filterpanel .fsel{min-width:150px;}
+.filterpanel .fclear{color:#e0655c;border-color:rgba(224,101,92,.5);}
+.filterpanel .fclear[hidden]{display:none;}
+.filterpanel .fsel[hidden]{display:none;}   /* the value dropdown only appears once a trait is chosen */
+.fpclose{margin-left:auto;height:42px;box-sizing:border-box;background:none;border:1px solid rgba(201,151,58,.3);border-radius:9px;color:var(--muted);font-family:'Teko',sans-serif;font-size:15px;cursor:pointer;padding:0 14px;line-height:1;white-space:nowrap;display:flex;align-items:center;}
+.fpclose:hover{color:var(--gold-l);border-color:var(--gold);}
+/* mobile: one straight line — no labels/caps, compact controls, ✕ on the right */
+@media(max-width:640px){
+  .filterfab .fftx{display:none;} .filterfab{padding:13px;border-radius:50%;}
+  .filterpanel{gap:7px;padding:10px;flex-wrap:nowrap;justify-content:flex-start;overflow-x:auto;}
+  .filterpanel .sortcap,.filterpanel .filtercap{display:none;}
+  .filterpanel .sortbtn small{display:none;}
+  .filterpanel .sortbtn{padding:9px 10px;font-size:12px;}
+  .filterpanel .sortbtns{gap:6px;flex:0 0 auto;}
+  .filterpanel .filterbar{flex-wrap:nowrap;gap:6px;flex:1 1 auto;min-width:0;}
+  .filterpanel .fsel{flex:1 1 0;min-width:0;font-size:12px;}
+  .fpclose .fclbl{display:none;}
+  .fpclose{padding:9px 11px;flex:0 0 auto;}
+}
+</style>
+<button class="filterfab" id="filterFab" onclick="toggleFilterPanel()" aria-label="Sort and filter the tower">
+  <span class="ffic">⚙</span><span class="fftx">Sort / Filter</span><span class="fdot"></span>
+</button>
+<div class="filterpanel" id="filterPanel">
+  <!-- sort buttons removed per request — the tower stays on the default "fewest listed per
+       character" order; only the trait filter is exposed. (#sortCap kept, hidden, so render() keeps working.) -->
+  <span class="sortcap" id="sortCap" style="display:none"></span>
+  <div class="filterbar">
+    <select class="fsel" id="fType" onchange="onTraitType()"><option value="">Filter by trait…</option></select>
+    <select class="fsel" id="fValue" onchange="applyFilter()" hidden><option value="">any</option></select>
+    <button class="fclear" id="fClear" onclick="clearFilter()" hidden>✕ clear</button>
+  </div>
+  <span class="filtercap" id="filterCap"></span>
+  <button class="fpclose" onclick="toggleFilterPanel(false)" aria-label="Close">✕<span class="fclbl"> Close</span></button>
+</div>
+
+<style>
+.ddstrip{margin:0 auto 26px;max-width:1180px;padding:16px 18px;border:1px solid rgba(201,151,58,.35);border-radius:16px;
+  background:linear-gradient(180deg,rgba(201,151,58,.08),rgba(201,151,58,.02));}
+.ddstrip h3{font-family:Teko,sans-serif;font-size:24px;letter-spacing:.5px;color:#f0e6d2;margin:0 0 2px;}
+.ddstrip .sub{font-size:12.5px;color:#b8ab90;margin-bottom:14px;}
+.ddstrip .sub b{color:var(--gold,#c9973a);}
+.ddrow{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;}
+.ddcard{border:1px solid rgba(255,255,255,.08);border-radius:12px;overflow:hidden;background:rgba(0,0,0,.25);display:flex;flex-direction:column;}
+.ddcard img{width:100%;aspect-ratio:1/1;object-fit:cover;background:#151013;}
+.ddcard .nm{font-size:12.5px;color:#e7ddc9;padding:8px 10px 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ddcard .pr{font-size:13px;color:var(--gold,#c9973a);font-weight:600;padding:0 10px 8px;}
+.ddcard button{margin:0 8px 8px;padding:7px 0;border:0;border-radius:8px;background:var(--gold,#c9973a);color:#1a1206;font-weight:700;font-size:12px;cursor:pointer;}
+.ddcard button:disabled{opacity:.5;cursor:default;}
+</style>
+<!-- DD-native ORE/SKR/USDC listings now live on the Market page (the "Degen Dojo" case),
+     not as a strip above the tower — see scripts/dd-case.js + build-store-deploy.mjs. -->
+
+<!-- ▲/▼ floor stepper (right edge) + floor counter -->
+<div class="floornav" id="floorNav">
+  <button id="floorUp" onclick="stepFloor(-1)" aria-label="Previous floor">▲</button>
+  <div class="fcount" id="floorCount">1 / 1</div>
+  <div class="floordots" id="floorDots" aria-hidden="true"></div>
+  <button id="floorDown" onclick="stepFloor(1)" aria-label="Next floor">▼</button>
+</div>
+
+<div class="tower" id="tower"></div>
+
+<div class="scrim" id="scrim" onclick="closeDrawer()"></div>
+<aside class="drawer" id="drawer">
+  <button class="dclose" onclick="closeDrawer()">✕</button>
+  <img class="dart" id="dArt" alt="" />
+  <div class="dbody">
+    <h2 id="dName"></h2>
+    <div class="dmeta" id="dMeta"></div>
+    <div class="heldnote" id="dHeld" style="display:none"></div>
+    <div class="move" id="dMove" style="display:none"></div>
+    <div class="statrow" id="dStats" style="display:none"></div>
+    <div class="diary" id="dDiary" style="display:none"></div>
+    <div class="ledger" id="dLedger"></div>
+    <div class="paylab">Pay with</div>
+    <div class="pays">
+      <div class="pay on" data-cur="ORE" style="cursor:default;pointer-events:none"><img class="ptok" id="payOreIcon" src="" alt="" /> ORE<small id="oreTag">rebate</small></div><!-- ORE is the only way to pay: a label, not a button -->
+    </div>
+    <div class="quote" id="dQuote"></div>
+    <div class="tiprow">
+      <span class="tiplab">Optional tip<small>goes to the Dojo Pot</small></span>
+      <div class="tipinput">
+        <input id="tipAmt" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0" oninput="onTip()" />
+        <span class="tipcur" id="tipCur"><img id="tipIcon" src="" alt="" /> SOL</span>
+      </div>
+    </div>
+    <div class="tipnote" id="dTip" style="display:none"></div>
+    <div class="rebate" id="dRebate" style="display:none"></div>
+    <button class="own" id="dOwn" onclick="ownClick()">⚔ Own</button>
+    <div class="ownnote" id="dOwnNote"></div>
+    <div class="thead">Traits</div>
+    <div class="traits" id="dTraits"></div>
+    <a class="dlink" id="dLink" target="_blank" rel="noopener" style="display:none">Read the full dossier on degendojo.xyz ↗</a>
+  </div>
+</aside>
+
+<!-- success takeover — shown after a purchase completes -->
+<div class="conquest" id="conquest">
+  <div class="cq-close" onclick="closeConquest()">✕</div>
+  <div class="cq-inner">
+    <div class="cq-gate">⛩️</div>
+    <div class="cq-kick">Welcome to the Dojo</div>
+    <img class="cq-art" id="cqArt" alt="" />
+    <h2 id="cqName">Degen</h2>
+    <p>The fighter is yours. Honor the ones who stayed.</p>
+    <div class="cq-btns">
+      <button class="cta cq-share" id="cqShare">Share your conquest on 𝕏</button>
+      <button class="cta ghost" onclick="closeConquest()">Back to the dojo</button>
+    </div>
+    <a class="cq-tx" id="cqTx" target="_blank" rel="noopener">View the transaction ↗</a>
+  </div>
+</div>
+
+<button id="toTop" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Back to the summit" aria-label="Scroll to top">▲</button>
+
+<div id="toast"></div>
+
+
+<footer>
+  Listings read directly from Solana program state · Magic Eden and Tensor books, no marketplace API.<br />
+  Prices shown are all-in — list price plus the <span id="fRoy">13</span>% creator royalty plus the marketplace's 2% taker fee.<br />
+  Indexed <span id="fWhen">—</span> · <a href="https://degendojo.xyz">degendojo.xyz</a>
+</footer>
+
+<script>
+const STORE = __STORE_DATA__;
+// Demons (now in Demon Dojo) + sensei NPCs share character names with real degens, so a live
+// Magic Eden listing for a demon "Teary Goro" would otherwise land in the degen floor and show
+// raw demon art. Excluded by MINT everywhere (first paint AND the 60s live refresh).
+const CARDLESS_MINTS = new Set(__CARDLESS_MINTS__);
+
+// Trait emoji, lifted at build time from the site's lore explorer so the store
+// speaks the same visual language. { cat: type→emoji, val: value→emoji }
+const TRAIT_EMOJI = __TRAIT_EMOJI__;
+const catEmoji = (t) => TRAIT_EMOJI.cat[t] || '';
+const valEmoji = (v) => TRAIT_EMOJI.val[v] || '';
+
+const ICON = {
+  sol: "data:image/png;base64,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",
+  skr: "data:image/png;base64,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",
+  ore: "data:image/png;base64,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",
+};
+
+/* Payment config. The rebate is half the creator royalty, handed back to buyers
+   who pay in ORE — funded out of the royalty itself, so it costs nothing upfront. */
+const CFG = {
+  oreRebateShareOfRoyalty: 0.5,
+  jup: 'https://lite-api.jup.ag',
+  // Same-origin proxy. This file is public, so it must never carry a keyed RPC
+  // URL; the Netlify function behind /api/rpc holds it. Solana's own public
+  // node refuses browser origins outright, so a proxy isn't optional.
+  // For local testing: ?rpc=<url> or localStorage.ddRpc = '<url>'.
+  rpc: new URLSearchParams(location.search).get('rpc')
+       || localStorage.getItem('ddRpc')
+       || '/api/rpc',
+  // Set to a wallet you control to earn the referral share of Magic Eden's
+  // taker fee on every sale the store routes.
+  buyerReferral: null,
+};
+const MINTS = {
+  SOL:   'So11111111111111111111111111111111111111112',
+  SKR:   'SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3',
+  ORE:   'oreoU2P8bN6jkk3jbaiVxYnG1dCXcYxwhwyK9jSybcp',   // the rebate is paid in plain ORE (see scripts/ore-rebate.mjs)
+};
+let PRICES = { SOL:null, ORE:null, SKR:null };
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const solIcon = `<img class="tok" src="${ICON.sol}" alt="SOL" />`;
+const oreIcon = `<img class="tok" src="${ICON.ore}" alt="ORE" />`;
+const skrIcon = `<img class="tok" src="${ICON.skr}" alt="SKR" />`;
+// ORE-only marketplace: convert an all-in SOL amount to ORE for display (null until prices load).
+const oreOf = (s) => (PRICES.SOL && PRICES.ORE) ? (s * PRICES.SOL / PRICES.ORE) : null;
+const oreFmt = (s) => { const o = oreOf(s); return o != null ? o.toLocaleString('en-US',{maximumFractionDigits:o<100?1:0}) : '…'; };
+// Grid thumbnails: the source art is ~1.4 MB each — far too heavy for a wall of
+// them (a webp thumb is ~8 KB). On the deployed site we use Netlify's own image
+// CDN (same-origin, fast, no third-party dependency); for local preview we use
+// wsrv.nl, which resizes anywhere. The full image loads only in the drawer.
+const AR = 1208/1175;
+const IS_LOCAL = /^(localhost|127\.|0\.0\.0\.0|\[?::1)/.test(location.hostname) || location.protocol === 'file:';
+function thumb(url, w = 300) {
+  if (!url) return '';
+  const h = Math.round(w * AR);
+  return IS_LOCAL
+    ? `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=${w}&h=${h}&fit=cover&output=webp`
+    : `/.netlify/images?url=${encodeURIComponent(url)}&w=${w}&h=${h}&fit=cover`;
+}
+const sol = (n) => (Math.round(n*1000)/1000).toLocaleString('en-US',{maximumFractionDigits:3});
+const usd = (n) => n==null ? '' : '$'+n.toLocaleString('en-US',{maximumFractionDigits:n<10?2:0});
+const trait = (l,t) => (l.attributes.find(a=>a.trait_type===t)||{}).value || '';
+
+/* ── one floor per character — the whole roster, listed or not ────── */
+// The working set of listings — starts from the baked-in snapshot, then trimmed
+// live as sales are detected (see refreshListings).
+let LIVE = STORE.listings.slice();
+
+const uMint = (u) => Array.isArray(u) ? u[0] : (u && u.mint);
+function buildFloors(listings) {
+  const byChar = new Map();
+  for (const l of listings) {
+    if (CARDLESS_MINTS.has(l.mint)) continue;   // demon/sensei copies never belong in the degen tower
+    const c = trait(l,'Character') || l.name || 'Unknown';
+    if (!byChar.has(c)) byChar.set(c, []);
+    byChar.get(c).push(l);
+  }
+  // Start from the full character roster so every character gets a chamber —
+  // the ones with no listing render faded, keeping the tower the full building.
+  const floors = (STORE.characters || []).map((c) => {
+    const items = (byChar.get(c.character) || []).sort((a,b)=>a.priceAllIn-b.priceAllIn);
+    byChar.delete(c.character);
+    const unlisted = (c.unlisted || []).filter((u) => !CARDLESS_MINTS.has(uMint(u)));   // drop demon/sensei held copies
+    return { character: c.displayName || c.character, trait: c.character,
+             race: c.race, supply: c.supply, unlisted, items,
+             from: items.length ? items[0].priceAllIn : null };
+  });
+  // Any listed character somehow absent from the roster (defensive) still shows.
+  for (const [character, items] of byChar) {
+    items.sort((a,b)=>a.priceAllIn-b.priceAllIn);
+    floors.push({ character, unlisted: [], items, from: items[0].priceAllIn });
+  }
+  // Drop chambers that are now completely empty (e.g. a demon-only character) so no
+  // blank floor is left behind; real degen chambers with held copies stay (faded).
+  return floors.filter((f) => f.items.length || (f.unlisted && f.unlisted.length));
+}
+let ALL_FLOORS = buildFloors(LIVE);
+
+/* The order reads straight down the tower: the top floor is first, the base is
+   last. Each button sorts by its key; clicking the active button again flips the
+   direction (and its label). Faded chambers keep to the very bottom and follow
+   the same key + direction, so a sort "applies to the faded ones" too. */
+// Rank = rarity. Races are ranked by how few of them exist (Gods / Senseis /
+// Oni Senseis up top, Degens at the bottom), then by the character's own supply.
+// Derived from the roster, so it needs no hardcoded tier list.
+const RACE_RANK = (() => {
+  const size = {};
+  for (const c of STORE.characters) size[c.race ?? ''] = (size[c.race ?? ''] || 0) + c.supply;
+  const order = Object.entries(size).sort((a,b)=> a[1]-b[1]).map(([r])=>r);
+  return Object.fromEntries(order.map((r,i)=>[r,i]));
+})();
+const rankKey = (f) => (RACE_RANK[f.race ?? ''] ?? 99) * 1e6 + (f.supply ?? 0);
+
+let sortMode = 'scarce', sortDir = 1;   // default: fewest-listed-per-character first (surfaces the scarcest available fighters); +1 = first label, -1 = flipped
+const SORT = {
+  name:  { labels:['A → Z','Z → A'],
+           key:(a,b)=> a.character.localeCompare(b.character),
+           cap:(top,base)=> `<b>${top.character.charAt(0)}</b> at the top → <b>${base.character.charAt(0)}</b> at the base` },
+  rank:  { labels:['rare → common','common → rare'],
+           key:(a,b)=> rankKey(a)-rankKey(b),
+           cap:(top,base)=> `<b>${top.race||top.character}</b> at the top → <b>${base.race||'Degens'}</b> at the base` },
+  price: { labels:['low → high','high → low'],
+           key:(a,b)=> a.from-b.from,
+           cap:(top,base)=> `<b>${oreIcon}${oreFmt(top.from)}</b> at the top → <b>${oreIcon}${oreFmt(base.from)}</b> at the base` },
+  // Fewest listed per character first — the fighters you can actually buy that are scarcest
+  // on the market lead; chambers with nothing for sale fall to the faded base.
+  scarce:{ labels:['scarcest first','most listed first'],
+           key:(a,b)=> a.items.length - b.items.length,
+           cap:(top,base)=> `<b>${top.character}</b> · ${top.items.length} listed at the top` },
+};
+function orderedFloors() {
+  const S = SORT[sortMode], tie = (a,b)=> a.character.localeCompare(b.character);
+  if (sortMode === 'price' || sortMode === 'scarce') {
+    // Only listed floors have a price; the rest (no price) settle at the base,
+    // ordered by rank so the held rarities still lead that section.
+    const listed = ALL_FLOORS.filter(f=>f.items.length).sort((a,b)=> sortDir*S.key(a,b) || tie(a,b));
+    const faded  = ALL_FLOORS.filter(f=>!f.items.length).sort((a,b)=> rankKey(a)-rankKey(b) || tie(a,b));
+    return [...listed, ...faded];
+  }
+  // Name and Rank order every chamber together — listed or not.
+  return [...ALL_FLOORS].sort((a,b)=> sortDir*S.key(a,b) || tie(a,b));
+}
+let FLOORS = orderedFloors();
+
+/* ── trait filter ────────────────────────────────────────────────
+   Built from the traits of everything currently for sale, using the same
+   categories the site's trait pages use. Filtering narrows the tower to the
+   listings that carry that trait — the held copies step aside while it's on,
+   because only listings carry per-fighter traits in the store payload. */
+const FILTER_CATS = ['Character','Race','Weapon','Clothing','Hair','Glasses','Accessories','Background','Generation'];
+const TRAIT_INDEX = (() => {
+  const idx = {};
+  for (const l of STORE.listings) {
+    for (const a of l.attributes || []) {
+      if (!FILTER_CATS.includes(a.trait_type)) continue;
+      ((idx[a.trait_type] ??= {})[a.value] ??= 0);
+      idx[a.trait_type][a.value]++;
+    }
+  }
+  return idx;
+})();
+let filterType = '', filterValue = '';
+
+function buildFilterUI() {
+  const t = $('fType');
+  t.innerHTML = '<option value="">Filter by trait…</option>' +
+    FILTER_CATS.filter(c => TRAIT_INDEX[c]).map(c =>
+      `<option value="${esc(c)}">${catEmoji(c)} ${esc(c)} (${Object.keys(TRAIT_INDEX[c]).length})</option>`).join('');
+}
+function onTraitType() {
+  filterType = $('fType').value;
+  const v = $('fValue');
+  if (!filterType) { v.innerHTML = '<option value="">any</option>'; v.hidden = true; clearFilter(); return; }
+  const vals = Object.entries(TRAIT_INDEX[filterType]).sort((a,b)=> b[1]-a[1] || a[0].localeCompare(b[0]));
+  v.innerHTML = '<option value="">any ' + esc(filterType) + '</option>' +
+    vals.map(([val,n]) => `<option value="${esc(val)}">${valEmoji(val)} ${esc(val)} · ${n}</option>`).join('');
+  v.hidden = false;
+  filterValue = '';
+  applyFilter();
+}
+function applyFilter() {
+  filterValue = $('fValue').value;
+  $('fClear').hidden = !(filterType && filterValue);
+  render();
+}
+function clearFilter() {
+  filterType = ''; filterValue = '';
+  $('fType').value = ''; $('fValue').innerHTML = '<option value="">any</option>'; $('fValue').hidden = true;
+  $('fClear').hidden = true;
+  render();
+}
+// Floating Sort/Filter button: toggle its panel, close on outside click, and show a
+// dot on the button whenever a non-default sort or a trait filter is active.
+function toggleFilterPanel(force) {
+  const p = $('filterPanel'); if (!p) return;
+  const open = force === undefined ? !p.classList.contains('open') : !!force;
+  p.classList.toggle('open', open);
+  const f = $('filterFab'); if (f) { f.style.opacity = open ? '0' : ''; f.style.pointerEvents = open ? 'none' : ''; }
+}
+function updateFilterFab() {
+  const f = $('filterFab'); if (!f) return;
+  f.classList.toggle('active', filterOn() || sortDir !== 1);
+}
+document.addEventListener('click', (e) => {
+  const p = $('filterPanel'), f = $('filterFab');
+  if (!p || !f || !p.classList.contains('open')) return;
+  if (!p.contains(e.target) && !f.contains(e.target)) p.classList.remove('open');
+});
+
+/* ── fixed summit + floor-to-floor stepper ──────────────────────────
+   The rising-sun summit is sticky under the nav; floors scroll under it and snap.
+   The ▲/▼ stepper jumps whole floors, the counter shows where you are, and the
+   summit's sun dims whenever the floor in view is a sold-out (faded) chamber. */
+function setNavH(){ const t=document.querySelector('.top'); const h=t?Math.round(t.getBoundingClientRect().height):60; document.documentElement.style.setProperty('--navH', h+'px');
+  const s=document.getElementById('summit'); document.documentElement.style.setProperty('--summitH', (s?Math.round(s.offsetHeight):196)+'px'); }
+const floorEls = () => [...document.querySelectorAll('#tower .floor')];
+// mobile floor-position dots: one per floor, tap to jump; rebuilt when the floor count changes.
+function floorTo(i){ const els = floorEls(); if (!els[i]) return;
+  floorLock = true; els[i].scrollIntoView({ behavior:'smooth', block:'start' });
+  setTimeout(() => { floorLock = false; updateFloorNav(); }, 420); }
+function buildFloorDots(n){ const dots = $('floorDots'); if (!dots) return;
+  let h=''; for (let i=0;i<n;i++) h += `<div class="fd" onclick="floorTo(${i})"></div>`; dots.innerHTML = h; }
+function summitLine(){ return (parseInt(getComputedStyle(document.documentElement).getPropertyValue('--navH')) || 64); }
+function currentFloorIndex(){ const els = floorEls(), line = summitLine() + 40; let idx = 0;
+  for (let i = 0; i < els.length; i++){ if (els[i].getBoundingClientRect().top <= line) idx = i; else break; } return idx; }
+function updateFloorNav(){ const els = floorEls(), cnt = $('floorCount'), up = $('floorUp'), dn = $('floorDown');
+  if (typeof placeArrows === 'function') placeArrows();   // keep the ‹ › arrows centred in the gutter
+  if (!els.length){ if (cnt) cnt.textContent = '0 / 0'; return; }
+  const idx = currentFloorIndex();
+  if (cnt) cnt.textContent = (idx + 1) + ' / ' + els.length;
+  if (up) up.disabled = idx <= 0; if (dn) dn.disabled = idx >= els.length - 1;
+  const dots = $('floorDots');
+  if (dots){ if (dots.children.length !== els.length) buildFloorDots(els.length);
+    [...dots.children].forEach((d,i) => d.classList.toggle('on', i === idx));
+    const act = dots.children[idx]; if (act) act.scrollIntoView({ block:'nearest' }); } }
+let floorLock = false;
+function stepFloor(dir){ const els = floorEls(); if (!els.length || floorLock) return;
+  const idx = Math.max(0, Math.min(els.length - 1, currentFloorIndex() + dir));
+  floorLock = true; els[idx].scrollIntoView({ behavior: 'smooth', block: 'start' });
+  setTimeout(() => { floorLock = false; updateFloorNav(); }, 420); }
+// one whole floor per gesture — wheel, swipe or ↑/↓ jump a floor instead of scrolling slowly.
+// (disabled while the filter bar or a fighter drawer is open, so those can scroll normally.)
+function pagerBusy(){ const fp = $('filterPanel'), sc = document.querySelector('.scrim');
+  return (fp && fp.classList.contains('open')) || (sc && getComputedStyle(sc).display !== 'none'); }
+addEventListener('wheel', (e) => { if (pagerBusy() || Math.abs(e.deltaY) < 6) return; e.preventDefault(); stepFloor(e.deltaY > 0 ? 1 : -1); }, { passive: false });
+let _tY = null, _tX = null;
+addEventListener('touchstart', (e) => { _tY = e.touches[0].clientY; _tX = e.touches[0].clientX; }, { passive: true });
+addEventListener('touchmove', (e) => { if (_tY != null && !pagerBusy()) e.preventDefault(); }, { passive: false });
+addEventListener('touchend', (e) => {
+  if (_tY == null || pagerBusy()) { _tY = _tX = null; return; }
+  const dy = _tY - e.changedTouches[0].clientY, dx = _tX - e.changedTouches[0].clientX;
+  if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 30) page(currentFloorIndex(), dx > 0 ? 1 : -1);   // swipe L/R → page within the floor
+  else if (Math.abs(dy) > 26) stepFloor(dy > 0 ? 1 : -1);                                             // swipe up/down → change floor
+  _tY = _tX = null;
+}, { passive: true });
+// Centre the in-floor ‹ › arrows in the light-brown gutter between the card and the gold
+// post. The card is height-driven on mobile, so the gutter varies by device — measure it
+// and expose it as --gut (the shutter CSS positions off it).
+function placeArrows(){ try{ const tile=document.querySelector('.floor .tile'); if(!tile) return; const fb=tile.closest('.floorbody'); if(!fb) return; const tr=tile.getBoundingClientRect(), br=fb.getBoundingClientRect(); const visW=Math.min(tr.width, tr.height*664/1080); /* the VISIBLE card (img is object-fit:contain; the rest of the tile is shoji-paper letterbox) */ const gut=Math.max(0,(br.width - visW)/2); document.documentElement.style.setProperty('--gut', gut.toFixed(1)+'px'); }catch(e){} }
+addEventListener('resize', placeArrows);
+addEventListener('load', () => setTimeout(placeArrows, 60));
+addEventListener('keydown', (e) => { if (pagerBusy()) return;
+  if (e.key === 'ArrowDown' || e.key === 'PageDown') { e.preventDefault(); stepFloor(1); }
+  else if (e.key === 'ArrowUp' || e.key === 'PageUp') { e.preventDefault(); stepFloor(-1); } });
+addEventListener('scroll', updateFloorNav, { passive: true });
+addEventListener('resize', setNavH);
+addEventListener('load', () => { setNavH(); updateFloorNav(); });
+setNavH();
+const filterOn = () => !!(filterType && filterValue);
+const matchesFilter = (l) => !filterOn() ||
+  (l.attributes || []).some(a => a.trait_type === filterType && a.value === filterValue);
+
+/* How many fit on a shelf. Kept in sync with the CSS custom property so the
+   pager maths and the layout can never disagree. */
+const perFloor = () => (window.matchMedia('(max-width:640px)').matches ? 1 : 3);
+
+/* The price tag: one line, USDC | SOL | ORE, each with its own symbol ($, ◎, ⛏),
+   SOL emphasised. USDC/ORE fill in once live Jupiter prices arrive (the tower
+   re-renders when they do). */
+function fudaPrice(allInSol) {
+  const usd  = PRICES.SOL ? allInSol * PRICES.SOL : null;
+  const oreN = (PRICES.SOL && PRICES.ORE) ? usd / PRICES.ORE : null;
+  // ORE-only marketplace: ORE amount (left) · ORE symbol (dead-centre) · USDC value (right).
+  const oreDisp = oreN != null ? oreN.toLocaleString('en-US',{maximumFractionDigits:oreN<100?1:0}) : '…';
+  const usdDisp = usd != null ? '$' + usd.toLocaleString('en-US',{maximumFractionDigits:usd<100?2:0}) : '';
+  return `<span class="fs">${oreDisp}</span>${oreIcon}<span class="fu">${usdDisp}</span>`;
+}
+
+// Most art is .png but some fighters are .jpg — the indexer carries the odd
+// ones out, because guessing the extension 403s.
+const S3IMG = (mint, ext) => `https://degendojo.s3.us-west-1.amazonaws.com/degen/img/${mint}.${ext || 'png'}`;
+// The collectible CARD image (portrait). Tiles show this now; fall back to the art for cardless races.
+// ?v=2 busts the Netlify image proxy + browser caches after the cards were re-rendered at
+// 2× (664×1080). S3 ignores the query and serves the new object; bump this if cards change again.
+const cardImg = (mint) => `https://degendojo.s3.us-west-1.amazonaws.com/degen/card/${mint}.png?v=4`;
+// Request the card at DEVICE-pixel resolution so it's crisp on retina/hi-dpi screens (a 235px
+// tile on a 2× display needs ~470px of image, not 300). Capped near the card's native width
+// (~664px) so we never upscale past the source. This is the #4 "cards look low quality" fix.
+const cardPx = (w) => Math.min(640, Math.round(w * Math.min(2, (typeof window!=='undefined' && window.devicePixelRatio) || 1)));  // 640 = the card's native render width
+function cardThumb(mint, w = 300) {
+  const rw = cardPx(w), url = cardImg(mint), h = Math.round(rw * 1.627);   // card ratio ~664:1080
+  return IS_LOCAL
+    ? `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=${rw}&h=${h}&fit=contain&output=webp`
+    : `/.netlify/images?url=${encodeURIComponent(url)}&w=${rw}&h=${h}&fit=contain`;
+}
+const cardWsrv = (mint, w = 300) => { const rw = cardPx(w); return `https://wsrv.nl/?url=${encodeURIComponent(cardImg(mint))}&w=${rw}&h=${Math.round(rw*1.627)}&fit=contain&output=webp`; };
+/* A tile's card can fail to load for two reasons: the Netlify image proxy throttles
+   under load (transient — the card DOES exist), or the fighter genuinely has no card
+   yet (IPFS/rugged). So step through the card on OTHER routes first and only drop to
+   the original art as a last resort — a throttled proxy must never turn a card into
+   its raw (sometimes zombie-looking) art. */
+function cardStep(img){
+  const m=img.dataset.mint, raw=img.dataset.raw, w=+(img.dataset.w||300);
+  const s=(+(img.dataset.step||0))+1; img.dataset.step=s;
+  if(s===1) img.src=cardWsrv(m,w);        // retry the card via a different proxy
+  else if(s===2) img.src=cardImg(m);      // the card PNG straight from S3 (no proxy)
+  else if(s===3 && raw) img.src=raw;      // last resort: the original art
+  else img.onerror=null;
+}
+
+// A listed fighter: clickable, priced.
+const listedSlot = (fi, i, l) => `
+  <div class="slot" onclick="openDrawer(${fi},${i})">
+    <div class="tile">
+      <img src="${cardThumb(l.mint, 640)}" data-mint="${l.mint}" data-w="640" data-raw="${thumb(l.image)}" alt="${esc(l.name)}" loading="lazy" onerror="cardStep(this)" />
+      ${l.source==='tensor' ? '<span class="src" title="Listed on Tensor">天</span>' : ''}
+    </div>
+    <div class="fuda">${fudaPrice(l.priceAllIn)}</div>
+  </div>`;
+
+// A copy of this character that isn't for sale — shown in full colour like the
+// listed ones, tagged OWNED, and clicking it opens that fighter's own page.
+// Injected lazily (see hydrateFaded) so a 150-copy floor doesn't build 150 nodes.
+const DD = 'https://degendojo.xyz';
+const ghostSlot = ([mint, num, ext], name) => `
+  <div class="slot ghost"${num!=null?` data-mint="${mint}" data-num="${num}" data-name="${esc(name)}" data-ext="${ext||'png'}" onclick="openHeldEl(this)" title="View ${esc(name)}"`:''}>
+    <div class="tile"><img src="${cardThumb(mint, 640)}" data-mint="${mint}" data-w="640" data-raw="${thumb(S3IMG(mint, ext), 460)}" alt="${esc(name)}" loading="lazy" onerror="cardStep(this)" /></div>
+    <div class="fuda ntag"><span class="owned">Owned</span></div>
+  </div>`;
+
+function render() {
+  const per = perFloor();
+  document.documentElement.style.setProperty('--per', per);
+
+  // ONE fixed brand rising sun behind the tower (static — not rotating).
+  let html = '<div class="risingsun" aria-hidden="true"><div class="fsrays"></div><div class="fsdisc"></div></div>';
+  let shownListed = 0, shownFloors = 0;
+  FLOORS.forEach((f, fi) => {
+    // While a trait filter is on, a floor shows only its matching listings.
+    const items = filterOn() ? f.items.filter(matchesFilter) : f.items;
+    if (filterOn() && !items.length) return;          // chamber has no match — skip it
+    shownListed += items.length; shownFloors++;
+    const listedN = items.length;
+    const unlistedN = filterOn() ? 0 : (f.unlisted || []).length;
+    const total = listedN + unlistedN;
+    const pages = Math.max(1, Math.ceil(total / per));
+
+    // Lanterns: how many are listed (inside) of how many exist (below).
+    // top bulb (lit) = how many are LISTED; bottom bulb (dark) = how many are held / NOT listed.
+    const heldN = Math.max(0, (f.supply != null ? f.supply : total) - listedN);
+    const lantern = (side) => `<div class="chochin ${side}">
+        <i>${listedN}</i><b>${heldN.toLocaleString('en-US')}</b>
+      </div>`;
+
+    // Only the listed fighters are built now; the held copies are injected when
+    // the floor scrolls into view. Index is the one in f.items so the drawer
+    // still resolves correctly while a filter is narrowing the shelf.
+    const listedSlots = items.map((l) => listedSlot(fi, f.items.indexOf(l), l)).join('');
+    // name plate only — the price lives on the fuda tag under each fighter, not up here
+    const kanban = `<span class="nm">${esc(f.character)}</span>`;
+
+    html += `
+      <div class="floor${listedN?'':' faded'}" data-floor="${fi}" data-page="0" ${unlistedN?`data-faded="${fi}"`:''}>
+        <div class="floorbody">
+          <div class="roof"><span class="ridge"></span></div>
+          <div class="kanban">${kanban}</div>
+          ${lantern('l')}${lantern('r')}
+          <div class="shelf">
+            ${pages>1 ? `<div class="shutter l" onclick="page(${fi},-1)" disabled>‹</div>
+                         <div class="shutter r" onclick="page(${fi},1)">›</div>
+                         <div class="pager" id="pg${fi}">1 / ${pages}</div>` : ''}
+            <div class="rail"><div class="track" id="tr${fi}">${listedSlots}</div></div>
+          </div>
+        </div>
+      </div>`;
+  });
+  html += '<div class="base"><span>道場</span></div><div class="steps"></div>';
+  const held = STORE.supply - STORE.listedCount;
+  html += filterOn()
+    ? `<div class="groundnote">${shownListed} for sale carrying <b>${esc(filterValue)}</b>, across ${shownFloors} chamber${shownFloors===1?'':'s'}.</div>`
+    : `<div class="groundnote">${STORE.listedCount} for sale · ${held.toLocaleString('en-US')} more held across ${FLOORS.length} chambers.
+       Fighters tagged OWNED aren't listed — their owners haven't put them up. Every fighter opens its own page.</div>`;
+  $('tower').innerHTML = html;
+
+  // Price describes its listed range; Character/Rank describe the whole tower.
+  const capFloors = (sortMode==='price'||sortMode==='scarce') ? FLOORS.filter(f=>f.items.length) : FLOORS;
+  $('sortCap').innerHTML = capFloors.length
+    ? SORT[sortMode].cap(capFloors[0], capFloors[capFloors.length-1]) : '';
+  $('filterCap').innerHTML = filterOn()
+    ? `Showing only listings with <b>${esc(filterType)} · ${esc(filterValue)}</b> — ${shownListed} fighter${shownListed===1?'':'s'}. Held copies are hidden while filtering.`
+    : '';
+
+  observeFaded();
+  updateFilterFab();
+  updateFloorNav();
+}
+
+/* Inject a floor's faded copies the first time it nears the viewport, so the
+   whole collection can live in the tower without building thousands of tiles or
+   fetching thousands of images up front. */
+let fadedObserver = null;
+function observeFaded() {
+  fadedObserver?.disconnect();
+  fadedObserver = new IntersectionObserver((entries) => {
+    for (const e of entries) if (e.isIntersecting) { hydrateFaded(+e.target.dataset.floor); fadedObserver.unobserve(e.target); }
+  }, { rootMargin: '600px 0px' });
+  document.querySelectorAll('.floor[data-faded]').forEach((el) => fadedObserver.observe(el));
+}
+function hydrateFaded(fi) {
+  const floor = document.querySelector(`.floor[data-floor="${fi}"]`);
+  if (!floor || floor.dataset.hydrated) return;
+  floor.dataset.hydrated = '1';
+  const f = FLOORS[fi];
+  const name = f.character;   // the floor's display name
+  $('tr'+fi).insertAdjacentHTML('beforeend', f.unlisted.map((m) => ghostSlot(m, name)).join(''));
+}
+
+/* Slide a floor's rail. One page is exactly the visible width plus one gap, so
+   a page always lands flush on a slot boundary at any viewport size. */
+function page(fi, dir) {
+  const floor = document.querySelector(`.floor[data-floor="${fi}"]`);
+  hydrateFaded(fi);   // make sure the faded pages exist before sliding to them
+  const per = perFloor(), f = FLOORS[fi];
+  const total = filterOn()
+    ? f.items.filter(matchesFilter).length
+    : f.items.length + (f.unlisted?.length || 0);
+  const pages = Math.max(1, Math.ceil(total / per));
+  const now = Math.min(Math.max(+floor.dataset.page + dir, 0), pages-1);
+  floor.dataset.page = now;
+  const tr = $('tr'+fi);
+  tr.style.transform = `translateX(calc(${-now} * (100% + var(--gap))))`;
+  // While the rail slides, the OLD card is still under the tap point (elementFromPoint lags
+  // the transform), so a quick tap would open the previous fighter. Disable taps on the rail
+  // until it settles — the ‹ › shutters live outside the rail, so paging still works.
+  tr.style.pointerEvents = 'none';
+  clearTimeout(tr._peT); tr._peT = setTimeout(() => { tr.style.pointerEvents = ''; }, 330);
+  const pg = $('pg'+fi); if (pg) pg.textContent = `${now+1} / ${pages}`;
+  floor.querySelector('.shutter.l')?.toggleAttribute('disabled', now===0);
+  floor.querySelector('.shutter.r')?.toggleAttribute('disabled', now===pages-1);
+}
+
+function setSort(mode) {
+  if (!SORT[mode]) return;
+  // Re-clicking the active button flips its direction; a new button starts as
+  // its first-labelled direction.
+  if (mode === sortMode) sortDir = -sortDir; else { sortMode = mode; sortDir = 1; }
+  document.querySelectorAll('.sortbtn').forEach(b => {
+    const active = b.dataset.mode === mode;
+    b.classList.toggle('on', active);
+    // The active button shows the live direction; the others show their default.
+    b.querySelector('small').textContent = SORT[b.dataset.mode].labels[active && sortDir === -1 ? 1 : 0];
+  });
+  FLOORS = orderedFloors();
+  render();
+}
+
+function imgErr(img) {
+  // Thumbnail proxy hiccup: recover the original S3 url from the query and load
+  // it directly (once), then give up and dim the tile.
+  try {
+    const u = new URL(img.src, location.href);
+    const orig = u.searchParams.get('url');
+    if (orig && u.pathname.indexOf(decodeURIComponent(orig)) < 0) { img.src = decodeURIComponent(orig); return; }
+  } catch {}
+  img.style.opacity = '.15';
+}
+
+/* ── the dossier ─────────────────────────────────────────────────── */
+let current = null, payCur = 'ORE';   // ORE-only marketplace — external listings settle via an ORE→SOL swap under the hood
+let TIP = 0;                                                    // optional tip, in whatever currency is selected
+const TIP_WALLET = 'ED3GMCfoX3XNvavnWADvd6oCsohGg1ukdhv3PaUpvwJe';   // the Dojo Pot / treasury wallet tips flow to
+const CUR_DEC = { SOL: 1e9, ORE: 1e11, SKR: 1e6 };             // base-unit multiplier per currency
+const CUR_ICON = { SOL: () => ICON.sol, ORE: () => ICON.ore, SKR: () => ICON.skr };
+const CUR_PRICE = { SOL: () => PRICES.SOL, ORE: () => PRICES.ORE, SKR: () => PRICES.SKR };
+
+let CURRENT_DRAWER_MINT = null;   // which NFT the drawer shows (late trait fetches must not paint a different one)
+function openDrawer(fi, i) { renderDrawer(FLOORS[fi].items[i]); }
+// A held (not-listed) fighter opens the SAME drawer in a read-only mode instead of jumping
+// to an external page: its card art + name + a "not for sale" note + the profile link.
+function openHeldEl(el){ openHeld(el.dataset.mint, el.dataset.num, el.dataset.name, el.dataset.ext); }
+function openHeld(mint, num, name, ext){
+  current = null;
+  const d = $('drawer'); d.classList.add('held');
+  $('dArt').src = S3IMG(mint, ext);
+  $('dName').textContent = name || '';
+  $('dMeta').textContent = [(num!=null && num!=='' ? ('#'+num) : ''), 'Held — not for sale'].filter(Boolean).join(' · ');
+  const h = $('dHeld'); if (h){ h.style.display=''; h.innerHTML = `This fighter is held by its owner and isn't listed for sale right now.`; }
+  const lk = $('dLink'); if (lk){ lk.style.display=''; lk.href = DD + '/' + num; lk.textContent = 'View the full profile on degendojo.xyz ↗'; }
+  $('scrim').classList.add('open'); d.classList.add('open');
+}
+function renderDrawer(l) {
+  CURRENT_DRAWER_MINT = l && l.mint;
+  current = l;
+  const _d = $('drawer'); _d.classList.remove('held');   // leaving held mode → restore the buy UI
+  const _h = $('dHeld'); if (_h) _h.style.display='none';
+  TIP = 0; if ($('tipAmt')) $('tipAmt').value = '';   // fresh listing → clear any prior tip
+  $('dArt').src = l.image;
+  $('dName').textContent = l.name;
+  $('dMeta').textContent = [trait(l,'Race'), l.number!=null?('#'+l.number):'', l.source==='tensor'?'Tensor':'Magic Eden'].filter(Boolean).join(' · ');
+
+  // Special move — the fighter's signature technique.
+  const mv = $('dMove');
+  if (l.move) { mv.style.display=''; mv.innerHTML = `<span class="mk">必殺技</span><div><div class="ml">Special Move</div><div class="mv">${esc(l.move)}</div></div>`; }
+  else mv.style.display='none';
+
+  // Combat stats — only Degens carry them.
+  const ss = $('dStats');
+  if (l.stats) {
+    ss.style.display='';
+    ss.innerHTML = [['ATK',l.stats.attack],['DEF',l.stats.defence],['HP',l.stats.hitpoints],['SP.DMG',l.stats.smdamage]]
+      .map(([k,v])=>`<div class="statt"><div class="sv">${v??'—'}</div><div class="sk">${k}</div></div>`).join('');
+  } else ss.style.display='none';
+
+  // Diary — long story, short quote beneath. Neither exists for Demons/Oni.
+  const dy = $('dDiary');
+  if (l.story || l.quote) {
+    dy.style.display='';
+    dy.innerHTML = `<div class="dk">⛩ From the diary</div>` +
+      (l.story ? `<p>${esc(l.story)}</p>` : '') +
+      (l.quote && l.quote!==l.story ? `<div class="q">“${esc(l.quote)}”</div>` : '');
+  } else dy.style.display='none';
+
+  // Unique on-chain page.
+  const lk = $('dLink');
+  if (l.externalUrl) { lk.style.display=''; lk.href = l.externalUrl; } else lk.style.display='none';
+
+  const roy = l.royaltySol, fee = l.takerFeeSol;
+  // The breakdown reads in ORE (the store's currency) with the ORE mark; the SOL it settles in
+  // sits beside it, small, for reference. Falls back to SOL only until the ORE price has loaded.
+  const ledgerAmt = (s) => {
+    const o = oreOf(s);
+    return o == null ? `${sol(s)} SOL`
+      : `${(Math.round(o*1000)/1000).toLocaleString('en-US',{maximumFractionDigits:3})} ${oreIcon} <small style="opacity:.5;font-weight:400;font-size:.78em">${sol(s)} SOL</small>`;
+  };
+  $('dLedger').innerHTML =
+    `<div class="lrow"><span>Seller's price</span><b>${ledgerAmt(l.price)}</b></div>
+     <div class="lrow"><span>Creator royalty · ${l.royaltyBps/100}%</span><b>${ledgerAmt(roy)}</b></div>
+     <div class="lrow"><span>Marketplace taker fee · 2%</span><b>${ledgerAmt(fee)}</b></div>
+     <div class="lrow tot"><span>You pay</span><b>${ledgerAmt(l.priceAllIn)}</b></div>`;
+
+  const paintTraits = (attrs) => { $('dTraits').innerHTML = (attrs||[])
+    .map(a=>`<div class="trait">
+        <div class="tl">${catEmoji(a.trait_type)} ${esc(a.trait_type)}</div>
+        <div class="tv">${valEmoji(a.value)} ${esc(a.value)}</div>
+      </div>`).join(''); };
+  paintTraits(l.attributes);
+  // Tensor listings arrive with just the Character (enough to file them on a floor). Fetch the full
+  // trait list from the chain so every fighter's drawer shows all of its traits.
+  if ((l.attributes||[]).length < 3 && l.mint) {
+    const want = l.mint;
+    fetch('/api/rpc', { method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({ jsonrpc:'2.0', id:1, method:'getAsset', params:{ id: want } }) })
+      .then(r=>r.json()).then(j=>{
+        const at = (j && j.result && j.result.content && j.result.content.metadata && j.result.content.metadata.attributes) || [];
+        if (!at.length || !$('drawer').classList.contains('open') || (CURRENT_DRAWER_MINT && CURRENT_DRAWER_MINT !== want)) return;
+        l.attributes = at.map(a=>({ trait_type: a.trait_type, value: a.value }));
+        paintTraits(l.attributes);
+      }).catch(()=>{});
+  }
+
+  setPay('ORE');
+  $('scrim').classList.add('open');
+  $('drawer').classList.add('open');
+}
+function closeDrawer(){ $('scrim').classList.remove('open'); $('drawer').classList.remove('open'); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeDrawer(); closeWallet(); closeConquest(); } });
+
+/* The purchase-complete screen. Replaces the old auto-jump to Solscan — the
+   transaction is one click away instead of hijacking a tab. */
+function showConquest(listing, sig) {
+  $('cqArt').src = listing.image;
+  $('cqName').textContent = listing.name;
+  $('cqTx').href = 'https://solscan.io/tx/' + sig;
+  $('cqShare').onclick = () => {
+    const text = encodeURIComponent(`I just claimed ${listing.name} at the Degen Dojo ⛩️ 道場`);
+    const url = encodeURIComponent(location.origin);
+    window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`, '_blank');
+  };
+  $('conquest').classList.add('open');
+}
+function closeConquest(){ $('conquest').classList.remove('open'); }
+
+/* ── checkout ─────────────────────────────────────────────────────
+   The buy transaction is composed here, in the page, straight against the
+   marketplace programs — no marketplace API and no key. The layout was
+   reverse-engineered from real sales and verified with simulateTransaction;
+   see scripts/m2-buy.mjs, which is the same code server-side.            */
+const W3 = () => window.solanaWeb3;
+const RPC_URL = CFG.rpc;
+
+const M2_PROGRAM = 'M2mx93ekt1fmXSVkTrUL9xVFHkmME8HTUi5Cyc5aF7K';
+const ME_AH      = 'E8cU1WiRWjanGxmn96ewBgk9vPTcL6AEZ1t6F6fkgUWe';
+const ME_NOTARY  = 'NTYeYJ1wr4bpM5xo6zx5En44SvJFAd35zTxxNoERYqd';
+const ME_ESCROW  = '1BWutmTvYPwDtmw9abTkS4Ssr8no61spGAvW1X6NDix';
+const ME_FEE     = 'rFqFJ9g7TGBD8Ed7TPDnvGKZ5pWLPDyxLcvcH2eRCtt';
+const ME_REF     = 'autMW8SgBkVYeBgqYiTuJZnkvDZMVU2MHJh9Jh7CSQ2';
+const TMP_ID     = 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s';
+const AUTH_ID    = 'auth9SigNpDKz4sJJ1DfCTuZrZNSAgh9sFD3rboVmgg';
+const RULESET_ID = 'AdH2Utn6Fus15ZhtenW4hZBQnvtLgM1YCW2MfVp7pYS5';
+const TOKEN_ID   = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
+const ATA_ID     = 'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL';
+const MEMO_PROGRAM = 'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr';
+const ORE_MEMO_TAG = 'dd-ore-rebate-v1';   // must match scripts/ore-rebate.mjs
+
+const PK = (s) => new (W3().PublicKey)(s);
+const pda = (seeds, programId) => W3().PublicKey.findProgramAddressSync(seeds, PK(programId))[0];
+// Browsers have no Buffer, so seeds and instruction data are plain byte arrays.
+const utf8 = (s) => new TextEncoder().encode(s);
+const b64 = (bytes) => btoa(String.fromCharCode(...new Uint8Array(bytes)));
+const hexBytes = (h) => Uint8Array.from(h.match(/../g).map((b) => parseInt(b, 16)));
+function ixData(hexDisc, fields) {                 // fields: [size, value] pairs
+  const total = 8 + fields.reduce((n, [sz]) => n + sz, 0);
+  const buf = new Uint8Array(total);
+  buf.set(hexBytes(hexDisc), 0);
+  const dv = new DataView(buf.buffer);
+  let o = 8;
+  for (const [size, value] of fields) {
+    if (size === 8) dv.setBigUint64(o, BigInt(value), true);
+    else if (size === 4) dv.setUint32(o, Number(value), true);
+    else if (size === 2) dv.setUint16(o, Number(value), true);
+    else if (size === 1) dv.setUint8(o, Number(value));
+    o += size;
+  }
+  return buf;
+}
+const ataOf  = (owner, mint) => pda([owner.toBuffer(), PK(TOKEN_ID).toBuffer(), mint.toBuffer()], ATA_ID);
+const metaOf = (mint) => pda([utf8('metadata'), PK(TMP_ID).toBuffer(), mint.toBuffer()], TMP_ID);
+const edOf   = (mint) => pda([utf8('metadata'), PK(TMP_ID).toBuffer(), mint.toBuffer(), utf8('edition')], TMP_ID);
+const trOf   = (mint, tok) => pda([utf8('metadata'), PK(TMP_ID).toBuffer(), mint.toBuffer(), utf8('token_record'), tok.toBuffer()], TMP_ID);
+
+function buildM2BuyIxs({ buyer, listing }) {
+  const { SystemProgram, SYSVAR_INSTRUCTIONS_PUBKEY, SYSVAR_RENT_PUBKEY } = W3();
+  const mint = PK(listing.mint), seller = PK(listing.seller);
+  const price = Math.round(listing.price * 1e9);
+  // Escrow model → the NFT sits in ME's escrow ATA; delegate model → it stays in
+  // the seller's own token account. The resolver reads the exact source account
+  // and its owner off the listing; fall back to the escrow assumption for DD.
+  const srcTok  = listing.tokenAccount ? PK(listing.tokenAccount) : ataOf(PK(ME_ESCROW), mint);
+  const srcOwner = listing.tokenOwner ? PK(listing.tokenOwner) : PK(ME_ESCROW);
+  // Each collection enforces royalties with its own ruleset; wrong one = err 137.
+  const ruleSet = listing.ruleSet ? PK(listing.ruleSet) : PK(RULESET_ID);
+  const buyerTok = ataOf(buyer, mint);
+  const meta = metaOf(mint);
+  const buyerEscrow = pda([utf8('m2'), PK(ME_AH).toBuffer(), buyer.toBuffer()], M2_PROGRAM);
+  const buyerTS = pda([utf8('m2'), buyer.toBuffer(), PK(ME_AH).toBuffer(), mint.toBuffer()], M2_PROGRAM);
+  const sellerTS = pda([utf8('m2'), seller.toBuffer(), PK(ME_AH).toBuffer(), srcTok.toBuffer(), mint.toBuffer()], M2_PROGRAM);
+  const sRef = PK(listing.sellerReferral || ME_REF), bRef = PK(CFG.buyerReferral || ME_REF);
+  const a = (pubkey, isSigner, isWritable) => ({ pubkey, isSigner, isWritable });
+
+  // price, tokenSize=1, expiry=0, buyerCreatorRoyaltyBp=10000 (pay creators fully),
+  // then a 4-byte trailing field — present in every real sale; without it M2
+  // rejects with InstructionDidNotDeserialize.
+  const buyData = ixData('b817ee6167c5d33d', [[8, price], [8, 1], [8, 0], [2, 10000], [4, 0]]);
+
+  // BuyV2 escrows only the price; settlement also pays royalty + taker fee
+  // out of that escrow, so top it up or the payout runs dry.
+  const extra = Math.ceil(price * ((listing.royaltyBps||0) + 200) / 10000);
+
+  // price, then the 2% taker fee in basis points
+  const exData = ixData('eca3ccad4790eb76', [[8, price], [2, 0], [2, 200]]);
+
+  return [
+    { programId: PK(M2_PROGRAM), data: buyData, keys: [
+      a(buyer,true,true), a(PK(ME_NOTARY),false,false), a(mint,false,false), a(meta,false,true),
+      a(buyerEscrow,false,true), a(bRef,false,true), a(PK(ME_AH),false,false),
+      a(buyerTS,false,true), a(bRef,false,true), a(PK(TOKEN_ID),false,false),
+      a(SystemProgram.programId,false,false) ] },
+    SystemProgram.transfer({ fromPubkey: buyer, toPubkey: buyerEscrow, lamports: extra }),
+    { programId: PK(M2_PROGRAM), data: exData, keys: [
+      a(buyer,true,true), a(buyer,true,true), a(seller,false,true), a(PK(ME_NOTARY),false,false),
+      a(srcOwner,false,false), a(srcTok,false,true), a(buyerTok,false,true),
+      a(mint,false,false), a(meta,false,true), a(PK(ME_AH),false,false), a(PK(ME_FEE),false,true),
+      a(sellerTS,false,true), a(buyerTS,false,true), a(buyerEscrow,false,true),
+      a(bRef,false,true), a(sRef,false,true), a(PK(TMP_ID),false,false), a(edOf(mint),false,false),
+      a(PK(AUTH_ID),false,false), a(ruleSet,false,false),
+      a(trOf(mint,srcTok),false,true), a(trOf(mint,buyerTok),false,true),
+      a(SYSVAR_INSTRUCTIONS_PUBKEY,false,false), a(PK(ATA_ID),false,false),
+      a(PK(TOKEN_ID),false,false), a(SystemProgram.programId,false,false), a(SYSVAR_RENT_PUBKEY,false,false),
+      ...(listing.creators||[]).map(c=>a(PK(c),false,true)) ] },
+  ];
+}
+
+// The swap buys a little more than the price so the buy can't come up short on
+// rent + network fees (the SOL sim showed ~0.0026 over the all-in). One source
+// of truth, used by both the drawer quote and the actual swap.
+const SWAP_SLIPPAGE_BPS = 100;
+// The swap only funds the NFT's PRICE. The buy is a SEPARATE tx whose ATA/token-record
+// rent (~0.0026) and priority/network fee are paid from the buyer's own SOL — they must
+// hold SOL to sign any tx anyway. So keep this pad tiny (ExactOut slippage rounding only).
+// A bigger pad forces the swap to pull more of the pay-token than a thin wallet holds, and
+// the ExactOut swap then fails simulation even though the buy itself is affordable.
+const swapNeedLamports = (l) => Math.ceil((l.priceAllIn + 0.002) * 1e9);
+async function tokenQuote(cur, needLamports) {
+  const inputMint = cur === 'ORE' ? MINTS.ORE : MINTS.SKR;
+  const r = await fetch(`${CFG.jup}/swap/v1/quote?inputMint=${inputMint}&outputMint=${MINTS.SOL}` +
+    `&amount=${needLamports}&swapMode=ExactOut&slippageBps=${SWAP_SLIPPAGE_BPS}`);
+  return r.json();
+}
+
+async function rpcCall(method, params) {
+  const r = await fetch(RPC_URL, { method:'POST', headers:{'content-type':'application/json'},
+    body: JSON.stringify({ jsonrpc:'2.0', id:1, method, params }) });
+  const j = await r.json();
+  if (j.error) throw new Error(j.error.message);
+  return j.result;
+}
+
+/* ── universal resolve: paste any mint / ME / Tensor link → a live listing ──
+   The exact decode used by scripts/resolve-listing.mjs, but reading through the
+   same /api/rpc proxy the buy flow uses. Turns the DD store into "buy any Solana
+   NFT in ORE" — the resolved listing feeds straight into renderDrawer + the same
+   swap-and-buy the store already runs. (Buffer is the polyfill, present by the
+   time a user actually pastes.) */
+// M2 sell-state account discriminators. Same on-chain layout (seller@40, sellerReferral@72,
+// mint@112, price@104, tokenAccount@144) across versions — only the 8-byte disc differs.
+// c3372e293607e19b = a newer sell-state variant (seen on FOMO Friends etc.); without it the
+// resolver ignored those listings and the buy drawer never opened. The buy still simulates
+// before signing, so an incompatible state fails safely (nothing signed) rather than silently.
+const M2_SELL_DISCS = new Set(['a40e5c647b39eacc', '01ee48898a15fef9', 'c3372e293607e19b']);
+// Degen Dojo's own creators (address strings), read off our own listings. Used
+// to tell "this is one of ours" from a resolved outside collection — only ours
+// carries the ORE royalty rebate, since only ours pays royalty to a wallet we run.
+const DD_CREATORS = (STORE.listings || []).flatMap(l => l.creators || []);
+function mintFromInput(s) {
+  s = (s || '').trim();
+  const m = s.match(/(?:item-details\/|item\/|\/)([1-9A-HJ-NP-Za-km-z]{32,44})(?:$|[/?#])/);
+  if (m) return m[1];
+  if (/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(s)) return s;
+  return null;
+}
+async function readRoyaltyB(mint) {
+  const r = await rpcCall('getAccountInfo', [metaOf(PK(mint)).toBase58(), { encoding: 'base64' }]);
+  if (!r || !r.value) return { creators: [], royaltyBps: 0, ruleSet: null };
+  const b = window.Buffer.from(r.value.data[0], 'base64');
+  let o = 1 + 32 + 32;
+  const skip = () => { const n = b.readUInt32LE(o); o += 4; o += n; };
+  skip(); skip(); skip();                        // name, symbol, uri
+  const royaltyBps = b.readUInt16LE(o); o += 2;
+  const creators = [];
+  if (b[o++]) { const n = b.readUInt32LE(o); o += 4; for (let i = 0; i < n; i++) { creators.push(PK(b.subarray(o, o + 32)).toBase58()); o += 34; } }
+  let ruleSet = null;                            // trailing optionals → programmable ruleset
+  try {
+    o += 1; o += 1;                              // primarySaleHappened, isMutable
+    if (b[o++]) o += 1;                          // editionNonce
+    if (b[o++]) o += 1;                          // tokenStandard
+    if (b[o++]) o += 33;                         // collection
+    if (b[o++]) o += 17;                         // uses
+    if (b[o++]) o += 9;                          // collectionDetails
+    if (b[o++]) { o += 1; if (b[o++]) { ruleSet = PK(b.subarray(o, o + 32)).toBase58(); o += 32; } }
+  } catch { ruleSet = null; }
+  return { creators, royaltyBps, ruleSet };
+}
+async function resolveListing(mint) {
+  const res = await rpcCall('getProgramAccounts', [M2_PROGRAM, { encoding: 'base64', filters: [{ memcmp: { offset: 112, bytes: mint } }] }]);
+  let state = null;
+  for (const acc of (res || [])) {
+    const b = window.Buffer.from(acc.account.data[0], 'base64');
+    if (!M2_SELL_DISCS.has(b.subarray(0, 8).toString('hex'))) continue;   // sell states only
+    const price = b.readBigUInt64LE(104);
+    if (price === 0n) continue;
+    state = { seller: PK(b.subarray(40, 72)).toBase58(), sellerReferral: PK(b.subarray(72, 104)).toBase58(),
+              priceLamports: price, tokenAccount: PK(b.subarray(144, 176)).toBase58() };
+    break;
+  }
+  if (!state) return null;
+  const tok = await rpcCall('getAccountInfo', [state.tokenAccount, { encoding: 'jsonParsed' }]);
+  const tokenOwner = tok?.value?.data?.parsed?.info?.owner || null;
+  const { creators, royaltyBps, ruleSet } = await readRoyaltyB(mint);
+  let das = null; try { das = await rpcCall('getAsset', { id: mint }); } catch {}
+  const priceSol = Number(state.priceLamports) / 1e9;
+  const isDD = (creators || []).some(c => DD_CREATORS.includes(c));
+  return {
+    mint, seller: state.seller, sellerReferral: state.sellerReferral,
+    price: priceSol, royaltyBps,
+    royaltySol: priceSol * royaltyBps / 1e4, takerFeeSol: priceSol * 0.02,
+    priceAllIn: priceSol * (1 + royaltyBps / 1e4 + 0.02),
+    creators, tokenAccount: state.tokenAccount, tokenOwner, ruleSet,
+    name: das?.content?.metadata?.name || ('NFT ' + mint.slice(0, 4)),
+    image: das?.content?.links?.image || das?.content?.files?.[0]?.uri || '',
+    attributes: (das?.content?.metadata?.attributes || []).map(a => ({ trait_type: a.trait_type, value: a.value })),
+    number: null, source: 'magiceden', external: !isDD,
+  };
+}
+/* ── preacher referral attribution ─────────────────────────────────
+   A visit with ?ref=<code> is remembered; when this browser later completes a
+   buy we POST the sale + code to /api/attr, which appends it to the ledger. The
+   POST is only a HINT — scripts/referral-ledger.mjs re-checks every recorded
+   signature on-chain before a cent of ORE is paid, so a forged POST earns nothing. */
+// Attribution cookie — scoped to .degendojo.xyz so the SAME ref link is honoured
+// across the store AND the miner (different subdomains can't share localStorage,
+// but they share this cookie). 30-day rolling window, last-touch: a fresh ?ref
+// overwrites and resets the clock. A visitor who arrives today and buys any time
+// in the next 30 days — on this device/browser — still credits the preacher.
+const REF_WINDOW_DAYS = 30;
+function setRefCookie(code) {
+  const onDD = /(^|\.)degendojo\.xyz$/.test(location.hostname);
+  const dom = onDD ? '; domain=.degendojo.xyz' : '';
+  document.cookie = `dd_ref=${encodeURIComponent(code)}${dom}; max-age=${REF_WINDOW_DAYS*86400}; path=/; SameSite=Lax`;
+}
+function getRefCookie() {
+  const m = document.cookie.match(/(?:^|;\s*)dd_ref=([^;]+)/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+(function captureRef(){
+  try {
+    const r = new URLSearchParams(location.search).get('ref');
+    if (r && /^[a-zA-Z0-9_-]{2,32}$/.test(r)) setRefCookie(r.toLowerCase());  // codes are case-insensitive
+  } catch {}
+})();
+// Deep link from an /nft/<mint> SEO page: ?buy=<mint> resolves and opens the buy
+// drawer straight away, so search → page → own is one click.
+(function autoBuy(){
+  try {
+    const m = new URLSearchParams(location.search).get('buy');
+    if (m && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(m)) {
+      window.addEventListener('load', () => setTimeout(async () => {
+        try {
+          notify('Finding this NFT’s live listing…');
+          const l = await resolveListing(m);
+          if (l) renderDrawer(l);
+          else notify('No live Magic Eden listing for that NFT — it may have sold, delisted, or be listed only on Tensor.');
+        } catch (e) { notify('Could not load that listing right now — try again in a moment.'); }
+      }, 400));
+    }
+  } catch {}
+})();
+async function recordSale(sig, l) {
+  let ref = null; try { ref = getRefCookie(); } catch {}
+  if (!ref || !sig) return;
+  try {
+    await fetch('/api/attr', { method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({ sig, ref, buyer: WALLET?.pubkey?.toBase58?.() || null,
+        mint: l.mint, priceLamports: Math.round(l.price * 1e9), external: !!l.external, ts: Date.now() }) });
+  } catch {}
+}
+
+async function resolvePaste() {
+  const q = $('pasteBox').value.trim(); const msg = $('pasteMsg');
+  if (!q) return;
+  const mint = mintFromInput(q);
+  if (!mint) { msg.textContent = 'Could not find an NFT mint in that link.'; return; }
+  msg.textContent = 'Resolving straight off the chain…';
+  try {
+    const l = await resolveListing(mint);
+    if (!l) { msg.textContent = 'No live Magic Eden listing for that NFT.'; return; }
+    msg.textContent = '';
+    renderDrawer(l);
+  } catch (e) { msg.textContent = 'Resolve failed: ' + (e.message || e); }
+}
+
+/* Paying in ORE or USDC is two signatures, not one: the buy alone already uses
+   29 accounts and ~325k compute units, so a Jupiter swap cannot ride along in
+   the same transaction. Step one buys exactly the SOL the purchase needs
+   (ExactOut, so the buyer is never left holding dust), step two spends it. */
+async function swapToSol(listing) {
+  const buyer = WALLET.pubkey;
+  const need = swapNeedLamports(listing);
+  setBuyState(`Quoting ${payCur}…`);
+  const q = await tokenQuote(payCur, need);
+  if (q.error) throw new Error(`No ${payCur} route right now — try SOL.`);
+
+  const spent = Number(q.inAmount) / (payCur === 'ORE' ? 1e11 : 1e6);
+  setBuyState(`Approve the ${payCur} swap…`);
+  const s = await (await fetch(`${CFG.jup}/swap/v1/swap`, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ quoteResponse: q, userPublicKey: buyer, wrapAndUnwrapSol: true, dynamicComputeUnitLimit: true }),
+  })).json();
+  if (!s.swapTransaction) throw new Error(`The ${payCur} swap could not be built.`);
+
+  const raw = Uint8Array.from(atob(s.swapTransaction), (ch) => ch.charCodeAt(0));
+  const swapTx = W3().VersionedTransaction.deserialize(raw);
+  const sig = await WALLET.provider.signAndSendTransaction(swapTx);
+  const signature = sig?.signature || sig;
+  setBuyState('Confirming the swap…');
+  await waitForConfirm(signature);
+  notify(`Swapped ${spent.toLocaleString('en-US',{maximumFractionDigits:4})} ${payCur} for ${(need/1e9).toFixed(3)} SOL.`);
+  return signature;
+}
+
+/** Build, simulate, then hand to the wallet. Simulation first means a broken
+    buy is caught before the user is ever asked to sign. */
+// Ask our /api/tensorbuy for Tensor's buy transaction for this listing (unsigned, versioned).
+async function tensorBuyTx(listing) {
+  const maxPrice = ((listing.priceAllIn || listing.price) * 1.05).toFixed(6);   // SOL; the function converts to lamports
+  const qs = new URLSearchParams({ mint: listing.mint, buyer: WALLET.pubkey, maxPrice, royaltyPct: String(Math.round((listing.royaltyBps || 1300) / 100)) });
+  if (listing.seller) qs.set('owner', listing.seller);
+  const r = await fetch('/api/tensorbuy?' + qs.toString());
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || !j.txBase64) {
+    if (j.needKey) throw new Error('Tensor checkout is not available right now.');
+    throw new Error(/max price|greater than/i.test(j.detail || '') ? 'The Tensor price just changed — reopen it and try again.' : (j.error || 'Tensor could not build this purchase right now.'));
+  }
+  const raw = Uint8Array.from(atob(j.txBase64), (c) => c.charCodeAt(0));
+  const { VersionedTransaction, Transaction } = W3();
+  return j.versioned ? VersionedTransaction.deserialize(raw) : Transaction.from(raw);
+}
+
+async function payAndBuy(listing) {
+  const { VersionedTransaction, TransactionMessage, ComputeBudgetProgram } = W3();
+  const buyer = PK(WALLET.pubkey);
+
+  setBuyState('Building the transaction…');
+  // Tensor listing → Tensor builds the buy (our /api/tensorbuy proxies its aggregator API with our key).
+  if (listing.source !== 'magiceden') {
+    const tx = await tensorBuyTx(listing);
+    setBuyState('Checking it against the chain…');
+    const sim = await rpcCall('simulateTransaction', [b64(tx.serialize()), { encoding:'base64', sigVerify:false, replaceRecentBlockhash:true, commitment:'confirmed' }]);
+    if (sim.value.err) {
+      console.error('tensor simulation failed', sim.value);
+      const logs = (sim.value.logs || []).join(' ');
+      if (/insufficient lamports|insufficient funds/i.test(logs)) throw new Error('Not enough SOL in this wallet for the price + fees. Nothing was signed.');
+      throw new Error('The listing may have just sold or changed price. Nothing was signed.');
+    }
+    setBuyState('Approve in your wallet…');
+    const sigT = await WALLET.provider.signAndSendTransaction(tx);
+    const signatureT = sigT?.signature || sigT;
+    setBuyState('Confirming…');
+    await waitForConfirm(signatureT);
+    return signatureT;
+  }
+  // The M2 buy is already 29 accounts and near Solana's 1232-byte transaction
+  // limit, so nothing else can ride along — an added memo pushed it over and the
+  // whole thing failed to even build. ORE purchases are attributed instead by
+  // correlating the buyer's ORE→SOL swap with this buy (see scripts/ore-rebate.mjs).
+  const ixs = [
+    ComputeBudgetProgram.setComputeUnitLimit({ units: 400000 }),
+    ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1400000 }),
+    ...buildM2BuyIxs({ buyer, listing }),
+  ];
+  const { blockhash, lastValidBlockHeight } = (await rpcCall('getLatestBlockhash', [{ commitment: 'confirmed' }])).value;
+  const msg = new TransactionMessage({ payerKey: buyer, recentBlockhash: blockhash, instructions: ixs }).compileToV0Message();
+  const tx = new VersionedTransaction(msg);
+
+  setBuyState('Checking it against the chain…');
+  const sim = await rpcCall('simulateTransaction', [
+    b64(tx.serialize()),
+    { encoding:'base64', sigVerify:false, replaceRecentBlockhash:true, commitment:'confirmed' },
+  ]);
+  if (sim.value.err) {
+    console.error('simulation failed', sim.value);
+    throw new Error('The listing may have just sold or changed price. Nothing was signed.');
+  }
+
+  setBuyState('Approve in your wallet…');
+  const sig = await WALLET.provider.signAndSendTransaction(tx);
+  const signature = sig?.signature || sig;
+  setBuyState('Confirming…');
+  await waitForConfirm(signature, lastValidBlockHeight);
+  return signature;
+}
+
+/* ONE wallet prompt for pay-in-token: sign the ORE/SKR→SOL swap AND the buy together
+   (Wallet Standard's signTransaction is variadic), then broadcast the swap, wait for it,
+   and broadcast the pre-signed buy. The buy is skip-preflight:false so the node still checks
+   it against the (post-swap) chain. Sets swappedFor once the swap lands, so a later buy
+   failure retries the buy alone instead of swapping twice. Throws 'cannot sign multiple'
+   when the wallet can't batch — the caller then uses the two-prompt path. */
+async function oneApprovalBuy(listing) {
+  const { VersionedTransaction, TransactionMessage, ComputeBudgetProgram } = W3();
+  const buyerStr = WALLET.pubkey, buyer = PK(buyerStr);
+  // build the swap (unsigned)
+  const need = swapNeedLamports(listing);
+  setBuyState(`Quoting ${payCur}…`);
+  const q = await tokenQuote(payCur, need);
+  if (q.error) throw new Error(`No ${payCur} route right now — try SOL.`);
+  const spent = Number(q.inAmount) / (payCur === 'ORE' ? 1e11 : 1e6);
+  const s = await (await fetch(`${CFG.jup}/swap/v1/swap`, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ quoteResponse: q, userPublicKey: buyerStr, wrapAndUnwrapSol: true, dynamicComputeUnitLimit: true }),
+  })).json();
+  if (!s.swapTransaction) throw new Error(`The ${payCur} swap could not be built.`);
+  const swapTx = VersionedTransaction.deserialize(Uint8Array.from(atob(s.swapTransaction), (c) => c.charCodeAt(0)));
+  // Leave Jupiter's swap tx UNTOUCHED (its blockhash is fresh and Phantom-visible) — mutating it made
+  // the wallet reject it. Fetch a blockhash only for OUR buy tx below.
+  const bh = (await rpcCall('getLatestBlockhash', [{ commitment: 'confirmed' }])).value;
+  // build the buy (unsigned)
+  const ixs = [
+    ComputeBudgetProgram.setComputeUnitLimit({ units: 400000 }),
+    ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1400000 }),
+    ...buildM2BuyIxs({ buyer, listing }),
+  ];
+  const buyTx = new VersionedTransaction(new TransactionMessage({ payerKey: buyer, recentBlockhash: bh.blockhash, instructions: ixs }).compileToV0Message());
+  // ONE approval — sign both
+  setBuyState(`Approve once — pay in ${payCur}…`);
+  const signed = await WALLET.provider.signAll([swapTx, buyTx]);
+  const sSwap = signed[0] instanceof Uint8Array ? signed[0] : new Uint8Array(signed[0]);
+  const sBuy = signed[1] instanceof Uint8Array ? signed[1] : new Uint8Array(signed[1]);
+  // broadcast swap → wait → broadcast buy
+  setBuyState(`Swapping ${payCur} → SOL…`);
+  const swapSig = await rpcCall('sendTransaction', [b64(sSwap), { skipPreflight: true, maxRetries: 3, encoding: 'base64' }]);
+  await waitForConfirm(swapSig);
+  swappedFor = listing.mint;   // swap landed — a buy failure now retries the buy alone, never re-swaps
+  notify(`Swapped ${spent.toLocaleString('en-US',{maximumFractionDigits:4})} ${payCur} for ${(need/1e9).toFixed(3)} SOL.`);
+  setBuyState('Buying your fighter…');
+  const buySig = await rpcCall('sendTransaction', [b64(sBuy), { skipPreflight: false, maxRetries: 3, encoding: 'base64' }]);
+  setBuyState('Confirming…');
+  await waitForConfirm(buySig, bh.lastValidBlockHeight);
+  return buySig;
+}
+
+async function waitForConfirm(signature, until) {
+  for (let i = 0; i < 40; i++) {
+    const st = await rpcCall('getSignatureStatuses', [[signature]]);
+    const s = st.value?.[0];
+    if (s?.err) throw new Error('The transaction failed on chain.');
+    if (s?.confirmationStatus === 'confirmed' || s?.confirmationStatus === 'finalized') return;
+    await new Promise(r => setTimeout(r, 1500));
+  }
+  throw new Error('Timed out waiting for confirmation — check your wallet.');
+}
+
+function setBuyState(msg) {
+  const b = $('dOwn');
+  if (msg) { b.disabled = true; b.dataset.busy = '1'; b.innerHTML = msg; }
+  else { b.disabled = false; delete b.dataset.busy; }
+}
+
+// After a token swap succeeds, the SOL is already in the wallet. Remember it so a
+// failed buy never triggers a SECOND swap — that is what round-tripped a tester's
+// ORE. Once set, the next click skips the swap and just completes the buy.
+let swappedFor = null;   // mint we already hold swapped SOL for
+
+// Own = connect first if needed, otherwise run checkout.
+async function ownClick() {
+  if (!WALLET) { openWallet(); return; }
+  if (!current || $('dOwn').dataset.busy) return;
+  if (!W3()) { notify('Wallet library still loading — one moment.'); return; }
+
+  const listing = current;
+  const alreadySwapped = swappedFor === listing.mint;
+  try {
+    let sig = null;
+    // Paying in a token → ONE prompt: sign the swap + buy together (if the wallet can batch and we
+    // haven't already swapped for this listing). Falls back to the two-prompt flow only when the
+    // wallet lacks batch-signing — and only BEFORE anything is broadcast, so the swap can't run twice.
+    // Tensor listings use the two-step path (swap, then Tensor's own buy transaction).
+    const canOne = listing.source === 'magiceden' && payCur !== 'SOL' && !alreadySwapped && typeof WALLET.provider.signAll === 'function';
+    if (canOne) {
+      try { sig = await oneApprovalBuy(listing); }
+      catch (e) { if (/cannot sign multiple|not.*support|signAll/i.test(e.message || '')) sig = null; else throw e; }
+    }
+    if (sig == null) {
+      // two-prompt path: swap (unless already done), then buy
+      if (payCur !== 'SOL' && swappedFor !== listing.mint) {
+        await swapToSol(listing);
+        swappedFor = listing.mint;
+      }
+      sig = await payAndBuy(listing);
+    }
+    swappedFor = null;
+    if (TIP > 0) { try { await sendTip(); } catch (e) { console.error(e); notify('Fighter is yours — the tip approval was skipped.'); } }
+    setBuyState(null); setPay(payCur);
+    closeDrawer();
+    removeListing(listing.mint);                 // it's yours now — drop it from the tower
+    showConquest(listing, sig);
+    recordSale(sig, listing);                    // attribute to a preacher, if this visit carried a ref
+    setTimeout(refreshListings, 4000);           // and reconcile with the chain shortly after
+  } catch (e) {
+    console.error(e);
+    setBuyState(null); setPay(payCur);
+    // The dangerous state: the swap went through but the buy did not. Never let
+    // the next click swap again — the SOL is already there, just finish the buy.
+    if (payCur !== 'SOL' && swappedFor === listing.mint) {
+      notify(`Your ${payCur} is now SOL in your wallet — press Own again to finish the buy. It will NOT swap again.`);
+    } else {
+      notify(e.message || 'Purchase cancelled.');
+    }
+  }
+}
+
+function setPay(cur) {
+  payCur = cur;
+  document.querySelectorAll('.pay').forEach(b => b.classList.toggle('on', b.dataset.cur === cur));
+  // the tip is denominated in whichever currency is selected
+  $('tipCur').innerHTML = `<img id="tipIcon" src="${CUR_ICON[cur]()}" alt="" /> ${cur}`;
+  renderTip();
+  if (!current) return;
+  const total = current.priceAllIn;
+  const q = $('dQuote'), reb = $('dRebate');
+
+  if (cur === 'SOL') {
+    q.innerHTML = `<b>${sol(total)} ◎</b>${PRICES.SOL ? ' · ' + usd(total*PRICES.SOL) : ''} — paid straight to the seller's escrow.`;
+    reb.style.display = 'none';
+  } else {
+    const unit = cur, dp = cur === 'ORE' ? 3 : 2;
+    // Show the REAL swap cost, not a spot-price estimate. The swap is ExactOut
+    // (buys the exact SOL the purchase needs) through a pool with spread, so it
+    // costs noticeably more than price×spot — quoting it live is the only way the
+    // "you need X" figure matches what actually gets pulled from the wallet.
+    q.innerHTML = 'Fetching a live quote…';
+    const forListing = current;
+    tokenQuote(cur, swapNeedLamports(current)).then((quote) => {
+      if (payCur !== cur || current !== forListing) return;      // toggled away
+      if (quote.error || !quote.inAmount) { q.innerHTML = `No ${cur} route right now — pay in SOL instead.`; return; }
+      const dec = cur === 'ORE' ? 1e11 : 1e6;
+      const inAmt = Number(quote.inAmount) / dec, maxAmt = Number(quote.otherAmountThreshold) / dec;
+      q.innerHTML = `<b>≈ ${inAmt.toLocaleString('en-US',{maximumFractionDigits:dp})} ${unit}</b>` +
+        ` for ${sol(total)}${solIcon} · ${usd(total*PRICES.SOL)}. Have at least ` +
+        `<b>${maxAmt.toLocaleString('en-US',{maximumFractionDigits:dp})} ${unit}</b> plus a little SOL for fees.` +
+        ` Swapped to SOL, then the buy — <b>two approvals</b>.`;
+    }).catch(() => { if (payCur === cur) q.innerHTML = `Couldn't quote ${cur} — try again in a moment.`; });
+    const isReb = (cur === 'ORE' || cur === 'SKR');
+    if (isReb && current.external) {
+      reb.innerHTML = `Your ${cur} is swapped to exactly the SOL this purchase needs, then the NFT is bought — ` +
+        `<b>two approvals</b>. The rebate applies to Degen Dojo fighters only.`;
+      reb.style.display = '';
+    } else if (isReb) {
+      // ORE hands back half the creator royalty (6.5% on a 13% fighter); SKR hands back a flat 5%.
+      const pct    = cur === 'ORE' ? (current.royaltyBps/100) * CFG.oreRebateShareOfRoyalty : 5;
+      const rebSol = current.price * pct/100;
+      const tPrice = cur === 'ORE' ? PRICES.ORE : PRICES.SKR;
+      const tIcon  = cur === 'ORE' ? oreIcon : skrIcon;
+      const tDp    = cur === 'ORE' ? 3 : 0;
+      const rebTok = (tPrice && PRICES.SOL) ? (rebSol * PRICES.SOL) / tPrice : null;
+      reb.innerHTML = `Your ${cur} is swapped to exactly the SOL this purchase needs, then the fighter is bought. ` +
+        `Then <b>${pct}% comes back in ${cur}</b>, returned to your wallet. ` +
+        `On this fighter that's <b>${sol(rebSol)}${solIcon}</b>` +
+        (rebTok ? ` ≈ <b>${rebTok.toLocaleString('en-US',{maximumFractionDigits:tDp})}${tIcon}</b>` : '') +
+        (PRICES.SOL ? ` (${usd(rebSol*PRICES.SOL)})` : '') + `.`;
+      reb.style.display = '';
+    } else reb.style.display = 'none';
+  }
+  $('dOwn').innerHTML = WALLET
+    ? '⚔ Own · ' + (cur === 'SOL' ? sol(total) + ' ◎' : 'pay in ' + cur)
+    : '⚔ Connect a wallet to own';
+  $('dOwnNote').textContent = WALLET
+    ? (cur === 'SOL'
+        ? 'The purchase is simulated against the chain before you are asked to sign.'
+        : `Two approvals: swap ${cur} to SOL, then buy. Keep a little SOL for network fees.`)
+    : 'Reading the chain only; connect a wallet to buy.';
+}
+
+// ---- Optional tip (shown + charged in the selected currency; goes to the Dojo Pot) ----
+function onTip() { const v = parseFloat($('tipAmt').value); TIP = (isFinite(v) && v > 0) ? v : 0; renderTip(); }
+function renderTip() {
+  const el = $('dTip'); if (!el) return;
+  if (!TIP) { el.style.display = 'none'; return; }
+  const price = CUR_PRICE[payCur] ? CUR_PRICE[payCur]() : null;
+  const dp = payCur === 'SKR' ? 2 : 4;   // show the amount the user actually typed (SKR tips can be whole numbers too)
+  el.innerHTML = `Tip <b>${TIP.toLocaleString('en-US', { maximumFractionDigits: dp })} ${payCur}</b>` +
+    (price ? ` (${usd(TIP * price)})` : '') + ` → the <b>Dojo Pot</b>, sent as a separate approval after the buy.`;
+  el.style.display = '';
+}
+// Send the tip: a plain SOL transfer, or an SPL token transfer of ORE/SKR, to the pot wallet.
+async function sendTip() {
+  if (!TIP || !WALLET) return;
+  const { VersionedTransaction, TransactionMessage, SystemProgram } = W3();
+  const buyer = PK(WALLET.pubkey), dest = PK(TIP_WALLET);
+  const amount = Math.round(TIP * CUR_DEC[payCur]);
+  const a = (pubkey, isSigner, isWritable) => ({ pubkey, isSigner, isWritable });
+  let ixs;
+  if (payCur === 'SOL') {
+    ixs = [SystemProgram.transfer({ fromPubkey: buyer, toPubkey: dest, lamports: amount })];
+  } else {
+    const mint = PK(MINTS[payCur]);
+    const src = ataOf(buyer, mint), dst = ataOf(dest, mint);
+    const amt = new Uint8Array(8); let v = BigInt(amount); for (let i = 0; i < 8; i++) { amt[i] = Number(v & 0xffn); v >>= 8n; }
+    const createDst = { programId: PK(ATA_ID), keys: [a(buyer, true, true), a(dst, false, true), a(dest, false, false), a(mint, false, false), a(SystemProgram.programId, false, false), a(PK(TOKEN_ID), false, false)], data: new Uint8Array([1]) }; // create-idempotent
+    const transfer = { programId: PK(TOKEN_ID), keys: [a(src, false, true), a(dst, false, true), a(buyer, true, false)], data: new Uint8Array([3, ...amt]) };   // SPL Transfer
+    ixs = [createDst, transfer];
+  }
+  setBuyState('Approve the tip…');
+  const { blockhash, lastValidBlockHeight } = (await rpcCall('getLatestBlockhash', [{ commitment: 'confirmed' }])).value;
+  const msg = new TransactionMessage({ payerKey: buyer, recentBlockhash: blockhash, instructions: ixs }).compileToV0Message();
+  const tx = new VersionedTransaction(msg);
+  const sig = await WALLET.provider.signAndSendTransaction(tx);
+  await waitForConfirm(sig?.signature || sig, lastValidBlockHeight);
+  // record the tip so the backend verifies it on-chain and adds 100% to the Dojo Pot ledger
+  try { await fetch('/api/coinbuy', { method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ sig: sig?.signature || sig, buyer: WALLET.pubkey, kind: 'tip', currency: payCur, tokenAmount: TIP, ts: Date.now() }) }); } catch (e) {}
+  notify(`Tipped ${TIP.toLocaleString('en-US', { maximumFractionDigits: 4 })} ${payCur} to the Dojo Pot 🏮`);
+}
+
+/* Live token prices. Jupiter serves CORS headers, so the page can quote for
+   itself with no backend — unlike the marketplace APIs. */
+async function loadPrices() {
+  try {
+    const ids = [MINTS.SOL, MINTS.ORE, MINTS.SKR].join(',');
+    const r = await fetch(`${CFG.jup}/price/v3?ids=${ids}`);
+    const j = await r.json();
+    PRICES.SOL = j[MINTS.SOL]?.usdPrice ?? null;
+    PRICES.ORE = j[MINTS.ORE]?.usdPrice ?? null;
+    PRICES.SKR = j[MINTS.SKR]?.usdPrice ?? null;
+    // Now that USDC/ORE conversions are known, redraw the tags. Preserve which
+    // page each slid floor was on so a late price fetch doesn't jump the view.
+    const pageState = [...document.querySelectorAll('.floor[data-page]')].map(f => f.dataset.page);
+    render();
+    paintStats();   // floor stat is ORE now → needs a repaint once ORE price is known
+    document.querySelectorAll('.floor[data-page]').forEach((f, i) => {
+      if (pageState[i] && pageState[i] !== '0') page(+f.dataset.floor, +pageState[i]);
+    });
+    if (current) setPay(payCur);
+  } catch { /* prices are a nicety; the tower stands without them */ }
+}
+
+/* ── wallet ──────────────────────────────────────────────────────── */
+// Every installed Solana wallet is discovered via the Wallet Standard (Phantom, Solflare,
+// Backpack, Jupiter, …) WITH its official icon — see wallet-picker.js. No hardcoded list.
+let WALLET = null;        // { name, provider(adapter), pubkey }
+let _pw = [];             // enumerated Wallet-Standard wallets for the open modal
+
+// mobile hamburger: toggle the nav dropdown, close on outside tap or link choice
+function toggleTopNav(e){ if(e) e.stopPropagation(); const n=$('topNav'); if(n) n.classList.toggle('open'); const s=$('statStrip'); if(s) s.classList.remove('show'); }
+function toggleInfo(e){ if(e) e.stopPropagation(); const s=$('statStrip'); if(s) s.classList.toggle('show'); const n=$('topNav'); if(n) n.classList.remove('open'); }
+document.addEventListener('click', (e)=>{ const n=$('topNav'), h=$('navHam');
+  if(n && n.classList.contains('open') && !n.contains(e.target) && e.target!==h){ n.classList.remove('open'); } });
+document.addEventListener('click', (e)=>{ const s=$('statStrip'), b=$('navInfo');
+  if(s && s.classList.contains('show') && !s.contains(e.target) && e.target!==b){ s.classList.remove('show'); } });
+document.addEventListener('click', (e)=>{ if(e.target.closest && e.target.closest('#topNav a')){ const n=$('topNav'); if(n) n.classList.remove('open'); } });
+function walletClick(){
+  if (!WALLET) { openWallet(); return; }
+  // connected → open the Profile / Disconnect menu (not an instant disconnect)
+  if (window.DojoProfile) DojoProfile.menu($('walletBtn'), WALLET.pubkey, disconnectWallet);
+  else disconnectWallet();
+}
+var _dls = [];
+var _wConnecting = false;   // one attempt at a time — a re-tap mid-connect made MWA return "no account"
+// Shared with the picker: Phantom/Solflare open straight in their browser; Jupiter copies the link first.
+function openDeepLink(i){ var d=_dls[i]; if(!d) return; DojoWalletPicker.openDeepLink(d).then(function(note){ if(note) wStatus(note); }); }
+function wStatus(html, tone){
+  var el = $('wStatus'); if (!el) return;
+  el.innerHTML = html || ''; el.style.display = html ? 'block' : 'none';
+  el.style.color = tone === 'err' ? '#e8a090' : '#c9bda6';
+}
+function walletTag(name){
+  if (name === 'Mobile Wallet Adapter') return 'Seed Vault';
+  if (name === 'Seeker Connect') return 'Beta';
+  return 'Detected';
+}
+// Turn wallet-library errors into what to actually do next (they used to be swallowed).
+function walletErrorHelp(e, name){
+  var m = ((e && e.message) || e || '').toString();
+  var alt = ' — or use <b>Open in Phantom</b> below.';
+  if (/cancel|declin|reject/i.test(m)) return 'Connection cancelled.';
+  if (/local network|loopback/i.test(m)) return 'Chrome blocked the connection to your wallet. Chrome ⋮ → Settings → Site settings → <b>Local network access</b> → allow <b>' + location.hostname + '</b>, then try again' + alt;
+  if (name === 'Seeker Connect') return 'Seeker Connect couldn’t reach your wallet. Update <b>Seed Vault Wallet</b> in the dApp Store and try again' + alt;
+  if (/timed out|timeout|association/i.test(m)) return 'Your wallet didn’t answer in time. Update <b>Seed Vault Wallet</b> (dApp Store) and try again' + alt;
+  if (/not found|no installed wallet|no wallet/i.test(m)) return 'No wallet app answered. Install or update <b>Seed Vault Wallet</b>, Phantom or Solflare' + alt;
+  return 'Connect failed: ' + m.replace(/[<&]/g, '').slice(0, 140) + alt;
+}
+function renderWalletList(){
+  _pw = (window.DojoWalletPicker ? DojoWalletPicker.enumerate() : []);
+  // On a phone, enumerate() finds the Seeker-native options (Mobile Wallet Adapter -> Seed Vault,
+  // and Seeker Connect). Deep links reopen the store inside Phantom/Solflare's browser as a fallback.
+  _dls = (window.DojoWalletPicker && DojoWalletPicker.deepLinks) ? DojoWalletPicker.deepLinks() : [];
+  var dlh = _dls.map((d,i)=>`<div class="wopt detected" onclick="openDeepLink(${i})">
+      <span class="wi">${d.icon?`<img src="${d.icon}" alt="">`:'📲'}</span><span class="wn">Open in ${d.name}</span><span class="wtag">Connect ↗</span></div>`).join('');
+  var wh = _pw.map((w,i)=>`<div class="wopt detected" onclick="connectWallet(${i})">
+      <span class="wi">${w.icon?`<img src="${w.icon}" alt="">`:'◎'}</span><span class="wn">${w.name}</span>
+      <span class="wtag">${walletTag(w.name)}</span></div>`).join('');
+  var html = wh + dlh;   // Seeker-native wallets first; wallet-browser deep links as the fallback
+  if (!html){
+    html = `<div class="wopt" onclick="window.open('https://phantom.app/','_blank')">
+      <span class="wn">No wallet detected — install Phantom, Solflare or Backpack ↗</span></div>`;
+  }
+  // Jupiter (and others) have no browse deep link — guide the user to the method that works:
+  // open the wallet's own in-app browser and visit the store directly.
+  if (_dls.length) html += `<div style="font-size:11px;color:#a99a80;text-align:center;margin-top:11px;line-height:1.6">Another wallet? Open its in-app browser (🌐) and go to <b style="color:#e8b84b">store.degendojo.xyz</b></div>`;
+  $('wList').innerHTML = html;
+}
+function openWallet(){
+  $('wList').innerHTML = '<div class="wopt"><span class="wn">Looking for wallets…</span></div>';
+  $('wScrim').classList.add('open'); $('wModal').classList.add('open');
+  if (!_wConnecting) wStatus('');
+  renderWalletList();
+  // Re-scan a few times — a wallet's in-app browser (Phantom/Solflare) can inject its provider a
+  // beat after the page loads, so one check often misses it.
+  [120, 400, 900, 1600, 2600].forEach(function(t){ setTimeout(renderWalletList, t); });
+}
+function closeWallet(){ $('wScrim').classList.remove('open'); $('wModal').classList.remove('open'); }
+
+async function connectWallet(i){
+  const w = _pw[i];
+  if (!w || _wConnecting) return;
+  _wConnecting = true;
+  wStatus(w.name === 'Mobile Wallet Adapter'
+    ? 'Connecting… tap <b>Continue to Allow</b>, then <b>Connect Wallet</b>, then approve in <b>Seed Vault</b>.'
+    : 'Connecting to ' + w.name + '… approve in your wallet.');
+  try {
+    const adapter = await DojoWalletPicker.connect(w);
+    WALLET = { name: adapter.name, provider: adapter, pubkey: adapter.pubkey };
+    wStatus('');
+    closeWallet(); paintWallet();
+    notify(`${adapter.name} connected — ${short(adapter.pubkey)}`);
+  } catch (e) {
+    console.warn('[wallet] connect failed', w && w.name, e);
+    wStatus(walletErrorHelp(e, w.name), 'err');
+  } finally {
+    _wConnecting = false;
+  }
+}
+// Carry the connection across store pages: silently reconnect the last-picked wallet on load.
+window.addEventListener('load', function(){
+  if (window.DojoWalletPicker && DojoWalletPicker.autoConnect) {
+    DojoWalletPicker.autoConnect().then(function(a){ if (a && !WALLET) { WALLET = { name:a.name, provider:a, pubkey:a.pubkey }; paintWallet(); } });
+  }
+});
+// Teahouse lives on the main site and is a read-only wallet viewer — pass the connected
+// address so it opens straight onto the holder's fighters (no re-typing the wallet).
+function goTeahouse(){
+  var addr = WALLET && WALLET.pubkey;
+  window.open('https://degendojo.xyz/teahouse' + (addr ? ('?wallet=' + encodeURIComponent(addr)) : ''), '_blank', 'noopener');
+  return false;
+}
+async function disconnectWallet(){
+  try { await WALLET?.provider?.disconnect?.(); } catch {}
+  WALLET = null; paintWallet(); notify('Wallet disconnected.');
+}
+const short = (pk) => pk.slice(0,4) + '…' + pk.slice(-4);
+function paintWallet(){
+  const b = $('walletBtn');
+  if (WALLET) { b.textContent = '◎ ' + short(WALLET.pubkey); b.classList.add('connected'); }
+  else { b.textContent = 'Connect Wallet'; b.classList.remove('connected'); }
+  // mirror state onto the mobile menu's Connect entry
+  const nc = $('navConnect');
+  if (nc) nc.textContent = WALLET ? ('◎ ' + short(WALLET.pubkey)) : '🔑 Connect';
+  // The Own button reflects wallet state too.
+  if (current) setPay(payCur);
+  // Re-render the ORE listings strip so your own listings flip Buy→Delist on connect/disconnect.
+  try { renderDDRow(); } catch (e) {}
+}
+
+function notify(msg) {
+  const t = $('toast'); t.textContent = msg; t.style.display = 'block';
+  clearTimeout(notify._t); notify._t = setTimeout(()=>t.style.display='none', 3400);
+}
+
+/* Header counters, recomputed from the live set so they track sales. */
+function paintStats() {
+  const floor = LIVE.reduce((m, l) => Math.min(m, l.priceAllIn), Infinity);
+  $('sFloor').innerHTML    = !isFinite(floor) ? '—' : oreIcon + ' ' + oreFmt(floor);
+  $('sListed').textContent = LIVE.length;
+  $('sChars').textContent  = ALL_FLOORS.length;
+  $('sSupply').textContent = STORE.supply.toLocaleString('en-US');
+}
+
+/* A sold or delisted NFT has its on-chain trade state closed. One batched read
+   over the snapshot's trade states tells us which listings are still live — so
+   the tower drops the ones that sold and the floor/available counts follow,
+   without a rebuild or a redeploy. Runs at load and after each purchase. */
+async function refreshListings() {
+  if (!W3()) return;                                  // needs the RPC helpers
+  const states = LIVE.map((l) => l.tradeState).filter(Boolean);
+  if (!states.length) return;
+  const alive = new Set();
+  try {
+    for (let i = 0; i < states.length; i += 100) {
+      const res = await rpcCall('getMultipleAccounts', [states.slice(i, i + 100), { encoding: 'base64' }]);
+      (res.value || []).forEach((info, n) => { if (info) alive.add(states[i + n]); });
+    }
+  } catch { return; }                                 // leave the snapshot as-is on error
+  const before = LIVE.length;
+  LIVE = LIVE.filter((l) => alive.has(l.tradeState));
+  if (LIVE.length === before) return;                 // nothing sold
+  ALL_FLOORS = buildFloors(LIVE);
+  FLOORS = orderedFloors();
+  render();
+  paintStats();
+}
+
+/* Drop one listing immediately (right after this buyer purchases it) so it
+   disappears without waiting for the next full refresh. */
+function removeListing(mint) {
+  const before = LIVE.length;
+  LIVE = LIVE.filter((l) => l.mint !== mint);
+  if (LIVE.length === before) return;
+  ALL_FLOORS = buildFloors(LIVE);
+  FLOORS = orderedFloors();
+  render();
+  paintStats();
+}
+
+/* Pull the LIVE Magic Eden book so the tower reflects listings made AFTER the last deploy —
+   not just the snapshot baked at build time. Replaces the ME listings with the current ones
+   (keeps baked Tensor listings), re-renders only when something changed, and silently keeps the
+   snapshot on any error. Runs on load and every 60s, so the tower stays current on its own. */
+// mint → { character, number, name } from the baked data, so a live listing that arrives without
+// traits (e.g. from the Tensor API) still lands in the right character floor.
+const MINT_INFO = (() => {
+  const m = {};
+  for (const l of (STORE.listings || [])) { const ch = (l.attributes || []).find(a => a.trait_type === 'Character'); if (ch) m[l.mint] = { character: ch.value, number: l.number, name: l.name }; }
+  for (const c of (STORE.characters || [])) { const nm = c.displayName || c.character; for (const u of (c.unlisted || [])) { const mint = Array.isArray(u) ? u[0] : (u && u.mint); const num = Array.isArray(u) ? u[1] : (u && u.number); if (mint && !m[mint]) m[mint] = { character: nm, number: num, name: nm }; } }
+  return m;
+})();
+let _towerSig = '';
+async function loadLiveTower() {
+  try {
+    // 1) live Magic Eden book (keyless public API via /api/listings)
+    let live = [], offset = 0;
+    for (let p = 0; p < 8; p++) {
+      const r = await fetch('/api/listings?symbol=degendojonft&limit=40&offset=' + offset);
+      if (!r.ok) return false;
+      const j = await r.json();
+      const items = (j && j.items) || [];
+      live = live.concat(items);
+      if (items.length < 40) break;
+      offset += 40;
+    }
+    if (!live.length) return false;                 // keep the snapshot, never blank the tower
+    // 2) live Tensor book (your Tensor key powers /api/tensor-listings); enrich each with its
+    //    character so it lands in the right floor. Falls back to the baked Tensor listings.
+    let liveTensor = [];
+    try {
+      const tr = await fetch('/api/tensor-listings');
+      if (tr.ok) { const tj = await tr.json(); liveTensor = ((tj && tj.items) || []).map(it => {
+        const info = MINT_INFO[it.mint] || {};
+        return { mint: it.mint, name: info.name || '', image: S3IMG(it.mint),
+          price: it.price, royaltyBps: 1300, royaltySol: it.price * 0.13, takerFeeSol: it.price * 0.02,
+          priceAllIn: it.price * 1.15, source: it.source === 'magiceden' ? 'magiceden' : 'tensor',
+          seller: it.seller, number: (info.number != null ? info.number : null),
+          attributes: info.character ? [{ trait_type: 'Character', value: info.character }] : [] };
+      }); }
+    } catch (e) {}
+    const tensorSet = liveTensor.length ? liveTensor : (STORE.listings || []).filter(l => l.source === 'tensor');
+    // Tensor's API also returns Magic Eden listings, so drop any Tensor entry whose mint is already in
+    // the ME book — otherwise the same NFT shows twice (once plain, once with the 天 badge).
+    const meMints = new Set(live.map(it => it.mint));
+    const tensorOnly = tensorSet.filter(l => !meMints.has(l.mint));
+    // 3) re-render only when something actually changed
+    const sig = live.map(it => it.mint + ':' + it.price).concat(tensorOnly.map(t => t.mint + ':' + t.price)).sort().join('|');
+    if (sig === _towerSig) return true;
+    _towerSig = sig;
+    const num = (n) => { const m = /#\s*(\d+)/.exec(n || ''); return m ? +m[1] : null; };
+    const mapped = live.map(it => ({
+      mint: it.mint, name: it.name || '', image: it.image || S3IMG(it.mint),
+      price: it.price, royaltyBps: 1300, royaltySol: it.price * 0.13, takerFeeSol: it.price * 0.02,
+      priceAllIn: it.price * 1.15,                  // price + 13% royalty + 2% taker (matches the snapshot's all-in)
+      source: 'magiceden', seller: it.seller, tokenATA: it.tokenATA, std: it.std,
+      number: num(it.name), attributes: (it.attrs || []).map(a => ({ trait_type: a.t, value: a.v })),
+    }));
+    LIVE = mapped.concat(tensorOnly);
+    ALL_FLOORS = buildFloors(LIVE);
+    FLOORS = orderedFloors();
+    render();
+    paintStats();
+    if ($('fWhen')) $('fWhen').textContent = 'live · ' + new Date().toLocaleTimeString();
+    return true;
+  } catch (e) { return false; }
+}
+
+/* ── boot ────────────────────────────────────────────────────────── */
+paintStats();
+$('fWhen').textContent   = new Date(STORE.updatedAt).toLocaleString();
+$('oreTag').textContent  = ((STORE.listings[0]?.royaltyBps ?? 1300)/100) * CFG.oreRebateShareOfRoyalty + '% back in ORE';
+$('fRoy').textContent    = (STORE.listings[0]?.royaltyBps ?? 1300)/100;
+$('payOreIcon').src = ICON.ore;   // ORE-only marketplace — SKR/SOL pay buttons removed
+
+buildFilterUI();
+render();
+loadPrices();
+// Pull the LIVE book so new listings appear (not just the deploy-time snapshot); if that fails,
+// fall back to verifying the snapshot against the chain (drops anything already sold).
+setTimeout(async () => { const ok = await loadLiveTower(); if (!ok) refreshListings(); }, 500);
+setInterval(loadLiveTower, 60000);   // keep the tower current on its own — re-scans every minute
+// Re-render when crossing the mobile breakpoint so floors re-page at 3 or 5.
+let wasPer = perFloor();
+addEventListener('resize', () => { const p = perFloor(); if (p !== wasPer) { wasPer = p; render(); } });
+
+// Back-to-top jewel appears once you've scrolled past the first screen.
+addEventListener('scroll', () => $('toTop').classList.toggle('show', scrollY > 600), { passive: true });
+</script>
+
+<!-- Checkout libraries, self-hosted next to this page so the store has no
+     third-party runtime dependency. Loaded last: the tower renders first and
+     these are only needed once someone actually buys. web3.js reaches for a
+     global Buffer, which browsers don't have, so the polyfill goes first. -->
+<script src="buffer.js"></script>
+<script>window.Buffer = window.Buffer || window.buffer.Buffer;</script>
+<script src="web3.js"></script>
+<script src="dojo-credits.js"></script><script src="dojo-profile.js"></script><script src="mwa.js"></script><script src="wallet-picker.js"></script>
+<script src="dojo-ah.js"></script>
+<script>
+/* ── DD-native listings strip: Degens listed on our own ORE/SKR/USDC houses ──
+   Separate from the SOL floor tower (different currency). Reuses DojoAH.prepareBuy,
+   which SIMULATES the exact buy first — the wallet only prompts on a green sim, so a
+   buyer can never spend ORE/SKR on a transaction that would fail. */
+let DD_LISTINGS = [], _ddBusy = false;
+const ddImg = (m) => 'https://degendojo.s3.us-west-1.amazonaws.com/degen/img/' + m + '.png';
+function renderDDRow(){
+  const strip = document.getElementById('ddStrip'), row = document.getElementById('ddRow');
+  if (!strip || !row) return;
+  if (!DD_LISTINGS.length){ strip.hidden = true; return; }
+  const ready = !!(window.DojoAH && DojoAH.ALT_TABLE);
+  row.innerHTML = DD_LISTINGS.map((x,i)=>{
+    const mine = WALLET && x.seller === WALLET.pubkey;   // your own listing → Delist, not Buy
+    const btn = mine
+      ? `<button onclick="doDelistDD(${i})" style="background:transparent;border:1px solid rgba(201,151,58,.5);color:#e8b84b">Delist</button>`
+      : `<button onclick="doBuyDD(${i})">${ready?'Buy':'Buy soon'}</button>`;
+    return `<div class="ddcard">
+    <img src="${ddImg(x.mint)}" alt="" onerror="this.style.opacity=.15">
+    <div class="nm">${(x.name||x.mint.slice(0,6)+'…').replace(/</g,'&lt;')}</div>
+    <div class="pr">${x.price} ${x.currency}</div>
+    ${btn}</div>`;
+  }).join('');
+  strip.hidden = false;
+}
+async function loadDD(){
+  try{ const j = await (await fetch('/api/dd-listings')).json(); DD_LISTINGS = (j && j.listings) || []; }
+  catch(e){ DD_LISTINGS = []; }
+  renderDDRow();
+}
+async function ddConfirm(sig){ for(let k=0;k<40;k++){ try{ const st=await rpcCall('getSignatureStatuses',[[sig]]); const s=st&&st.value&&st.value[0]; if(s&&(s.confirmationStatus==='confirmed'||s.confirmationStatus==='finalized')){ if(s.err) throw new Error('failed on chain'); return; } }catch(e){} await new Promise(r=>setTimeout(r,1200)); } }
+async function doBuyDD(i){
+  if(_ddBusy) return;                                   // block double-clicks while a buy is in flight
+  const x = DD_LISTINGS[i]; if(!x) return;
+  if(!(window.DojoAH && DojoAH.ALT_TABLE)){ notify('Buying with ORE/SKR is being switched on — check back shortly.'); return; }
+  if(!WALLET){ notify('Connect your wallet (top right) to buy with ORE/SKR.'); return; }
+  if(WALLET.pubkey===x.seller){ notify('That is your own listing.'); return; }
+  _ddBusy = true;
+  notify('Checking the purchase — you are not charged yet…');
+  try{
+    const r = await DojoAH.prepareBuy(rpcCall, {currency:x.currency, buyer:WALLET.pubkey, seller:x.seller, mint:x.mint, price:x.price});
+    if(r.err){ console.log('DD buy sim failed', JSON.stringify(r.err), r.logs); notify('This purchase would fail — you were NOT charged. It may have just sold, or you don’t have enough '+x.currency+'.'); return; }
+    notify('Approve in your wallet — you pay '+x.price+' '+x.currency+' (seller nets '+r.breakdown.sellerNet.toFixed(x.currency==='USDC'?2:3)+' after the 13% royalty)…');
+    const s = await DojoAH.submitBuy(rpcCall, WALLET.provider, r);
+    notify('Confirming your purchase…'); await ddConfirm(s);
+    try{ fetch('/api/dd-royalty',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({sig:s,currency:x.currency})}); }catch(e){}   // 50% of the royalty → weekly pot
+    DD_LISTINGS = DD_LISTINGS.filter(l => l.tradeState !== x.tradeState);   // sold → drop it now so it can't be re-bought
+    renderDDRow();
+    notify('✓ Bought '+(x.name||'this Degen')+' — it is now in the buyer wallet.');
+    setTimeout(loadDD, 9000);                            // reconcile with the (pruned) index shortly after
+  }catch(e){ notify('Buy failed: '+((e&&e.message)||e)); }
+  finally{ _ddBusy = false; }
+}
+async function doDelistDD(i){
+  if(_ddBusy) return;
+  const x = DD_LISTINGS[i]; if(!x) return;
+  if(!WALLET){ notify('Connect your wallet (top right) to delist.'); return; }
+  if(WALLET.pubkey!==x.seller){ notify('That is not your listing.'); return; }
+  _ddBusy = true;
+  notify('Building the delist — approve in your wallet…');
+  try{
+    const W = W3();
+    // Cancel = seller revokes the SaleV1 delegate. Seller is the ONLY signer (no cosigner),
+    // so this is a clean single-signature tx — no Phantom multi-signer flag.
+    const built = DojoAH.buildCancelIx({ currency:x.currency, seller:WALLET.pubkey, mint:x.mint, price:x.price });
+    const ix = new W.TransactionInstruction({ programId:built.programId, keys:built.keys, data:W.Buffer?W.Buffer.from(built.data):built.data });
+    const bh = (await rpcCall('getLatestBlockhash',[{commitment:'confirmed'}])).value.blockhash;
+    const msg = new W.TransactionMessage({ payerKey:new W.PublicKey(WALLET.pubkey), recentBlockhash:bh, instructions:[ix] }).compileToV0Message();
+    const tx = new W.VersionedTransaction(msg);
+    const sig = await WALLET.provider.signAndSendTransaction(tx); const s = sig?.signature || sig;
+    notify('Confirming the delist…'); await ddConfirm(s);
+    DD_LISTINGS = DD_LISTINGS.filter(l => l.tradeState !== x.tradeState);   // drop it now so the strip updates instantly
+    renderDDRow();
+    notify('✓ Delisted '+(x.name||'this Degen')+' — it stays in your wallet.');
+    setTimeout(loadDD, 9000);                            // reconcile with the index shortly after
+  }catch(e){ notify('Delist failed: '+((e&&e.message)||e)); }
+  finally{ _ddBusy = false; }
+}
+/* DD-native listings moved to the Market page's "Degen Dojo" case — no strip here anymore. */
+</script>
+</body>
+</html>

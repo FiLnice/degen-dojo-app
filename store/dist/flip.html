@@ -1,0 +1,698 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DOJO FLIP — Degen Dojo</title>
+<link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
+<link rel="icon" href="/favicon-32.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="description" content="DOJO FLIP — the childhood flip-until-you-win card game, played with real Degen Dojo fighters. Match the last digit of the live stat.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="DOJO FLIP — Degen Dojo">
+<meta property="og:description" content="The childhood flip-until-you-win card game, played with real Degen Dojo fighters.">
+<meta property="og:url" content="https://degendojo.xyz/dojo-flip/">
+<meta property="og:image" content="https://degendojo.xyz/og-cover.png">
+<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="DOJO FLIP — Degen Dojo">
+<meta name="twitter:image" content="https://degendojo.xyz/og-cover.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Teko:wght@400;500;600;700&family=Cinzel:wght@600;700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#100d0b; --bg2:#171310; --panel:#1d1815; --panel2:#241d18;
+  --line:#3a2f25; --gold:#d8b56a; --gold-dim:#c9973a; --ink:#ece4d6; --mut:#9c8f7d;
+  --red:#c1443a; --blue:#5b93c4; --green:#7bb26a; --purple:#a982c9;
+  --shadow:0 10px 30px rgba(0,0,0,.55);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+html{background:#0a090d}
+body{
+  background:
+    radial-gradient(150% 132% at 50% 42%, transparent 52%, rgba(0,0,0,0.7) 100%),     /* softer vignette — a touch lighter */
+    radial-gradient(880px 440px at 50% -6%, rgba(216,181,106,0.09) 0%, transparent 56%),  /* faint gold haze behind the title */
+    #0c0b11;                                                                          /* lighter near-black, cool tint = more mysterious */
+  color:var(--ink); font-family:"Inter",system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased; overflow:hidden;
+}
+/* slow-drifting mist so the black feels alive and mysterious */
+body::before{
+  content:""; position:fixed; inset:-25%; z-index:-2; pointer-events:none;
+  background:
+    radial-gradient(closest-side, rgba(182,190,214,0.10), transparent 72%) 20% 30% / 56% 62% no-repeat,
+    radial-gradient(closest-side, rgba(150,138,184,0.085), transparent 72%) 80% 62% / 60% 64% no-repeat,  /* faint violet wisp */
+    radial-gradient(closest-side, rgba(152,144,124,0.06), transparent 72%) 52% 84% / 68% 50% no-repeat;
+  animation: mistDrift 30s ease-in-out infinite alternate;
+}
+@keyframes mistDrift{ from{ transform: translate3d(-2%,-1.5%,0) scale(1.05); } to{ transform: translate3d(3%,2%,0) scale(1.12); } }
+/* a few faint red kanji hanging in the fog */
+.mist-kanji{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden}
+.mist-kanji span{position:absolute;font-family:"Yu Mincho","Hiragino Mincho ProN","MS Mincho",serif;font-weight:700;line-height:1;
+  color:rgba(210,66,58,0.62);text-shadow:0 0 50px rgba(203,62,54,0.55),0 0 18px rgba(203,62,54,0.4);font-size:clamp(104px,18vw,250px);
+  animation:kanjiBreath 9s ease-in-out infinite alternate}
+.mist-kanji .k1{top:23%;left:1%}
+.mist-kanji .k2{top:18%;right:1%;animation-delay:-3s}
+.mist-kanji .k3{bottom:4%;left:4%;animation-delay:-6s}
+@keyframes kanjiBreath{ from{ opacity:.78 } to{ opacity:1 } }
+@media (prefers-reduced-motion: reduce){ body::before,.mist-kanji span{ animation:none } }
+.wrap{max-width:1080px;margin:0 auto;padding:8px 16px 22px;transform-origin:top center}
+/* Nav must match the main site's top bar exactly. This page's own palette is warmer/brighter
+   (its --gold-dim is a SOLID gold, its --mut warmer) which made the menu look different and the
+   active PLAY a bright yellow block — so the nav hardcodes the site's cooler nav colours instead. */
+.flips-nav{display:flex;justify-content:center;gap:4px;padding:10px 20px;flex-wrap:wrap;background:rgba(10,10,15,0.96);border-bottom:1px solid rgba(255,255,255,0.07)}
+.flips-nav a{font-family:"Cinzel",serif;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:#7a7570;padding:8px 18px;border-radius:6px;text-decoration:none;transition:.2s;white-space:nowrap}
+.flips-nav a:hover{color:#c9973a}
+.flips-nav a.on{background:rgba(201,151,58,0.15);color:#c9973a}
+.flips-backrow{max-width:1080px;margin:0 auto;padding:8px 14px 0}
+.flips-back{font-family:"Cinzel",serif;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold-dim);text-decoration:none}
+.flips-back:hover{color:var(--gold)}
+/* phones: keep the whole menu on ONE line */
+@media(max-width:620px){
+  .flips-nav{gap:2px;padding:7px 4px;flex-wrap:nowrap}
+  .flips-nav a{font-size:9px;letter-spacing:.04em;padding:6px 6px}
+  .flips-backrow{padding:6px 10px 0}
+  .flips-back{font-size:10px}
+}
+
+/* header */
+header{text-align:center;padding:2px 0 2px}
+.brand{font-family:"Cinzel",serif;font-weight:900;letter-spacing:.14em;color:var(--gold);
+  font-size:13px;opacity:.85;text-transform:uppercase}
+h1{font-family:"Teko",sans-serif;font-weight:700;font-size:clamp(30px,6.5vw,54px);line-height:.82;
+  margin:2px 0 0;letter-spacing:.03em;
+  background:linear-gradient(180deg,#f4e2b4 0%,var(--gold) 45%,var(--gold-dim) 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  text-shadow:0 2px 0 rgba(0,0,0,.3);}
+.tag{color:var(--mut);font-size:13.5px;margin-top:3px;letter-spacing:.02em;display:flex;align-items:center;justify-content:center;gap:8px}
+
+/* setup bar */
+.setup{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;align-items:center;
+  margin:8px auto 6px;max-width:760px}
+.grp{display:flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line);
+  border-radius:12px;padding:6px 8px}
+.grp>span.lbl{font-family:"Teko";font-size:16px;letter-spacing:.06em;color:var(--mut);
+  text-transform:uppercase;padding:0 4px}
+.seg{display:flex;gap:3px}
+.seg button,.pill{font-family:"Teko";font-size:18px;letter-spacing:.04em;text-transform:uppercase;
+  background:transparent;color:var(--mut);border:1px solid transparent;border-radius:9px;
+  padding:4px 12px;cursor:pointer;transition:.15s;line-height:1.1}
+.seg button:hover{color:var(--ink)}
+.seg button.on{background:linear-gradient(180deg,var(--gold),var(--gold-dim));color:#1a1206;
+  font-weight:600;box-shadow:0 2px 8px rgba(216,181,106,.25)}
+.seg button.stat.on{background:linear-gradient(180deg,#e7c987,var(--gold-dim))}
+.go{font-family:"Teko";font-size:22px;letter-spacing:.06em;text-transform:uppercase;font-weight:600;
+  padding:7px 22px;border-radius:11px;cursor:pointer;border:1px solid var(--gold-dim);
+  background:linear-gradient(180deg,var(--gold),var(--gold-dim));color:#1a1206;
+  box-shadow:0 3px 12px rgba(216,181,106,.3);transition:.15s}
+.go:hover{filter:brightness(1.08);transform:translateY(-1px)}
+.go.ghost{background:transparent;color:var(--gold);box-shadow:none}
+.hint{color:var(--mut);font-size:11px;text-align:center;max-width:620px;margin:0 auto;line-height:1.35}
+
+/* board */
+.board{display:grid;grid-template-columns:1fr auto 1fr;gap:14px;align-items:center;
+  margin-top:18px;min-height:300px}
+.side{display:flex;flex-direction:column;align-items:center;gap:8px}
+.who{font-family:"Teko";font-size:26px;letter-spacing:.05em;text-transform:uppercase;line-height:1}
+.who small{display:block;font-family:"Inter";font-size:11px;letter-spacing:.12em;color:var(--mut)}
+.side.ai .who{color:var(--red)} .side.me .who{color:var(--gold)}
+/* nowrap: 道場 is two characters and must sit side-by-side, never stack in a narrow column */
+.who-kanji{font-family:"Yu Mincho","Hiragino Mincho ProN","MS Mincho",serif;font-weight:700;font-size:clamp(26px,6vw,40px);line-height:1;margin-bottom:-2px;white-space:nowrap}
+.side.me .who-kanji{color:var(--gold);text-shadow:0 0 22px rgba(216,181,106,.4)}
+.side.ai .who-kanji{color:var(--red);text-shadow:0 0 22px rgba(193,68,58,.5)}
+.won{font-family:"Teko";font-size:15px;color:var(--mut);letter-spacing:.05em}
+.won b{font-family:"Teko";font-size:30px;color:var(--ink);margin-right:5px}
+
+/* deck stack (face-down) */
+.deck{position:relative;width:118px;height:168px;cursor:default}
+/* a real card edge — thick enough that the face-down pack reads as a CARD, gold for you / red for the Dojo */
+.deck .card-back{position:absolute;inset:0;border-radius:12px;border:2px solid rgba(216,181,106,.5);
+  background:
+    repeating-linear-gradient(45deg,#221a14 0 7px,#1c150f 7px 14px);
+  box-shadow:var(--shadow);display:flex;align-items:center;justify-content:center}
+.deck .deck-num{position:relative;z-index:1;font-family:"Teko",sans-serif;font-weight:700;font-size:40px;line-height:1;
+  color:var(--gold);text-shadow:0 2px 10px rgba(0,0,0,.65);letter-spacing:.02em}
+.side.ai .deck-num{color:var(--red)}                 /* the Dojo's count matches its red label */
+.side.ai .card-back{border-color:rgba(193,68,58,.55)}
+.deck.empty{opacity:.3}
+.deck.empty .deck-num{color:var(--mut)}
+
+/* center pile */
+.center{display:flex;flex-direction:column;align-items:center;gap:10px;min-width:240px}
+.pile{position:relative;width:300px;display:flex;align-items:flex-start;justify-content:center}
+.pile .base{width:100%;aspect-ratio:300/500;border-radius:12px;border:1px dashed var(--line);
+  display:flex;align-items:center;justify-content:center;text-align:center;color:var(--mut);
+  font-family:"Teko";font-size:20px;letter-spacing:.08em;text-transform:uppercase}
+.pilecount{font-family:"Teko";font-size:15px;color:var(--mut);letter-spacing:.06em}
+.pilecount b{color:var(--gold)}
+.pile.myturn{cursor:pointer;outline:2px dashed rgba(216,181,106,.55);outline-offset:7px;border-radius:6px}
+.deck.myturn{cursor:pointer}
+.deck.myturn .card-back{outline:2px solid rgba(216,181,106,.6);outline-offset:2px}
+.pile.dojoturn{outline:2px dashed rgba(193,68,58,.65);outline-offset:7px;border-radius:6px}   /* red = the Dojo's turn */
+.deck.dojoturn .card-back{outline:2px solid rgba(193,68,58,.6);outline-offset:2px}
+.pile-deal{font-family:"Teko",sans-serif;font-size:30px;letter-spacing:.08em;text-transform:uppercase;font-weight:600;
+  padding:10px 34px;border-radius:12px;cursor:pointer;border:1px solid var(--gold-dim);
+  background:linear-gradient(180deg,var(--gold),var(--gold-dim));color:#1a1206;box-shadow:0 5px 20px rgba(216,181,106,.35)}
+.pile-deal:hover{filter:brightness(1.08);transform:translateY(-2px)}
+.info-btn{width:32px;height:32px;flex:0 0 auto;border-radius:50%;border:1px solid var(--line);background:var(--panel);color:var(--gold);font-family:"Cinzel",serif;font-weight:700;font-style:italic;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1}
+.info-btn:hover{border-color:var(--gold-dim);background:var(--panel2)}
+.info-modal{position:fixed;inset:0;background:rgba(8,6,5,.82);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;z-index:30;padding:20px}
+.info-modal.show{display:flex}
+.info-box{background:var(--panel);border:1px solid var(--gold-dim);border-radius:14px;padding:20px 24px;max-width:440px;box-shadow:var(--shadow)}
+.info-box h3{font-family:"Teko";font-size:28px;color:var(--gold);margin:0 0 10px;letter-spacing:.04em;text-transform:uppercase}
+.info-box ul{margin:0;padding-left:18px;color:var(--ink);font-size:13.5px;line-height:1.6}
+.info-box li{margin-bottom:6px}
+.info-box b{color:var(--gold);font-weight:600}
+.info-close{margin-top:16px;font-family:"Teko";font-size:20px;letter-spacing:.05em;text-transform:uppercase;padding:6px 22px;border-radius:10px;cursor:pointer;border:1px solid var(--gold-dim);background:linear-gradient(180deg,var(--gold),var(--gold-dim));color:#1a1206}
+/* Scoreboard — hidden panel, opened by the 🏆 button (space is tight, so it lives behind a tap) */
+.sb-btn{width:32px;height:32px;flex:0 0 auto;border-radius:50%;border:1px solid var(--line);background:var(--panel);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1}
+.dc-mid{display:inline-flex;align-items:center;gap:3px;font-family:"Teko",sans-serif;font-size:16px;line-height:1;color:var(--gold);border:1px solid var(--gold-dim);border-radius:9px;padding:3px 9px;background:rgba(216,181,106,.08);white-space:nowrap;flex:0 0 auto;}
+.sb-btn:hover{border-color:var(--gold-dim)}
+.sb-box{max-width:400px;width:100%}
+.sb-box h3{margin:0 0 12px}
+.sb-id{display:flex;gap:8px;margin-bottom:12px}
+.sb-id input{flex:1;min-width:0;background:var(--bg2);border:1px solid var(--line);border-radius:9px;color:var(--ink);font-family:"Inter",sans-serif;font-size:14px;padding:8px 11px}
+.sb-id input:focus{outline:none;border-color:var(--gold-dim)}
+.sb-id button{font-family:"Teko";font-size:17px;letter-spacing:.05em;text-transform:uppercase;padding:0 16px;border-radius:9px;cursor:pointer;border:1px solid var(--gold-dim);background:linear-gradient(180deg,var(--gold),var(--gold-dim));color:#1a1206}
+.sb-me{font-family:"Teko";font-size:16px;color:var(--mut);letter-spacing:.03em;margin-bottom:12px;min-height:20px}
+.sb-me b{color:var(--gold);font-size:19px;margin:0 3px}
+.sb-head,.sb-list li{display:grid;grid-template-columns:26px 1fr 34px 50px 48px;align-items:center;gap:4px}
+.sb-head{font-family:"Teko";font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);padding:0 4px 5px;border-bottom:1px solid var(--line)}
+.sb-head span:nth-child(n+3),.sb-list li span:nth-child(n+3){text-align:right}
+.sb-list{list-style:none;margin:8px 0 0;padding:0;max-height:210px;overflow-y:auto}
+.sb-list li{padding:6px 4px;border-bottom:1px solid rgba(58,47,37,.5);font-size:13px;color:var(--ink)}
+.sb-list li.you{background:rgba(216,181,106,.10);border-radius:7px}
+.sb-list li .nm{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-list li .rk{font-family:"Teko";font-size:16px;color:var(--gold)}
+.sb-empty{color:var(--mut);font-size:13px;text-align:center;padding:18px 0}
+.sb-weekly{margin-top:14px;padding:11px 13px;background:var(--bg2);border:1px solid var(--line);border-radius:10px;font-size:12px;color:var(--mut);line-height:1.5}
+.sb-weekly b{color:var(--gold)}
+.sb-weekly button{display:block;margin-top:9px;font-family:"Teko";font-size:15px;letter-spacing:.05em;text-transform:uppercase;padding:6px 16px;border-radius:8px;cursor:pointer;border:1px solid var(--gold-dim);background:transparent;color:var(--gold)}
+
+/* fighter card — matches the collectible FRONT (see /collectible): #1d1d1e ground, Teko
+   gold-gradient name, gold rules around the art, red stat bars w/ cream labels + ivory
+   numbers, and the border tone. Border: beige (default) / yellow (.is-gold = gold gear) /
+   rose (.red-gold-frame = framed boss). The live row + underlined last digit are the FLIP
+   mechanic, layered on top. */
+.gold-frame{width:100%;padding:7px;border-radius:12px;position:relative;overflow:hidden;
+  background:linear-gradient(150deg,#f2ecd9 0%,#cdba86 22%,#8d7c50 55%,#cdba86 82%,#f2ecd9 100%);
+  box-shadow:0 14px 40px rgba(0,0,0,.6),0 0 0 1px rgba(0,0,0,.5)}
+.gold-frame.is-gold{background:linear-gradient(150deg,#f4e2b4 0%,#e8b84b 22%,#8b6020 55%,#e8b84b 82%,#f4e2b4 100%)}
+.red-gold-frame{background:linear-gradient(145deg,#f4b48a 0%,#c85a30 16%,#a53b1d 34%,#7a2a13 50%,#a53b1d 66%,#c85a30 84%,#f4b48a 100%)}
+.card-inner{background:#1d1d1e;position:relative;z-index:3;border-radius:6px;overflow:hidden;display:flex;flex-direction:column;font-family:"Teko",sans-serif}
+.card-header{background:#1d1d1e;height:31px;box-sizing:border-box;padding:0 12px;border-bottom:1px solid rgba(200,150,42,.2);text-align:center;display:flex;align-items:center;justify-content:center}
+.card-name{font-family:"Teko",sans-serif;font-size:18px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;position:relative;top:2.5px;
+  background:linear-gradient(180deg,#f8ecc4,#e8b84b 52%,#c9973a);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-stroke:.5px #e8b84b}
+.flip-grule{height:3px;flex:0 0 auto;box-shadow:0 0 4px rgba(0,0,0,.5);
+  background:linear-gradient(150deg,#f2ecd9 0%,#cdba86 22%,#8d7c50 55%,#cdba86 82%,#f2ecd9 100%)}
+.gold-frame.is-gold .flip-grule{background:linear-gradient(150deg,#f4e2b4 0%,#e8b84b 22%,#8b6020 55%,#e8b84b 82%,#f4e2b4 100%)}
+.red-gold-frame .flip-grule{background:linear-gradient(145deg,#f4b48a 0%,#c85a30 16%,#a53b1d 34%,#7a2a13 50%,#a53b1d 66%,#c85a30 84%,#f4b48a 100%)}
+.nft-img-wrap{width:100%;aspect-ratio:1175/1208;position:relative;overflow:hidden;background:#1d1d1e}
+.nft-img-wrap img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.card-move{background:#1d1d1e;padding:3px 12px;border-top:1px solid rgba(200,150,42,.12);text-align:center}
+.card-move-label{font-size:14.5px;color:rgba(232,213,180,.94);letter-spacing:.06em;text-transform:none;margin-bottom:0}
+.card-move-name{font-family:"Cinzel",serif;font-size:15px;font-weight:700;letter-spacing:.03em;line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  background:linear-gradient(180deg,#f8ecc4,#e8b84b 52%,#c9973a);-webkit-background-clip:text;background-clip:text;color:transparent}
+.card-stats{background:#1d1d1e}
+.srow{display:flex;align-items:stretch;border-bottom:1px solid rgba(0,0,0,.5)}
+.srow:last-child{border-bottom:none}
+.slbl{font-size:15px;font-weight:600;color:rgb(209,202,171);background:#c0392b;padding:6px 10px 2px;flex:1;display:flex;align-items:center;letter-spacing:.03em;text-transform:uppercase;line-height:1}
+.sval{font-family:"Teko",sans-serif;font-size:19px;font-weight:600;color:#f7efd5;background:#c0392b;padding:4px 9px;flex:0 0 56px;text-align:center;display:flex;align-items:center;justify-content:center;border-left:1px solid rgba(0,0,0,.4);line-height:1}
+.srow.live .slbl,.srow.live .sval{background:linear-gradient(180deg,#e7c25f,#c8962a);color:#2a1c06}
+.srow.live .ld{text-decoration:underline;text-underline-offset:2px;text-decoration-thickness:2px}
+
+/* animation states */
+.gold-frame.flip-in{animation:flipin .45s cubic-bezier(.2,.8,.25,1)}
+@keyframes flipin{from{transform:rotateY(90deg) translateY(-8px);opacity:0}to{transform:none;opacity:1}}
+.pile.sweep{animation:sweep .55s ease}
+@keyframes sweep{0%{filter:none}35%{filter:drop-shadow(0 0 22px rgba(216,181,106,.85))}100%{filter:none}}
+.pile.capture{animation:cap .5s ease}
+@keyframes cap{0%{filter:none}40%{filter:drop-shadow(0 0 18px rgba(91,147,196,.7))}100%{filter:none}}
+
+/* announcer */
+.ann{min-height:26px;text-align:center;margin:14px auto 0;font-family:"Teko";font-size:22px;
+  letter-spacing:.05em;color:var(--ink);text-transform:uppercase;transition:.2s;line-height:1}
+.ann .big{color:var(--gold);font-weight:600}
+.ann .cap{color:var(--blue)}
+.ann.flash{animation:annpop .4s ease}
+@keyframes annpop{0%{transform:scale(.9);opacity:.3}60%{transform:scale(1.06)}100%{transform:scale(1)}}
+
+/* controls under board */
+.controls{display:flex;justify-content:center;gap:12px;margin-top:12px}
+.flipbtn{font-family:"Teko";font-size:30px;letter-spacing:.08em;text-transform:uppercase;font-weight:600;
+  padding:10px 44px;border-radius:14px;cursor:pointer;border:1px solid var(--gold-dim);
+  background:linear-gradient(180deg,var(--gold),var(--gold-dim));color:#1a1206;
+  box-shadow:0 5px 20px rgba(216,181,106,.35);transition:.12s}
+.flipbtn:hover:not(:disabled){transform:translateY(-2px);filter:brightness(1.08)}
+.flipbtn:disabled{opacity:.4;cursor:not-allowed;filter:grayscale(.4)}
+.flipbtn.ghost{background:transparent;color:var(--gold);box-shadow:none;border:1px solid var(--gold-dim)}
+.flipbtn.ghost:hover:not(:disabled){background:rgba(216,181,106,.1);filter:none;transform:translateY(-2px)}
+
+/* end overlay */
+.over{position:fixed;inset:0;background:rgba(8,6,5,.82);backdrop-filter:blur(4px);
+  display:none;align-items:center;justify-content:center;z-index:20}
+.over.show{display:flex;animation:fade .3s ease}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.result{background:var(--panel);border:1px solid var(--gold-dim);border-radius:18px;padding:30px 44px;
+  text-align:center;box-shadow:var(--shadow);max-width:420px}
+.result h2{font-family:"Teko";font-size:64px;margin:0;line-height:.9;letter-spacing:.03em}
+.result .sub{color:var(--mut);font-size:14px;margin:6px 0 18px;letter-spacing:.04em}
+.result .score{font-family:"Teko";font-size:22px;color:var(--ink);margin-bottom:20px}
+
+@media(max-width:620px){
+  /* keep the laptop left/right layout on mobile — decks flank the pile */
+  .board{gap:7px;margin-top:10px;min-height:0}
+  .side{gap:5px}
+  /* one clean line each — the side column below is sized to fit them, so they never
+     wrap into a cramped 2-line block against the card */
+  .who{font-size:12px;white-space:nowrap}
+  .who-kanji{font-size:24px}
+  .deck{width:clamp(38px,10.5vw,80px);height:auto;aspect-ratio:118/168}
+  /* must match the base rule's specificity (`.deck .deck-num`) or it silently loses to it */
+  .deck .deck-num{font-size:clamp(18px,5.2vw,34px)}
+  /* trimmed from 64vw so the side columns get real width for the labels; max-width:100%
+     still pins the card inside its column so it can never hide the decks */
+  .pile{width:min(58vw,300px);max-width:100%}
+}
+</style>
+</head>
+<body>
+<nav class="flips-nav">
+  <a href="/lore">Lore</a>
+  <a href="/traits">Traits</a>
+  <a href="/play" class="on">🥷 Play</a>
+  <a href="/framed">✦ Framed</a>
+  <a href="/ore">⛏ ORE</a>
+  <a href="/teahouse">🍵 TEAHOUSE</a>
+  <a href="https://store.degendojo.xyz/" target="_blank" rel="noopener">🛒 Store ↗</a>
+</nav>
+<div class="flips-backrow"><a href="/play" class="flips-back" onclick="if(history.length>1){history.back();return false}">‹ Games</a></div>
+<div class="mist-kanji" aria-hidden="true"><span class="k1">忍</span><span class="k2">闘</span><span class="k3">龍</span></div>
+<div class="wrap">
+  <header>
+    <div class="brand">Degen Dojo</div>
+    <h1>DOJO FLIP</h1>
+    <div class="tag"><button class="info-btn" id="infoBtn" type="button" aria-label="How to play" title="How to play">i</button><span>🎴 Flip. Match the last digit. Sweep the pile. 🎴</span></div>
+  </header>
+
+  <div class="setup">
+    <span class="dc-mid" data-dc-credits="icon" title="Your credits — one balance across every game"></span>
+    <button class="sb-btn" id="sbBtn" type="button" aria-label="Scoreboard" title="Scoreboard">🏆</button>
+    <div class="grp"><span class="lbl">Mode</span>
+      <div class="seg" id="mode">
+        <button data-mode="casual" class="on">Casual</button>
+        <button data-mode="comp">Competitive</button>
+      </div>
+    </div>
+    <div class="grp"><span class="lbl">Live stat</span>
+      <div class="seg" id="stat">
+        <button data-stat="a" class="stat on">Attack</button>
+        <button data-stat="d" class="stat">Defence</button>
+        <button data-stat="h" class="stat">Hitpoints</button>
+        <button data-stat="s" class="stat">SM Dmg</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="board">
+    <div class="side me">
+      <div class="who-kanji" aria-hidden="true">君</div>
+      <div class="who">Your Hand</div>
+      <div class="deck" id="medeck"><div class="card-back"><span class="deck-num" id="menum">0</span></div></div>
+    </div>
+
+    <div class="center">
+      <div class="pile" id="pile"><div class="base"><button class="pile-deal" type="button">Deal ⚔</button></div></div>
+    </div>
+
+    <div class="side ai">
+      <div class="who-kanji" aria-hidden="true">道場</div>
+      <div class="who">The Dojo</div>
+      <div class="deck" id="aideck"><div class="card-back"><span class="deck-num" id="ainum">0</span></div></div>
+    </div>
+  </div>
+
+  <div class="ann" id="ann">Pick a mode &amp; stat, then <b class="big">tap Deal</b> on the card. Then <b class="big">tap a card</b> to flip.</div>
+</div>
+
+<div class="info-modal" id="infoModal">
+  <div class="info-box">
+    <h3>How to play</h3>
+    <ul>
+      <li>Pick a <b>live stat</b> — only that number counts this game.</li>
+      <li><b>Tap the pile or your hand</b> to flip your top card onto the pile.</li>
+      <li>Match the <b>last digit</b> of the live stat with the card on top → you <b>sweep</b> the pile; the cards slide under your deck.</li>
+      <li><b>Competitive mode:</b> on a no-match, the <b>higher</b> live stat also captures the top card.</li>
+      <li>When a player runs out, <b>they hold the pack</b> and pull from its bottom while the other keeps laying from their hand. A match by the out-player <b>reclaims the pack</b> (back in the game); a match by the player with cards <b>wins the whole game</b>.</li>
+      <li>If <b>both</b> run out of hand cards, they keep pulling in turn — the <b>first match wins</b> for whoever's pull it was. A full pass through the pack with no match is a <b>draw</b> and the cards go back.</li>
+    </ul>
+    <button class="info-close" id="infoClose" type="button">Got it</button>
+  </div>
+</div>
+
+<div class="info-modal" id="sbModal">
+  <div class="info-box sb-box">
+    <h3>🏆 Scoreboard</h3>
+    <div id="flipSbBoard"></div>
+    <button class="info-close" id="sbClose" type="button">Close</button>
+  </div>
+</div>
+
+<script src="/dojo-credits.js"></script>
+<script src="/dojo-scores.js"></script>
+<script src="/mwa.js"></script><script src="/wallet-picker.js"></script>
+<script src="/dojo-wallet.js"></script>
+<script type="module">import * as FE from '/dojo-flip-engine.mjs'; window.FlipEngine = FE;</script>
+<script>
+const POOL = [{"n":1188,"name":"Teary Goro","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/EneA7AVuwH3RJsqepvXQXaiSStALg7zvSfeNXEpGSgYa.png","a":98,"d":97,"h":41,"s":195,"sm":"Squeezing Gut Squash","story":"Goro climbed Mount Hotaka for stillness and came down without his wallet, hiccupping through tears. His straw hat drips rain or grief — even he can't tell anymore.","boss":false,"gold":false},{"n":457,"name":"Masumi Steel","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/D8awnKepVBtyFPWLhAnohvZDtEVMuqcXHs5U9ztAREny.png","a":20,"d":67,"h":43,"s":144,"sm":"Belching Power Attack","story":"Masumi Steel swore his blade only came out for honor — then a monkey went for his sake cup. Reflexes won, honor lost, and he's grinned through the extortion ever since.","boss":false,"gold":false},{"n":2815,"name":"Angry Ikari","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/EpXBvKQFo15EzCj7VWcnpUB4e4Kbm9pKmXvvXzc6SZNG.png","a":93,"d":98,"h":76,"s":196,"sm":"Instant Rat Coil","story":"Botan laughed at an empty sake cup, and Ikari answered with a fist instead of words. The vein at his temple still throbs — forty seconds of peace was always the limit.","boss":false,"gold":false},{"n":941,"name":"Young Yuji","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/2Rg1sDzW3iLnmsrXgPvxHUBwSkP9we4reYgniYyTzLFZ.png","a":20,"d":54,"h":21,"s":117,"sm":"Smitten Rat Pummel","story":"Young Yuji sold his own bloodline for a shaman's nod, sure it would look heroic in the retelling. Glory never called back — only the candlelight, applauding no one.","boss":false,"gold":false},{"n":1109,"name":"Akuma","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/Gr6imSEDUxELRQR9HQC7cEEz36jGZWY2M1nKkivXLeky.png","a":59,"d":83,"h":41,"s":137,"sm":"Sneaky Monkey Bind","story":"The kitsune mask hid a demon; the demon just wanted a compliment. He got fleeced instead, and now fishes for praise by moonlight, alone.","boss":false,"gold":false},{"n":2849,"name":"Toxic Azuma","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/pzY1qMH1s76qmjBsewCG5tqEVpsZJAmk1SwLJSmNSMy.png","a":79,"d":82,"h":54,"s":166,"sm":"Cussing Fox Headbutt","story":"Azuma bets small now, dockside, telling himself relapse just wears a comeback's kimono. He still smiles first — the wasabi-sting of watching you lose before you feel it.","boss":false,"gold":false},{"n":1452,"name":"Masumi Steel","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/96t3nPNyLqH2UvsH24dX52b4jQ4Y4Fcy6m58eE26KhCq.png","a":47,"d":36,"h":21,"s":84,"sm":"Heavy Mud Blast","story":"A door slamming, Masumi figures, is just applause with worse manners. \"Called it a promotion,\" he grins, cough and all, bowing to no one in the snow.","boss":false,"gold":false},{"n":2013,"name":"Igor The Bear","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/3Yt9KF6WwV1EkjajSHQi7rac3Fjo2mYJgFi7udLDMYAS.png","a":73,"d":47,"h":40,"s":106,"sm":"Gastro Tiger Caress","story":"Two teeth skittered across shrine stone like dice nobody claimed — Igor The Bear didn't flinch, didn't rise. Just knelt there, slow as glaciers, already deciding how to move next.","boss":false,"gold":false},{"n":2457,"name":"Lovey Haruto","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/5VsM9hsk51yZQesp2x3pnxxm5KHv47QC7xUSQbTGxFGw.png","a":87,"d":88,"h":54,"s":177,"sm":"Throwing Storm Toss","story":"Lovey Haruto fights with compliments and water breaks, kindness dressed up as a blade. His kimono keeps slipping — so does his honor, but never his smile.","boss":false,"gold":false},{"n":299,"name":"Young Yuji","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/U8kXCxuXf1fWaTRuTZcJq8QZ9ZC1tB6wvPMkrPSbypu.png","a":29,"d":55,"h":41,"s":97,"sm":"Hidden Pinky Kick","story":"A true warrior needs no witnesses, Yuji insists, kimono still boar-splattered. \"The rooster had it coming too,\" he preens, wallet empty, horns held high.","boss":false,"gold":false},{"n":1788,"name":"Fatty Bobsticks","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/HRUaTqwNy8t4iqmXFAp79AiHnkrbvX9NJVEK4yiB8iYK.png","a":48,"d":64,"h":22,"s":112,"sm":"Special Tatami Impact","story":"A full plate proves nothing, Fatty Bobsticks figures, except that he got there first. \"Crows ate my honor,\" he mutters, mouth full — already refilling both.","boss":false,"gold":false},{"n":2447,"name":"Young Yuji","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/C9EEyYe6NDE6UoX5PjsumhDGi43jy2wtYi58LPWZjdUv.png","a":69,"d":43,"h":38,"s":101,"sm":"Crafty Night Blitz","story":"Young Yuji perfects his kata for a war that already ended, moonlight his only witness. Then Masumi said his name once — and cracked armor no mirror ever could.","boss":false,"gold":false},{"n":3257,"name":"Akuma","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/7HY61SYDeYnS97cjVPMthdWXiDU7jBZiQQjuLYz9SqNV.png","a":55,"d":26,"h":38,"s":67,"sm":"Destructive Butt Spring","story":"A demon's true final form, Akuma figures, is a man alphabetizing his incense at 3am. \"Just one more hand for Buddha,\" he grins — the scariest vow he's ever broken.","boss":false,"gold":false},{"n":2895,"name":"Igor The Veteran","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/9o1HcCWkxHnFnF8P7F46TDk2hnYxKj58t9TjRKqiH6vq.png","a":50,"d":89,"h":45,"s":157,"sm":"Chilling Fox Strike","story":"Medals don't ask why the scar never healed, and neither does Igor. The oni horns stay rigid — everything else nods off by dawn.","boss":false,"gold":false},{"n":511,"name":"Assassin Fuzen","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/2SJASeSgHyxqUwEnd9QeP6FHLeQ66oeXhBqecKcBHECD.png","a":18,"d":39,"h":54,"s":87,"sm":"Charging Claw Charge","story":"Fuzen's blade once only drank ink — now it whittles toy swords among the chrysanthemums. He calls his ruin an unfinished contract, and files it under someday.","boss":false,"gold":false},{"n":3850,"name":"Fat Bob","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/7Q959FdLPLKu1dewi9eWhU9KMxCotqy7Skko8TPHca7K.png","a":49,"d":64,"h":41,"s":139,"sm":"Twisting Rat Squash","story":"A blade's only honorable if you use it, Fat Bob figures — otherwise it's just a fancy skewer. \"Dice first,\" he chuckles, gut jiggling, incense burning down to nothing again.","boss":false,"gold":false},{"n":1635,"name":"Akuma","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/5Pqi2ZxZT5Nat38NEPHNjfHd19BCkVp5xCovDuhzdkMK.png","a":20,"d":59,"h":22,"s":126,"sm":"Charging Whirlwind Pounce","story":"Demon by name, insomniac by trade, Akuma traded his blade for whispers at Fuji's foot. The mountain answered with an itch he now gossips about at 3am — cursed, grinning, unrepentant.","boss":false,"gold":false},{"n":2769,"name":"Akuma","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/EJyhp9FggFfVru1q3BqBACHdvbxsJKVPgrdrxdnNZFM7.png","a":22,"d":51,"h":21,"s":117,"sm":"Laughing Cobra Pounce","story":"Under a swollen red moon, Akuma still sits seiza and tries to breathe like the old masters taught him. Five minutes in, the knuckles crack, the grin returns — the jungle always wins.","boss":false,"gold":false},{"n":3674,"name":"Igor The Bear","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/J3UXXskJ5jBDz5cxGj67rW1Tpmy21AZxtPcGiSL81NEz.png","a":35,"d":80,"h":55,"s":130,"sm":"Oblivious Dust Jutsu","story":"Avalanches don't warm up, Igor figures, they just eventually arrive. \"Standing,\" he grunts, third try's the charm — the mountain doesn't rush its own landslide.","boss":false,"gold":false},{"n":3211,"name":"Raikou The Stoner","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/5En7CxGz2JqKDug5GG8A5ZATP9ZBTXUZ58KGSY4R1mYb.png","a":73,"d":47,"h":40,"s":111,"sm":"Teasing Dragon Impact","story":"A crate caught Raikou's finger mid-sentence about tuna prices — the snap barely registered through the haze. He calls it enlightenment; the swelling calls it Tuesday.","boss":false,"gold":false},{"n":3103,"name":"Yuuki","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/BVthu8rTFY3afH22ftKrrXDUW6i9cub4xMVWYZ4Gq6HN.png","a":59,"d":73,"h":72,"s":153,"sm":"Filthy Typhoon Clap","story":"A true warlock, Yuuki figures, fears no cup — only the enemy who makes him flinch. \"Discipline,\" he grins, gap-toothed, saluting two lost molars like fallen comrades.","boss":false,"gold":false},{"n":283,"name":"Goro","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/6KPMB79aoG8AAnw1nRKparivRu6bJfmdiQk3evyXy5Ye.png","a":33,"d":30,"h":21,"s":76,"sm":"Slicing Claw Impact","story":"Stillness isn't surrender, Goro insists, it's a strategy nobody's finished grading yet. \"Next time the wait holds,\" he says, dark spectacles fixed on gates that never answer.","boss":false,"gold":false},{"n":2999,"name":"Cheery Haru","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/7AgAnWJQMvbhy6cECdGVoQSfFW4oD5zDo3EHcNTv3CXy.png","a":97,"d":92,"h":21,"s":185,"sm":"Perfect Turtle Jutsu","story":"A stray thought, Cheery Haru figures, just needs the right bowl of Shaman Soup to sit still. \"Clarity's in here somewhere,\" he grins, fishing another good idea out of the steam.","boss":false,"gold":false},{"n":629,"name":"Raikou The Stoner","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/844wGErteE3S8tG9STyXaAosy6yFiz4jtqZAT5TTexJc.png","a":58,"d":51,"h":54,"s":107,"sm":"Murderous Noose Coil","story":"Seven bowls deep at Kiyomizu, Raikou woke robeless among priests who mistook his stillness for meditation. He calls it clarity now — enlightenment, he swears, just needed a draft.","boss":false,"gold":false},{"n":1905,"name":"Teary Goro","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/7cNWVNNCUtshpYJQSeRyryzk4JPmL4mEifey6aPUntfh.png","a":58,"d":60,"h":43,"s":127,"sm":"Filthy Knuckle Frenzy","story":"Goro reached out to steady Haruto instead of striking him — one touch, two disqualifications. He sobbed, then laughed, kimono damp, finally proud of the shot he never took.","boss":false,"gold":false},{"n":2071,"name":"Drooling Azuma","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/9qa8ZYQ61aCswGrz38c6ZuQt1v6Zs9ofEfTNcQZVngDB.png","a":62,"d":64,"h":54,"s":137,"sm":"Smoking Speed Surge","story":"A treasure map is just a menu you haven't eaten yet, Azuma figures, still tasting pigeon droppings and regret. \"Bad friends,\" he mutters, already eyeing the next roof to gut.","boss":false,"gold":false},{"n":3007,"name":"Young Yuji","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/G8jwSU1df7wAhoeg7PoJpqGcbjAgnLP7DhgX7izaBLWk.png","a":51,"d":23,"h":38,"s":71,"sm":"Laughing Dojo Smash","story":"A true warrior needs an enemy, Young Yuji figures, and the war forgot to book one. \"So I fight the smoke instead,\" he preens, dead fish twitching where a blade should hang.","boss":false,"gold":false},{"n":2452,"name":"One-Eyed Itsuki","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/HjZmExkcrATh6cQV5wWEGqnxXWHg3GxGcQdqb6QWNwoQ.png","a":35,"d":61,"h":41,"s":136,"sm":"Ominous Shock Bind","story":"Losing an eye, One-Eyed Itsuki figures, just halves the paperwork of seeing clearly. \"The ghost keeps the other half,\" he grins, gap-toothed, and never asks it to leave.","boss":false,"gold":false},{"n":25,"name":"Shitless Botan","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/3sso9hAkVMDu23VRMFzW2tZzXTmV3QUKEmr1w1wwH88o.png","a":26,"d":18,"h":58,"s":54,"sm":"Dazzling Surprise Tickle","story":"Botan bet the family fief on one roll in the dirt, and lost centuries in four seconds flat. He recites the loss like a menu — the fear's gone, but the shrug stayed forever.","boss":false,"gold":false},{"n":2384,"name":"Goro","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/7FXHPE5aNmPrwAABEbzCZrzNQMBe26z4tBsu7NPz5sZq.png","a":34,"d":52,"h":54,"s":118,"sm":"Breaking Head Fist","story":"Goro sat in seiza through the chanting, certain stillness always wins. His stomach disagreed, and the temple elders still won't discuss what happened next.","boss":false,"gold":false},{"n":2689,"name":"Assassin Fuzen","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/CajRsGgLMAd2ZkHFfeG9XtpotdmwgCTmSkf8D1YXrRbs.png","a":27,"d":21,"h":38,"s":60,"sm":"Violent Shadow Burst","story":"A debt collects interest whether or not you show up, Fuzen figures — his insult on Fuji included. \"Someday,\" he says, sharpening a blade his hands no longer honor.","boss":false,"gold":false},{"n":67,"name":"Serious Oleg","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/CH7zpDNgV7pstFyVoKNwVaXUN2hDvRsgWpaETMAzSyKZ.png","a":56,"d":26,"h":40,"s":71,"sm":"Throwing Whirlwind Jolt","story":"Every ambush announces itself, Oleg believes — this one simply forgot to. \"Stillness is the enemy,\" he mutters, glaring at Edmundo's laughter for a confession it won't give.","boss":false,"gold":false},{"n":1832,"name":"Junichiro Reborn","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/Fjycn3Z8ALDCvSSbSWuC2fAmnVndnNzQrU7rhixpWLbk.png","a":27,"d":28,"h":41,"s":69,"sm":"Silent Dojo Squash","story":"Death, Junichiro figures, is just a rough draft — he's revised it so many times the ending stopped scaring him. \"Same story,\" he shrugs, leaning on the cane he never quite needs.","boss":false,"gold":false},{"n":1692,"name":"Masumi Steel","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/8wfVYhjxfX3s3Ji7n2kGy46FrBBuBjftWf4KfnSNmkku.png","a":49,"d":64,"h":43,"s":137,"sm":"Ronin Surprise Stomp","story":"Masumi Steel once folded his hakama with monk-like precision, every crease a vow. Then he bet the family fortune on one tatami mat, grinning like he'd already spent it.","boss":false,"gold":false},{"n":2787,"name":"Yuji The Wise","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/GJmGfy8WsNhtbBmTsktGon8eC9t17xh5iTcVeq2kFVS9.png","a":70,"d":66,"h":41,"s":115,"sm":"Spiteful Teeth Slam","story":"Yuji The Wise once wrote of ten thousand battles, then lost his own to a ladle of miso. His black horns bowed, but the footnotes, he insists, were flawless.","boss":false,"gold":false},{"n":3631,"name":"Assassin Fuzen","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/6FtnymygLs6UStUcHohvQZJfmKMZS8u6Mfepb5gvaf86.png","a":58,"d":48,"h":54,"s":108,"sm":"Shrieking Tornado Smash","story":"Fuzen once counted contracts the way other men count breaths. The Hidden Teahouse taught him one line never closes — and the tea's been cold since.","boss":false,"gold":false},{"n":715,"name":"Tokuda","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/6uCRA8QTDE6sxsWgwYYtHBYXSdg2JCwqnqBgtYug4AnD.png","a":71,"d":56,"h":39,"s":121,"sm":"Whirling Cobra Spank","story":"Tokuda screamed his challenge mid-sake, sword high, and the crowd screamed back louder. A stranger's hand claimed him first — he called it his greatest victory yet.","boss":false,"gold":false},{"n":519,"name":"Lovey Haruto","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/F2nbuwYeNNDy2XPUL38Z1RCBnxu5CQg5M2HYMFmrB7aN.png","a":39,"d":58,"h":54,"s":102,"sm":"Cussing Dirt Pounce","story":"A soft word cuts deepest, Lovey Haruto always claimed — until his own turned sharp under the trees. \"Forgive Oleg easy,\" he sighs, \"myself, never.\"","boss":false,"gold":false},{"n":1229,"name":"Fat Bob","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/AEL9HR2K6XEstoDCuxcrQLsgrWwFrFWCU4zuRFN2aXJe.png","a":28,"d":30,"h":21,"s":77,"sm":"Iron Stick Flick","story":"A full belly, Fat Bob figures, is the only enlightenment worth chasing. \"Lost it all again,\" he beams, mouth already full of the last dumpling.","boss":false,"gold":false},{"n":2468,"name":"One-Eyed Itsuki","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/ynLysfmhHBbcePHtfeeQczsUdyrcmR9MVHBtYJNdEJy.png","a":99,"d":99,"h":42,"s":198,"sm":"Misty Cyclone Crash","story":"Depth perception, One-Eyed Itsuki figures, is overrated when the wagyu's this close. \"Saw the punch coming,\" he grins, gap-toothed — and swung anyway.","boss":false,"gold":false},{"n":1355,"name":"Assassin Fuzen","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/469HGN6xqWHgt6XH9VLrcGBHdNCM48c1ZpZipyZnwJzQ.png","a":23,"d":27,"h":21,"s":72,"sm":"Ultimate Noose Pounce","story":"The mist that once hid a killer's silence now hides smoke off his own dice table. Fuzen calls his ruin a contract in progress — patient men, he shrugs, just close late.","boss":false,"gold":false},{"n":916,"name":"Akuma","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/HVz6EW1thg4ui2oFqxRrgreo9pGCLsHDuJw8AHUAPCCK.png","a":29,"d":40,"h":39,"s":94,"sm":"Clumsy Finger Stomp","story":"Men once fled the name Akuma across whole battlefields. Now he stays up till dawn nursing a snapped finger, mourning a beetle named Ronin who lasted four seconds.","boss":false,"gold":false},{"n":451,"name":"Stresshead Rin","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/5Ybuym6E5yTyvrJqLWQ52f3CDjpbmaZGH9MH9GdQuhqk.png","a":34,"d":39,"h":21,"s":89,"sm":"Fingering Lion Whip","story":"Seventeen contingency plans couldn't prepare Stresshead Rin for a stranger under a bridge named Bob. Now he struts the courtyard, chin high, still braced for an ambush that never comes.","boss":false,"gold":false},{"n":55,"name":"Oleg Of War","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/FVY9NRsjcvzykTsj8N6QyUXfcLsdh46rJneFYZJEzG27.png","a":22,"d":18,"h":20,"s":59,"sm":"Belching Shock Bash","story":"Oleg Of War once silenced rooms with a glance — now a rusty nail is the only blade he trusts. His kingdom shrank to a mushroom-lit room, and he calls the stillness strategy.","boss":false,"gold":false},{"n":3344,"name":"Young Yuji","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/BBYxo4nQhGskktCbKjfEN95ritVfvpzbwTmqRdA1WbKi.png","a":80,"d":75,"h":39,"s":156,"sm":"Jumping Hurricane Force","story":"A true warrior rehearses his own name, Young Yuji figures, in case the enemy forgets it first. \"Yuji! YUJI!\" he screams at the mirror — the axe stays sharp, the applause never comes.","boss":false,"gold":false},{"n":521,"name":"Igor The Veteran","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/Cz9xnqDSqzjEXZFKMjn84s2PxeL4QqqrjkHmquR4cKz.png","a":81,"d":76,"h":41,"s":160,"sm":"Ronin Lion Crush","story":"Mount Fuji still hasn't forgiven the day Igor thought himself ready for Goro. He drills the frost at dawn to earn it back, then loses the debt in sake by midnight.","boss":false,"gold":false},{"n":3770,"name":"Lovey Haruto","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/3J3NxuAKPevc7tkYExJT451CEG2vznPnVd4oVuUbWo78.png","a":70,"d":52,"h":41,"s":115,"sm":"Immoral Storm Caress","story":"Lovey Haruto climbed Mount Haku to greet the summit like a monk. He threw his arms wide at Haru instead, snapped a finger on the rock, and smiled through the tears anyway.","boss":false,"gold":false},{"n":3101,"name":"Fatty Bobsticks","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/6NRSGuf6nL7SNWXF7DAjZj2iVzWHwYtQf4BYZoDMQXsB.png","a":56,"d":38,"h":38,"s":70,"sm":"Cleaving Power Dance","story":"A full plate is still an empty gesture, Fatty figures, chewing on the insult like it owes him seconds. \"Fat Bob never got spat on,\" he mutters, horns bobbing, sword held wrong again.","boss":false,"gold":false},{"n":3284,"name":"Edmundo","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/D9JbP5je4vviAQqiYDaLMZyEvtLG2GUsQxB1dsJzxxgj.png","a":81,"d":79,"h":39,"s":162,"sm":"Fingering Tiger Slide","story":"A good guard, Edmundo figures, watches every door but his own. \"Discipline,\" he tells the recruits — then re-ties his robe a third time, just in case.","boss":false,"gold":false},{"n":1289,"name":"Junichiro Reborn","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/ALBpi9oQQo4oTXfbVPssSJBDs3KhxLLR1ThW2FHU34a5.png","a":81,"d":77,"h":21,"s":160,"sm":"Flying Paralysis Grinder","story":"Rebirth, Junichiro figures, is just a story you keep telling until the snake believes it too. \"Died twice already,\" he shrugs, ordering a third sake before noon finds him again.","boss":false,"gold":true},{"n":2361,"name":"Fat Bob","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/D2NqBcm1V6cyv2SGTPkPj6Mpy7Gp2NubtkbKhhMxrcfj.png","a":18,"d":20,"h":39,"s":59,"sm":"Zooming Paralysis Knee","story":"A war is just a meal that fights back, Fat Bob figures — and he's undefeated at the table. \"Two ninja down, one bowl finished,\" he grins, \"priorities, brother.\"","boss":false,"gold":false},{"n":2149,"name":"Shitless Botan","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/736CH1LNjYJNRR9ehpZvkbK3QSorgFFFLVTqKnaXzqFA.png","a":49,"d":54,"h":54,"s":118,"sm":"Shouting Hurricane Move","story":"Botan sat still while chaos clawed at his sleeves, and somehow that was enough. Fear left him nothing to plan with — just gray, and the sake going warm.","boss":false,"gold":false},{"n":91,"name":"One-Eyed Itsuki","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/DFiPaRTbT7keBLjH7w4h71SXxVVuHxjTGnyn4FviqNMb.png","a":56,"d":34,"h":41,"s":81,"sm":"Crimson Dirt Charge","story":"One-Eyed Itsuki once called every arrow before it left the bow. Now he watches charts with his good eye and calls the losses clarity.","boss":false,"gold":false},{"n":95,"name":"Goro","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/ABiPv4Jwdrd7gNkiDixVxMGMFLieZVaY7rzf9EKa6RBf.png","a":73,"d":46,"h":38,"s":105,"sm":"Crying Cobra Squash","story":"Goro sat on Misty Mountain waiting for stillness to pay him back — the widows waited longer. Now his Pompous Glasses watch a bald head that stopped calling it strategy years ago.","boss":false,"gold":false},{"n":809,"name":"Cheery Haru","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/FT7eFEHcZkhgRVsDqjqSXrZArJq62R5b3fnFHxpAdbSS.png","a":29,"d":40,"h":39,"s":90,"sm":"Unconscious Cyclone Jolt","story":"A missing tooth just means more room for the grin, Haru figures. \"Upgrade,\" he whistles through the gap — the vines don't believe him either.","boss":false,"gold":false},{"n":3455,"name":"Shitless Botan","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/FdJR2F7jyh98QiWgh53DTDRUZ5V1wfXXLkAwKWzGGqgR.png","a":76,"d":91,"h":42,"s":186,"sm":"Vengeful Head Move","story":"Fear left him on some battlefield, Botan shrugs, and took his sense of timing with it. \"The moon never showed for the duel either,\" he says, blood still drying, utterly unbothered.","boss":false,"gold":false},{"n":524,"name":"Assassin Fuzen","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/ARxPYeTR8Y4Ah8WD3FkFQVJq8bmKnyeE6GXmZgoBRxxA.png","a":73,"d":50,"h":20,"s":109,"sm":"Degenerate Butt Dance","story":"A contract on yourself never expires, Fuzen figures, it just accrues interest. \"Nagoya never happened,\" he says, polishing pocket glasses that saw it happen twice.","boss":false,"gold":false},{"n":2610,"name":"Cheery Haru","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/4WRWmC718EpjJgn1AApwXGYQRTvGP118GiNuxrbFUrYy.png","a":93,"d":99,"h":40,"s":169,"sm":"Instant Quick Squash","story":"A wobble, Cheery Haru insists, is just a bow the knees haven't finished yet. \"Nobody drowned,\" he grins through the kitsune mask — the koi disagree, and so do his shaking hands.","boss":false,"gold":false},{"n":737,"name":"Lovey Haruto","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/62k1vAfduJCjFwX3wnq8uZfQfPEXzHRL3mA5LEPHmyph.png","a":18,"d":20,"h":39,"s":59,"sm":"Cutting Tiger Swipe","story":"Lovey Haruto once won wars with warmth alone — then tried to bed the mamasan under his own roof. Now every scar on him is a kindness he still hasn't forgiven himself for.","boss":false,"gold":false},{"n":563,"name":"Edmundo","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/5EKQmFca4mPqgx5nXEX2HLQhoMbiQ6qSazrpUuQawpH6.png","a":24,"d":37,"h":42,"s":91,"sm":"Teasing Quick Frenzy","story":"Edmundo watches every back at the gate before he thinks of his own — old habit, older wound. The Puppy Kimono was a joke once; now it's the only thing that's ever kept him warm.","boss":false,"gold":false},{"n":1240,"name":"Edmundo","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/BnwoRrhpfvEtAdzqVVNwkm2gCfVN7ZpxhJo75dbWB9AH.png","a":80,"d":76,"h":41,"s":158,"sm":"Spectacular Fox Clap","story":"Edmundo charged his own superior in the fog for a bag of edibles — and landed in a ditch instead. He still guards the gate every night, loyal to a dojo that no longer trusts his blade.","boss":false,"gold":false},{"n":3689,"name":"Edmundo","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/FeqTpbLwuueYNSTZgFDPHvnvvnzJyi2awXmop9YP5XHM.png","a":29,"d":37,"h":41,"s":93,"sm":"Flying Cyclone Whack","story":"Edmundo guards the gate every night under a purple sky, cane tapping the same worn stone. He never learned to stand watch over himself — that fight went hungry years ago.","boss":false,"gold":false},{"n":2698,"name":"Drooling Azuma","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/EpcfXC8aAWguTxGrjnGBNtLdDcZxhdoHNjEoCEa5CgsE.png","a":49,"d":61,"h":41,"s":130,"sm":"Unknowing Dojo Caress","story":"Drooling Azuma squared up against Oleg like a true samurai, for one whole breath. Then his stomach roared louder than his sensei ever did, and the sand ate him instead.","boss":false,"gold":false},{"n":2226,"name":"Shitless Botan","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/BDfdp6L6d1PJ636s53BSGps4smjArdJ7A3h7sKG8ZqW1.png","a":22,"d":82,"h":76,"s":166,"sm":"Vile Monkey Grinder","story":"Fear left Botan on a market day, and honesty moved into the empty room. \"My liver's fought harder than my sword arm,\" he tells the dojo, bird-feathers twitching, calm as a corpse.","boss":false,"gold":false},{"n":1169,"name":"One-Eyed Itsuki","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/5PvP7BLYxC7z8Do5zRCvAPyqk3Cdibs8GphwbGeSgLhS.png","a":46,"d":22,"h":38,"s":64,"sm":"Iron Palm Bind","story":"One-Eyed Itsuki folded the whiteboard shut on the Bandit's fingers, calm as a man ending a duel. He calls it clarity — the other eye was never going to see this coming either.","boss":false,"gold":false},{"n":557,"name":"Goro","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/CkgmnwjbHiyU6JD7LMqNoLbgV6EoNA6CfF1X2Tbg1tV4.png","a":18,"d":23,"h":21,"s":68,"sm":"Painted Gut Bind","story":"Waiting, Goro figures, is just moving too slow for anyone to notice you've stopped. \"I'm still climbing,\" he shrugs, posture perfect, boots planted since the scree slope.","boss":false,"gold":false},{"n":470,"name":"Fatty Bobsticks","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/8B94SJqJduYf9r26yBZ6YrNaUgmArdtURHKBuVPhGKf4.png","a":72,"d":82,"h":72,"s":168,"sm":"Teasing Rat Surge","story":"A code, Fatty Bobsticks figures, is just an appetite you haven't admitted yet. \"Tactical retreat,\" he mumbles, mouth full of yen and someone else's fan.","boss":false,"gold":false},{"n":353,"name":"Igor The Veteran","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/4kmyGdxz14ppDqccS6AvSz12oPX43mtLDkh7HLEwzMNr.png","a":58,"d":52,"h":40,"s":117,"sm":"Jumping Dojo Spring","story":"Medals don't clink anymore — Igor traded them for silence, and silence never asks for a refill. Every dawn he vows sobriety; every dusk the bottle remembers his name before he does.","boss":false,"gold":false},{"n":3827,"name":"Masumi Steel","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/24pqvh3mWtUpE5AM5MUExiZidjm5oi5eTzz4BDmngKNG.png","a":25,"d":60,"h":43,"s":128,"sm":"Flinging Dirt Crush","story":"Masumi Steel's mouth wrote checks his katana couldn't cash, and Yuuki cashed him out in front of the whole teahouse. Ponytail loose, grin intact, he's back at noon betting on nothing.","boss":false,"gold":false},{"n":1819,"name":"Edmundo","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/Dgv5ZgEBKERhrjuYpqi1zwP9EtFaPbLzB8jyuNFUmSiA.png","a":62,"d":69,"h":55,"s":148,"sm":"Crying Hurricane Frenzy","story":"A borrowed oath still counts, Edmundo figures, even when guarded by shaking hands. \"Just vigilance,\" he tells the gate — the same lie, seven mornings running.","boss":false,"gold":false},{"n":1519,"name":"Akuma","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/B37rkYhWYfCoPTc1j9UBoaHV9wAA5tLsqy26DcuVcXi4.png","a":47,"d":26,"h":20,"s":79,"sm":"Spectacular Turtle Assault","story":"A demon's discipline, Akuma figures, is just finding a new tooth to pull. \"Still got thirty-one,\" he grins — the gap where fear used to live.","boss":false,"gold":false},{"n":767,"name":"Akuma","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/433bXo5V6vmm5aGV9V6NeDWi3RPwnMhGZxX6gHdXMXYP.png","a":26,"d":33,"h":38,"s":54,"sm":"Rising Tiger Squash","story":"The demon who once emptied villages now empties cups by lantern light. Same hand, same smile — just thirstier ambitions now.","boss":false,"gold":false},{"n":2156,"name":"Angry Ikari","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/DSwNQvraVThhXQz48qR5GUy2y1gyGnzLjZMAqyF6TAa.png","a":22,"d":42,"h":38,"s":95,"sm":"Jumping Typhoon Raze","story":"A whetstone slipped when a fool mocked his form, and Angry Ikari's fury got its first body count. He still sharpens blades nightly — the one fight he never wins is stillness.","boss":false,"gold":false},{"n":2275,"name":"Igor The Bear","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/CKzY8oiit3sqvh8NVWR6SJBELNszz5wfhEjiZ3ckosVq.png","a":62,"d":69,"h":55,"s":144,"sm":"Zooming Rat Spank","story":"The heat in Otsu even slowed Igor's leaning, and his katana snapped clean under his own weight. He's been rolling toward redemption for weeks now — still from a chair, beer in hand.","boss":false,"gold":false},{"n":3576,"name":"Fat Bob","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/RPzFxcUqRSvaPuGZM4xTf7nnzBNhxZ1KtzjCRvFzx6o.png","a":33,"d":29,"h":41,"s":76,"sm":"Zooming Hurricane Attack","story":"A choking hazard, Fat Bob figures, is just a saba that fought back. \"Self-discipline,\" he coughs, ordering three more.","boss":false,"gold":false},{"n":352,"name":"Angry Ikari","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/4p36X31N8h2USoxwrJSVJSab7xYfKX6wv8Fd8QBP6QRC.png","a":82,"d":95,"h":44,"s":191,"sm":"Spectacular Dirt Caress","story":"Mount Koriyoka answered his tirade with an unseen hand, and Angry Ikari found a new grievance to scream at. The mirror still hears about it — right before it hits the wall.","boss":false,"gold":false},{"n":962,"name":"Oleg Of War","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/9VT8DsjPzHpG7t2o12ikxiZL6nmd3m1ny2WRC36Leb3Y.png","a":91,"d":89,"h":42,"s":182,"sm":"Hair Pulling Quick Spike","story":"Oleg Of War dropped Botan clean on Mount Haku, form perfect, purse forgotten on his belt. He watched the thief's tracks fade downhill — the strike was the only payment he wanted.","boss":false,"gold":false},{"n":1670,"name":"Tokuda","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/DdYBw12q2F7kDFX6bhG2x52M4ypiXqyr8RYP8WSqcD1c.png","a":35,"d":67,"h":72,"s":143,"sm":"Venomous Dojo Surge","story":"Tokuda swore no blade would ever fell him — a snapper's rib nearly did the job instead. Now he toasts the shame nightly, louder each time, daring death to try that again.","boss":false,"gold":false},{"n":2273,"name":"One-Eyed Itsuki","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/GvucCGj8MA9dBpBoXSuGbC9BK5tuxMK3L8eUaxsjsYNe.png","a":42,"d":26,"h":38,"s":70,"sm":"Venomous Groin Pounce","story":"Losing an eye just doubles what's left to misunderstand, One-Eyed Itsuki figures. \"Clarity,\" he grins gap-toothed, gold earrings swinging as the candle tips over again.","boss":false,"gold":true},{"n":3726,"name":"Raikou The Stoner","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/5ErTGShQVMar1x5iFUhPmTsivsHmboG5LVpxSd1MEWhc.png","a":83,"d":77,"h":41,"s":161,"sm":"Shaman Monkey Fist","story":"Blackmail bought the yen; a fortune-cookie inkman bought the rest. Raikou stares at his noodle dragon and calls it enlightenment — the blunt agrees, slowly.","boss":false,"gold":false},{"n":2495,"name":"Young Yuji","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/33p7gaehN9DdCfEUNt6jdSHTwmZpZb8h4BLk81bPjtes.png","a":18,"d":61,"h":55,"s":133,"sm":"Hair Pulling Rat Jab","story":"Young Yuji picked a fight with Dogenzaka itself, blue kimono flaring like a banner over nothing. He won no legacy, just bruised knuckles and a grin he insists was always this bloody.","boss":false,"gold":false},{"n":676,"name":"Gloomy Masumi","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/D6nCUt4b3hvSdKtRiAdCxgG9CgEBnZT5EJGKcxPtpnD3.png","a":37,"d":31,"h":21,"s":72,"sm":"Oblivious Noose Dive","story":"Masumi killed the snake mid-dream, mid-stride, and the street didn't even look up. Glory, he says flatly, arrives small and damp — same as everything else he's ruined.","boss":false,"gold":false},{"n":3517,"name":"Serious Oleg","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/GBnU9qcv1GyKukzUie3vaRbQHUgo6L5ezceTeeGzfhrZ.png","a":88,"d":82,"h":41,"s":168,"sm":"Jumping Speed Coil","story":"Oleg drilled his yari against dawn itself, braced for generals who never came. The ambush was a stoner's giggle — and discipline has been losing to it ever since.","boss":false,"gold":false},{"n":718,"name":"Junichiro","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/2GhXB9NLDkBZ4XpuK2gX5hUENyaFw4GZvgiBC6pPWsTE.png","a":70,"d":50,"h":41,"s":104,"sm":"Ronin Chicken Raze","story":"Junichiro measured the monkey's death blow to perfect form, three columns of ledger be damned. His father wanted a son — he delivered a debt owed to a ghost.","boss":false,"gold":false},{"n":1816,"name":"Angry Ikari","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/BE5kT9ioXpihnVFQjDdMAf2C5SL6mbxJdHyHCFa39kZZ.png","a":31,"d":17,"h":40,"s":52,"sm":"Perfect Power Grinder","story":"A blade needs a still hand, Ikari knows — his hasn't been still since Kyoto. \"I was listening,\" he snaps, right as another pocket goes light.","boss":false,"gold":false},{"n":1608,"name":"Goro","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/DeEzjfGzLroR62EjFVPm278qWUw4sPthFib8rH3BdpL7.png","a":18,"d":17,"h":20,"s":53,"sm":"Squeezing Head Smash","story":"Goro sat seiza before the shrine, waiting for the mojo to wander home like a cat. Cats don't come back for men who mistake sitting still for a plan.","boss":false,"gold":false},{"n":99,"name":"One-Eyed Itsuki","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/HExdebTMToNpARWvxpsFq3GuzehArBXDN6jari4Prphj.png","a":39,"d":38,"h":41,"s":94,"sm":"Legendary Demon Paw","story":"One-Eyed Itsuki cracked his elbow on the table and called the pain a paragraph. He's writing the book now — one eye on the page, one eye closed on the tab.","boss":false,"gold":false},{"n":2363,"name":"Shitless Botan","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/HCWVcQ28Zj8BhWamcZzxqty6dmf7T7GBLv5uvLigUXMU.png","a":76,"d":92,"h":54,"s":162,"sm":"Bloody Head Strike","story":"Fear died twice for Shitless Botan — once in the war, once under a bridge, in his hakama. Grey horns didn't flinch; his bowels wrote the surrender instead.","boss":false,"gold":false},{"n":3108,"name":"Cheery Haru","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/8RkVVM7TiyaE6zry9JRTWkpSw42QnR7denJYrZDR6aro.png","a":53,"d":47,"h":22,"s":108,"sm":"Corrupted Tiger Poke","story":"Golden glasses catching the peak he betrayed, Haru laughs about the coins like it's still funny. The mountain never laughs back.","boss":false,"gold":true},{"n":3012,"name":"Yuji The Wise","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/BpPV64u3u9czhToPo3JcKFmDmyZth2UZJGxpvkKnDxUy.png","a":84,"d":85,"h":54,"s":175,"sm":"Cutting Tornado Burst","story":"Yuji The Wise lectured on discipline between bites, then bet his lineage on a dare he can't recall. The cleaver remembered the scripture his mouth forgot.","boss":false,"gold":false},{"n":2221,"name":"Yuji The Wise","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/7URNmhYk4xr6q4ouP87mJQdD7SspFZN3wmmNNBNykMGx.png","a":91,"d":89,"h":54,"s":182,"sm":"Godlike Dojo Chop","story":"Yuji The Wise once found peace in a rice paddy, chewing plain grains like a man reborn. He's been narrating that afternoon ever since — never once repeating it.","boss":false,"gold":false},{"n":3484,"name":"Fatty Bobsticks","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/FwKjCuszjcgj7RNNaYd3YAiVY6BUREGtSNkAhCJuLEcw.png","a":71,"d":59,"h":39,"s":129,"sm":"Crafty Tornado Frenzy","story":"Fatty Bobsticks swears he's not Fat Bob — then eats a third helping to prove it. Nine retirements deep, he still snaps his own bokken and calls the splinters seconds.","boss":false,"gold":false},{"n":2937,"name":"Raikou The Stoner","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/8wrMRMCyMz4Mf2AErf4Mi6c3eP2BPzGKjpHw7BTE9yJn.png","a":20,"d":84,"h":45,"s":170,"sm":"Burning Turtle Hook","story":"Enlightenment, Raikou figures, is just the gap between the bite and giving a damn. \"Snake took the nipple,\" he shrugs, \"the calm stayed home.\"","boss":false,"gold":false},{"n":2711,"name":"Fatty Bobsticks","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/4797aRGty8jvGsygoP1mSBnEU1YBbP7xE9jjKpdZDnWp.png","a":39,"d":40,"h":21,"s":94,"sm":"Shrieking Whirlwind Tickle","story":"Under the sakura, Fatty Bobsticks waited for a thunderclap and got a breeze instead. He calls it destiny anyway — his knees popped, his nap won, and the petals never once cared.","boss":false,"gold":false},{"n":2364,"name":"Tokuda","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/2RMFy6RjnZbwjrmWk7bzPBxghLcMwZYwjiSAddhRxRUz.png","a":30,"d":54,"h":40,"s":119,"sm":"Nasty Finger Smash","story":"Tokuda's war cry once moved armies; now it just startles pigeons behind the noodle stand. Elbow shattered, coin gone, he calls it rock bottom for the twelfth glorious time.","boss":false,"gold":false},{"n":3142,"name":"Fatty Bobsticks","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/9U9qrJHzoFurE8yC91S8F1LLbNEBXLFN1jonmenrs8qt.png","a":71,"d":76,"h":21,"s":127,"sm":"Iron Fang Stomp","story":"A fistful of buried coins, Fatty figures, is just the gods serving lunch early. \"Discipline starts tomorrow,\" he mumbles, mouth full of gummies already.","boss":false,"gold":false},{"n":2337,"name":"Gloomy Masumi","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/EnNQouLt4Bo5KJCtn8BYA1oU1ay6mfJoXc5C7rJ6F4EB.png","a":41,"d":20,"h":58,"s":59,"sm":"Mashing Dust Dive","story":"Clarity, Masumi has learned, always arrives late and unpaid for. \"Lost everything and finally felt honest,\" he says — still unsure if that's peace or the bottom.","boss":false,"gold":false},{"n":3469,"name":"Igor The Bear","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/56Eq8CshtpGaWa6QWGhuec6vdi9pRg8HQuamoCUAnPsp.png","a":42,"d":30,"h":41,"s":70,"sm":"Sabotaging Shock Jab","story":"An avalanche doesn't apologize, Igor figures, it just arrives late and leaves a crater. \"Still mending,\" he sighs, sinking deeper into the mud instead.","boss":false,"gold":false},{"n":3553,"name":"Akuma","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/HfBySWEpUdmZcefDi9tQmpZkAn6SDjmqwekwxruHLwdG.png","a":84,"d":76,"h":20,"s":158,"sm":"Cunning Pinky Move","story":"A demon's real terror, Akuma decides, is knowing exactly when to fold the parasol and when to strike. \"Fourth round trains the spirit,\" he grins, ordering a fifth to be thorough.","boss":false,"gold":false},{"n":2625,"name":"Junichiro Reborn","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/Hkk7d6ak4qsggumbzY8rGVU8oenGGJC1PW9jtLG8UmoQ.png","a":52,"d":38,"h":21,"s":88,"sm":"Burning Tatami Trap","story":"Death, Junichiro figures, is just a soak you eventually towel off from. \"Tomorrow I rebuild,\" he tells Mochi, and the viper believes him more than he does.","boss":false,"gold":false},{"n":1629,"name":"Angry Ikari","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/9f5F9smvRBuVyoCkHiPtsiiijV6uJJPMbAhRDvfS3CU1.png","a":18,"d":22,"h":41,"s":68,"sm":"Snipping Cyclone Spike","story":"A shogun never once thanked him, so now he swings at strangers just to feel useful. Three teeth on the pavement later, he's still muttering that better days better show up.","boss":false,"gold":false},{"n":1516,"name":"Igor The Bear","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/7LXmdQvf9LXEbYKUGCidL1LqSn55v79FtqEBJPUVwFaS.png","a":18,"d":39,"h":54,"s":86,"sm":"Puncturing Head Fondle","story":"Igor moved on Rin the way mountains move — slow, total, unstoppable. What followed was a crack like green wood, a long silence, and an arm that still hasn't forgiven the avalanche.","boss":false,"gold":false},{"n":2991,"name":"Goro","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/4PEUgAWz33TPKkJnbHVGqeSVnhVpWbaVLQhJ9q9FTVrF.png","a":94,"d":92,"h":42,"s":183,"sm":"Blasting Night Jutsu","story":"Goro waited so long at the table that his fief slipped away before he blinked. Patience was his whole inheritance — turns out it spends like debt.","boss":false,"gold":false},{"n":3397,"name":"Gloomy Masumi","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/FaF9FLeYbGtwjqo2oURVKUZ5R1VzCT5iX6JbaM4aeqeK.png","a":54,"d":66,"h":55,"s":138,"sm":"Rotten Dust Blitz","story":"Grief announces itself early, Masumi figures, so the iron at 3 a.m. was hardly a surprise. \"On brand,\" he mutters at the scar — the blue kimono singed, the betrayal still unpressed.","boss":false,"gold":false},{"n":3666,"name":"Stresshead Rin","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/4qRa81y6QVeLqt3A5uPxv9M1EEsxxgbMqqjXxE8KAjxA.png","a":22,"d":19,"h":41,"s":60,"sm":"Burning Surprise Flick","story":"Stresshead Rin declares himself shogun of his quarters each dawn, and loses the throne to a sock by noon. He counts his pushups twice — the enemy, he swears, is always one rep away.","boss":false,"gold":false},{"n":3831,"name":"Cheery Haru","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/EdSgtPH79rMsDsgcVC6Rjs6wngfdEsEjsqECVAw1V14s.png","a":82,"d":92,"h":41,"s":186,"sm":"Degen Finger Crush","story":"A bow to every stranger, Haru figures, is cheaper than therapy and twice as effective. \"Business is booming,\" he grins, nailing himself back together one stranger at a time.","boss":false,"gold":false},{"n":895,"name":"Shitless Botan","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/22LGxgthsgP2nbodoZHsYka2bLjreNHxuHZcqzxTm9hR.png","a":22,"d":68,"h":39,"s":112,"sm":"Hidden Knuckle Caress","story":"Fear was scraped out of Botan years ago, so ruin just reads like weather now. \"Seppuku's Tuesday,\" he shrugs, tanto in one hand, sake bottle in the other — bottle's winning.","boss":false,"gold":false},{"n":3152,"name":"Young Yuji","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/8oMxv8r2FvN3RHcWW9htiY5XXQq3uNuwPQ6SqzAVhadu.png","a":76,"d":86,"h":43,"s":175,"sm":"Throwing Groin Bind","story":"Young Yuji still polishes his katanajamas kimono like the war might check for wrinkles. Glory left without him — but his knees don't know it yet, bouncing at every false dawn.","boss":false,"gold":false},{"n":1311,"name":"Junichiro Reborn","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/EkSVdbrQS8Fo5tW9iyJzQZMjVvzwegtjcisAQh44LuXa.png","a":62,"d":92,"h":43,"s":149,"sm":"Flying Speed Hook","story":"Rebirth, Junichiro explains, is just yesterday wearing a fresh coat of calm. \"Died in the garden again,\" he shrugs, already scheduling tomorrow's death behind the Hannya mask.","boss":false,"gold":false},{"n":1005,"name":"Cheery Haru","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/7NS1FUqQf33xNonRDBd9EmJfL5riZVAyibssoE5W9kRY.png","a":87,"d":97,"h":76,"s":195,"sm":"Unfamiliar Groin Bind","story":"A wound, Cheery Haru figures, is just a grin that bled through the bandage. \"Battle scars from the war on sadness,\" he beams — the napkin soaking through his feathers.","boss":false,"gold":false},{"n":1666,"name":"Fat Bob","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/4iViVyAzaRAZ8AtgF7hoBisdZbQLbyCpZbGbnzt3NVjV.png","a":20,"d":43,"h":40,"s":106,"sm":"Shrieking Teeth Whip","story":"A full belly, Fat Bob figures, is just honor wearing a disguise. \"One bowl first,\" he sniffles into the chuka soba — the katas can wait another thirty years.","boss":false,"gold":false},{"n":370,"name":"Masumi Steel","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/C8aN6cyKtbTitmRgAsV79H3J22N4kRC3W7vTTN3ZrYZm.png","a":57,"d":38,"h":21,"s":96,"sm":"Destructive Typhoon Spank","story":"Masumi Steel once drilled men till their sandals bled, form above all. Now he trades discipline for mushrooms — cheaper, and nobody salutes a grin this crooked.","boss":false,"gold":false},{"n":1046,"name":"Igor The Veteran","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/2NP9Cx9HZeszsR9oN2xDjkYFGhdGinGbeV7Tkt3XhtEG.png","a":44,"d":46,"h":42,"s":108,"sm":"Crafty Cyclone Burst","story":"A war is easiest to win in the retelling, Igor figures, and hardest at the card table. \"Discipline's the third shot,\" he grins, already asking for the fourth.","boss":false,"gold":false},{"n":387,"name":"Gloomy Masumi","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/2Ht8AqjztZWvFSjQdCdzp8zergFJd5bMfDxHN784CLT5.png","a":74,"d":62,"h":42,"s":133,"sm":"Breaking Surprise Hook","story":"Betrayal, Masumi figures, is just probability finally collecting what shame already owed. \"The finger was only the receipt,\" he mutters, folding his gi anyway — precise, useless, his.","boss":false,"gold":false},{"n":3105,"name":"Young Yuji","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/CrAD3SVx87p4WdH2fjPmMqZQY1fFQFJsNbUvjmRBr6Tm.png","a":42,"d":30,"h":41,"s":75,"sm":"Unknowing Cyclone Attack","story":"A true legend, Young Yuji insists, is never made in war but in the wreckage after. \"Seppuku will be gorgeous,\" he preens, still workshopping the lighting.","boss":false,"gold":false},{"n":2947,"name":"Teary Goro","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/6azENXE3jSFD9QicC4JDJVWQGZ27Z6zg1V4Hvod8xGGd.png","a":28,"d":27,"h":41,"s":78,"sm":"Immoral Cyclone Leap","story":"A tear, Goro figures, is just a prayer that gave up on words halfway through. \"Snakes are lucky,\" he sobs happily, itching, in a bath that used to be a shrine.","boss":false,"gold":false},{"n":3724,"name":"Edmundo","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/5wcp5KF2zgAv3yofgK3trfWHRXucJBPVgYJV3DvPVE1F.png","a":18,"d":20,"h":39,"s":56,"sm":"Instant Chicken Jab","story":"A watch is kept on everyone else's wounds, Edmundo figures, so no one checks his own. \"Grandmother nearly won that duel,\" he winces, pressing the rag tighter, still guarding the door.","boss":false,"gold":false},{"n":1392,"name":"Igor The Veteran","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/6DpYrYcxsam9pXUet6Kp3fJxZcHEgvCtp9vwpXsXaAX1.png","a":96,"d":88,"h":40,"s":177,"sm":"Vengeful Sphincter Caress","story":"A medal doesn't keep a man warm, Igor figures — only the jug does that now. \"Dawn's for vows,\" he mutters over his Shaman Soup, \"evening's for breaking them.\"","boss":false,"gold":false},{"n":119,"name":"Tokuda","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/5haTK8MQD1ztbXcroz9ishi7kQR2VJzsNCpNWghJUUyP.png","a":31,"d":86,"h":42,"s":140,"sm":"Bloody Sphincter Tickle","story":"Tokuda bellowed his war chest into a scholar's palm at the lantern festival, calling it destiny. Now he screams victory speeches at fireflies, skull still grinning, chest still empty.","boss":false,"gold":false},{"n":3019,"name":"Yuji The Wise","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/6Y6R5gT2xsMjqstG8RUwyY2dQTTAQq1NH1QEhx2FdYQn.png","a":61,"d":53,"h":21,"s":118,"sm":"Cunning Rat Frenzy","story":"Yuji The Wise narrated the thief's escape better than he ever stopped it, robes flapping, earring gone. Wisdom, he sighs, was never the problem — his circle of friends was.","boss":false,"gold":false},{"n":1678,"name":"Drooling Azuma","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/z647nUqKs4LfVWQ68CVikecxNriGUYkfCYTHv2fkrMq.png","a":22,"d":60,"h":54,"s":134,"sm":"Bleeding Hurricane Smash","story":"Drooling Azuma once held a gate so still his blade forgot to breathe. Now he flees to the jungle vowing to fast, mango juice already on his chin.","boss":false,"gold":false},{"n":3451,"name":"Akuma","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/4SCnKj7N4MpeF4DrCZY1cnB5WmpQFYywFNiGvqcXrajV.png","a":52,"d":32,"h":39,"s":84,"sm":"Jumping Gut Blitz","story":"Akuma once vetted enemies by counting their heartbeats before stopping them. Now he vets friends over shochu, and the scars keep multiplying anyway.","boss":false,"gold":false},{"n":2346,"name":"Tokuda","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/Gw4JhSg198jMwcBY7ydmDmHpE9umvDtRLfUHHXSxfK75.png","a":83,"d":77,"h":21,"s":160,"sm":"Malicious Teeth Knee","story":"Legend isn't built in silence, Tokuda roars — it's built in sinus fire and witnesses. \"The wasabi blinked first,\" he weeps, kunai trembling, eyes a hundred lost battles deep.","boss":false,"gold":false},{"n":2806,"name":"One-Eyed Itsuki","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/3kd1p1u6Lg16m49r5LYfjyezRwE8v1emVZnvrcVrExgN.png","a":84,"d":73,"h":40,"s":149,"sm":"Hidden Sake Burst","story":"Three widows and one eye later, Itsuki calls himself a lucky man. He twirls his parasol and grins through the gap in his teeth — clarity, he swears, tastes just like ruin.","boss":false,"gold":false},{"n":1462,"name":"Junichiro","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/3xNxEvfUp6ujhuufqiDbxbC6RB4S4ATvi99AbT2a5pzu.png","a":72,"d":77,"h":62,"s":159,"sm":"Cleaving Gut Slide","story":"Every flaw deserves a decimal, Junichiro insists, even his own. \"Docked myself a full point for the sake,\" he sighs, still writing Chapter One at dawn.","boss":false,"gold":false},{"n":2076,"name":"Assassin Fuzen","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/5XCAZHyxABnviweXAVAfVCCmFfuhFFbqyRiRMyY7JLg5.png","a":47,"d":33,"h":41,"s":81,"sm":"Nasty Fox Caress","story":"Assassin Fuzen never signs his debts in full — just enough to keep them breathing. Death sent an invoice that night; his mohawk hasn't paid it since.","boss":false,"gold":false},{"n":3024,"name":"Edmundo","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/CASUXnSdAQdNdcs92rjnRJbeCa4wdFB1HGCTrQPRTXEM.png","a":86,"d":93,"h":41,"s":166,"sm":"Explosive Paralysis Knee","story":"A good sentry watches everyone but himself, Edmundo figures — that's just the job. \"Uninspiring,\" he shrugs, still guarding a post he can't explain to his own ghost.","boss":false,"gold":false},{"n":2005,"name":"Raikou The Stoner","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/J5yfzowCzKPAW1RHaEqhYmjwQm9nJXrfjL8nyAkqDScw.png","a":29,"d":40,"h":39,"s":92,"sm":"Singing Lion Blast","story":"Enlightenment, Raikou figures, arrives slow then all at once — usually right after the elbow does. \"Just unclaimed karma,\" he giggles, bending it wrong to prove the point.","boss":false,"gold":false},{"n":3029,"name":"Cheery Haru","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/HGc8XvedvmzZxBrsLb9Te7N4RqvdP7m9QT9hJbucYSbH.png","a":94,"d":90,"h":21,"s":185,"sm":"Snipping Sake Blitz","story":"Cheery Haru fell asleep mid-bet, dreaming of dojo mornings — and woke among snoring priests with an empty purse. His skull staff grins wider than he does, and that's saying something.","boss":false,"gold":false},{"n":2193,"name":"Edmundo","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/6vS8L5L3bkv8vPcdPRPrB1DxjkYfox8sD1Xujp5vTXMy.png","a":22,"d":16,"h":58,"s":55,"sm":"Hidden Cyclone Pounce","story":"A good sentry watches every door but his own, Edmundo figures, and calls that fairness. \"Crooked finger, steady gate,\" he shrugs — the only wound he ever let win.","boss":false,"gold":false},{"n":176,"name":"Young Yuji","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/4sTLsbWoCgi2nkmWD7oLeYLZc7QDXoaUY8do14Uj4M4H.png","a":23,"d":23,"h":21,"s":69,"sm":"Berserking Hurricane Assault","story":"A blade's edge should be calm, Young Yuji insists, and so should the reflection admiring it. \"Four minutes of peace,\" he sighs, already polishing his scowl for the next mirror.","boss":false,"gold":false},{"n":2037,"name":"Junichiro","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/4YstgSCtQ1BT9adFSeNzXjYpZNbhdLmtsqhCfpsHjW7s.png","a":58,"d":54,"h":70,"s":122,"sm":"Spectacular Cyclone Whack","story":"Precision, Junichiro once believed, was the only honor worth keeping. \"Even my ruin is exact,\" he mutters, cataloguing last night's shame down to the exact degree of his collapse.","boss":false,"gold":false},{"n":44,"name":"Igor The Bear","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/9tkxiyR2WJkHuvS1pi2tik4nL9ENrcvumSprQLgcHGnD.png","a":50,"d":71,"h":44,"s":149,"sm":"Ronin Dragon Dash","story":"A mountain doesn't rush its avalanche, Igor figures, it just picks the wrong slope eventually. \"Still deciding,\" he yawns, yellow silk pooling as the dice keep falling his way.","boss":false,"gold":false},{"n":1501,"name":"Gloomy Masumi","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/41dfnXYs7bkVN7RZui3GsRGAnAcaMbJLjz4CB43hC5xF.png","a":32,"d":22,"h":40,"s":59,"sm":"Bloody Storm Slide","story":"A snake with better discipline than him, Masumi notes, still isn't the real betrayal. \"Fred was,\" he mutters, staring at the fang marks like they're the only friend who kept it honest.","boss":false,"gold":false},{"n":523,"name":"Assassin Fuzen","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/DGNLFJx8HvPdKpjWoPu2dLsjcTxrnUVDKXMBE7YAbe7M.png","a":45,"d":58,"h":43,"s":126,"sm":"Puncturing Knuckle Force","story":"Every contract has a deadline, Fuzen reasons, except the one he signed with himself. \"Still pending,\" he says, ninety seconds into a meditation he never finishes.","boss":false,"gold":false},{"n":2220,"name":"Lovey Haruto","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/6uLJbKXgXsYnWE28ZPFF2JyLdVeb6QUgGFiFkssmY23s.png","a":25,"d":64,"h":42,"s":133,"sm":"Filthy Shock Spike","story":"Lovey Haruto built a gambling den on honest cuts and lost every night to his own soft heart. He calls comping the regulars' drinks a fair table — the house never once agreed.","boss":false,"gold":false},{"n":2794,"name":"Fatty Bobsticks","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/CnfAuRVNMqGLv649NFgjTEZVHa5YiHQYfYmgv4tMKvCW.png","a":57,"d":41,"h":39,"s":91,"sm":"Explosive Turtle Frenzy","story":"A fief is just a bet you haven't lost yet, Fatty figures, chewing through the swelling. \"Upgrade, not echo,\" he grins — same ancestors, same dice, twice the appetite.","boss":false,"gold":false},{"n":517,"name":"Young Yuji","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/4YcB2mEMWu7DSrgvpw5sxqPnLcbVA698Qs4p5YkxGide.png","a":43,"d":41,"h":21,"s":96,"sm":"Shaman Sphincter Grope","story":"Young Yuji polished his armor for a war that ended without him, so he invented one in the palace mirrors. Every reflection salutes him back — nobody else does.","boss":false,"gold":false},{"n":27,"name":"Assassin Fuzen","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/3vUGFq8rbzEHgjkR4nEnatdKXbwPK9it6b8DWhA6Fv56.png","a":71,"d":61,"h":42,"s":133,"sm":"Overpowering Cobra Blitz","story":"Every insult is a contract, Fuzen reasons, and contracts settle in his own time. \"Filed,\" he says, watching the koi — seven sleepless nights, still waiting.","boss":false,"gold":false},{"n":2525,"name":"Assassin Fuzen","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/DENXEUgV9d8uNG3Xm8Dv4sMLAZwEC94NXgse4vHuM3MW.png","a":18,"d":17,"h":20,"s":53,"sm":"Dojo Hurricane Frenzy","story":"Assassin Fuzen once closed contracts before the ink dried — now he can't even close his own robe. He calls the delay tactical, patient as the dirt he kneels in.","boss":false,"gold":false},{"n":3848,"name":"One-Eyed Itsuki","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/2UeXMNF2cf4m3zoWT1TrCEqGPgKezauRQHP3kf7rniAw.png","a":59,"d":63,"h":41,"s":137,"sm":"Angry Mud Force","story":"Depth perception, One-Eyed Itsuki figures, is overrated when denial sees just fine with one eye. \"Rock bottom,\" he grins gap-toothed, \"kind of thrilling though.\"","boss":false,"gold":false},{"n":2679,"name":"Serious Oleg","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/B22PnrM8AWw5681uXh1eu4a4n5r4XAHHdau4gzRqEyqr.png","a":22,"d":44,"h":40,"s":108,"sm":"Ignorant Poop Kick","story":"Serious Oleg wore a false name at his mother's own table, braced for betrayal that never came. Gravity ambushed him instead — his arm still hangs like a monument to that oversight.","boss":false,"gold":false},{"n":1563,"name":"Akuma","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/GETMht9QKdKvviKnGBfibZreu86oJSo5NBqzyAVodVoa.png","a":22,"d":43,"h":38,"s":94,"sm":"Bleeding Dust Charge","story":"Akuma once made men wet themselves with the sound of his sandals on gravel. Now he sits on an empty summit at 3am, grinning at the duel he sold for one bad hand.","boss":false,"gold":false},{"n":97,"name":"Igor The Veteran","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/F6uvojvbKQ1zir4mCGAV8YmL4a1WvmBcXHR2T6nECqny.png","a":43,"d":56,"h":41,"s":82,"sm":"Mocking Finger Slide","story":"A vow at dawn is just armor, Igor figures, thin enough for evening to cut through. \"Silence is the only medal I've got left,\" he mutters, iron in hand, kimono ruined in the dirt.","boss":false,"gold":false},{"n":1672,"name":"Drooling Azuma","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/4KSHxWUeNHUWZYYeMVb7E1Y1cCoARKEwfaFuLdApCch9.png","a":45,"d":64,"h":70,"s":120,"sm":"Painted Poop Jutsu","story":"Discipline, Drooling Azuma insists, is just counting reps of flattery until someone caves. \"Baddest degen in Edo,\" he roars — then drools himself horizontal by dawn.","boss":false,"gold":false},{"n":1847,"name":"Junichiro Reborn","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/HWaCsqD2q5aLvSnWLEP4yos2ceE1jaj1SSGja3ncDnEi.png","a":92,"d":87,"h":21,"s":178,"sm":"Flaring Speed Fist","story":"Death, Junichiro reasons, is just a rehearsal he keeps getting invited back to. \"Reborn again,\" he says flatly — the snake around his arm has heard this one before.","boss":false,"gold":false},{"n":2696,"name":"Goro","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/DcFAhJ2zE6z6vKYjCG9voexexVvSS2oyvk9aJeJzCB1Y.png","a":26,"d":67,"h":44,"s":142,"sm":"Bleeding Storm Trap","story":"Goro's rusty nail hasn't cut anything in years — he calls the rust seasoning, not surrender. The noodles never run out fast enough to make him move.","boss":false,"gold":false},{"n":2952,"name":"Edmundo","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/7wdBgdqc85tmkrhhg6UiZu9i5AqiUuHfwfsZUWhMMdu7.png","a":20,"d":60,"h":40,"s":97,"sm":"Throwing Pinky Stomp","story":"Edmundo guarded the palace like it was his by blood, then lost the throne to a bowl of wasabi and a dare. Behind the fox mask he still watches every gate but his own.","boss":false,"gold":false},{"n":2349,"name":"Shitless Botan","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/GMmVzRmfE34K96keBqSJMkVE56Dy8XAKujY5L9G1JBYL.png","a":58,"d":62,"h":41,"s":129,"sm":"Mangling Speed Leap","story":"A missing tooth, Botan figures, is just fear's rent finally coming due — he just never pays it in advance. \"Fair price for a bad trade,\" he grins, gumming a joint through the gap.","boss":false,"gold":false},{"n":1581,"name":"Fat Bob","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/7noqxftaksjZjEy8mas3UTzQMbJVpnYvgiTRx8DKxkRD.png","a":31,"d":65,"h":55,"s":139,"sm":"Explosive Dojo Whack","story":"A wager, Fat Bob figures, is just an appetite with better odds. \"Lost my purse, kept my exhale,\" he grins, already loosening the blue kimono for round two.","boss":false,"gold":false},{"n":1927,"name":"Masumi Steel","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/6x9xBNCVyXyEgFo5iMbZSm4tPMQwS4iBJGo6KWRWQFQ8.png","a":25,"d":45,"h":70,"s":103,"sm":"Hidden Claw Lick","story":"Knee-deep in mackerel guts, Masumi Steel cracked jokes about swordsmanship as fresh as tuna — and somehow won. His knees still shake, but the fish market remembers his name.","boss":false,"gold":false},{"n":2651,"name":"Tokuda","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/5qPmrz7QdJ8kw1p44BXbz4M6gsBL44bWNxWrVbdKb8NY.png","a":47,"d":26,"h":20,"s":76,"sm":"Twisting Whirlwind Flick","story":"A legend, Tokuda reasons, is just a story loud enough to survive the telling. \"Undefeated!\" he roars through telescopic glasses aimed at nothing — the dice never even looked up.","boss":false,"gold":false},{"n":2960,"name":"Lovey Haruto","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/FmTMehtBX4gHtzKHUEPitqwo6PHUkEUWogUwBcVS9DcB.png","a":89,"d":81,"h":40,"s":163,"sm":"Painted Teeth Chop","story":"A duel dissolves fastest, Lovey Haruto finds, when you hug the man holding the sword. \"Discipline can wait,\" he sighs, checking on the eel guy again.","boss":false,"gold":false},{"n":3734,"name":"Assassin Fuzen","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/7kT1iS1L3Bktvc3SUjtDjTkqwd4FcukkgqzvxtMmrUf1.png","a":57,"d":41,"h":39,"s":97,"sm":"Murderous Poop Whack","story":"A contract with the gods, Fuzen figures, just needs the right closing date. \"Someday,\" he shrugs, chicken bones rattling, dealing another crooked hand.","boss":false,"gold":false},{"n":2085,"name":"Yuuki","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/ARKFPZNcEijJgr2JnaapTKBsWqNLyKxuLZCiqC8v479p.png","a":20,"d":50,"h":41,"s":107,"sm":"Broken Night Chop","story":"Yuuki once held his ground under a hail of arrows without blinking. At the lantern festival, three grandmothers and a mouthful of spittle finally taught him what fear feels like.","boss":false,"gold":false},{"n":812,"name":"Assassin Fuzen","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/BLpVHSMNJoiYNypA5uwcjiSW29jaW2DAthrPYWGJzkbx.png","a":31,"d":75,"h":45,"s":156,"sm":"Mangling Fox Lick","story":"Fuzen still calls the ledger unfinished business, pending like a debt that enjoys the wait. His rainbow kimono grins wider than he ever does, which isn't hard.","boss":false,"gold":false},{"n":1949,"name":"Tokuda","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/5zJqtNQusAwdmdRna8cTxeKUNrJB9xJ5UWWqLh6JZW17.png","a":83,"d":77,"h":21,"s":161,"sm":"Breathing Gut Swipe","story":"Volume is armor, Tokuda insists, louder than any actual sword lesson ever taught him. \"Groped mid-shout, still won the story,\" he bellows, dignity gone but the echo intact.","boss":false,"gold":false},{"n":3761,"name":"Teary Goro","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/6s5hupFC4fVeaNFo5TUGCoGwz92KfpMScSFXF6nwvsXG.png","a":96,"d":89,"h":38,"s":178,"sm":"Mangling Tornado Dive","story":"Teary Goro found enlightenment face-down at a sake table, sobbing at a bad joke. He carried Legless Tom home on his back — the claws sheathed, the tears never.","boss":false,"gold":false},{"n":3505,"name":"Toxic Azuma","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/7zawgBWMnRs7QNkpab4sRXR5t4FrRX8qL4eLqfRdbsL4.png","a":86,"d":81,"h":41,"s":166,"sm":"Stealthy Fox Caress","story":"Pain, Toxic Azuma insists, is just discipline that finally learned to speak honestly. \"Frostbite and wasabi,\" he grins through the wince, \"same god, different altar.\"","boss":false,"gold":false},{"n":1521,"name":"Yuji The Wise","img":"https://degendojo.s3.us-west-1.amazonaws.com/degen/card/AqjwWCyWP1BK6d9LmusUUP1VMww9jXmtXLuZW7UhLQmB.png","a":25,"d":62,"h":55,"s":134,"sm":"Glaring Fang Blast","story":"Wisdom, Yuji reasons, is just appetite with a longer vocabulary. \"Discipline by dawn,\" he vows — the toast already halfway to his lips.","boss":false,"gold":false}];
+const TORII = "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M8 22h84M14 30h72M22 30v58M78 30v58M30 30v10h40V30' stroke='black' stroke-width='7' fill='none'/%3E%3C/svg%3E\")";
+document.documentElement.style.setProperty('--torii', TORII);
+
+const STAT_LABEL={a:"Attack",d:"Defence",h:"Hitpoints",s:"SM Dmg"};
+const DECK_SIZE=21;                 // cards dealt to each side (tunable)
+const TOTAL=DECK_SIZE*2;
+let mode="casual", live="a";
+// When signed in, deal() gets a committed seed from the server and the SERVER verifies
+// the winner + mints the raffle entry. LIVEPLAY holds the open play; without a wallet
+// the page runs the local demo (Math.random shuffle, local scoreboard).
+let LIVEPLAY=null;
+function isLive(){ return !window.DOJO_LOCAL_ECON && !!(window.DojoWallet && DojoWallet.signedIn()); }
+let me=[], ai=[], pile=[], turn="me", busy=false, over=false, endgameActive=false, lastPlayer=null;
+
+const $=id=>document.getElementById(id);
+const shuf=a=>{for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
+const ld=c=>c[live]%10;             // last digit of the live stat
+// ---- auto-scale the whole game to fit the window height (no scroll on any screen) ----
+let _fitRaf;
+function fitScale(){
+  const w=document.querySelector('.wrap');
+  w.style.transform='none';
+  const top=w.getBoundingClientRect().top;                          // nav + back-row + padding above the board
+  const sh=Math.min(1,(window.innerHeight-top-6)/w.scrollHeight);   // fit the height; scrollHeight ignores the transform
+  const sw=Math.min(1, window.innerWidth/w.scrollWidth);            // …and never overflow the width (mobile left/right layout)
+  const s=Math.min(sh,sw);
+  w.style.transform = s<1 ? 'scale('+s+')' : 'none';
+}
+function scheduleFit(){ clearTimeout(_fitRaf); _fitRaf=setTimeout(fitScale, 30); }
+
+const CARD_LBL={a:"Attack",d:"Defence",h:"Hitpoints",s:"Special Move Damage"};
+function cardHTML(c){
+  const rows=['a','d','h','s'].map(k=>{const on=k===live?' live':'';const v=String(c[k]);const lead=v.slice(0,-1),last=v.slice(-1);
+    return `<div class="srow${on}"><span class="slbl">${CARD_LBL[k]}</span><span class="sval">${lead}<span class="ld">${last}</span></span></div>`;}).join('');
+  // Border tone matches the collectible: rose = framed boss, yellow = any gold gear, else beige.
+  const tone=c.boss?' red-gold-frame':(c.gold?' is-gold':'');
+  return `<div class="gold-frame${tone} flip-in"><div class="card-inner">
+    <div class="card-header"><div class="card-name">${c.name}</div></div>
+    <div class="flip-grule"></div>
+    <div class="nft-img-wrap"><img src="${c.img}" alt="" loading="eager"></div>
+    <div class="flip-grule"></div>
+    <div class="card-move"><div class="card-move-label">Special Move</div><div class="card-move-name">${c.sm||'—'}</div></div>
+    <div class="card-stats">${rows}</div>
+    <!-- No story by design: this is the PLAYABLE card (stat-forward, readable at a glance).
+         The story belongs on the collectible card / the fighter's page, not here. -->
+  </div></div>`;
+}
+function renderPile(){
+  const top=pile[pile.length-1];
+  $('pile').innerHTML = top ? cardHTML(top) : '<div class="base"><button class="pile-deal" type="button">Deal ⚔</button></div>';
+  scheduleFit();
+}
+function renderCounts(){
+  $('menum').textContent=me.length;
+  $('ainum').textContent=ai.length;
+  $('medeck').classList.toggle('empty',!me.length);
+  $('aideck').classList.toggle('empty',!ai.length);
+}
+function announce(html,flash){const a=$('ann');a.innerHTML=html;if(flash){a.classList.remove('flash');void a.offsetWidth;a.classList.add('flash');}}
+
+async function deal(){
+  if(over===false && (me.length||ai.length)) return;   // guard: don't re-deal mid-game
+  if(isLive()){
+    // ── server-authoritative: lock stat+mode, debit a coin, get the committed seed ──
+    if(!window.FlipEngine){ flipToast('Loading…'); return; }
+    LIVEPLAY=null;
+    try{
+      const s = await DojoWallet.startPlay('flip', { stat: live, mode });   // choice locked BEFORE the seed
+      LIVEPLAY = { playId: s.playId, seed: s.seed, commit: s.commitHash, stat: live, mode };
+      const rng = FlipEngine.makeRng(s.seed);
+      const order = FlipEngine.shuffleIndices(POOL.length, rng);            // identical shuffle to the server
+      me = order.slice(0,DECK_SIZE).map(i=>POOL[i]);
+      ai = order.slice(DECK_SIZE,TOTAL).map(i=>POOL[i]);
+    }catch(e){ flipToast(String(e.message||e).replace(/^Error:\s*/,'')); return; }
+  } else {
+    // ── demo (no wallet): local shuffle so the page still plays in preview ──
+    if(window.DojoCredits && !DojoCredits.play('Dojo Flip')) return;   // one local credit per game
+    const pool=shuf(POOL.slice());
+    me=pool.slice(0,DECK_SIZE); ai=pool.slice(DECK_SIZE,DECK_SIZE*2);
+  }
+  pile=[]; turn="me"; over=false; busy=false; endgameActive=false;
+  renderCounts();
+  // The game starts the moment you press Deal: your opener drops automatically, then the
+  // Dojo answers on its own — you only tap for your following cards.
+  turnFlip("me");
+}
+function flipToast(msg){
+  let t=document.getElementById('flipToast');
+  if(!t){ t=document.createElement('div'); t.id='flipToast'; t.style.cssText='position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#241a12;border:1px solid var(--gold-dim);color:var(--gold-l,#f1e6d0);font:600 14px/1.4 system-ui;padding:11px 18px;border-radius:10px;z-index:9999;max-width:86%;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,.5)'; document.body.appendChild(t); }
+  t.textContent=msg; t.style.opacity='1'; clearTimeout(t._h); t._h=setTimeout(()=>t.style.opacity='0',3600);
+}
+function updateFlip(){
+  const live = !over && pile.length>0;
+  // the pile border stays the colour of whoever's card is on top — RED = the Dojo's card (it stays
+  // red while it's your move), GOLD = your card — so it's always clear whose move just landed.
+  $('pile').classList.toggle('dojoturn', live && lastPlayer==="ai");
+  $('pile').classList.toggle('myturn',   live && lastPlayer==="me");
+  // your own deck glows on your move so it's obvious you tap to answer
+  const myMove = !over && !busy && turn==="me" && me.length>0;
+  $('medeck').classList.toggle('myturn', myMove);
+  $('aideck').classList.toggle('dojoturn', !over && turn==="ai" && ai.length>0);
+}
+
+function resolveFlip(who){
+  const deck = who==="me"?me:ai;
+  const card = deck.shift();
+  lastPlayer = who;                       // whose card is now on top → drives the pile border colour
+  const top = pile[pile.length-1];
+  let result="stack";
+  if(top && ld(card)===ld(top)){ result="match"; }
+  else if(mode==="comp" && top && card[live]>top[live]){ result="capture"; }
+
+  // show the flipped card landing on the pile first
+  pile.push(card); renderPile(); renderCounts();
+  const whoName = who==="me"?"You":"The Dojo";
+
+  if(result==="match"){
+    const won = pile.slice(0,-1);           // everything below the card just played
+    pile = [card];                          // your matching card stays as the new base
+    deck.push(...won);                      // swept cards recycle to the BOTTOM of your deck
+    $('pile').classList.remove('sweep');void $('pile').offsetWidth;$('pile').classList.add('sweep');
+    announce(`💥 <b class="big">MATCH!</b> ${whoName} sweep${who==="me"?"":"s"} <b class="big">${won.length}</b> card${won.length===1?"":"s"} — last digit <b class="big">${ld(card)}</b>`,true);
+  } else if(result==="capture"){
+    const cap = pile.splice(pile.length-2,1)[0]; // take the card beneath (old top), yours stays on top
+    deck.push(cap);
+    $('pile').classList.remove('capture');void $('pile').offsetWidth;$('pile').classList.add('capture');
+    announce(`<span class="cap">⚔ ${whoName} capture${who==="me"?"":"s"}</span> higher ${STAT_LABEL[live]} — <b class="big">${card[live]}</b> &gt; ${cap[live]}`,true);
+  } else {
+    announce(top
+      ? `${whoName} flip${who==="me"?"":"s"} <b class="big">${card[live]}</b> ${STAT_LABEL[live]} — no match.`
+      : `${whoName} open${who==="me"?"":"s"} with <b class="big">${card[live]}</b> ${STAT_LABEL[live]}.`);   // opener — nothing to match yet
+  }
+  renderPile(); renderCounts(); updateFlip();   // refresh the border to the new top card's owner
+  return result;
+}
+
+// Endgame: the player who RAN OUT (loser) holds the pack (kept in drop order). The other player
+// (winner) still has a hand and plays FIRST, laying from it; the loser pulls from the pack's BOTTOM
+// (order preserved), alternating.
+//   Phase A — while the winner still holds hand cards: a winner match wins the whole game; a loser
+//   match reclaims (the hitting card stays as the new base, the loser takes the rest, game resumes).
+//   Phase B — once the winner's hand is empty too, NEITHER player has cards, so both simply pull from
+//   the bottom in turn. The FIRST match wins for whoever's pull it was; a full lap through the whole
+//   pack with no match is a DRAW and the cards go back.
+function resolveEndgame(loser, winner){
+  over=true; endgameActive=true; updateFlip();
+  const nm = s => s==="me" ? "You" : "The Dojo";
+  let pack = pile.slice();            // the loser holds this, in the order cards were piled
+  pile=[];
+  if(pack.length < 1){ finish(winner); return; }
+  let turn = winner;                  // the player still holding a hand plays first
+  let prev = pack[pack.length-1];     // current top — what the next card must match
+  let steps=0, cap=4000, ended=false; // `ended` latches on any terminal so a stray scheduled step can't run again
+  let noMatchPulls=0;                 // consecutive pull-off steps with no match (phase B) → draw after a full lap
+  announce(`${nm(loser)} ran out — holding the pack. ${nm(winner)} play${winner==="me"?"":"s"} from hand, ${nm(loser)} pull${loser==="me"?"":"s"} from the bottom.`, true);
+  function reclaim(matchCard){
+    let rest = pack.slice(0,-1);                          // everything under the hitting card
+    if(loser==="me") me = rest; else ai = rest;
+    pile=[matchCard]; lastPlayer=loser; renderPile(); renderCounts();   // the hitting card stays down as the new base
+    announce(`💥 <b class="big">${nm(loser)} match${loser==="me"?"":"es"}</b> — grab${loser==="me"?"":"s"} the pack and stay${loser==="me"?"":"s"} in! ${nm(winner)} play${winner==="me"?"":"s"} on.`, true);
+    setTimeout(()=>{
+      over=false; busy=false; turn=winner; endgameActive=false;   // back to normal play — a later run-out can start a fresh endgame
+      renderPile(); renderCounts();
+      if(winner==="ai"){ announce(`Back in it — the Dojo plays…`); updateFlip(); setTimeout(()=>turnFlip("ai"), 850); }
+      else { announce(`Back in it — your turn, tap a card.`); updateFlip(); }
+    }, 1300);
+  }
+  function step(){
+    if(ended) return;                  // a terminal outcome already fired — ignore any stray scheduled step
+    steps++;
+    const winnerHand = winner==="me"?me:ai;
+    const bothEmpty = winnerHand.length===0;             // winner's hand is gone too → pure pull-off (phase B)
+    const laid = (turn===winner && !bothEmpty);
+    let played;
+    if(laid){ played = winnerHand.shift(); pack.push(played); }   // winner lays from hand (phase A)
+    else    { played = pack.shift();       pack.push(played); }   // pull from the bottom onto the top
+    pile=[played]; renderPile(); renderCounts();
+    $('pile').classList.remove('sweep'); void $('pile').offsetWidth; $('pile').classList.add('sweep');
+    if(prev && ld(played)===ld(prev)){
+      if(bothEmpty){
+        ended=true;
+        announce(`💥 <b class="big">${nm(turn)} pull${turn==="me"?"":"s"} a matching ${ld(played)}</b> — <b class="big">${nm(turn)} win${turn==="me"?"":"s"} the game!</b>`, true);
+        setTimeout(()=>finish(turn), 1200); return;
+      }
+      if(turn===winner){
+        ended=true;
+        announce(`💥 <b class="big">${nm(winner)} lay${winner==="me"?"":"s"} a matching ${ld(played)}</b> — grab${winner==="me"?"":"s"} the lot. <b class="big">${nm(winner)} win${winner==="me"?"":"s"} the game!</b>`, true);
+        setTimeout(()=>finish(winner), 1200); return;
+      }
+      ended=true; reclaim(played); return;
+    }
+    if(bothEmpty){
+      noMatchPulls++;
+      if(noMatchPulls >= pack.length){                   // one full lap through the pack, still no match → draw
+        ended=true;
+        announce(`No match through the whole pack — <b class="big">it's a DRAW</b>. The cards go back.`, true);
+        setTimeout(()=>finish('draw'), 1200); return;
+      }
+    } else { noMatchPulls=0; }
+    announce(`${nm(turn)} ${laid?("lay"+(turn==="me"?"":"s")):("pull"+(turn==="me"?"":"s"))} <b class="big">${ld(played)}</b> ${STAT_LABEL[live]} — no match.`);
+    prev = played;
+    turn = (turn===winner) ? loser : winner;
+    if(steps>=cap){ ended=true; finish('draw'); return; }
+    setTimeout(step, 720);
+  }
+  setTimeout(step, 1100);
+}
+function finish(winner){
+  over=true; endgameActive=false; busy=false;            // clear busy too — the run-out path left it set
+  if(isLive() && LIVEPLAY){ const p=LIVEPLAY; LIVEPLAY=null; settleLive(p); }  // server mints the entry
+  else recordFlip(winner);                                // demo → local scoreboard only
+  pile=[]; renderPile(); renderCounts(); updateFlip();   // reset the pile → the Deal button reappears in the card border
+  const msg = winner==="draw"
+    ? `<b class="big" style="color:var(--gold)">DRAW</b> — the pack cycled with no match, so the cards go back. Tap <b class="big">Deal</b> to run it back.`
+    : winner==="me"
+    ? `🥷 <b class="big">VICTORY</b> — the deciding card was yours. Tap <b class="big">Deal</b> to play again.`
+    : `<b class="big" style="color:var(--red)">DEFEAT</b> — the deciding card went to the Dojo. Tap <b class="big">Deal</b> to run it back.`;
+  setTimeout(()=>announce(msg, true), 30);
+}
+
+function turnFlip(who){
+  const _hand = who==="me"?me:ai;
+  if(over || endgameActive || !_hand.length) return;   // game settled / endgame owns the flow / no card — ignore stray & late calls
+  busy=true; updateFlip();
+  resolveFlip(who);
+  if(who==="me" && ai.length){ const _pl=new Image(); _pl.src=ai[0].img; }   // preload the Dojo's next card art so it's fully loaded before it drops
+  const deck = who==="me"?me:ai;
+  // IRL endgame: whoever drops their LAST card is out. The OTHER player holds the pile
+  // and pulls cards bottom-to-top, the pulls alternating between the two players, until a
+  // last-digit match appears — the player that matching pull belonged to wins.
+  if(deck.length===0){
+    const winner = who==="me"?"ai":"me";                  // the one still holding cards
+    if(!endgameActive){ endgameActive=true; setTimeout(()=>resolveEndgame(who, winner), 700); }  // enter once — never schedule a 2nd loop
+    return;
+  }
+  turn = who==="me"?"ai":"me";
+  setTimeout(()=>{
+    busy=false;
+    if(turn==="ai"){ updateFlip(); setTimeout(()=>turnFlip("ai"), 950); }   // ≥1s pause before the Dojo drops (its art is already preloaded)
+    else updateFlip();     // your turn again — the Dojo's card stays displayed (red) until you tap
+  }, 640);
+}
+
+// ---- events ----
+function tryFlip(){ if(turn==="me"&&!busy&&!over&&me.length) turnFlip("me"); }
+function pileTap(e){ if(e&&e.target&&e.target.closest('.pile-deal')){ deal(); } else { tryFlip(); } }
+$('pile').onclick=pileTap; $('medeck').onclick=tryFlip;
+let _sy=0;
+$('pile').addEventListener('touchstart',e=>{_sy=e.touches[0].clientY;},{passive:true});
+$('pile').addEventListener('touchend',e=>{ if(e.target&&e.target.closest('.pile-deal'))return; if(Math.abs(e.changedTouches[0].clientY-_sy)>20) tryFlip(); },{passive:true});
+// In LIVE play the stat/mode lock for the whole game (chosen before you deal): the
+// server committed the seed against them, so a mid-game switch would desync the outcome.
+function liveLocked(){ if(isLive() && LIVEPLAY && !over){ flipToast('Locked for this game — finish it first.'); return true; } return false; }
+$('mode').onclick=e=>{const b=e.target.closest('button');if(!b)return; if(liveLocked())return;
+  [...$('mode').children].forEach(x=>x.classList.toggle('on',x===b));mode=b.dataset.mode;setHint();};
+$('stat').onclick=e=>{const b=e.target.closest('button');if(!b)return; if(liveLocked())return;
+  [...$('stat').children].forEach(x=>x.classList.toggle('on',x===b));live=b.dataset.stat;
+  if(pile.length)renderPile();setHint();};
+function setHint(){}
+$('infoBtn').onclick=()=>$('infoModal').classList.add('show');
+$('infoClose').onclick=()=>$('infoModal').classList.remove('show');
+$('infoModal').onclick=e=>{ if(e.target===$('infoModal')) $('infoModal').classList.remove('show'); };
+
+// ---- Scoreboard: shared raffle-ticket ledger (per-game + overall) ----
+function recordFlip(winner){ if(window.DojoScores) DojoScores.record('flip', winner==='me'); }   // demo: win → 3 entries, else 1
+// LIVE: the server recomputes the winner from the stored seed+stat+mode and mints the entry.
+async function settleLive(play){
+  try{ const r = await DojoWallet.finishPlay(play.playId, {});
+    flipToast(r.won ? `🎉 +${r.awarded} raffle ${r.awarded===1?'entry':'entries'}${r.grandSlam?' (incl. grand-slam!)':''} 🎟` : `+${r.awarded} raffle entry for playing 🎟`);
+  }catch(e){ flipToast(String(e.message||e).replace(/^Error:\s*/,'')); }
+}
+$('sbBtn').onclick=()=>{ if(window.DojoScores) DojoScores.renderBoard($('flipSbBoard'),'flip'); $('sbModal').classList.add('show'); };
+$('sbClose').onclick=()=>$('sbModal').classList.remove('show');
+$('sbModal').onclick=e=>{ if(e.target===$('sbModal')) $('sbModal').classList.remove('show'); };
+
+setHint();
+// Safety net: the endgame is a chain of timers; if any single tick is ever dropped (a thrown
+// render, a backgrounded tab pausing a timer, a device hiccup) the game could sit in a live but
+// idle state and feel "stuck." This watchdog never touches a settled or mid-endgame game — it only
+// un-wedges an in-play state that hasn't changed for ~7s: re-enable input, and nudge whoever's turn
+// it is. It can't double-play (it only re-enables; the human still taps, and the AI kick is guarded).
+let _wdSig="", _wdIdle=0;
+setInterval(function(){
+  const sig = over+"|"+endgameActive+"|"+busy+"|"+turn+"|"+me.length+"|"+ai.length+"|"+pile.length;
+  if(sig===_wdSig){ _wdIdle++; } else { _wdSig=sig; _wdIdle=0; }
+  if(_wdIdle>=7 && !over && !endgameActive){
+    busy=false; updateFlip();
+    if(turn==="ai" && ai.length){ setTimeout(()=>turnFlip("ai"), 250); }
+    else if(turn==="me" && me.length){ announce(`Your turn — tap a card to continue.`); }
+    _wdIdle=0;
+  }
+}, 1000);
+
+window.addEventListener('resize', scheduleFit);
+fitScale();
+if(document.fonts&&document.fonts.ready) document.fonts.ready.then(fitScale);
+setTimeout(fitScale, 350);   // safety re-fit after fonts/layout settle
+
+// ── wallet strip (GATED): only shows in ranked mode so the public sees a pure demo.
+// Enable once by visiting with ?ranked (persists); the paid/raffle economy stays hidden otherwise. ──
+function dojoRankedOn(){ try{
+  // OFF everywhere until testing — no coins, scoreboard, or wallet shown. Turn on
+  // with ?ranked (persists), off again with ?noranked. Everything runs as a free demo.
+  if(/[?&]noranked\b/.test(location.search)) localStorage.removeItem('dojo_ranked');
+  else if(/[?&]ranked\b/.test(location.search)) localStorage.setItem('dojo_ranked','1');
+  return localStorage.getItem('dojo_ranked')==='1';
+}catch(e){ return false; } }
+(function mountWallet(){
+  if(!window.DojoWallet || !dojoRankedOn()) return;   // hidden unless ranked mode is on
+  const bar=document.createElement('div');
+  bar.style.cssText='position:fixed;top:10px;right:10px;z-index:900;display:flex;align-items:center;gap:8px;font:600 13px/1 system-ui';
+  bar.innerHTML='<span id="wCoins" style="display:none;background:#241a12;border:1px solid var(--gold-dim);color:var(--gold);padding:7px 11px;border-radius:9px">🪙 0</span>'
+    +'<button id="wBtn" style="background:linear-gradient(180deg,#e8b84b,#c9973a);border:1px solid #c9973a;color:#1a1206;padding:7px 13px;border-radius:9px;cursor:pointer;font:inherit">Connect wallet</button>';
+  document.body.appendChild(bar);
+  const btn=bar.querySelector('#wBtn'), coins=bar.querySelector('#wCoins');
+  btn.onclick=async()=>{
+    if(DojoWallet.signedIn()){ DojoWallet.signOut(); return; }
+    btn.textContent='…'; try{ await DojoWallet.signIn(); }catch(e){ flipToast(String(e.message||e).replace(/^Error:\s*/,'')); btn.textContent='Connect wallet'; }
+  };
+  DojoWallet.on(s=>{
+    if(s.signedIn){ coins.style.display=''; coins.textContent='🪙 '+s.coins; btn.textContent=(s.wallet.slice(0,4)+'…'+s.wallet.slice(-4)); }
+    else { coins.style.display='none'; btn.textContent='Connect wallet'; }
+  });
+})();
+</script>
+</body>
+</html>

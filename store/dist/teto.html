@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>TETO WARS — Degen Dojo</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Inter:wght@400;600&family=Teko:wght@600;700&display=swap" rel="stylesheet"/>
+<style>
+:root{--bg:#0d0b10;--panel:#17151d;--border:rgba(255,255,255,.08);--gold:#e8b84b;--red:#c0392b;--red2:#a2261a;--yellow:#FFB800;--yellow-d:#d99400;--text:#f3ead6;--muted:#a99a80;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh;
+  background-image:radial-gradient(800px 500px at 50% -8%,rgba(192,57,43,.25),transparent 60%);}
+.wrap{max-width:1080px;margin:0 auto;padding:14px 16px 34px;display:flex;flex-direction:column;min-height:100vh;}
+.top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.brand b{font-family:'Cinzel',serif;font-size:16px;letter-spacing:.12em;}
+.brand small{font-family:'Teko',sans-serif;font-size:11px;letter-spacing:.22em;color:var(--muted);display:block;}
+.tbanner{text-align:center;margin:2px auto 6px;max-width:660px;padding:0 12px;}
+.tb-eyebrow{font-family:'Cinzel',serif;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);font-size:12px;opacity:.9;}
+.tbtitle{font-family:'Teko',sans-serif;font-weight:700;text-transform:uppercase;font-size:clamp(30px,6vw,48px);letter-spacing:.03em;line-height:.85;margin:1px 0 3px;background:linear-gradient(180deg,#f4e2b4,#e8b84b 45%,#c9973a);-webkit-background-clip:text;background-clip:text;color:transparent;}
+.tbsub{display:flex;align-items:center;justify-content:center;gap:8px;font-family:'Teko',sans-serif;font-size:15px;letter-spacing:.04em;color:#cdbfa2;margin-top:5px;line-height:1.3;}
+.tbsub .ibtn{margin-left:0;flex:0 0 auto;}
+.tbsub>span{text-align:left;}
+.tbsub b{color:var(--gold);}
+.scores{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;}
+.sc{display:flex;flex-direction:row;align-items:baseline;gap:8px;background:var(--panel);border:2px solid var(--border);border-radius:11px;padding:6px 16px;font-family:'Teko',sans-serif;line-height:1;}
+.sc .jp{font-size:14px;color:var(--gold);opacity:.85;}
+.sc .nm{font-size:15px;letter-spacing:.05em;color:var(--text);}
+.sc b{color:var(--gold);font-size:20px;}
+.sc .sctet{width:19px;height:19px;object-fit:contain;align-self:center;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5));}
+.sc.you{border-color:var(--yellow);box-shadow:0 0 8px rgba(255,184,0,.25);}   /* YOU — yellow outline, mild glow */
+.sc.dojo{border-color:var(--red);box-shadow:0 0 8px rgba(192,57,43,.3);}      /* THE DOJO — red outline, mild glow */
+.sc.dojo .jp{color:#e88;}
+.sc.you.turn{box-shadow:0 0 16px rgba(255,184,0,.6);}    /* active turn = brighter glow in the card's own colour */
+.sc.dojo.turn{box-shadow:0 0 16px rgba(192,57,43,.65);}
+.sc.out{opacity:.4;}
+
+/* YOU + THE DOJO sit in a row ABOVE the board (same structure on desktop and mobile). */
+.arena{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:10px;padding:8px 0 12px;}
+.tsides{display:flex;gap:14px;justify-content:center;align-items:stretch;}
+.boardwrap{position:relative;flex:0 0 auto;line-height:0;display:flex;justify-content:center;}   /* wraps the board at its own size */
+.side{display:flex;flex-direction:column;align-items:center;gap:6px;flex:0 0 auto;}
+@media(max-width:640px){
+  .arena{gap:6px;padding:0;}
+  .tsides{gap:8px;}
+  .boardwrap{width:100%;}
+  .tbanner{margin:2px 0 4px;}
+}
+/* 9×9 dark shoji screen — the grid lines fall exactly on the game's 9×9 cell edges */
+.board{position:relative;width:min(60vh,520px,92vw);aspect-ratio:1;
+  background-color:#14110d;
+  background-image:
+    repeating-linear-gradient(0deg, rgba(150,120,80,.18) 0 1.5px, transparent 1.5px calc(100%/9)),
+    repeating-linear-gradient(90deg, rgba(150,120,80,.18) 0 1.5px, transparent 1.5px calc(100%/9)),
+    radial-gradient(circle at 50% 46%, #1d1712, #0c0a08 82%);
+  border-radius:14px;box-shadow:0 24px 60px -24px rgba(0,0,0,.85),inset 0 0 60px rgba(0,0,0,.45);border:3px solid #2a2320;}
+/* the dice lives in the centre 3×3 instead of a logo; the old throne TETO is removed */
+.throne{display:none!important;}
+.controls,.hint{display:none!important;}   /* steps + bottom sentence removed — the dice shows steps now */
+.cell{position:absolute;transform:translate(-50%,-50%);}
+.tile{border-radius:20%;background:linear-gradient(180deg,#ffc94d,var(--yellow-d));box-shadow:inset 0 -3px 4px rgba(0,0,0,.2),inset 0 2px 2px rgba(255,255,255,.4);transition:transform .3s,opacity .3s;position:relative;}
+.tile.legal{cursor:pointer;outline:3px solid rgba(255,255,255,.9);outline-offset:-3px;filter:brightness(1.14);}   /* static, no flashing */
+.tile.legal.costteto{outline-color:#e0342a;box-shadow:0 0 12px rgba(224,52,42,.65);}   /* red = costs TETO to reach (bridging a gap) */
+.tile.legal:hover{filter:brightness(1.28);}
+.tile.crack{animation:crack .5s forwards;}
+@keyframes crack{0%{transform:scale(1) rotate(0);opacity:1;}40%{transform:scale(.9) rotate(-4deg);}100%{transform:scale(.4) rotate(20deg) translateY(40px);opacity:0;}}
+.tile.life1{filter:saturate(.7) brightness(.9);}
+.tile.life1::after{content:'';position:absolute;inset:20%;border-radius:20%;background:repeating-linear-gradient(45deg,transparent 0 3px,rgba(120,60,0,.28) 3px 4px);}
+/* the real TETO potato image — floats on the red void, NO tile under it */
+.spud{pointer-events:none;transition:transform .3s,opacity .3s;}
+.spud img{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 4px 5px rgba(0,0,0,.45));}
+/* GOLDEN TETO — worth 5, glowing and pulsing so it's the prize everyone rushes */
+.spud.golden img{filter:drop-shadow(0 0 9px rgba(255,205,50,1)) drop-shadow(0 0 18px rgba(255,170,20,.85)) saturate(1.7) brightness(1.18) sepia(.4) hue-rotate(-12deg);animation:goldpulse 1.1s ease-in-out infinite;}
+@keyframes goldpulse{0%,100%{transform:scale(1);}50%{transform:scale(1.09);}}
+.spud .goldbadge{position:absolute;top:-4px;right:0;font-family:'Cinzel',serif;font-weight:900;font-size:11px;color:#160f06;background:linear-gradient(180deg,#ffe07a,#e8b84b);border:1px solid #a8791a;border-radius:8px;padding:0 5px;box-shadow:0 2px 4px rgba(0,0,0,.55);pointer-events:none;z-index:2;}
+.spud.legal{pointer-events:auto;cursor:pointer;}   /* a legal hop-on this turn */
+.spud.legal img{filter:drop-shadow(0 0 10px rgba(255,255,255,.95)) drop-shadow(0 4px 5px rgba(0,0,0,.45));}
+.spud.legal:hover img{transform:scale(1.08);}
+.spud.sacrifice img{filter:drop-shadow(0 0 12px rgba(255,80,60,.95)) drop-shadow(0 4px 5px rgba(0,0,0,.45));}   /* red = dive-to-escape, costs 50% */
+.throne.legalthrone img{filter:drop-shadow(0 0 22px rgba(255,255,255,.95));cursor:pointer;}
+.throne.legalthrone{cursor:pointer;}
+.spud.collect{animation:collect .5s forwards;}
+@keyframes collect{0%{transform:translate(-50%,-50%) scale(1);}100%{transform:translate(-50%,-150%) scale(.2);opacity:0;}}
+.throne img{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 0 18px rgba(232,184,75,.7));}
+.throne.charged img{animation:charge 1s infinite;}
+@keyframes charge{0%,100%{filter:drop-shadow(0 0 18px rgba(232,184,75,.7));}50%{filter:drop-shadow(0 0 34px rgba(255,80,60,.95));}}
+/* player pawn = a Farmers-Hoe Degen, carrying a TETO in front */
+.pawn{border-radius:18%;overflow:hidden;border:2.5px solid var(--pc,#fff);box-shadow:0 3px 9px rgba(0,0,0,.6);transition:left .22s ease,top .22s ease;z-index:6;}
+.pawn img{width:100%;height:100%;object-fit:cover;}
+/* whose turn it is — a Japanese rising-sun halo of rays rotates behind their fighter */
+.sun{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);border-radius:50%;z-index:5;pointer-events:none;
+  background:repeating-conic-gradient(from 0deg,rgba(224,52,38,.92) 0 13deg,rgba(255,210,110,0) 13deg 26deg);
+  -webkit-mask:radial-gradient(circle,transparent 30%,#000 40%,#000 60%,transparent 70%);
+  mask:radial-gradient(circle,transparent 30%,#000 40%,#000 60%,transparent 70%);
+  animation:sunspin 9s linear infinite;filter:drop-shadow(0 0 4px rgba(255,110,60,.55));}
+@keyframes sunspin{to{transform:translate(-50%,-50%) rotate(360deg);}}
+.carry{position:absolute;z-index:7;pointer-events:none;transform:translate(-50%,-50%);}
+.carry img{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 2px 3px rgba(0,0,0,.5));}
+.kickfx{position:absolute;font-size:26px;transform:translate(-50%,-50%);z-index:9;pointer-events:none;animation:kick .6s forwards;}
+@keyframes kick{0%{opacity:0;transform:translate(-50%,-50%) scale(.4);}30%{opacity:1;transform:translate(-50%,-90%) scale(1.4);}100%{opacity:0;transform:translate(-50%,-160%) scale(1);}}
+
+.controls{display:flex;align-items:center;justify-content:center;gap:16px;margin-top:4px;}
+/* red pip dice — sits inside the board, in the black centre panel below the logo */
+.die{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:17%;aspect-ratio:1;
+  background:linear-gradient(145deg,#d0453a,#a2281d);border:2px solid #e8c24a;border-radius:20%;
+  box-shadow:0 4px 12px rgba(0,0,0,.6),inset 0 2px 5px rgba(255,255,255,.22);cursor:pointer;z-index:9;}
+.die:hover{box-shadow:0 6px 18px rgba(0,0,0,.7),0 0 12px rgba(232,194,74,.55),inset 0 2px 5px rgba(255,255,255,.2);}
+/* dots are absolutely placed as % of the die — size-independent, always visible */
+.die .pip{position:absolute;width:20%;height:20%;border-radius:50%;background:#0a0a0a;transform:translate(-50%,-50%);box-shadow:inset 0 1px 1px rgba(255,255,255,.15);}
+/* a thrown-dice tumble (flip on X/Y), not a flat spin */
+.die.rolling{animation:diespin .4s linear infinite;pointer-events:none;}
+@keyframes diespin{to{transform:translate(-50%,-50%) rotate(360deg);}}
+@keyframes shake{0%,100%{transform:rotate(-10deg) scale(1);}50%{transform:rotate(10deg) scale(1.08);}}
+.stepsbadge{font-family:'Cinzel',serif;font-weight:900;font-size:16px;color:var(--gold);min-width:70px;text-align:center;}
+.rollbtn{background:linear-gradient(135deg,#c8962a,#8b6018);border:none;color:#160f06;font-family:'Cinzel',serif;font-weight:900;font-size:15px;letter-spacing:.06em;padding:14px 28px;border-radius:12px;cursor:pointer;}
+.rollbtn:disabled{opacity:.5;cursor:default;}
+.hint{font-family:'Teko',sans-serif;font-size:15px;color:var(--muted);text-align:center;margin-top:6px;min-height:20px;letter-spacing:.02em;}
+.hint b{color:var(--gold);}
+.foot{text-align:center;font-family:'Teko',sans-serif;font-size:12.5px;color:var(--muted);margin-top:8px;line-height:1.5;}
+.foot b{color:#cdbfa2;}
+
+.ov{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;background:rgba(8,6,10,.8);backdrop-filter:blur(3px);}
+.ov.hide{display:none;}
+.card{max-width:440px;background:linear-gradient(180deg,#1e1a12,#141019);border:2px solid var(--gold);border-radius:18px;padding:24px 30px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.7);}
+.card h1{font-family:'Cinzel',serif;font-weight:900;font-size:34px;background:linear-gradient(180deg,#fff2cf,#e8b84b 55%,#9a6a18);-webkit-background-clip:text;background-clip:text;color:transparent;margin-bottom:2px;}
+.card .jp{font-family:'Teko',sans-serif;letter-spacing:.2em;color:var(--gold);font-size:14px;text-transform:uppercase;margin-bottom:14px;}
+.card ul{text-align:left;font-size:13px;line-height:1.65;color:#cdbfa2;margin:0 auto 16px;max-width:340px;list-style:none;}
+.card li{padding-left:24px;position:relative;margin-bottom:2px;}
+.card li img{position:absolute;left:0;top:1px;width:16px;height:13px;object-fit:contain;}
+.card .pickq{font-family:'Cinzel',serif;font-weight:900;font-size:15px;color:var(--gold);margin:6px 0 12px;line-height:1.3;}
+.card .pick{display:flex;gap:12px;justify-content:center;margin-bottom:16px;}
+.card .pick button{background:#1b1524;border:1.5px solid rgba(232,184,75,.4);color:var(--gold);font-family:'Cinzel',serif;font-weight:900;font-size:15px;line-height:1.15;min-width:130px;padding:16px 18px;border-radius:12px;cursor:pointer;}
+.card .pick button.on{background:linear-gradient(135deg,#c8962a,#8b6018);color:#160f06;border-color:transparent;}
+.card .go{background:linear-gradient(135deg,#c8962a,#8b6018);border:none;color:#160f06;font-family:'Cinzel',serif;font-weight:900;font-size:14px;letter-spacing:.06em;padding:13px 30px;border-radius:11px;cursor:pointer;}
+.sbbtn,.ibtn{width:34px;height:34px;flex:0 0 auto;border-radius:50%;border:1px solid #4a3c2a;background:#241d18;font-size:15px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;color:#e8b84b;}
+.ibtn{margin-left:auto;font-family:'Cinzel',serif;font-weight:700;font-style:italic;}
+.sbbtn:hover,.ibtn:hover{border-color:#c8962a;}
+.dc-mid{display:inline-flex;align-items:center;gap:3px;font-family:'Teko',sans-serif;font-size:17px;line-height:1;color:#e8b84b;border:1px solid #4a3c2a;border-radius:9px;padding:4px 10px;background:rgba(232,184,75,.08);white-space:nowrap;flex:0 0 auto;}
+.sbcard{text-align:left;max-width:400px;}
+.sbcard h1{text-align:center;}
+.tsb-list{list-style:none;margin:14px 0 0;padding:0;}
+.tsb-list li{display:grid;grid-template-columns:26px 1fr 46px;align-items:center;gap:6px;padding:8px 6px;border-bottom:1px solid rgba(74,60,42,.5);color:#efe6d2;font-size:14px;}
+.tsb-list li .rk{font-family:'Cinzel',serif;font-weight:900;color:#e8b84b;}
+.tsb-list li img{width:26px;height:26px;border-radius:18%;object-fit:cover;vertical-align:middle;margin-right:6px;}
+.tsb-list li b{text-align:right;font-size:17px;color:#e8b84b;}
+.tsb-empty{color:#a99a7e;font-size:13px;text-align:center;padding:16px 0;}
+.tsb-raffle{margin-top:14px;padding:11px 13px;background:#1a1512;border:1px solid #4a3c2a;border-radius:10px;font-size:12px;color:#a99a7e;line-height:1.55;}
+.tsb-raffle b{color:#e8b84b;} .tsb-dim{color:#7a6f60;}
+</style>
+</head>
+<body>
+<style>
+  .gsite-nav{position:sticky;top:0;z-index:200;display:flex;justify-content:center;gap:4px;flex-wrap:nowrap;overflow-x:auto;background:rgba(10,10,15,.96);backdrop-filter:blur(12px);border-bottom:1px solid rgba(200,150,42,.25);padding:8px 10px;-webkit-overflow-scrolling:touch;}
+  .gsite-nav::-webkit-scrollbar{display:none;}
+  .gsite-nav a{font-family:'Cinzel',serif;font-weight:700;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:#b9a988;text-decoration:none;padding:6px 10px;border-radius:8px;white-space:nowrap;flex:none;}
+  .gsite-nav a.on{color:#e8c24a;background:rgba(200,150,42,.14);}
+  .gsite-nav a:hover{color:#e8c24a;}
+  .gback{max-width:1080px;margin:0 auto;padding:9px 16px 0;}
+  .gback a{color:#c8962a;font-family:'Cinzel',serif;font-size:12px;letter-spacing:.12em;text-transform:uppercase;text-decoration:none;}
+  @media(max-width:600px){ .gsite-nav{justify-content:flex-start;gap:2px;padding:6px 8px;} .gsite-nav a{font-size:11px;padding:5px 8px;letter-spacing:.02em;} .gback{padding:7px 14px 0;} }
+</style>
+<nav class="gsite-nav">
+  <a href="/lore">Lore</a>
+  <a href="/traits">Traits</a>
+  <a href="/play" class="on">🥷 Play</a>
+  <a href="/framed">✦ Framed</a>
+  <a href="/ore">⛏ ORE</a>
+  <a href="/teahouse">🍵 Teahouse</a>
+  <a href="https://store.degendojo.xyz/" target="_blank" rel="noopener">🛒 Store ↗</a>
+</nav>
+<div class="gback"><a href="/play">‹ Games</a></div>
+<div class="wrap">
+  <div class="top">
+    <span class="dc-mid" data-dc-credits="icon" title="Your credits — one balance across every game"></span>
+    <button class="sbbtn" id="tSbBtn" type="button" aria-label="Scoreboard" title="Scoreboard" style="margin-left:auto">🏆</button>
+  </div>
+  <div class="tbanner">
+    <div class="tb-eyebrow">Degen Dojo</div>
+    <h2 class="tbtitle">TETO WARS</h2>
+    <div class="tbsub"><button class="ibtn" id="tInfoBtn" type="button" aria-label="How to play" title="How to play">i</button><span>Roll, grab <b>TETO</b>, rob the Dojo — most TETO wins.</span></div>
+  </div>
+  <div class="arena">
+    <div class="tsides">
+      <div class="side" id="sideYou"></div>
+      <div class="side" id="sideDojo"></div>
+    </div>
+    <div class="boardwrap"><div class="board" id="board"></div><div class="die" id="die" onclick="rollDice()" title="Tap to roll"></div></div>
+  </div>
+  <div class="controls"><div class="stepsbadge" id="steps"></div></div>
+  <button id="rollBtn" style="display:none" aria-hidden="true"></button>
+  <div class="hint" id="hint">Tap the dice to roll.</div>
+</div>
+
+<div class="ov hide" id="startOv">
+  <div class="card">
+    <h1>TETO WARS</h1><div class="jp">roll · grab · rob · survive</div>
+    <ul>
+      <li><img src="/teto.png"/>Roll, then step tile by tile — no diagonals. <b>Jump</b> a gap of missing tiles if your roll can clear it.</li>
+      <li><img src="/teto.png"/>Pass a floating <b>TETO</b> to pocket it. The <b>golden TETO</b> is worth <b>5</b>.</li>
+      <li><img src="/teto.png"/><b>Land on</b> or <b>pass through</b> a rival → grab <b>half</b> their TETO; they respawn opposite. Hit a <b>broke</b> rival (0 TETO) → they're <b>out</b>.</li>
+      <li><img src="/teto.png"/><b>End on</b> a TETO and it's destroyed — you keep just <b>1</b> and respawn opposite (with none in hand, you're out).</li>
+      <li><img src="/teto.png"/>Tiles crack after <b>2 steps</b>, and the <b>void eats one more tile every round</b> — the ring keeps shrinking.</li>
+      <li><img src="/teto.png"/>First to <b>21 TETO</b>, most when the board is cleared, or the last one standing wins.</li>
+    </ul>
+    <div class="pickq">Can you collect more TETO than the Dojo?</div>
+    <div class="pick" id="pick"></div>
+    <button class="go" onclick="startGame()">Start the war</button>
+  </div>
+</div>
+<div class="ov hide" id="endOv"><div class="card"><h1 id="endTitle">Winner</h1><div class="jp" id="endSub"></div><button class="go" onclick="location.reload()">Play again</button></div></div>
+<div class="ov hide" id="sbOv"><div class="card sbcard">
+  <h1>🏆 Scoreboard</h1>
+  <div id="tetoSbBoard"></div>
+  <button class="go" onclick="document.getElementById('sbOv').classList.add('hide')">Close</button>
+</div></div>
+<div class="ov hide" id="rulesOv"><div class="card">
+  <h1>How to play</h1><div class="jp">roll · grab · rob · survive</div>
+  <ul>
+    <li><img src="/teto.png"/>Roll, then step tile by tile — no diagonals. <b>Jump</b> a gap of missing tiles if your roll can clear it; when boxed in, spend <b>1 TETO per step</b> to bridge a gap (shown in red).</li>
+    <li><img src="/teto.png"/>Pass a floating <b>TETO</b> to pocket it. The <b>golden TETO</b> is worth <b>5</b>.</li>
+    <li><img src="/teto.png"/><b>Land on</b> or <b>pass through</b> a rival → grab <b>half</b> their TETO; they respawn opposite. Hit a <b>broke</b> rival (0 TETO) → they're <b>out</b>.</li>
+    <li><img src="/teto.png"/><b>End on</b> a TETO and it's destroyed — you keep just <b>1</b> and respawn opposite (with none in hand, you're out).</li>
+    <li><img src="/teto.png"/>Tiles crack after <b>2 steps</b>, and the <b>void eats one more tile every round</b> — the ring keeps shrinking.</li>
+    <li><img src="/teto.png"/>First to <b>21 TETO</b>, most when the board is cleared, or the last one standing wins.<span class="dojo-econ"> Each war costs <b>1 coin</b>.</span></li>
+  </ul>
+  <button class="go" onclick="document.getElementById('rulesOv').classList.add('hide')">Got it</button>
+</div></div>
+
+<script src="/dojo-credits.js"></script>
+<script src="/dojo-scores.js"></script>
+<script src="/mwa.js"></script><script src="/wallet-picker.js"></script>
+<script src="/dojo-wallet.js"></script>
+<script>
+/* ============================================================================
+   TETO WARS — hot-seat board game. Floating TETO potatoes (the real art, no tile
+   under them), Farmers-Hoe Degen pawns each carrying a TETO, step-by-step
+   movement (tap one tile at a time, no flashing), and a throne you can only enter
+   while holding a TETO. Single file, no deps.
+============================================================================ */
+const N=9, C=(r,c)=>r*N+c;   // 9×9 board: 32 outer walkable tiles, inner ring = 7 TETOs per side (24 total), bigger tiles/fighters
+const isBand=(r,c)=>(r===0||r===N-1||c===0||c===N-1);   // walkable = the OUTER ring only
+const MID=(N-1)/2, THRONE=C(MID,MID);
+const SPAWNS=[C(0,MID),C(N-1,MID),C(MID,0),C(MID,N-1)];
+const GATES=SPAWNS;                                      // the side-centre spawns double as throne gates
+// a mid-edge track tile (not a corner, not a side-centre) carries a TETO on the cell just inside it
+const midEdge=t=> (t.r===0||t.r===N-1) ? (t.c>=2&&t.c<=N-3) : (t.c===0||t.c===N-1) ? (t.r>=2&&t.r<=N-3) : false;
+const DIRS=[[-1,0],[1,0],[0,-1],[0,1]];
+const MAXJUMP=5;   // farthest gap you can bridge in one straight line — enough to reach a TETO floating in the void, but not to teleport across the 9-wide board
+const COLORS=['#e8b84b','#c0392b','#3aa0d8','#e0603f'];   // P0 YOU=gold, P1 THE DOJO=red (matches its card outline)
+// Degens wielding the Farmers Hoe — the potato farmers
+// Pool of every fighter that wields the Farmers Hoe — 2 random ones picked per war.
+// Live Farmers-Hoe DEGENS only (Race=Degens) — demons excluded, all current mints with valid art.
+const FARMERS=[
+ "HqGwfpiRuhhkuCLSYyX2Q4CUBbuhHyePvFKGoHHGCQXJ","HganDjEhGzkPjxciPWSNW677unVHCc7WL9LnwcGQKFgM","HfbdkYrZue1dRbCHVSFk8B34b2R2261tUg4jy9WsiZVY","Hc7YngApSF5TRppPLMhYX4h2wyx2wXNKf9kLKrPBbUkr","HcBC4vsWj4QoxVgK3psofVSugMofbjqosrh45LHy7boW","HYURLC5g5ncNcu1ztLMq3rQ1aXqhwbKqr5EhgyBYSBDu","H2CixfsnyTsopP8fg7nUxKmHK4pQpL739HV4iRzLTh8z","GvucCGj8MA9dBpBoXSuGbC9BK5tuxMK3L8eUaxsjsYNe","GtL4CjRRR13Q667A7EJuo7Ctm7tmYAxxdS4CZPGKttaL","GZXw7z2KMnU8r9KJsqQ7Ldv1sYxAa12LF9nxsDg5ZxPM","GDs14Wi3LB8HYpzKKpSeogknPnBkCZuSN7cmhJ8fvKVR","G2N87oZ6DzKMZj7o6rh9BTckvocmTDcUEAVT8AHQ3Gks","FyKp5hn31r7grUpv1CE6brtAYuWLH3sNPrrfcMfoHPbf","FyAwVjEuXbtgZUK8CNBzXMCYjLG6V3RicG4a6LaMPFTV","FtN34hBuKM1LNE4kEbDd2WUJ5Bf2Dek7a4sLQwi4nctL","Fq2482PSbLuaxCeKjtoCKfzsWp8cPpWWJNDyA4hzrAYa","FbwJ8wmgcczHp5powZ9DpCJopd4bXHteicnUhTKoxQSe","FX7BSmT1k7GbBjAdUZX4d3anDriyNaYjbu1y9qe1Scts","FRfKbsfBpUyG9QSQQLL5ZiEuJtCdf55hNDGwcF421AzU","FEMtYij7cuZMowT44e3CSvGcqpozwt7NBH9ruukUE5G5","F92ePdvzZ9roPasFKVd5TDmKpbQwBZ3QQEmnt6qh2u5v","F8BJj9aX17g8MtmcBhoX95epN9NUvYXLULAkWGbrEMPt","F6uvojvbKQ1zir4mCGAV8YmL4a1WvmBcXHR2T6nECqny","F4iB278Kzs6Eyun7kuk4nJTGbTQZX4BduncEd7tX4BnC","F33JuwEAmHX2uMMuUmAXcrE8rcjSUHWvq6DYyD81XkkB","EtbpDBL7D6PXKaPxMD2iaeiDg5xbirtzNX9eLJ7j9NKF","EnNQouLt4Bo5KJCtn8BYA1oU1ay6mfJoXc5C7rJ6F4EB","EnJ87WAo5kzWARi5SdSnTW6QFfsWnU1HCTnhwzAkLyur","EMtpdwGEe8qDM76FvavAfFBjgkLoL3P141SsRDeujWvt","EJbZqWij3vD5ByLqEiEYrr5cajNnu8vH8JCW94jSASh3","E9ufGjjTDveLgTtMrYd1XqWw6jEUNZRkEJKLhE5kdJZh","E88cChMNje1ecydp4K9iiucU7c9NwvkwhttHwDNLjq8t","E3CkGpDirc3x1bJYpRUTCehvwVcoioye1TsTgTnooh5G","E1XoQwGStMwCbzVwpxRioPJ5tFd2kjEs3RHAZkL8BWFj","Dxzi5FFkkibBh3huBJRUy7bFr4kZG6x5GQaSJuEthhmS","Dx5oJuNoodTY3efo72edV9bsnwT3KXzT2u88HUkwCfnT","DvfVasNcX5bpvMjUPLJ151kz4pHps2ogYpqSk1YAov5K","Dkr3NVrJ3LfutEtnSgeaHkMzFuRBU5RjYHiySxPBPdPJ","DanZLRAMMhsQN4oDTGpJ1TAdZX388GL3HvegeWhgVVfd","DZD9oueMryR42hiRZoMCZpkj5iet4TL8fk4pxjFTicKJ","DY3qEdCZcLMK9SZWGVb1kCdiQB2micpdjYCxAqZcvTKh","DN2AA75rkx5DhjcCnc5mQzsU5y3prXFWJaNxo3XvZLXP","DLeWC1AFJNzV9y5Rcw66qNGmoSJj4ZCHWttWrcRcyTef","DGiRJULMQM5KJuhmsAXhAMrxBJ4h1jpVDDKAAN4Hxtsq","DGNLFJx8HvPdKpjWoPu2dLsjcTxrnUVDKXMBE7YAbe7M","D4mFSb78BvLgjMFQ5xeUuWyUHUBoeQFCyKs2YG4seGLd","D3rx7nnRSSNVPic5y7pCMaJU7BDoahsGJnJ2YjsfYbxU","CzwJC8zSuKBTpfap39YPH75RKD8LVRCQhPTPkDwMV31z","Cy3F72k8D1nDGasW8DSsyiZhh9UxEqdf29WrpLyUrZpW","CuEytB8CV69pYkxJyB6dWGAoYds4MgRuQrBebDamJawZ","CrAD3SVx87p4WdH2fjPmMqZQY1fFQFJsNbUvjmRBr6Tm","CXCuAezsRgRkaZefBABRqydSFZ8aDJY7zqZY2qD2uM54","CHQh2hScWoSkoXeBvEh5NCE8embi6LQ5ufA3xhMULx1g","C5cDSCVXtX6xpCZYTP18p3zG6CPkNCefyLDnxALqCoi6","BztQX2xWRuqfkYwvPYL1s78bp9HovfXPcDCPxh8XX9S1","BstJZqJTu83M93HD1C9V75aS5Yjfk1gE4BhRB47qVu7C","BiaUgnSA5CL4wH7bisgcP9qFSmV7dJU2xorGrtA9Boyh","BdhjdZzuC8PXBiZsz8hcfN94ghzxr9ssHsQL2ZyTpHe5","BaJvLYLX1FsJyCzrk4sz4CPwEzMftjVTXnV4rfEBvVTm","BZEM4ipaj5oGdrZkvoXwbVodWq3gTYrSWvTno5W8zvWL","BVxDMHcRUHfPcgX7GVNu1DF69MstyGPSYKSSYxAj2YR4","BUh8xNPXVhyaVFtSjWRTLvWSzneuiMKcM6jNh5tg4gz5","BLpveFUSCdkzFforwdBPZgG4oSPLLqqdSJBumRsnmXbi","BKYkUPTbTMm5q1Eq3AA9JnGVZ4XkYK6rEDGULywEejYn","B2T5qMfn6uFA1ZR2ZRHqsoY9Nj8LPeJmBC73SMkzSedP","AybsaCe2VYVoV5W8baBEmXwXBAdQx6kV9FyYtQQxcWQj","AtH4YYEEEBHWcWng65UUsuyxWzWuPrJRNqqNjK9ovPhx","AjZqDsT3UiikgbqZ8ChcEFH8MSyuB3kZ6Sxb197JpLkS","AQuPPw4UK3CbvqiuzZHDfv8gyJTon65hrQmwJxH1isfy","APuQZyj4SXhCrNse6yGiBnrrjyg1Hci9QxDhtZn45NRe","APTPDYTkq8PRRF4t4AMVgXtK8NNHcNhz9wSj7rHRyptE","ALY6Z9EZBS1P3m7ihouprxP4ovMV7kYhrsd8tnEe8oU8","AAxvVAXFGTWXdzHrzScKzCiNCL7PtSiAReRntQqnyAn7","A1HVuwSA2G67WNf95rWUiXDnYSChUj2C5Viq534frtwX","9xd7KGauYfZmkomgoKnNqn6mxXRj1M5St7DVLv4MZPJL","9ks6d1pkkExveSLLEukqpk7yLD8r9dXjCGzrPy4L15we","9kESjVu9sm5Rm5gJzBVTWhmHGXPXye7XKmZmz3Lezff5","9gbWinkqtXLzVpriTt4NHiQ7XveGMoYHvb2MdWN5o4Ti","8spBujwwHxGsXeKuCi58Dt6H2bG4RmJnPeX1CVTeA3Zo","8jRMoXjyrxd1wmGg82rVxuq9EfztRpFzy9Jx9evHC1i5","8iLTtL52AHPjGdv1R86TykDyyTjzw5SQJaGaSjAkdTv6","8P1M14mVgKyXm8nAJcekFs4WEFDCJUps1RJSdUWdkUB8","8KkB33wL9gnRLYQ7fyKJBxPnjBnayR9dTGo4FBiSkbzG","8JXvzuPYDE4WjgFivwAU8kRjfA4URjSL5QV9tbCFGxU8","7piQtLPSkrwz65C3zvcTRzoQZSD5gvSZ1wkGCQdNUH4d","7hfpRxenJL5p4yjQymK7FnnxAjyVqj5rHhYU1JHWJJFr","7YTSoa9SdLgGnWjxBC6oC2o6aWeMoWdncExaHjduLwnw","7Ph2RYn9FRs14N655Sy8FJx2CEU1uZhjjyaAYcVDKJYD","7LANZNdxk8odHgdvWjWPFbTW3WdzixBJWEejmQG4SGZe","7HCkP5wrP35ryFCcdzrqmbQaf8rykNae8JthX8uzmbTN","7Gt2NAoatuc71PTFDCsfMg6LzyC4SZKTpj9Hswzmdmka","7Cxh1MyDZw5XmVndHUCnm2d3HPZvkB2MR69hPbES6qNJ","6rEzzPt13P79CmuGdd84DgWzbkTcQktsz1bDuskpxc26","6nkgar35ATnVhBYj8jNVFQPSE6PZBcb5mwAJso6yXT2q","6SzLtm8qHctqTX78NqEQsACHmkWPtb2LfiwBHTeQFoBg","6Rxifk5zxesZDo4NY9qEA5JbcBVTue7VRCxLG4dFGYGk","6Lcch791xcZN2HAYNAbNNyTGBmuvxEbe6fkmVxDGxkuF","6DfPHygRhkUQqWGmh24cUxjdSRUDDNoVK7KWfKTm6pSz","5yGa5vrwbnecBD8ViEzm7puAgwsk11z3KapoHMXTERuA","5tS3h8SAdXk34cNXSaHCfo2xaZ7mRi9scbJ4eQ9AVULJ","5q84batA29jzgLtDWEd2gQ5CUzxF2TgUdtmW9t2AmGTE","5WxumA2aGdHovxY5sV8ZoM5ELkk6oRYWFxV2wMvmKsP2","58kUGetRkHpjxJS9PCUEFeo26X1X9RW88yeLwvYBKVpv","56Eq8CshtpGaWa6QWGhuec6vdi9pRg8HQuamoCUAnPsp","55p9ZTToAxCFfUBrPdagTFWBo4qVeNYy3piea64u6oiS","54fzovoMbF2JgG4YyZJ2CM8wQ7cc22GURx53vFU9JSxZ","51hH6pC4iAxtDnXQhyXhpk1YLYJknCmeCVBvdcz8p9zE","4pfuvGzVQXB9ZYNfJoc12NCQRdaV9kjSpzHbzmaazZ35","4k5U4W4SD4w1mvvVL6WnRg27HHZera9y8qThN1sq1LqZ","4kpBUCJ4sphmH91n585x8V9seDb78U5vLyDBgqyqsGgh","4gschq9XVTSAH9nJFzc9Wi3MWxM2WNzfSi5D32BFReBW","4YcB2mEMWu7DSrgvpw5sxqPnLcbVA698Qs4p5YkxGide","4KSHxWUeNHUWZYYeMVb7E1Y1cCoARKEwfaFuLdApCch9","4J3SFLYwEPGZLBPXqM6W16e2hpuPonUz3T1zproYKacJ","4GsubvQaGtZFiLr3DaEB9SWREbrQZVzmHrs7fC3jKCiK","4EcFdggsD6KwDzLjCWvYt9eaW3MMyF1EhCdZbPaqiSzZ","3vCNkSCENsfy2kFw9SBLkzz22TijgrBpJ2rYg44C5AM3","3qEWbGtD6VdUPSLXMucXSkxbFt5qYoZE2Zn7xRQuwuDM","3oKRNVWZDUNGe4L5bDUKUasxpTa5QhZcEywyFuiheHeU","3jpCgM2N8ELEcQWR3M9m9HPLw9gQqkucmenmSeVeHior","3XkEJp5dmGsKhm3npcQeUVGR5Wt8w7ZuaFVW4Ebif4Di","3Rq1WK1r8TDypkPuseWYjtS3WhRgCJWvMzVm2xj5T6vZ","3Ge1Qs16v52YTu3naKx47aEDHW4dEgYZk2LcxtEsjyeo","31E3PgistE2wAxmK2ZfAcaXQq1nMgqx4vyDANxe8egKR","2fqAuSeJiy2UGMNAYgf9z6KBSmyF43QyYTBcurah22iR","2f2rapwwQGMXK34NJdmnP4ic1ibZXaiV6viHP5MFR4rc","2coz5Ke6MPSFTTxX7Jgdx583M4hT8fckKCFnvjju4xwm","2NP9Cx9HZeszsR9oN2xDjkYFGhdGinGbeV7Tkt3XhtEG","274kitkQeiCt7DTjAMGLgyZ3o6k6v1JuuNewcqV2sM2S","21SxDFbMTvwjqKXzFKZsNjQP4PFZvEDUDYTX1qZWVvBa","v8i4MoZhLwFR9AvP5rgWosCZapti52NBnuE2zUM6Qux","vos4MasejftFwHA3GYWQTi4Y37nMZsvJbr4UXBh7pjF","tUjgUHuU1FPSWkHw4eri6hqNnmZJwfx6bFarrTBWzXV","koEHk9STAqc6RYxaEp5WMH8sbGtCupvz4pHSoG5uNVT","jLj9RRSpSCt7Yktf6P7iBg6z7m3C2m7j1UVUA82fED4","WNHt1ZYNUJzMyBHywkGyUM1iSQbwVdAN3LN1J9gUGrU","W8W6Rzmze2St1TbCFmiAUFefCdnvs6dA3dNoQjYnjjx"
+];
+const av=u=>`https://wsrv.nl/?url=${encodeURIComponent('https://degendojo.s3.us-west-1.amazonaws.com/degen/img/'+u+'.png')}&w=120&h=120&fit=cover&output=webp`;
+const rawAv=u=>`https://degendojo.s3.us-west-1.amazonaws.com/degen/img/${u}.png`;
+// Only ever DISPLAY a fighter whose art actually loads: wsrv → raw S3 → another random hoe-degen.
+// (Pool is Race=Degens only, so a demon can never appear holding the hoe.)
+function pawnImgErr(im){
+  if(im.dataset.raw){ const r=im.dataset.raw; im.removeAttribute('data-raw'); im.src=r; return; }   // try the raw S3 art
+  const alt=FARMERS[Math.floor(Math.random()*FARMERS.length)];                                      // both failed → swap fighter
+  if(alt && alt!==im.dataset.mint){ im.dataset.mint=alt; im.setAttribute('data-raw', rawAv(alt)); im.src=av(alt); return; }
+  im.style.visibility='hidden';
+}
+const $=id=>document.getElementById(id);
+
+let tiles={}, potatoes=new Set(), tetoCells=new Set();  // tetoCells = inner-ring cells you can hop onto; potatoes = the ones still holding a TETO
+let players=[], turn=0, busy=false, started=false, nPlayers=2, charged=false, coinPaid=false;
+let move=null;                       // {stepsLeft, prev, legal:[]}
+let goldenCell=null, round=0;        // goldenCell = the one GOLDEN TETO (worth 5); round drives the creeping void
+let FPICK=[];                        // the Farmers-Hoe fighters chosen for THIS war (fresh random draw each game)
+const HARD=true;                     // THE DOJO always plays smart: chases the golden TETO and hunts YOU
+const isInner=(r,c)=> (r>=1&&r<=N-2&&c>=1&&c<=N-2) && (r===1||r===N-2||c===1||c===N-2);
+// walkable = a live yellow tile, OR an inner cell that STILL holds a TETO. Once a TETO is
+// taken (or a tile crumbles) that cell is a hole — nobody can step on it anymore.
+const walkable=id=> (tiles[id]&&tiles[id].alive) || potatoes.has(id);
+
+// the void cell IN FRONT (toward centre) of an inner-edge band tile — where its TETO floats
+function frontCell(id){ const t=tiles[id]; if(!t) return null; const {r,c}=t;
+  if(r===0) return {r:1,c}; if(r===N-1) return {r:N-2,c};
+  if(c===0) return {r,c:1}; if(c===N-1) return {r,c:N-2}; return null; }
+const tileOf=id=> id===THRONE?{r:MID,c:MID}:(tiles[id]||{r:Math.floor(id/N),c:id%N});
+const pos=(r,c)=>({left:((c+0.5)/N*100), top:((r+0.5)/N*100)});
+const sizeOf=()=>$('board').clientWidth/N;
+
+function buildBoard(){
+  tiles={}; potatoes=new Set();
+  for(let r=0;r<N;r++)for(let c=0;c<N;c++){
+    if(isBand(r,c)) tiles[C(r,c)]={r,c,alive:true,lives:2};             // outer yellow track
+    else if(isInner(r,c)){ tetoCells.add(C(r,c)); potatoes.add(C(r,c)); } // full inner ring of TETOs (incl. corners + in front of each spawn)
+  }
+  goldenCell = potatoes.has(C(1,MID)) ? C(1,MID) : ([...potatoes][0] ?? null);  // GOLDEN TETO fixed at TOP-CENTRE — equal distance from YOU (left) and THE DOJO (right)
+  round=0;
+  drawBoard();
+}
+function tetoImg(){ return `<img src="/teto.png" alt="TETO"/>`; }
+
+function drawBoard(){
+  const B=$('board'); B.innerHTML=''; const sz=sizeOf();
+  for(const id in tiles){ const t=tiles[id]; if(!t.alive) continue; const p=pos(t.r,t.c);
+    const el=document.createElement('div'); el.className='cell'; el.style.left=p.left+'%'; el.style.top=p.top+'%';
+    const inner=document.createElement('div'); inner.className='tile'+(t.lives===1?' life1':''); inner.id='tile'+id;
+    inner.style.width=(sz*0.82)+'px'; inner.style.height=(sz*0.82)+'px';
+    inner.onclick=()=>stepTo(+id); el.appendChild(inner); B.appendChild(el);
+  }
+  // TETO potatoes — sit on their own inner-ring grid cell, no tile under them
+  for(const id of potatoes){ const r=Math.floor(id/N), c=id%N; const p=pos(r,c);
+    const gold=id===goldenCell;
+    const el=document.createElement('div'); el.className='cell spud'+(gold?' golden':''); el.id='spud'+id; el.style.left=p.left+'%'; el.style.top=p.top+'%';
+    el.style.width=(sz*1.02)+'px'; el.style.height=(sz*0.8)+'px'; el.innerHTML=tetoImg(); el.onclick=()=>stepTo(id); B.appendChild(el);
+  }
+  // giant throne TETO
+  const tp=pos(MID,MID); const g=document.createElement('div'); g.className='cell throne'+(charged?' charged':''); g.id='throneEl';
+  g.style.left=tp.left+'%'; g.style.top=tp.top+'%'; g.style.width=(sz*4.4)+'px'; g.style.height=(sz*3.3)+'px';
+  g.innerHTML=tetoImg(); g.onclick=()=>stepTo(THRONE); B.appendChild(g);
+  // pawns + carried TETO
+  players.forEach((pl,i)=>{ if(pl.out) return; const t=tileOf(pl.pos); if(!t) return; const p=pos(t.r,t.c);
+    const off=players.filter((q,j)=>!q.out&&q.pos===pl.pos&&j<i).length;
+    const cell=document.createElement('div'); cell.className='cell'; cell.style.left=p.left+'%'; cell.style.top=(p.top-off*4)+'%';
+    cell.style.pointerEvents='none';   // let clicks pass THROUGH the pawn to the tile beneath, so you can land on a rival and steal their TETO
+    // (turn is shown by the glowing YOU / THE DOJO card above the board — no rotating sun)
+    const pw=document.createElement('div'); pw.className='pawn'; pw.id='pawn'+i; pw.style.setProperty('--pc',pl.color);
+    pw.style.width=(sz*0.82)+'px'; pw.style.height=(sz*0.82)+'px'; { const mt=FPICK[i]||FARMERS[i%FARMERS.length]; pw.innerHTML=`<img src="${av(mt)}" data-mint="${mt}" data-raw="${rawAv(mt)}" onerror="pawnImgErr(this)"/>`; }
+    cell.appendChild(pw); B.appendChild(cell);
+  });
+  if(move&&move.legal) move.legal.forEach(id=>{
+    if(id===THRONE){ const t=$('throneEl'); if(t) t.classList.add('legalthrone'); }
+    else if(tetoCells.has(id)){ const s=$('spud'+id); if(s){ s.classList.add('legal'); if(move.stepsLeft===1) s.classList.add('sacrifice'); } }
+    else { const t=$('tile'+id); if(t){ t.classList.add('legal'); if(move.cost && move.cost[id]>move.stepsLeft) t.classList.add('costteto'); } }
+  });
+}
+
+// Returns reachable landing cells with their step COST. In each of the 4 straight
+// directions it scans to the FIRST solid (walkable) cell, jumping over any gaps
+// (missing tiles / emptied TETO cells) in between — cost = the distance jumped.
+// You can only be offered a jump you have enough steps left to complete.
+function stepNeighbors(cur, prev, teto, last, maxSteps){
+  maxSteps = maxSteps || 6;
+  const r0=Math.floor(cur/N), c0=cur%N;
+  const res=[];   // {id, cost}
+  for(const [dr,dc] of DIRS){
+    let rr=r0, cc=c0, dist=0;
+    while(dist<maxSteps){
+      rr+=dr; cc+=dc; dist++;
+      if(rr<0||rr>=N||cc<0||cc>=N) break;                        // ran off the board
+      const nid=C(rr,cc);
+      // A cell holding a live rival is ALWAYS a valid landing (so you can always step onto the
+      // Dojo to rob/attack it, even if its tile has since crumbled under it).
+      const occByRival=players.some((p,j)=>j!==turn && !p.out && p.pos===nid && nid!==THRONE);
+      if(walkable(nid)||occByRival){ res.push({id:nid, cost:dist}); break; } // land on the first solid cell (jumps the gap before it)
+      // It's a gap (void or crumbled tile). You can bridge up to MAXJUMP cells to reach a floating
+      // TETO or a rival — but no farther, so nobody can teleport clear across the empty board.
+      if(dist>=MAXJUMP) break;
+    }
+  }
+  return res;
+}
+// commit stepNeighbors output onto the current move: legal ids + a cost map
+function setLegal(nb){ move.legal = nb.map(x=>x.id); move.cost = {}; nb.forEach(x=>{ move.cost[x.id]=x.cost; }); }
+// Reachable targets. You can go up to (dice steps + your TETO): each step beyond the dice
+// costs 1 TETO. ALL reachable cells are offered — the free ones (within your dice) highlight
+// normally, the TETO-sacrifice ones highlight RED — so you can always choose to burn TETO to
+// bridge a gap or reach a rival to rob them (e.g. roll 1 + spend 3 TETO to hit the Dojo).
+function computeLegal(cur, prev, teto, stepsLeft){
+  return stepNeighbors(cur, prev, teto, false, stepsLeft + Math.max(0,teto));
+}
+function renderScores(){
+  const card=(pl,i)=>`<div class="sc ${i===turn&&!pl.out?'turn':''} ${pl.out?'out':''} ${pl.ai?'dojo':'you'}" style="--pc:${pl.color}">
+    <span class="jp">${pl.ai?'道場':'君'}</span><span class="nm">${pl.ai?'THE DOJO':'YOU'}</span><b>${pl.teto}</b><img class="sctet" src="/teto.png" alt="TETO"></div>`;
+  if($('sideYou')) $('sideYou').innerHTML = players[0]?card(players[0],0):'';
+  if($('sideDojo')) $('sideDojo').innerHTML = players[1]?card(players[1],1):'';
+}
+// dot positions as % within the die (bulletproof — no grid/aspect-ratio to collapse)
+const DOTS={1:[[50,50]],2:[[28,28],[72,72]],3:[[28,28],[50,50],[72,72]],4:[[28,28],[72,28],[28,72],[72,72]],5:[[28,28],[72,28],[50,50],[28,72],[72,72]],6:[[28,28],[72,28],[28,50],[72,50],[28,72],[72,72]]};
+function setDie(n){ const el=$('die'); if(!el) return; el.classList.remove('ready'); el.innerHTML=(DOTS[n]||DOTS[1]).map(([x,y])=>`<span class="pip" style="left:${x}%;top:${y}%"></span>`).join(''); }
+// between turns the dice shows a TETO — tap it to roll (the TETO vanishes as the dice spins)
+function dieReady(){ const el=$('die'); if(!el) return; el.classList.add('ready'); el.innerHTML='<img src="/teto.png" alt="roll" style="width:100%;height:100%;object-fit:contain;pointer-events:none;filter:drop-shadow(0 2px 3px rgba(0,0,0,.5))">'; }
+
+function rollDice(){
+  if(busy||!started||players[turn].out||move) return;
+  // 1-coin entry, charged on YOUR first roll of the war (never on page load / AI turns).
+  if(!players[turn].ai && !coinPaid){ if(window.DojoCredits && !DojoCredits.play('Teto Wars')) return; coinPaid=true; }
+  busy=true; $('rollBtn').disabled=true; const die=$('die'); die.classList.add('rolling'); beep(180,.05);
+  let ticks=0; const iv=setInterval(()=>{ setDie(1+Math.floor(Math.random()*6)); if(++ticks>8){clearInterval(iv);settle();} },70);
+  function settle(){
+    const roll=1+Math.floor(Math.random()*6); setDie(roll); die.classList.remove('rolling');
+    players[turn].moves=(players[turn].moves||0)+1;   // count this player's moves — the throne is locked on move #1
+    const cur=players[turn].pos;
+    move={stepsLeft:roll, prev:null, legal:[], cost:{}};
+    setLegal(computeLegal(cur, null, players[turn].teto, roll));
+    if(!move.legal.length){ $('hint').innerHTML=`<b>P${turn+1}</b> rolled ${roll} — boxed in. Turn skipped.`; move=null; busy=false; setTimeout(nextTurn,1100); return; }
+    busy=false; drawBoard();   // the rolled number shows on the dice (setDie(roll) above)
+    if(players[turn].ai) setTimeout(aiStep, 520);   // AI walks its own move
+  }
+}
+
+async function stepTo(id){
+  if(!move || busy || !move.legal.includes(id)) return;
+  busy=true; const me=players[turn], from=me.pos;
+  stepOff(from);
+  const cost=(move.cost&&move.cost[id])||1;
+  const tetoCost=Math.max(0, cost - move.stepsLeft);   // steps beyond the dice are paid in TETO (gap bridge)
+  if(tetoCost>0){ me.teto-=tetoCost; renderScores(); }
+  me.pos=id; move.prev=from; move.stepsLeft=Math.max(0, move.stepsLeft - cost);
+  const ended=move.stepsLeft<=0;
+  if(!ended){   // PASSING THROUGH a rival's tile: steal 1 TETO per pass, or freeze a broke rival for 2 rounds
+    const thru=players.find((q,j)=>j!==turn && !q.out && q.pos===id && id!==THRONE);
+    if(thru){
+      if(thru.teto>=1){ const {half}=hitSplit(thru.teto); me.teto+=half; thru.teto=half; respawn(thru); kickFx(id); beep(520,.05); renderScores(); }
+      else { thru.out=true; kickFx(id); beep(90,.3,'sawtooth'); $('hint').innerHTML=`💀 <b>P${turn+1}</b> struck the empty-handed <b>P${players.indexOf(thru)+1}</b> — they're <b>out</b>!`; renderScores(); }   // hit with 0 TETO → eliminated
+    }
+  }
+  if(potatoes.has(id) && !(ended && tetoCells.has(id))) grab(id);   // grab when hopping THROUGH a teto; ending on one is a sacrifice, not a grab
+  if(me.teto>=21){ move=null; renderScores(); drawBoard(); endGame(me,'reached 21 TETO'); busy=false; return; }   // instant win the moment you hit 21
+  drawBoard(); beep(120,.03); await wait(180);
+  if(ended){ await finishMove(id); return; }
+  setLegal(computeLegal(id, move.prev, me.teto, move.stepsLeft));
+  if(!move.legal.length){ await finishMove(id); return; }     // dead-end → stop here
+  drawBoard();
+  setDie(move.stepsLeft);   // the dice counts down the steps left (6 dots → 5 → …)
+  busy=false;
+}
+async function finishMove(id){
+  move=null; $('steps').textContent='';
+  if(tetoCells.has(id)){                       // ended stuck ON a teto → the TETO is destroyed
+    const me=players[turn];
+    potatoes.delete(id); if(id===goldenCell) goldenCell=null;   // that TETO is destroyed (not grabbed)
+    const s=$('spud'+id); if(s) s.classList.add('collect');
+    if(me.teto>=1){                            // keep just 1, lose the rest, respawn on the opposite side
+      me.teto=1; me.pos=oppositeLive(id); kickFx(id); beep(90,.25,'sawtooth');
+      $('hint').innerHTML=`🕳️ <b>P${turn+1}</b> crashed onto a TETO — it's destroyed. They keep <b>1</b> and respawn opposite.`;
+    } else {                                   // had nothing in hand and couldn't move back → out completely
+      me.out=true; kickFx(id); beep(80,.35,'sawtooth');
+      $('hint').innerHTML=`💀 <b>P${turn+1}</b> crashed onto a TETO empty-handed — they're <b>out</b>!`;
+    }
+    drawBoard(); renderScores(); if(checkWin()) return; await wait(1200); nextTurn(); return;
+  }
+  await resolveLanding(id); drawBoard(); renderScores();
+  if(checkWin()) return;
+  await wait(300); nextTurn();
+}
+
+function stepOff(id){ if(id===THRONE) return; const t=tiles[id]; if(!t) return;
+  // Don't crumble the tile out from under another fighter still standing on it —
+  // it only takes wear once fully vacated, so nobody is ever stranded on a gap.
+  if(players.some((p,j)=>j!==turn && !p.out && p.pos===id)) return;
+  t.lives--; if(t.lives<=0){ const el=$('tile'+id); if(el) el.classList.add('crack'); t.alive=false; potatoes.delete(id); beep(70,.12,'sawtooth'); } }
+function grab(id){ if(!potatoes.has(id)) return;
+  const gold = id===goldenCell;
+  players[turn].teto += gold?5:1; potatoes.delete(id); if(gold) goldenCell=null;
+  const el=$('spud'+id); if(el) el.classList.add('collect'); beep(gold?990:660,gold?.14:.06); renderScores(); }
+
+function oppositeLive(id){
+  const t=tileOf(id); if(!t) return respawnTileId();
+  const or=N-1-t.r, oc=N-1-t.c, oid=C(or,oc);
+  if(tiles[oid]&&tiles[oid].alive) return oid;                      // mirror tile is alive → go there
+  const live=Object.keys(tiles).map(Number).filter(k=>tiles[k].alive);
+  if(!live.length) return oid;
+  live.sort((a,b)=>((tiles[a].r-or)**2+(tiles[a].c-oc)**2)-((tiles[b].r-or)**2+(tiles[b].c-oc)**2));
+  return live[0];                                                  // else the closest live tile to the mirror
+}
+function respawnTileId(){ const free=SPAWNS.filter(id=>tiles[id]?.alive); return free.length?free[0]:Object.keys(tiles).map(Number).find(id=>tiles[id].alive); }
+// On a hit, an ODD pile burns 1 TETO so it can split evenly; then half goes to the attacker and
+// half stays with the victim.  5 → +2 / keep 2 (1 burned) · 8 → +4 / keep 4 · 11 → +5 / keep 5 (1 burned).
+function hitSplit(teto){ const burn=teto%2; const half=(teto-burn)/2; return {burn, half}; }
+async function resolveLanding(id){
+  const me=players[turn];
+  const victim=players.find((q,j)=>j!==turn && !q.out && q.pos===id && id!==THRONE);
+  if(victim){
+    if(victim.teto>=1){   // LANDING on a TETO-holder → seize HALF, they respawn on the opposite side
+      const {burn,half}=hitSplit(victim.teto); victim.teto=half; me.teto+=half; victim.pos=oppositeLive(id); kickFx(id);
+      $('hint').innerHTML=`⚔️ <b>P${turn+1}</b> landed square on <b>P${players.indexOf(victim)+1}</b> — seized <b>${half}</b> TETO${burn?' (1 burned)':''}! They respawn on the opposite side.`; renderScores(); await wait(500); return;
+    } else {              // LANDING on a BROKE rival → just bump them to the opposite side; no penalty to the lander
+      victim.out=true; kickFx(id); beep(90,.3,'sawtooth');   // land on a broke rival → they're eliminated
+      $('hint').innerHTML=`💀 <b>P${turn+1}</b> crushed the empty-handed <b>P${players.indexOf(victim)+1}</b> — they're <b>out</b>!`; renderScores(); await wait(600); return;
+    }
+  }
+  if(id===THRONE){
+    if(charged){ let g=0; players.forEach((q,j)=>{ if(j!==turn&&!q.out){ g+=q.teto; q.teto=0; } }); me.teto+=g;
+      $('hint').innerHTML=`👑 <b>P${turn+1}</b> seized the CHARGED throne and drained <b>${g}</b> TETO from all!`; return; }
+    const occ=players.find((q,j)=>j!==turn && !q.out && q.pos===THRONE);
+    if(occ){ const half=Math.floor(occ.teto/2); occ.teto-=half; me.teto+=half; scatter(half); respawn(occ); kickFx(THRONE);
+      $('hint').innerHTML=`👑 <b>P${turn+1}</b> booted <b>P${players.indexOf(occ)+1}</b> off the throne — took <b>${half}</b>, scattered the rest!`; await wait(500); return; }
+    $('hint').innerHTML=`👑 <b>P${turn+1}</b> holds the throne. Hoard — but guard your crown.`;
+  }
+}
+function scatter(n){ const empty=Object.keys(tiles).map(Number).filter(id=>tiles[id].alive && !potatoes.has(id) && !GATES.includes(id) && !players.some(p=>!p.out&&p.pos===id));
+  for(let i=0;i<n && empty.length;i++){ const id=empty.splice(Math.floor(Math.random()*empty.length),1)[0]; if(frontCell(id)) potatoes.add(id); } }
+function respawn(pl){ const free=SPAWNS.filter(id=>tiles[id]?.alive); pl.pos = free.length?free[Math.floor(Math.random()*free.length)] : Object.keys(tiles).map(Number).find(id=>tiles[id].alive); }
+function kickFx(id){ const t=tileOf(id); if(!t) return; const p=pos(t.r,t.c); const fx=document.createElement('div'); fx.className='kickfx'; fx.textContent='💥'; fx.style.left=p.left+'%'; fx.style.top=p.top+'%'; $('board').appendChild(fx); setTimeout(()=>fx.remove(),600); }
+
+// The creeping void: one random live OUTER tile crumbles each round, shrinking the ring
+// so fighters are pushed together (more robbing) and the war can't stall forever.
+function creepVoid(){
+  const cands=Object.keys(tiles).map(Number).filter(id=>tiles[id].alive && !GATES.includes(id) && !players.some(p=>!p.out&&p.pos===id));
+  if(cands.length<=10) return;   // keep a minimum ring so nobody gets fully walled in
+  const id=cands[Math.floor(Math.random()*cands.length)];
+  tiles[id].alive=false;
+  const el=$('tile'+id); if(el) el.classList.add('crack');
+  beep(60,.18,'sawtooth');
+}
+function nextTurn(){
+  const alive=players.filter(p=>!p.out); if(alive.length<=1&&started){ endGame(alive[0]); return; }
+  do{ turn=(turn+1)%players.length; }while(players[turn].out);
+  // skip stunned players (each skip burns one of their frozen rounds), but never loop forever if all are frozen
+  let guard=0;
+  while(players[turn].frozen>0 && guard++<players.length){ players[turn].frozen--; do{ turn=(turn+1)%players.length; }while(players[turn].out); }
+  if(turn===0 && started){ round++; creepVoid(); }   // a full round wrapped → the void eats one tile
+  const aliveTiles=Object.keys(tiles).filter(id=>tiles[id].alive).length; charged=aliveTiles<=6;
+  renderScores(); drawBoard();
+  const fz=players[turn].frozen>0?` (stunned ${players[turn].frozen} more)`:``;
+  const isAI=players[turn].ai;
+  $('hint').innerHTML=`<b>P${turn+1}</b>${isAI?' (Dojo)':''}'s turn`+(isAI?` — rolling…`:` — press ROLL.`)+fz+(charged?` ⚠️ Throne is <b>CHARGED</b>!`:``);
+  busy=false; $('rollBtn').disabled=isAI;              // the human can't roll on the AI's turn
+  dieReady();                                           // TETO on the dice between turns (both you and the Dojo)
+  if(isAI) setTimeout(aiTurn, 750);
+}
+function wait(ms){ return new Promise(r=>setTimeout(r,ms)); }
+// Can ANY living fighter still reach ANY floating TETO? BFS from each pawn across every cell it
+// could hop to (chained jumps up to MAXJUMP). If no TETO is reachable, the last ones are stranded
+// on the void with no tiles near them — the war can't progress, so it should end.
+function anyTetoReachable(){
+  if(!potatoes.size) return false;
+  for(const pl of players){
+    if(pl.out) continue;
+    const seen=new Set([pl.pos]), q=[pl.pos];
+    while(q.length){
+      const cur=q.shift();
+      for(const {id} of stepNeighbors(cur, null, 999, false, MAXJUMP)){
+        if(potatoes.has(id)) return true;
+        if(!seen.has(id)){ seen.add(id); q.push(id); }
+      }
+    }
+  }
+  return false;
+}
+function checkWin(){
+  // Instant win at 21 TETO.
+  { const w=players.find(p=>!p.out&&p.teto>=21); if(w){ endGame(w,'reached 21 TETO'); return true; } }
+  // Otherwise the war ends when every TETO is off the board — most collected wins.
+  // (Void deaths end it too, handled in nextTurn.)
+  if(started && potatoes.size===0){ const best=[...players].filter(p=>!p.out).sort((a,b)=>b.teto-a.teto)[0]; endGame(best,'all TETO collected'); return true; }
+  // A TETO stranded on the void with no way to reach it also ends the war.
+  if(started && potatoes.size>0 && !anyTetoReachable()){ const best=[...players].filter(p=>!p.out).sort((a,b)=>b.teto-a.teto)[0]; endGame(best,'the last TETO is stranded'); return true; }
+  const at=Object.keys(tiles).filter(id=>tiles[id].alive).length;
+  if(at<7){ const best=[...players].filter(p=>!p.out).sort((a,b)=>b.teto-a.teto)[0]; endGame(best,'the board crumbled'); return true; }
+  return false;
+}
+function endGame(w,why){ started=false; $('rollBtn').disabled=true;
+  // LIVE: the server mints one flat raffle entry per war (win isn't server-verifiable).
+  // Demo: record locally (P1 is you).
+  if(TETOPLAY){ var p=TETOPLAY; TETOPLAY=null;
+    DojoWallet.finishPlay(p.playId, {}).then(function(r){ tetoToast('+'+r.awarded+' raffle '+(r.awarded===1?'entry':'entries')+' for the war 🎟'); })
+      .catch(function(e){ tetoToast(String(e.message||e).replace(/^Error:\s*/,'')); });
+  } else if(w && window.DojoScores) DojoScores.record('teto', players.indexOf(w)===0);
+  $('endTitle').textContent = w ? (w.ai?'THE DOJO WON':'YOU WIN') : 'Game over'; $('endSub').textContent=(w?`${w.teto} TETO · `:'')+(why||''); $('endOv').classList.remove('hide'); beep(880,.5); }
+
+$('tSbBtn').onclick=()=>{ if(window.DojoScores) DojoScores.renderBoard($('tetoSbBoard'),'teto'); $('sbOv').classList.remove('hide'); };
+$('sbOv').onclick=e=>{ if(e.target===$('sbOv')) $('sbOv').classList.add('hide'); };
+$('tInfoBtn').onclick=()=>{ $('rulesOv').classList.remove('hide'); };
+$('rulesOv').onclick=e=>{ if(e.target===$('rulesOv')) $('rulesOv').classList.add('hide'); };
+
+let AC; function beep(f,d,type){ try{ AC=AC||new (window.AudioContext||window.webkitAudioContext)(); const o=AC.createOscillator(),g=AC.createGain(); o.type=type||'square'; o.frequency.value=f; o.connect(g); g.connect(AC.destination); g.gain.value=.05; o.start(); g.gain.exponentialRampToValueAtTime(.0001,AC.currentTime+(d||.1)); o.stop(AC.currentTime+(d||.1)); }catch{} }
+
+// Always YOU vs THE DOJO (1 v 1). The AI plays as "the Dojo". (2v2 removed.)
+nPlayers=2;
+$('pick').innerHTML='';   // no seat picker — every war is you vs the Dojo
+function pickN(n){ nPlayers=n; }
+// When signed in, a war is server-authoritative: the backend debits a coin and mints
+// one raffle entry per war (Teto is flat-entries — the win isn't server-verifiable).
+let TETOPLAY=null;
+function isLive(){ return !window.DOJO_LOCAL_ECON && !!(window.DojoWallet && DojoWallet.signedIn()); }
+function startGame(){
+  if(isLive()){
+    DojoWallet.startPlay('teto').then(function(s){ TETOPLAY={playId:s.playId}; _beginWar(); })
+      .catch(function(e){ tetoToast(String(e.message||e).replace(/^Error:\s*/,'')); });
+    return;
+  }
+  if(window.DojoCredits && !DojoCredits.play('Teto Wars')) return;   // demo: one local credit per war
+  _beginWar();
+}
+function _beginWar(){
+  // Seat order: YOU (P0) start LEFT-centre, THE DOJO (P1) RIGHT-centre (then top, bottom for 4-player).
+  const SEAT=[2,3,0,1];
+  FPICK = FARMERS.slice().sort(()=>Math.random()-0.5).slice(0, Math.max(nPlayers,2));   // fresh pair of hoe-wielding degens this war
+  players=[]; for(let i=0;i<nPlayers;i++) players.push({id:i,color:COLORS[i],pos:SPAWNS[SEAT[i%4]],teto:0,out:false,moves:0,frozen:0,ai:i>=nPlayers/2});
+  buildBoard(); renderScores(); started=true; turn=0; move=null; busy=false; charged=false; coinPaid=false;
+  drawBoard();   // redraw now that started/turn are set, so P1's rising-sun halo shows from the first turn
+  dieReady();   // war starts with a TETO on the dice — YOU tap to roll first
+  $('startOv').classList.add('hide'); $('rollBtn').disabled=false; $('hint').innerHTML=`<b>YOU</b> vs <b>THE DOJO</b> — tap the dice to roll. Everyone starts with 3 TETO.`;
+}
+function tetoToast(msg){
+  let t=document.getElementById('tetoToast');
+  if(!t){ t=document.createElement('div'); t.id='tetoToast'; t.style.cssText='position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#241a12;border:1px solid #c9973a;color:#f1e6d0;font:600 14px/1.4 system-ui;padding:11px 18px;border-radius:10px;z-index:9999;max-width:86%;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,.5)'; document.body.appendChild(t); }
+  t.textContent=msg; t.style.opacity='1'; clearTimeout(t._h); t._h=setTimeout(function(){t.style.opacity='0';},3600);
+}
+// ---- AI opponent: rolls, then walks its move choosing safe, greedy tiles ----
+function aiTurn(){ if(started && players[turn] && players[turn].ai && !players[turn].out && !busy && !move) rollDice(); }
+const cellDist=(a,b)=>{ const ar=Math.floor(a/N),ac=a%N,br=Math.floor(b/N),bc=b%N; return Math.abs(ar-br)+Math.abs(ac-bc); };
+function aiPick(legal){
+  const last = move.stepsLeft<=1;
+  const rivals=players.filter((q,j)=>j!==turn && !q.out);
+  return legal.map(id=>{
+    let s = HARD ? Math.random()*0.6 : Math.random()*4;   // Hard = mostly deterministic; Normal = loose/random
+    const isTeto=tetoCells.has(id);
+    const rival=rivals.find(q=>q.pos===id && id!==THRONE);
+    const cost=(move.cost&&move.cost[id])||1;
+    const tetoCost=Math.max(0, cost - move.stepsLeft);     // TETO this move would burn
+    // shared base scoring
+    if(last){ if(isTeto) s-=100; if(rival&&rival.teto===0) s-=100; if(rival&&rival.teto>0) s+=60+rival.teto; }
+    else { if(isTeto && potatoes.has(id)) s+=12; if(rival&&rival.teto>0) s+=6; }
+    if(id===THRONE) s+=4;
+    s -= tetoCost * (HARD ? 3 : 14);                        // burning TETO is costly (Hard tolerates it for a payoff)
+    if(HARD){
+      if(id===goldenCell) s+=45;                            // land on the GOLDEN teto (worth 5)
+      else if(goldenCell!=null) s += Math.max(0, 14 - cellDist(id, goldenCell));   // else close in on it
+      if(rival && rival.teto>0) s += 22 + rival.teto*1.5;   // hunt YOU — worth spending TETO to rob
+      if(isTeto && potatoes.has(id)) s += 9;                // hoover up any TETO in reach
+    }
+    return {id,s};
+  }).sort((a,b)=>b.s-a.s)[0].id;
+}
+async function aiStep(){
+  if(!move || busy || !players[turn] || !players[turn].ai) return;
+  await stepTo(aiPick(move.legal));
+  if(move && !busy && players[turn] && players[turn].ai) setTimeout(aiStep, 420);   // still steps to take
+}
+setDie(1);   // show a dice face (dots) from the start, before the first roll
+// Enter straight into a war — no rules wall on the public demo. Rules live behind the “i”.
+// Server-verified mode shows the start card so a coin isn't spent without a tap; demo and the
+// store's local-coin economy jump straight into a ready board (rules live behind the “i”). The
+// war is FREE to open — the 1-coin entry is charged on your FIRST roll (in rollDice), so merely
+// visiting the page never drains coins.
+if(isLive()){ $('startOv').classList.remove('hide'); } else { _beginWar(); }
+window.addEventListener('resize',()=>{ if(started) drawBoard(); });
+
+// ── wallet strip: connect to spend real (server-held) coins & earn verified entries ──
+(function mountWallet(){
+  if(!window.DojoWallet || !(window.dojoRankedOn && window.dojoRankedOn())) return;   // hidden until ranked mode
+  const bar=document.createElement('div');
+  bar.style.cssText='position:fixed;top:10px;right:10px;z-index:900;display:flex;align-items:center;gap:8px;font:600 13px/1 system-ui';
+  bar.innerHTML='<span id="wCoins" style="display:none;background:#241a12;border:1px solid #4a3c2a;color:#e8b84b;padding:7px 11px;border-radius:9px">🪙 0</span>'
+    +'<button id="wBtn" style="background:linear-gradient(180deg,#e8b84b,#c9973a);border:1px solid #c9973a;color:#1a1206;padding:7px 13px;border-radius:9px;cursor:pointer;font:inherit">Connect wallet</button>';
+  document.body.appendChild(bar);
+  const btn=bar.querySelector('#wBtn'), coins=bar.querySelector('#wCoins');
+  btn.onclick=async()=>{ if(DojoWallet.signedIn()){ DojoWallet.signOut(); return; } btn.textContent='…'; try{ await DojoWallet.signIn(); }catch(e){ tetoToast(String(e.message||e).replace(/^Error:\s*/,'')); btn.textContent='Connect wallet'; } };
+  DojoWallet.on(s=>{ if(s.signedIn){ coins.style.display=''; coins.textContent='🪙 '+s.coins; btn.textContent=(s.wallet.slice(0,4)+'…'+s.wallet.slice(-4)); } else { coins.style.display='none'; btn.textContent='Connect wallet'; } });
+})();
+</script>
+</body>
+</html>

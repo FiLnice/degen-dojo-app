@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Play — Degen Dojo</title>
+<meta name="description" content="Play the Degen Dojo games — Dojo Flip, Cluck-Fu, Teto Wars and Degen Duel — with your wallet connected. Every play earns weekly Dojo Pot tickets." />
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;900&family=Inter:wght@300;400;500;600&family=Teko:wght@500;600;700&display=swap" rel="stylesheet" />
+<style>
+:root{--ink:#0a0a0f;--panel:#16161f;--border:rgba(255,255,255,.08);--gold:#c9973a;--gold-l:#e8b84b;--text:#e8e0d0;--mut:#8a7f6f;}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--ink);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh;
+  background-image:radial-gradient(900px 500px at 50% -8%,rgba(192,57,43,.2),transparent 62%),radial-gradient(700px 400px at 85% 12%,rgba(201,151,58,.1),transparent 60%),linear-gradient(#0d0b12,#0a0a0f 60%);}
+a{color:inherit;text-decoration:none}
+.top{display:flex;align-items:center;gap:14px;padding:14px 22px;border-bottom:1px solid var(--border);background:rgba(10,10,15,.7);position:sticky;top:0;z-index:40;flex-wrap:wrap}
+.brand{font-family:'Cinzel',serif;font-size:15px;letter-spacing:.14em;color:var(--gold-l)}
+.topnav{display:flex;gap:8px;margin-left:8px;flex-wrap:wrap}
+.topnav a{font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--text);padding:7px 12px;border:1px solid var(--border);border-radius:8px}
+.topnav a.here{border-color:var(--gold);color:var(--gold-l);background:rgba(201,151,58,.08)}
+.topnav a:hover{border-color:var(--gold);color:var(--gold-l)}
+#wBtn{margin-left:auto;background:linear-gradient(135deg,#c8962a,#8b6018);border:none;color:#0a0814;font-family:'Cinzel',serif;font-size:12px;font-weight:700;letter-spacing:.06em;padding:9px 16px;border-radius:9px;cursor:pointer}
+.wrap{max-width:960px;margin:0 auto;padding:40px 20px 80px}
+h1{font-family:'Cinzel',serif;font-weight:900;font-size:clamp(28px,5vw,42px);text-align:center;
+  background:linear-gradient(180deg,#f4e2b4,#e8b84b 45%,#8b6020);-webkit-background-clip:text;background-clip:text;color:transparent;margin-bottom:6px}
+.sub{text-align:center;color:var(--mut);font-size:14px;margin-bottom:34px}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;max-width:620px;margin:0 auto}
+@media(max-width:560px){.grid{grid-template-columns:1fr}}
+.game{display:block;border:1px solid var(--border);border-radius:16px;background:var(--panel);padding:22px 20px;transition:.18s}
+.game:hover{border-color:var(--gold);transform:translateY(-2px);box-shadow:0 14px 34px rgba(0,0,0,.4)}
+.game .ico{font-size:34px}
+.game h3{font-family:'Cinzel',serif;font-size:19px;color:var(--gold-l);margin:10px 0 4px}
+.game p{color:var(--mut);font-size:13px;line-height:1.5}
+.game .go{margin-top:12px;font-family:'Teko',sans-serif;letter-spacing:.1em;color:var(--gold-l);font-size:15px}
+.note{text-align:center;color:var(--mut);font-size:12.5px;margin-top:30px;line-height:1.6}
+.sectitle{max-width:640px;margin:32px auto 14px;font-family:'Cinzel',serif;font-size:14px;letter-spacing:.14em;color:var(--gold-l);text-transform:uppercase;display:flex;align-items:center;gap:10px}
+.sectitle small{color:var(--mut);font-family:'Inter',sans-serif;font-size:11px;letter-spacing:.04em;text-transform:none}
+.sectitle::after{content:"";flex:1;height:1px;background:var(--border)}
+.games3{grid-template-columns:repeat(3,1fr);max-width:640px}
+@media(max-width:560px){.games3{grid-template-columns:1fr}}
+.arena-wrap{max-width:640px;margin:0 auto}
+.arena-card{display:block;border:1px solid var(--gold);border-radius:16px;background:linear-gradient(160deg,rgba(201,151,58,.15),var(--panel));padding:26px 24px;transition:.18s;position:relative;overflow:hidden}
+.arena-card:hover{transform:translateY(-2px);box-shadow:0 16px 42px rgba(0,0,0,.45)}
+.arena-card .ico{font-size:46px}
+.arena-card h3{font-family:'Cinzel',serif;font-size:24px;color:var(--gold-l);margin:8px 0 6px}
+.arena-card p{color:var(--mut);font-size:14px;line-height:1.55;max-width:74%}
+.arena-card .go{margin-top:14px;font-family:'Teko',sans-serif;letter-spacing:.1em;color:var(--gold-l);font-size:16px}
+.arena-badge{position:absolute;top:16px;right:18px;font-family:'Teko',sans-serif;font-size:12px;letter-spacing:.12em;color:var(--gold-l);border:1px solid var(--gold);border-radius:20px;padding:3px 11px}
+</style>
+</head>
+<body>
+<script>window.DOJO_LOCAL_ECON=1;</script>
+<!-- wallet-picker.js comes with the shared nav wire (after mwa.js) — loading it here too ran it twice -->
+<script src="/dojo-credits.js"></script>
+<header class="top">
+  <span class="brand">道場 Degen Dojo</span>
+  <nav class="topnav">
+    <a href="/">⌂ Store</a>
+    <a href="/list">🏷 List</a>
+    <a href="/play" class="here">▶ Play</a>
+    <a href="/mine">⛏ Mine</a>
+    <a href="/pot">🏆 Pot</a>
+    <a href="/become-a-preacher">📣 Preacher</a>
+  </nav>
+  <span id="rightgrp" style="margin-left:auto;display:flex;align-items:center;gap:10px">
+    <span id="coinBadge" style="font-family:'Teko',sans-serif;font-size:16px;color:var(--gold-l);padding:6px 12px;border:1px solid var(--border);border-radius:9px">🪙 <b data-dc-credits>0</b> coins</span>
+    <a href="/credits" style="color:var(--gold-l);font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.06em;padding:8px 14px;border:1px solid var(--gold);border-radius:9px">＋ Buy coins</a>
+    <button id="wBtn" onclick="walletClick()" style="margin-left:0">Connect wallet</button>
+  </span>
+</header>
+
+<div class="wrap">
+  <h1>3 Games &amp; 2 Arenas</h1>
+  <div class="sub">Play with your wallet connected — every play earns weekly Dojo Pot tickets.</div>
+  <!-- Coin balance + Buy coins live under the title (not in the top bar) so they're visible on phones too. -->
+  <div style="display:flex;justify-content:center;align-items:center;gap:10px;flex-wrap:wrap;margin:-18px 0 30px">
+    <span style="font-family:'Teko',sans-serif;font-size:19px;color:var(--gold-l);padding:7px 16px;border:1px solid var(--border);border-radius:10px">🪙 <b data-dc-credits>0</b> coins</span>
+    <a href="/credits" style="color:#0a0814;background:linear-gradient(135deg,#c8962a,#8b6018);font-family:'Cinzel',serif;font-size:12px;font-weight:700;letter-spacing:.06em;padding:10px 18px;border-radius:10px;text-decoration:none">＋ Buy coins</a>
+  </div>
+
+  <div class="sectitle">🥷 Games <small>pure skill</small></div>
+  <div class="grid games3">
+    <a class="game" href="/dojo-flip/"><div class="ico">🎴</div><h3>Dojo Flip</h3><p>The childhood flip-till-you-win card game, with real fighters.</p><div class="go">Play →</div></a>
+    <a class="game" href="/play/teto-wars/"><div class="ico">🥔</div><h3>Teto Wars</h3><p>Roll, grab, rob and race to 21 TETO on the potato board.</p><div class="go">Play →</div></a>
+    <a class="game" href="/play/degen-duel/"><div class="ico">⚔️</div><h3>Degen Duel</h3><p>Best-of-8 card duel — outplay the Dojo on the highlighted stat.</p><div class="go">Play →</div></a>
+  </div>
+
+  <div class="sectitle">🐓 Arena <small>provably-fair chance</small></div>
+  <div class="grid games3" style="grid-template-columns:repeat(2,1fr)">
+    <a class="arena-card" href="/play/cluck-fu/">
+      <span class="arena-badge">✓ PROVABLY FAIR</span>
+      <div class="ico">🐔</div><h3>Cluck-Fu</h3>
+      <p style="max-width:100%">8-chicken scramble — first past the line takes it.</p>
+      <div class="go">Enter the Arena →</div>
+    </a>
+    <a class="arena-card" href="/play/cock-brawl/">
+      <span class="arena-badge">✓ PROVABLY FAIR</span>
+      <div class="ico">🐓</div><h3>Cock Brawl</h3>
+      <p style="max-width:100%">Eight cocks fight, one champion.</p>
+      <div class="go">Enter the Arena →</div>
+    </a>
+  </div>
+
+  <div class="note">Your wallet stays connected across the store, shelves and games — one coin balance everywhere. Every play earns weekly Dojo Pot tickets.</div>
+</div>
+
+<script>
+// One shared wallet (DojoWalletPicker, same as the store & shelves) + one local coin balance
+// (dojo-credits.js paints [data-dc-credits], so the count here == the count inside every game).
+var WADAPTER=null;
+var shortPk=function(pk){return pk.slice(0,4)+'…'+pk.slice(-4);};
+function setWallet(a){ WADAPTER=a; const b=document.getElementById('wBtn'); if(b) b.textContent = a ? ('◎ '+shortPk(a.pubkey)) : 'Connect wallet'; }
+async function walletClick(){
+  if(WADAPTER){ try{ WADAPTER.disconnect&&WADAPTER.disconnect(); }catch(e){} setWallet(null); return; }
+  if(!window.DojoWalletPicker){ alert('Wallet library still loading — one moment.'); return; }
+  try{ setWallet(await DojoWalletPicker.pick()); }catch(e){}
+}
+// silent reconnect (shares the store's remembered wallet)
+// (No page-level autoConnect: the shared nav wire reconnects the store-wide session. A second,
+// concurrent silent connect raced the wire's — and this page's own button is gone in the store build.)
+</script>
+</body>
+</html>

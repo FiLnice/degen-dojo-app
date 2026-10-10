@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Dojo Coins — Degen Dojo</title>
+<meta name="description" content="One currency for every Degen Dojo game. Buy coins with ORE, SKR or SOL — 1 coin ≈ $1 = one play on Degen Duel, Dojo Flip, Teto Wars or Cluck-Fu. A share of every purchase feeds the Dojo Pot." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Teko:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#100d0b; --bg2:#171310; --panel:#1d1815; --panel2:#241d18;
+  --line:#3a2f25; --gold:#e8b84b; --gold-dim:#c9973a; --ink:#ece4d6; --mut:#9c8f7d;
+  --red:#c1443a; --green:#7bb26a;
+}
+*{box-sizing:border-box;}
+body{margin:0;background:radial-gradient(1200px 600px at 50% -10%,#20180f 0%,var(--bg) 60%);color:var(--ink);
+  font-family:"Inter",system-ui,sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased;}
+.wrap{max-width:920px;margin:0 auto;padding:26px 18px 60px;}
+.brand{font-family:"Cinzel",serif;font-weight:900;letter-spacing:.16em;color:var(--gold);font-size:12px;text-transform:uppercase;text-align:center;}
+h1{font-family:"Teko",sans-serif;font-weight:700;font-size:clamp(38px,8vw,66px);line-height:.9;margin:4px 0 2px;text-align:center;
+  background:linear-gradient(180deg,#f4e2b4 0%,var(--gold) 45%,var(--gold-dim) 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+.sub{text-align:center;color:var(--mut);font-size:14px;letter-spacing:.02em;margin-bottom:6px;}
+.jp{font-family:"Teko",sans-serif;color:var(--gold-dim);letter-spacing:.14em;}
+
+/* balance + pot strip */
+.strip{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin:20px 0 8px;}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 20px;text-align:center;min-width:150px;}
+.stat .k{font-family:"Teko";font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);}
+.stat .v{font-family:"Teko";font-size:32px;color:var(--gold);line-height:1;}
+.stat .v small{font-size:15px;color:var(--mut);}
+
+/* currency toggle */
+.pays{display:flex;gap:8px;justify-content:center;margin:22px 0 6px;flex-wrap:wrap;}
+.pay{display:flex;align-items:center;gap:7px;background:var(--panel);border:1px solid var(--line);color:var(--mut);
+  border-radius:11px;padding:9px 16px;cursor:pointer;font-family:"Teko";font-size:19px;letter-spacing:.04em;}
+.pay .tok{width:20px;height:20px;border-radius:50%;}
+.pay.on{border-color:var(--gold-dim);color:var(--ink);background:linear-gradient(180deg,#2a2118,#221a12);box-shadow:0 0 0 1px rgba(232,181,106,.25) inset;}
+.pay small{color:var(--gold-dim);font-family:"Inter";font-size:10px;letter-spacing:.02em;}
+
+/* packs */
+.packs{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin:16px 0;}
+.pack{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:18px;
+  padding:34px 18px 20px;text-align:center;position:relative;transition:border-color .15s,transform .15s;}
+.pack .cr{margin-top:4px;}
+.pack:hover{border-color:var(--gold-dim);transform:translateY(-2px);}
+.pack.best{border-color:var(--gold-dim);box-shadow:0 0 0 1px rgba(232,181,106,.3) inset;}
+.pack .tag{position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:linear-gradient(180deg,var(--gold),var(--gold-dim));
+  color:#1a1206;font-family:"Teko";font-size:13px;letter-spacing:.05em;text-transform:uppercase;padding:2px 12px;border-radius:20px;white-space:nowrap;}
+.pack .cr{font-family:"Teko";font-size:52px;color:var(--ink);line-height:.9;}
+.pack .cr b{color:var(--gold);}
+.pack .plays{font-family:"Teko";font-size:16px;color:var(--mut);letter-spacing:.04em;margin-bottom:2px;}
+.pack .bonus{color:var(--green);font-size:12px;font-weight:600;min-height:16px;}
+.pack .price{margin:12px 0 4px;font-family:"Teko";font-size:26px;color:var(--gold);display:flex;align-items:center;justify-content:center;gap:6px;}
+.pack .price .tok{width:22px;height:22px;border-radius:50%;}
+.pack .usd{color:var(--mut);font-size:12px;margin-bottom:14px;}
+.pack .buy{width:100%;font-family:"Teko";font-size:20px;letter-spacing:.05em;text-transform:uppercase;padding:10px;border-radius:11px;cursor:pointer;
+  border:1px solid var(--gold-dim);background:linear-gradient(180deg,var(--gold),var(--gold-dim));color:#1a1206;}
+.pack .buy:active{transform:translateY(1px);}
+
+/* pot callout */
+.potnote{background:var(--bg2);border:1px solid var(--line);border-radius:14px;padding:14px 18px;margin:8px 0 22px;
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:center;text-align:center;font-size:13px;color:var(--mut);}
+.potnote b{color:var(--gold);}
+.potnote .pill{font-family:"Teko";font-size:26px;color:var(--gold);background:rgba(232,181,106,.1);border:1px solid var(--gold-dim);border-radius:11px;padding:4px 14px;}
+.redeem{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:0 0 22px;}
+.redeem .rd-h{font-family:"Teko";font-size:19px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold);margin-bottom:10px;}
+.redeem .rd-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.redeem input{width:100px;background:var(--bg2);border:1px solid var(--line);border-radius:9px;color:var(--ink);font-family:"Teko";font-size:20px;padding:7px 12px;text-align:right;outline:none;}
+.redeem input:focus{border-color:var(--gold-dim);}
+.redeem .rd-arrow{font-family:"Teko";font-size:16px;color:var(--mut);}
+.redeem .rd-out{font-family:"Teko";font-size:22px;color:var(--gold);display:flex;align-items:center;gap:5px;min-width:90px;}
+.redeem .rd-out .tok{width:20px;height:20px;border-radius:50%;}
+.redeem .rd-btn{margin-left:auto;font-family:"Teko";font-size:18px;letter-spacing:.05em;text-transform:uppercase;padding:8px 20px;border-radius:10px;cursor:pointer;border:1px solid var(--gold-dim);background:transparent;color:var(--gold);}
+.redeem .rd-btn:hover{background:rgba(232,181,106,.1);}
+.redeem .rd-note{margin-top:10px;font-size:12px;color:var(--mut);line-height:1.5;}
+.redeem .rd-note b{color:var(--gold);}
+
+/* how it works */
+.how{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:10px;}
+.how .c{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;}
+.how .c h3{font-family:"Teko";font-weight:600;font-size:20px;margin:0 0 6px;color:var(--gold);letter-spacing:.03em;}
+.how .c p{margin:0;font-size:13px;color:var(--mut);line-height:1.55;}
+.games{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:20px 0 0;}
+.games a{font-family:"Teko";font-size:17px;letter-spacing:.03em;color:var(--ink);text-decoration:none;background:var(--panel);
+  border:1px solid var(--line);border-radius:10px;padding:8px 16px;}
+.games a:hover{border-color:var(--gold-dim);color:var(--gold);}
+.foot{text-align:center;color:var(--mut);font-size:12px;margin-top:26px;line-height:1.6;}
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(calc(100% + 50px));background:var(--panel2);border:1px solid var(--gold-dim);
+  color:var(--ink);padding:12px 22px;border-radius:12px;font-family:"Teko";font-size:20px;letter-spacing:.03em;transition:transform .3s;z-index:20;box-shadow:0 8px 26px rgba(0,0,0,.5);}
+.toast.show{transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+<style>.dn-ham{display:none}.dn-connect{display:none}.dn-extra{margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}@media(max-width:640px){.dn-bar{gap:10px!important;padding:10px 14px!important;}.dn-extra{display:none!important;}.dn-connect{display:block!important;}.dn-ham{display:flex!important;align-items:center;justify-content:center;width:44px;height:44px;border-radius:10px;cursor:pointer;background:rgba(201,151,58,.12);border:1px solid rgba(201,151,58,.45);color:#e8b84b;font-size:22px;line-height:1;margin-left:auto;flex:0 0 auto;}.dn-links{position:absolute!important;top:calc(100% - 2px);right:10px;min-width:214px;flex-direction:column!important;align-items:stretch;gap:5px!important;background:rgba(12,10,18,.98);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(201,151,58,.4);border-radius:12px;padding:9px;box-shadow:0 16px 36px rgba(0,0,0,.6);display:none!important;z-index:80;}.dn-links.dn-open{display:flex!important;}.dn-links a{text-align:left;font-size:13px!important;padding:11px 13px!important;}}</style><div class="dn-bar" style="position:sticky;top:0;z-index:72;background:rgba(10,10,15,.94);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-bottom:1px solid rgba(201,151,58,.18);display:flex;align-items:center;gap:16px;padding:11px 20px;flex-wrap:wrap;font-family:'Cinzel',serif;"><a href="/" style="display:flex;align-items:center;gap:11px;text-decoration:none;color:#efe6d2;"><img src="/dd-mark.jpg" alt="Degen Dojo" style="width:40px;height:40px;border-radius:9px;object-fit:cover;display:block;box-shadow:0 0 0 1px rgba(201,151,58,.35);" onerror="this.style.display='none'"/><div style="text-align:left;"><b style="font-family:'Cinzel',serif;font-size:15px;letter-spacing:.16em;display:block;color:#efe6d2;">DEGEN DOJO</b><small style="font-family:'Cinzel',serif;font-size:9px;letter-spacing:.26em;color:#a99a7e;">COINS</small></div></a><nav class="dn-links" style="display:flex;gap:8px;flex-wrap:wrap;"><a href="#" class="dn-connect" onclick="var b=this.closest('.dn-bar').querySelector('.dn-extra button');if(b)b.click();return false;" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#e8b84b;border:1px solid rgba(201,151,58,.5);background:rgba(201,151,58,.12);">🔑 Connect</a><a href="/" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">⌂ Store</a><a href="/market" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">🛒 Market</a><a href="/launch" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">🚀 Launch</a><a href="/list" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">🏷 List</a><a href="/play" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">▶ Play</a><a href="/mine" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">⛏ Mine</a><a href="/pot" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">🏆 Pot</a><a href="/become-a-preacher" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">📣 Preacher</a></nav><span class="dn-extra"><button id="dojoNavWallet" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#0a0814;background:linear-gradient(135deg,#c8962a,#8b6018);border:none;padding:9px 16px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;">Connect wallet</button></span><button class="dn-ham" type="button" aria-label="Menu" onclick="var n=this.closest('.dn-bar').querySelector('.dn-links');if(n)n.classList.toggle('dn-open');">☰</button></div>
+<div class="wrap">
+  <div class="brand">道場 · Degen Dojo</div>
+  <h1>Dojo Coins</h1>
+  <div class="sub">🪙 One currency for every game. <span class="jp">1 コイン</span> = one play ≈ <b>$1</b>.</div>
+
+  <div class="strip">
+    <div class="stat"><div class="k">Your coins</div><div class="v">🪙 <span id="balV">0</span></div></div>
+    <div class="stat"><div class="k">Plays left</div><div class="v" id="playsV">0</div></div>
+    <div class="stat"><div class="k">Into the pot / buy</div><div class="v" id="potPctV">25<small>%</small></div></div>
+  </div>
+
+  <div class="pays" id="pays">
+    <button class="pay on" data-cur="ORE" onclick="setPay('ORE')"><img class="tok" id="oreIco" src="" alt=""> ORE</button>
+    <button class="pay" data-cur="SKR" onclick="setPay('SKR')"><img class="tok" id="skrIco" src="" alt=""> SKR</button>
+    <button class="pay" data-cur="SOL" onclick="setPay('SOL')"><img class="tok" id="solIco" src="" alt=""> SOL</button>
+  </div>
+
+  <div class="packs" id="packs"></div>
+
+  <div class="potnote">
+    <span class="pill" id="potPill">25%</span>
+    <span>of every coin purchase flows straight into the <b>Dojo Pot</b> — the prize the <b>top 25 players each week</b> are raffled to win. The more everyone plays, the bigger the pot.</span>
+  </div>
+
+  <div class="how">
+    <div class="c"><h3>Buy once, play anywhere</h3><p>Coins work across <b>Degen Duel</b>, <b>Dojo Flip</b>, <b>Teto Wars</b>, <b>Cluck-Fu</b> and <b>Cock Brawl</b>. No per-game top-ups, no juggling tokens mid-game.</p></div>
+    <div class="c"><h3>Pay in what you hold</h3><p>Buy with <b>ORE</b>, <b>SKR</b> or <b>SOL</b> — priced live and swapped to settle. Same rails the store already uses.</p></div>
+    <div class="c"><h3>Play to earn raffle chances</h3><p>You never win money directly — a <b>win</b> = 3 raffle chances, a <b>play</b> = 1, and winning all 5 games at least once = <b>+3 bonus</b>. Every Sunday the weekly Dojo Pot is drawn among chance-holders, provably-fair. Degen Dojo keeps just <b>12%</b>; the rest goes back to players.</p></div>
+  </div>
+
+  <div class="games">
+    <a href="/play/degen-duel">⚔ Degen Duel</a>
+    <a href="/dojo-flip/">🎴 Dojo Flip</a>
+    <a href="/teto-wars/">🥔 Teto Wars</a>
+    <a href="/cluck-fu/">🐔 Cluck-Fu</a>
+    <a href="/play/cock-brawl/">🐓 Cock Brawl</a>
+  </div>
+
+  <div class="foot">
+    Coins are prepaid game entries, not a financial instrument — no yield, no cash-out. Spend them on play; every play and win earns weekly raffle tickets. Prices update live from Jupiter.<br>
+    A share of every purchase is the pot; the rest covers game operations. Nothing here custodies your wallet — a buy is a swap + transfer you sign.
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="/wallet-picker.js"></script>
+<script>
+const MINTS = {
+  SOL: 'So11111111111111111111111111111111111111112',
+  ORE: 'oreoU2P8bN6jkk3jbaiVxYnG1dCXcYxwhwyK9jSybcp',
+  SKR: 'SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3',
+};
+const ICON = {
+  ORE: 'https://wsrv.nl/?url=https%3A%2F%2Fore.com%2Fassets%2Ficon.png&w=40&h=40&output=png',
+  SOL: 'https://wsrv.nl/?url=https%3A%2F%2Fraw.githubusercontent.com%2Fsolana-labs%2Ftoken-list%2Fmain%2Fassets%2Fmainnet%2FSo11111111111111111111111111111111111111112%2Flogo.png&w=40&h=40&output=png',
+  SKR: 'https://wsrv.nl/?url=https%3A%2F%2Fr2.solanamobiledappstore.com%2Fskr%2Fseeker.png&w=40&h=40&output=png',
+};
+// 1 credit ≈ $1. Bigger packs give bonus credits (the discount that nudges bulk buys).
+const PACKS = [
+  { credits: 1,  bonus: 0,  usd: 1, tag: 'Try it' },   // single coin — the cheapest way to test a real purchase
+  { credits: 5,  bonus: 0,  usd: 5  },
+  { credits: 10, bonus: 1,  usd: 10, tag: 'Popular' },
+  { credits: 25, bonus: 4,  usd: 25, tag: 'Best value', best: true },
+  { credits: 50, bonus: 10, usd: 50 },
+];
+const POT_PCT = 25;                 // share of every purchase that feeds the Dojo Pot
+const PRICES = { SOL:null, ORE:null, SKR:null };
+let CUR = 'ORE';
+const BAL_KEY = 'dojo_credits';
+
+const $ = id => document.getElementById(id);
+const dp = { ORE:2, SKR:0, SOL:3 };
+const tok = c => `<img class="tok" src="${ICON[c]}" alt="${c}">`;
+
+function balance(){ return Number(localStorage.getItem(BAL_KEY) || 0); }
+function setBalance(n){ localStorage.setItem(BAL_KEY, String(n)); renderBalance(); }
+function renderBalance(){ const b = balance(); $('balV').textContent = b; $('playsV').textContent = b; }
+
+function tokenOf(usd){                       // token amount for a USD price, at live prices
+  const p = PRICES[CUR]; if(!p) return null;
+  return usd / p;
+}
+function fmtTok(n){ return n==null ? '—' : n.toLocaleString('en-US',{maximumFractionDigits:dp[CUR]}); }
+
+function renderPacks(){
+  $('packs').innerHTML = PACKS.map((p,i)=>{
+    const total = p.credits + p.bonus;
+    const t = tokenOf(p.usd);
+    return `<div class="pack ${p.best?'best':''}">
+      ${p.tag?`<div class="tag">${p.tag}</div>`:''}
+      <div class="cr">🪙 <b>${total}</b></div>
+      <div class="plays">coin${total===1?'':'s'} · ${total} play${total===1?'':'s'}</div>
+      <div class="bonus">${p.bonus?`+${p.bonus} bonus`:'&nbsp;'}</div>
+      <div class="price">${tok(CUR)} ${fmtTok(t)}</div>
+      <div class="usd">≈ $${p.usd}</div>
+      <button class="buy" onclick="buy(${i})">Buy</button>
+    </div>`;
+  }).join('');
+}
+
+function setPay(c){
+  CUR = c;
+  document.querySelectorAll('.pay').forEach(b=>b.classList.toggle('on', b.dataset.cur===c));
+  renderPacks();
+}
+
+// ---- Real ORE / SKR / SOL purchase ----------------------------------------
+// The conversion is nailed by the live Jupiter price (tokenOf): a pack's $ price
+// → the exact token amount, sent to the treasury. The buyer signs a plain SOL or
+// SPL transfer — no custody. On deploy the backend verifies the on-chain payment
+// before granting coins (client-side grant here is optimistic for the preview).
+const TREASURY = '5w55F58ia3H71QjBD9bYvNQF2DcNu8K3AfJj9A4WMuWp';
+const RPC = location.origin + '/api/rpc';      // same-origin proxy → our Helius RPC (key stays server-side)
+const DEC = { SOL: 1e9, ORE: 1e11, SKR: 1e6 };
+let WALLET = null, web3 = null, spl = null;
+// the referring preacher, if this visit carried one (?ref=code or a dd_ref cookie set by /preacher/<code>)
+function getRef(){ try{ const u=new URLSearchParams(location.search).get('ref'); if(u) return u; const m=document.cookie.match(/(?:^|;\s*)dd_ref=([^;]+)/); return m?decodeURIComponent(m[1]):null; }catch(e){ return null; } }
+async function loadWeb3(){ if(!web3) web3 = await import('https://esm.sh/@solana/web3.js@1.95.3'); if(!spl) spl = await import('https://esm.sh/@solana/spl-token@0.4.9'); }
+async function connectWallet(){
+  try{ WALLET = await DojoWalletPicker.pick(); }   // picker w/ official icons: Phantom / Solflare / Backpack / Jupiter
+  catch(e){ if(String(e.message||e)!=='cancelled') toast((e.message||'No wallet').slice(0,60)); return null; }
+  const b=$('connectBtn'); if(b) b.textContent = '✓ '+WALLET.pubkey.slice(0,4)+'…'+WALLET.pubkey.slice(-4);
+  return WALLET;
+}
+async function buy(i){
+  const WALLET = window.DOJO_WALLET;   // the shared store session (nav wallet button / autoConnect)
+  const p = PACKS[i], total = p.credits + p.bonus, amt = tokenOf(p.usd);
+  if(amt == null){ toast('Prices still loading — one moment'); return; }
+  if(!WALLET){ toast('Connect your wallet first'); const nb=document.getElementById('dojoNavWallet'); if(nb) nb.click(); return; }
+  try{
+    if(WALLET.pubkey === TREASURY){ toast('That’s the treasury wallet — a self-payment isn’t a real purchase. Connect a different wallet.'); return; }
+    await loadWeb3();
+    const { Connection, PublicKey, VersionedTransaction, TransactionMessage, SystemProgram } = web3;
+    const conn = new Connection(RPC, 'confirmed');
+    const buyer = new PublicKey(WALLET.pubkey), dest = new PublicKey(TREASURY);
+    const base = Math.round(amt * DEC[CUR]);
+    let ixs;
+    if(CUR === 'SOL'){ ixs = [ SystemProgram.transfer({ fromPubkey:buyer, toPubkey:dest, lamports:base }) ]; }
+    else {
+      const mint = new PublicKey(MINTS[CUR]);
+      const src = await spl.getAssociatedTokenAddress(mint, buyer), dst = await spl.getAssociatedTokenAddress(mint, dest);
+      ixs = [ spl.createAssociatedTokenAccountIdempotentInstruction(buyer, dst, dest, mint), spl.createTransferInstruction(src, dst, buyer, BigInt(base)) ];
+    }
+    const { blockhash } = await conn.getLatestBlockhash();
+    const msg = new TransactionMessage({ payerKey:buyer, recentBlockhash:blockhash, instructions:ixs }).compileToV0Message();
+    toast('Approve in your wallet…');
+    const sig = await WALLET.signAndSendTransaction(new VersionedTransaction(msg).serialize());
+    toast('Confirming payment…');
+    try{ await conn.confirmTransaction(sig.signature || sig, 'confirmed'); }catch(_){ /* ws confirm may not run over the /api/rpc proxy — fine, the backend re-verifies the payment on-chain */ }
+    // record the purchase for the admin dashboard (untrusted hint; backend re-verifies on-chain)
+    try{ await fetch('/api/coinbuy', { method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({ sig: sig.signature||sig, buyer: WALLET.pubkey, coins: total, currency: CUR, tokenAmount: amt, usd: p.usd, ref: getRef(), ts: Date.now() }) }); }catch(e){}
+    setBalance(balance() + total);   // optimistic; the backend verifies the payment before granting on deploy
+    toast(`Paid ${fmtTok(amt)} ${CUR} → +${total} coins 🪙 ($${(p.usd*POT_PCT/100).toFixed(2)} to the pot)`);
+  }catch(e){ console.error(e); toast(e.message ? e.message.slice(0,60) : 'Purchase cancelled'); }
+}
+
+let toastT;
+function toast(msg){ const el=$('toast'); el.textContent=msg; el.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove('show'),2600); }
+
+async function loadPrices(){
+  try{
+    const ids = [MINTS.SOL, MINTS.ORE, MINTS.SKR].join(',');
+    const j = await (await fetch('https://lite-api.jup.ag/price/v3?ids='+ids)).json();
+    PRICES.SOL = j[MINTS.SOL]?.usdPrice ?? 176;
+    PRICES.ORE = j[MINTS.ORE]?.usdPrice ?? 66;
+    PRICES.SKR = j[MINTS.SKR]?.usdPrice ?? 0.008;
+  }catch{ PRICES.SOL=176; PRICES.ORE=66; PRICES.SKR=0.008; }
+  renderPacks();
+}
+
+// init
+$('oreIco').src = ICON.ORE; $('skrIco').src = ICON.SKR; $('solIco').src = ICON.SOL;
+$('potPctV').innerHTML = POT_PCT + '<small>%</small>'; $('potPill').textContent = POT_PCT + '%';
+renderBalance(); renderPacks(); loadPrices();
+</script>
+<script src="/dojo-credits.js"></script><script src="/dojo-profile.js"></script><script src="/mwa.js"></script><script src="/wallet-picker.js"></script><script>/*navwallet-wire*/(function(){var b=document.getElementById('dojoNavWallet');if(!b)return;var A=null,sh=function(p){return p.slice(0,4)+'\u2026'+p.slice(-4);};var G="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#0a0814;background:linear-gradient(135deg,#c8962a,#8b6018);border:none;padding:9px 16px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;",C="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#e8b84b;background:rgba(201,151,58,.12);border:1px solid rgba(201,151,58,.5);padding:9px 14px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;";function set(a){A=a;window.DOJO_WALLET=a||null;window.dispatchEvent(new Event('dojo-wallet-change'));if(a){b.textContent='\u25ce '+sh(a.pubkey);b.setAttribute('style',C);}else{b.textContent='Connect wallet';b.setAttribute('style',G);}}b.onclick=function(){if(A){var dc=function(){try{A.disconnect&&A.disconnect();}catch(e){}set(null);};if(window.DojoProfile)DojoProfile.menu(b,A.pubkey,dc);else dc();return;}if(window.DojoWalletPicker)DojoWalletPicker.pick().then(set).catch(function(){});};if(window.DojoWalletPicker&&DojoWalletPicker.autoConnect)DojoWalletPicker.autoConnect().then(function(a){if(a&&!A)set(a);});})();</script></body>
+</html>

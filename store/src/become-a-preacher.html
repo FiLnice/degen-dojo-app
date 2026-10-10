@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Become a Preacher — Degen Dojo</title>
+<meta name="description" content="Spread the Degen Dojo and earn 20–30% of every fee you refer (by fighters held), paid in ORE. Hold a fighter to enter the SOL pot." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Inter:wght@300;400;500;600&family=Noto+Serif+JP:wght@400;700;900&family=Teko:wght@500;600;700&display=swap" rel="stylesheet" />
+<style>
+:root{
+  --ink:#0a0a0f; --panel:#16161f; --border:rgba(255,255,255,.08);
+  --gold:#c9973a; --gold-l:#e8b84b; --red:#c0392b; --red2:#8b1a10; --text:#e8e0d0; --muted:#8a7f6f;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--ink);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh;overflow-x:hidden;
+  background-image:radial-gradient(900px 500px at 50% -8%, rgba(192,57,43,.2), transparent 62%),
+    radial-gradient(700px 400px at 85% 12%, rgba(201,151,58,.1), transparent 60%),linear-gradient(#0d0b12,#0a0a0f 60%);}
+a{color:inherit;}
+.top{display:flex;align-items:center;gap:14px;padding:14px 24px;border-bottom:1px solid var(--border);
+  background:rgba(10,10,15,.7);backdrop-filter:blur(10px);position:sticky;top:0;z-index:40;}
+.mk{width:40px;height:40px;border-radius:9px;object-fit:cover;box-shadow:0 0 0 1px rgba(201,151,58,.35);}
+.brand b{font-family:'Cinzel',serif;font-size:15px;letter-spacing:.16em;display:block;}
+.brand small{font-size:9px;letter-spacing:.26em;color:var(--muted);}
+.back{margin-left:auto;font-family:'Teko',sans-serif;font-size:14px;letter-spacing:.08em;color:var(--muted);text-decoration:none;}
+.back:hover{color:var(--gold-l);}
+
+.wrap{max-width:840px;margin:0 auto;padding:40px 22px 90px;}
+.eyebrow{text-align:center;font-family:'Teko',sans-serif;font-size:14px;letter-spacing:.34em;text-transform:uppercase;color:var(--gold);}
+h1{text-align:center;font-family:'Cinzel',serif;font-size:clamp(28px,5vw,44px);font-weight:900;letter-spacing:.02em;margin:6px 0 12px;
+  background:linear-gradient(180deg,#f4e2b4,#e8b84b 45%,#8b6020);-webkit-background-clip:text;background-clip:text;color:transparent;}
+.lede{text-align:center;color:#9c8f7d;font-size:15.5px;line-height:1.65;max-width:640px;margin:0 auto;}
+.lede .jp{font-family:'Noto Serif JP',serif;color:var(--gold);}
+.lede b{color:var(--gold-l);}
+.sect{font-family:'Teko',sans-serif;font-size:15px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);text-align:center;margin:38px 0 4px;}
+.sectsub{text-align:center;color:var(--muted);font-size:13px;margin-bottom:18px;}
+
+.tiers{display:grid;grid-template-columns:repeat(3,1fr);gap:13px;}
+@media(max-width:640px){.tiers{grid-template-columns:1fr;}}
+.tier{border:1px solid var(--border);border-radius:14px;padding:18px;background:var(--panel);}
+.tier.g5{border-color:rgba(201,151,58,.5);background:linear-gradient(160deg,rgba(201,151,58,.12),var(--panel));}
+.tier .tlabel{font-family:'Teko',sans-serif;font-size:14px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);}
+.tier .tpct{font-family:'Cinzel',serif;font-weight:900;font-size:38px;line-height:1;margin:5px 0 3px;color:var(--gold-l);}
+.tier.g0 .tpct{color:#cdb98a;}
+.tier .tof{font-family:'Teko',sans-serif;font-size:13px;color:var(--muted);}
+.tier .thold{margin-top:12px;font-family:'Teko',sans-serif;font-size:14.5px;color:var(--text);display:flex;gap:6px;align-items:center;}
+.tier .thold b{color:var(--gold-l);}
+.tier .pot{margin-top:9px;font-family:'Teko',sans-serif;font-size:13px;}
+.tier .pot.yes{color:#7fd8a0;} .tier .pot.no{color:#6a6152;}
+.egg{margin:16px 0 0;border:1px dashed var(--border);border-radius:12px;padding:13px 16px;font-family:'Teko',sans-serif;
+  font-size:15px;color:#b3a892;line-height:1.5;text-align:center;}
+.egg b{color:var(--gold-l);}
+
+/* connect / dashboard */
+.claim{margin:24px 0 0;border:1px solid rgba(201,151,58,.3);border-radius:16px;padding:26px 24px;text-align:center;
+  background:linear-gradient(180deg,rgba(192,57,43,.08),rgba(10,10,15,.2));}
+.claim h2{font-family:'Cinzel',serif;font-size:20px;font-weight:900;margin-bottom:6px;}
+.claim p{color:var(--muted);font-size:13.5px;line-height:1.55;max-width:500px;margin:0 auto 18px;}
+.bigbtn{background:linear-gradient(135deg,#c8962a,#8b6018);border:none;color:#0a0814;font-family:'Cinzel',serif;
+  font-size:14px;font-weight:700;letter-spacing:.09em;padding:15px 34px;border-radius:11px;cursor:pointer;}
+.bigbtn:hover{filter:brightness(1.08);} .bigbtn:disabled{opacity:.6;cursor:default;}
+.err{color:#e0846f;font-family:'Teko',sans-serif;font-size:14px;letter-spacing:.03em;margin-top:12px;min-height:16px;}
+
+.dash{display:none;} .dash.show{display:block;}
+.rstat{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:4px;}
+.rstat .dot{width:9px;height:9px;border-radius:50%;background:#4ad07a;box-shadow:0 0 10px #4ad07a;}
+.rstat .rt{font-family:'Teko',sans-serif;font-size:16px;letter-spacing:.05em;color:#bfe8cf;}
+.rtier{font-family:'Cinzel',serif;font-weight:900;font-size:24px;color:var(--gold-l);margin:8px 0 2px;}
+.rsub{font-family:'Teko',sans-serif;font-size:14px;color:var(--muted);margin-bottom:18px;}
+.linkbox{display:flex;gap:8px;max-width:520px;margin:0 auto 10px;}
+.linkbox input{flex:1;background:#0e0c18;border:1px solid rgba(201,151,58,.35);color:#e8d5b4;border-radius:10px;
+  font-family:'Teko',sans-serif;font-size:16px;padding:12px 15px;}
+.linkbox button{background:#1b1524;border:1px solid rgba(201,151,58,.4);color:var(--gold-l);font-family:'Cinzel',serif;
+  font-size:11px;font-weight:700;letter-spacing:.06em;padding:0 18px;border-radius:10px;cursor:pointer;}
+.linkbox button:hover{background:rgba(201,151,58,.14);}
+.codeedit{display:flex;align-items:stretch;gap:0;max-width:520px;margin:2px auto 0;border:1px solid rgba(201,151,58,.35);
+  border-radius:10px;overflow:hidden;background:#0e0c18;}
+.codeedit .cetag{display:flex;align-items:center;padding:0 4px 0 12px;font-family:'Teko',sans-serif;font-size:15px;color:var(--muted);white-space:nowrap;}
+.codeedit input{flex:1;min-width:60px;background:transparent;border:none;color:var(--gold-l);font-family:'Teko',sans-serif;
+  font-size:16px;letter-spacing:.02em;padding:11px 6px;}
+.codeedit input:focus{outline:none;}
+.codeedit button{background:linear-gradient(135deg,#c8962a,#8b6018);border:none;color:#0a0814;font-family:'Cinzel',serif;
+  font-size:11px;font-weight:700;letter-spacing:.06em;padding:0 16px;cursor:pointer;}
+.codeedit button:hover{filter:brightness(1.08);}
+.cemsg{text-align:center;font-family:'Teko',sans-serif;font-size:13px;letter-spacing:.02em;color:var(--muted);margin:7px 0 2px;min-height:16px;}
+
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:11px;margin:18px 0 0;}
+@media(max-width:640px){.cards{grid-template-columns:1fr 1fr;}}
+.mc{border:1px solid var(--border);border-radius:12px;padding:14px 13px;background:var(--panel);text-align:left;}
+.mc .k{font-family:'Teko',sans-serif;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);}
+.mc .v{font-family:'Cinzel',serif;font-weight:900;font-size:20px;color:var(--gold-l);margin-top:4px;display:flex;align-items:center;gap:5px;}
+.mc .s{font-family:'Teko',sans-serif;font-size:12px;color:var(--muted);margin-top:2px;}
+.tok{width:14px;height:14px;border-radius:50%;}
+
+.potbox{margin:16px 0 0;border:1px solid rgba(201,151,58,.35);border-radius:16px;overflow:hidden;
+  background:linear-gradient(120deg,rgba(192,57,43,.14),rgba(201,151,58,.06));}
+.potbox .ph{display:flex;align-items:center;gap:14px;padding:16px 20px;border-bottom:1px solid var(--border);}
+.potbox .torii{font-size:26px;}
+.potbox .pt{font-family:'Teko',sans-serif;font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);}
+.potbox .pa{font-family:'Cinzel',serif;font-weight:900;font-size:21px;color:var(--gold-l);line-height:1;}
+.potbox .pcta{margin-left:auto;}
+.optbtn{background:linear-gradient(135deg,#c8962a,#8b6018);border:none;color:#0a0814;font-family:'Cinzel',serif;
+  font-size:12px;font-weight:700;letter-spacing:.06em;padding:11px 18px;border-radius:9px;cursor:pointer;white-space:nowrap;}
+.optbtn.in{background:#12281a;color:#7fd8a0;border:1px solid rgba(127,216,160,.4);cursor:default;}
+.potbody{padding:14px 20px 18px;}
+.potbody .prize{font-size:13.5px;line-height:1.5;color:#cbbfa9;background:rgba(201,151,58,.08);border:1px solid rgba(201,151,58,.25);
+  border-radius:10px;padding:11px 13px;margin-bottom:12px;}
+.potbody .prize b{color:var(--gold-l);}
+.potbody .pl{font-family:'Teko',sans-serif;font-size:13px;color:var(--muted);}
+.ent{display:inline-flex;align-items:center;gap:7px;font-family:'Teko',sans-serif;font-size:14px;color:var(--text);
+  border:1px solid var(--border);border-radius:9px;padding:7px 12px;margin-top:10px;}
+.ent b{color:var(--gold-l);}
+
+.feed{margin:16px 0 0;border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+.feed .fh{font-family:'Teko',sans-serif;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding:11px 15px;border-bottom:1px solid var(--border);background:var(--panel);}
+.frow{display:flex;align-items:center;gap:10px;padding:10px 15px;border-top:1px solid rgba(255,255,255,.04);font-size:13px;}
+.frow:first-child{border-top:none;}
+.frow .fm{font-family:'Cinzel',serif;font-weight:700;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;}
+.frow .fa{font-family:'Cinzel',serif;font-weight:900;color:var(--gold-l);white-space:nowrap;}
+.frow .ft{font-family:'Teko',sans-serif;font-size:12px;color:var(--muted);white-space:nowrap;}
+.frow .fp{font-family:'Teko',sans-serif;font-size:11px;letter-spacing:.05em;padding:1px 7px;border-radius:5px;white-space:nowrap;}
+.frow .fp.pend{color:#d9b25a;background:rgba(201,151,58,.12);} .frow .fp.paid{color:#7fd8a0;background:rgba(127,216,160,.12);}
+.empty{padding:20px 15px;text-align:center;color:var(--muted);font-family:'Teko',sans-serif;font-size:14px;}
+
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+@media(max-width:560px){.steps{grid-template-columns:1fr;}}
+.step{border:1px solid var(--border);border-radius:12px;padding:16px;background:var(--panel);}
+.step .num{font-family:'Cinzel',serif;font-weight:900;font-size:15px;color:var(--red);}
+.step .st{font-family:'Cinzel',serif;font-weight:700;font-size:14px;margin:6px 0 5px;}
+.step .sd{font-size:12.5px;color:var(--muted);line-height:1.5;}
+.fine{margin:26px auto 0;max-width:640px;font-size:11.5px;color:var(--muted);line-height:1.6;text-align:center;}
+.fine b{color:#b3a892;}
+</style>
+</head>
+<body>
+<nav class="dojo-storenav" style="position:sticky;top:0;z-index:60;display:flex;align-items:center;gap:6px;padding:10px 16px;background:rgba(10,10,15,.92);border-bottom:1px solid rgba(255,255,255,.08);flex-wrap:wrap;font-family:Cinzel,serif;backdrop-filter:blur(8px)"><a href="/" style="font-size:13px;letter-spacing:.1em;color:#e8b84b;text-decoration:none;margin-right:8px">道場 Degen Dojo</a><a href="/" style="font-size:11px;font-weight:700;letter-spacing:.05em;color:#e8e0d0;text-decoration:none;padding:6px 10px;border:1px solid rgba(255,255,255,.08);border-radius:8px">⌂ Store</a><a href="/shelves" style="font-size:11px;font-weight:700;letter-spacing:.05em;color:#e8e0d0;text-decoration:none;padding:6px 10px;border:1px solid rgba(255,255,255,.08);border-radius:8px">🛍 Shelves</a><a href="/play" style="font-size:11px;font-weight:700;letter-spacing:.05em;color:#e8e0d0;text-decoration:none;padding:6px 10px;border:1px solid rgba(255,255,255,.08);border-radius:8px">▶ Play</a><a href="/pot" style="font-size:11px;font-weight:700;letter-spacing:.05em;color:#e8e0d0;text-decoration:none;padding:6px 10px;border:1px solid rgba(255,255,255,.08);border-radius:8px">🏆 Pot</a><a href="/become-a-preacher" style="font-size:11px;font-weight:700;letter-spacing:.05em;color:#e8e0d0;text-decoration:none;padding:6px 10px;border:1px solid rgba(255,255,255,.08);border-radius:8px">📣 Preacher</a></nav>
+
+<div class="wrap">
+  <div class="eyebrow">布教者 · The Preachers</div>
+  <h1>Spread the word. Earn the cut.</h1>
+  <p class="lede">Anyone can preach the dojo — share your link, and every market buy, ORE-miner tip or <b>game-coin</b> purchase opened through it earns you a
+     cut, paid in <b>ORE</b>. The buyer pays nothing extra. <span class="jp">布教者</span>
+     Hold more fighters, earn a bigger cut — up to <b>30%</b> — and unlock the <b>SOL pot</b> that only holders can win.</p>
+
+  <div class="sect">The cut you earn</div>
+  <div class="sectsub">Hold more fighters, earn a bigger cut — and unlock the SOL pot. Verified against your live holdings.</div>
+  <div class="tiers">
+    <div class="tier g0"><div class="tlabel">Wanderer</div><div class="tpct">20%</div><div class="tof">of every fee you refer</div>
+      <div class="thold">0–1 fighters 🚶</div><div class="pot no">✕ not in the SOL pot</div></div>
+    <div class="tier g1"><div class="tlabel">Disciple</div><div class="tpct">25%</div><div class="tof">of every fee you refer</div>
+      <div class="thold">Hold <b>2–4</b> fighters ⚔️</div><div class="pot yes">✓ SOL pot · 1× entries</div></div>
+    <div class="tier g5"><div class="tlabel">Sensei</div><div class="tpct">30%</div><div class="tof">of every fee you refer</div>
+      <div class="thold">Hold <b>5+</b> or a <b>Mythic</b> 🥋</div><div class="pot yes">✓ SOL pot · <b>2×</b> entries</div></div>
+  </div>
+  <div class="egg">Example — someone mines through your link and tips <b>0.25 SOL</b>.
+     A <b>Sensei</b> keeps <b>0.075</b> (30%), a <b>Disciple</b> <b>0.0625</b> (25%), a <b>Wanderer</b> <b>0.05</b> (20%). Paid in ORE.</div>
+
+  <!-- connect → dashboard -->
+  <div class="claim">
+    <div id="claimStart">
+      <h2>Your preacher desk</h2>
+      <p>Connect your wallet and sign one line to prove it's yours — no funds move. We mint your referral link, read how many
+         fighters you hold to set your tier, and open your live dashboard.</p>
+      <button class="bigbtn" id="connectBtn" onclick="start()">Connect &amp; open my desk</button>
+      <div class="err" id="err"></div>
+    </div>
+
+    <div class="dash" id="dash">
+      <div class="rstat"><span class="dot"></span><span class="rt" id="who">Connected</span></div>
+      <div class="rtier" id="tierName">—</div>
+      <div class="rsub" id="tierSub">Your link is live. Share it anywhere.</div>
+
+      <div class="linkbox"><input id="link1" readonly /><button onclick="copy('link1')">Copy my link</button></div>
+      <div class="rsub" style="margin:-4px 0 2px;">One link — it works across the <b>store, games and the miner</b>. Anyone who opens it is yours for 30 days.</div>
+      <div class="codeedit">
+        <span class="cetag">degendojo.xyz/preacher/</span>
+        <input id="codeIn" maxlength="20" placeholder="your-code" spellcheck="false" />
+        <button onclick="saveCode()">Set link</button>
+      </div>
+      <div class="cemsg" id="ceMsg">Make it yours — pick a short custom code (letters, numbers, - or _).</div>
+
+      <div class="cards">
+        <div class="mc"><div class="k">Referred volume</div><div class="v" id="mVol">—</div><div class="s">all-time</div></div>
+        <div class="mc"><div class="k">Pending ORE</div><div class="v" id="mPend">—</div><div class="s">next payout</div></div>
+        <div class="mc"><div class="k">Paid ORE</div><div class="v" id="mPaid">—</div><div class="s">to date</div></div>
+        <div class="mc"><div class="k">Sales referred</div><div class="v" id="mCount">—</div><div class="s" id="mHeld">—</div></div>
+      </div>
+
+      <div class="potbox">
+        <div class="ph"><div class="torii">⛩️</div>
+          <div><div class="pt">This cycle's pot</div><div class="pa" id="potAmt">—</div></div>
+          <div class="pcta"><button class="optbtn" id="optBtn" onclick="optIn()">I'm in — enter this cycle ✍️</button></div></div>
+        <div class="potbody">
+          <div class="prize">🏆 Each draw pays out <b>a Degen Dojo fighter</b> swept from the floor <b>+ the pot in ORE</b>.</div>
+          <div class="pl" id="potLine">Opt in each cycle to be eligible — inactive holders can't win. One signature, no funds move.</div>
+          <div class="ent" id="entLine">Your entries this cycle: <b id="entN">—</b></div>
+        </div>
+      </div>
+
+      <div class="feed">
+        <div class="fh">Coming in — sales through your link</div>
+        <div id="feed"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sect">How a preacher earns</div>
+  <div class="sectsub"></div>
+  <div class="steps">
+    <div class="step"><div class="num">01</div><div class="st">Share your link</div><div class="sd">Post it, DM it, put it in your bio. Any market buy or miner tip opened through it is tagged to you for 30 days.</div></div>
+    <div class="step"><div class="num">02</div><div class="st">They buy, tip or grab coins</div><div class="sd">We take our normal marketplace / miner fee — the buyer pays nothing extra. And when a referral <b>buys game coins</b>, your tier share comes out of a fixed 10% slice of that purchase (so <b>2.5%–5%</b> of what they spend). Your share is split straight off, never added to their cost.</div></div>
+    <div class="step"><div class="num">03</div><div class="st">You get paid in ORE</div><div class="sd">Earnings pool and pay out in ORE on a schedule. Every sale, tip and coin purchase is verified on-chain before a cent moves.</div></div>
+  </div>
+
+  <div class="fine">
+    You earn on the fees from sales <b>you refer</b> — a referral program, not passive income for holding. Your cut is set by your
+    live fighter count at payout. The <b>SOL pot</b> is a prize you win by opting in and staying active, never a dividend you're owed;
+    entries come from real activity (buys &amp; referred volume), with a 2× multiplier for holding 5+, so it can't be farmed by splitting a wallet.
+    Fees never add a charge to the buyer. <span id="demoNote"></span>
+  </div>
+</div>
+
+<script src="/wallet-picker.js"></script>
+<script>
+// base58 (encode only — we send signatures/pubkeys as base58 to the function)
+const B58="123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+function b58enc(buf){let d=[0];for(const b of buf){let c=b;for(let j=0;j<d.length;j++){c+=d[j]<<8;d[j]=c%58;c=(c/58)|0;}while(c){d.push(c%58);c=(c/58)|0;}}let s="";for(const b of buf){if(b===0)s+="1";else break;}for(let i=d.length-1;i>=0;i--)s+=B58[d[i]];return s;}
+const $=id=>document.getElementById(id);
+const oreIcon='<img class="tok" src="https://wsrv.nl/?url=https%3A%2F%2Fore.com%2Fassets%2Ficon.png&w=26&h=26&output=png" alt="ORE"/>';
+const nf=(n,d=3)=>n==null?'—':Number(n).toLocaleString('en-US',{maximumFractionDigits:d});
+const API='/api/preacher';
+let AUTH=null;               // {wallet, sig, msg} kept so setCode reuses the same proof
+let PRICES={SOL:176,ORE:66};
+const oreOf=sol=>sol*PRICES.SOL/PRICES.ORE;
+
+let WADAPTER=null;   // Wallet-Standard adapter from the shared picker (all wallets + real icons)
+// Reuse the store-wide session: if the visitor already connected elsewhere in the store, adopt
+// that adapter so the preacher desk doesn't make them pick a wallet again (they still SIGN once,
+// which proves ownership and can't be skipped).
+(async function preachAutoConnect(){
+  try{ for(let i=0;i<25 && !window.DojoWalletPicker;i++) await new Promise(r=>setTimeout(r,150));
+    if(window.DojoWalletPicker && DojoWalletPicker.autoConnect){ const a=await DojoWalletPicker.autoConnect(); if(a){ WADAPTER=a; window.DOJO_WALLET=a; paintNavWallet(a.pubkey); } } }catch(e){}
+})();
+// Top-bar wallet button: connected → the same profile / disconnect menu as every other page;
+// not connected → start() (connect + sign the ownership message).
+function navWalletClick(){
+  const b=document.getElementById('preachNavWallet');
+  if(WADAPTER){
+    const dc=()=>{ try{ WADAPTER.disconnect&&WADAPTER.disconnect(); }catch(e){} WADAPTER=null; window.DOJO_WALLET=null; location.reload(); };
+    if(window.DojoProfile) DojoProfile.menu(b, WADAPTER.pubkey, dc); else dc();
+    return;
+  }
+  start();
+}
+// The top-bar button here runs start() (connect + sign), so the shared nav wire doesn't manage it:
+// show the connected wallet on it ourselves, matching the connected pill on every other page.
+function paintNavWallet(pk){
+  const b=document.getElementById('preachNavWallet'); if(!b||!pk) return;
+  b.textContent='◎ '+pk.slice(0,4)+'…'+pk.slice(-4);
+  b.setAttribute('style',"font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#e8b84b;background:rgba(201,151,58,.12);border:1px solid rgba(201,151,58,.5);padding:9px 14px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;");
+}
+async function start(){
+  // The deploy build removes the in-page #connectBtn (the nav "Connect wallet" drives start()
+  // instead), so EVERY $('connectBtn') touch must be null-safe — otherwise clicking Connect threw
+  // here (before the try) and the wallet picker never opened.
+  const cb = $('connectBtn');
+  $('err').textContent=''; if(cb){ cb.disabled=true; cb.textContent='Choose your wallet…'; }
+  try{
+    if(!window.DojoWalletPicker) throw new Error('Wallet picker not loaded — reload the page.');
+    const a = WADAPTER || window.DOJO_WALLET || await DojoWalletPicker.pick();   // reuse the shared session if present
+    WADAPTER=a; window.DOJO_WALLET=a; paintNavWallet(a.pubkey);
+    const wallet=a.pubkey;
+    const day=new Date().toISOString().slice(0,10);
+    const msg=`Degen Dojo — prove preacher ownership\nWallet: ${wallet}\nDay: ${day}`;
+    const signed=await a.signMessage(new TextEncoder().encode(msg));
+    const sig=b58enc(signed.signature);
+    AUTH={wallet,sig,msg};
+    // claim link
+    const claim=await post({action:'claim',wallet,sig,msg});
+    if(!claim.ok) throw new Error(claim.error||'claim failed');
+    $('link1').value=claim.links.store;
+    // stats
+    const st=await post({action:'stats',wallet,sig,msg});
+    renderDash(st);
+    $('claimStart').style.display='none'; $('dash').classList.add('show');
+  }catch(e){ $('err').textContent=e.message||String(e); if(cb){ cb.disabled=false; cb.textContent='Connect & open my desk'; } }
+}
+async function post(body){
+  const r=await fetch(API,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+  return r.json();
+}
+function renderDash(st){
+  if(!st||!st.ok){ $('err').textContent=(st&&st.error)||'Could not load dashboard.'; return; }
+  if(st.links){ $('link1').value=st.links.store; }
+  if(st.code){ $('codeIn').value=st.code; }
+  $('who').textContent=`Connected · ${st.wallet.slice(0,4)}…${st.wallet.slice(-4)} · holds ${st.held} fighter${st.held===1?'':'s'}`;
+  $('tierName').textContent=`${st.tier} — ${Math.round(st.share*100)}% cut`;
+  $('mVol').textContent=`${nf(st.volumeSol)} ◎`;
+  $('mPend').innerHTML=`${nf(oreOf(st.pendingSol),2)} ${oreIcon}`;
+  $('mPaid').innerHTML=`${nf(oreOf(st.paidSol),2)} ${oreIcon}`;
+  $('mCount').textContent=st.salesCount;
+  $('mHeld').textContent=`${st.held} DD held`;
+  // pot entries — computed server-side from activity × holding multiplier
+  $('entN').textContent = st.potMult ? (st.entries ?? 0) : 'hold a fighter to enter';
+  if(st.optedIn){ const b=$('optBtn'); b.textContent="You're in for this cycle ✓"; b.classList.add('in');
+    $('potLine').innerHTML="You're entered. Entries grow with every buy and referral through your link."; }
+  $('potAmt').textContent = (st && st.potSol!=null ? st.potSol : 0) + ' SOL';
+  // feed
+  $('feed').innerHTML = (st.recent&&st.recent.length)
+    ? st.recent.map(s=>`<div class="frow">
+        <span class="fm">${s.external?'':'⛩ '}${s.mint.slice(0,4)}…${s.mint.slice(-4)}</span>
+        <span class="fa">${nf(s.sol)} ◎</span>
+        <span class="fp ${s.paid?'paid':'pend'}">${s.paid?'paid':'pending'}</span>
+        <span class="ft">${s.ts?new Date(s.ts).toLocaleDateString():''}</span></div>`).join('')
+    : '<div class="empty">No referred sales yet — share your link and they appear here live.</div>';
+}
+async function saveCode(){
+  const want=$('codeIn').value.trim(); const m=$('ceMsg');
+  if(!want) return;
+  if(!/^[a-zA-Z0-9_-]{2,20}$/.test(want)){ m.style.color='#e0846f'; m.textContent='2–20 letters, numbers, - or _ only.'; return; }
+  if(!AUTH){ m.style.color='#e0846f'; m.textContent='Connect your wallet first.'; return; }
+  m.style.color=''; m.textContent='Saving…';
+  try{
+    const st=await post({action:'setCode',wallet:AUTH.wallet,sig:AUTH.sig,msg:AUTH.msg,code:want});
+    if(!st.ok){ m.style.color='#e0846f'; m.textContent=st.error||'Could not set that code.'; return; }
+    $('link1').value=st.links.store; $('codeIn').value=st.code;
+    m.style.color='#7fd8a0'; m.textContent='Saved ✓ — your link is now degendojo.xyz/preacher/'+st.code;
+  }catch(e){ m.style.color='#e0846f'; m.textContent=e.message||'Error.'; }
+}
+async function optIn(){
+  if(!AUTH){ $('potLine').textContent='Connect your wallet first.'; return; }
+  const b=$('optBtn'); b.disabled=true; b.textContent='Check your wallet…';
+  try{
+    const r=await post({action:'optin',wallet:AUTH.wallet,sig:AUTH.sig,msg:AUTH.msg});
+    if(!r.ok) throw new Error(r.error||'opt-in failed');
+    b.textContent="You're in for this cycle ✓"; b.classList.add('in');
+    $('potLine').innerHTML="You're entered. Entries grow with every buy and referral through your link.";
+    const st=await post({action:'stats',wallet:AUTH.wallet,sig:AUTH.sig,msg:AUTH.msg});
+    if(st.ok) $('entN').textContent = st.entries ?? 0;
+  }catch(e){ b.disabled=false; b.textContent="I'm in — enter this cycle ✍️"; $('potLine').textContent=e.message||'Error.'; }
+}
+function copy(id){ const el=$(id); el.select(); navigator.clipboard?.writeText(el.value);
+  const b=event.target,t=b.textContent; b.textContent='Copied ✓'; setTimeout(()=>b.textContent=t,1200); }
+
+async function loadPrices(){
+  try{ const r=await fetch('https://lite-api.jup.ag/price/v3?ids=So11111111111111111111111111111111111111112,oreoU2P8bN6jkk3jbaiVxYnG1dCXcYxwhwyK9jSybcp');
+    const j=await r.json();
+    PRICES.SOL=j['So11111111111111111111111111111111111111112']?.usdPrice??176;
+    PRICES.ORE=j['oreoU2P8bN6jkk3jbaiVxYnG1dCXcYxwhwyK9jSybcp']?.usdPrice??66;
+  }catch{}
+}
+loadPrices();
+
+// ── demo mode (no wallet needed): ?demo=1 fills the dashboard with sample data ──
+if(new URLSearchParams(location.search).get('demo')){
+  $('demoNote').innerHTML='<b>Demo view</b> — sample numbers, no wallet connected.';
+  $('claimStart').style.display='none'; $('dash').classList.add('show');
+  renderDash({ ok:true, code:'ronin', links:{store:'https://degendojo.xyz/preacher/ronin',miner:'https://mine.degendojo.xyz/preacher/ronin'},
+    wallet:'ED3GMCfoX3XNvavnWADvd6oCsohGg1ukdhv3PaUpvwJe', held:7, tier:'Sensei', share:0.2,
+    salesCount:5, volumeSol:6.42, buyVolumeSol:0, feeSol:0.1284, pendingSol:0.0642, paidSol:0.031,
+    cycle:'2026-W30', optedIn:false, potMult:2, entries:128,
+    recent:[
+      {mint:'6XwLykfMQGnDHeoEFdnxj42js3cNYqvbxymeJxFFGuLw',sol:1.114,external:true,ts:Date.now()-3600e3,paid:false},
+      {mint:'CP1b71oWgDzHGxSLnqCVK9zwbMGgd5ag27KAtqgx9DCi',sol:0.58,external:false,ts:Date.now()-86400e3,paid:false},
+      {mint:'8fEEbhsvQEQWnKDmmF1z9w41uDao7JyifcTYb487TQ3c',sol:0.66,external:false,ts:Date.now()-2*86400e3,paid:true},
+    ]});
+}
+</script>
+</body>
+</html>

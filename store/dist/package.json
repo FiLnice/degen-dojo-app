@@ -1,0 +1,7 @@
+{
+  "private": true,
+  "dependencies": {
+    "@netlify/blobs": "^8.2.0",
+    "bs58": "^6.0.0"
+  }
+}

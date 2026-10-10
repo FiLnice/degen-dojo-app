@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>The Cases — Degen Dojo Market</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Inter:wght@300;400;500;600&family=Noto+Serif+JP:wght@400;700;900&family=Teko:wght@500;600;700&display=swap" rel="stylesheet" />
+<style>
+:root{
+  --ink:#0a0a0f; --panel:#16161f; --border:rgba(255,255,255,.08);
+  --gold:#c9973a; --gold-l:#e8b84b; --red:#c0392b; --red2:#8b1a10; --text:#e8e0d0; --muted:#8a7f6f;
+  --wood:#5b3f22; --wood-d:#3a2712; --glass:rgba(150,180,200,.05);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--ink);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh;overflow-x:hidden;
+  background-image:
+    radial-gradient(900px 500px at 50% -8%, rgba(192,57,43,.18), transparent 62%),
+    radial-gradient(700px 400px at 12% 8%, rgba(201,151,58,.08), transparent 60%),
+    linear-gradient(#0d0b12, #0a0a0f 60%);}
+
+/* ── header ─────────────────────────────────────────────────────── */
+.top{display:flex;align-items:center;gap:14px;padding:14px 24px;border-bottom:1px solid var(--border);
+  background:rgba(10,10,15,.7);backdrop-filter:blur(10px);position:sticky;top:0;z-index:60;}
+.mk{width:40px;height:40px;border-radius:9px;object-fit:cover;box-shadow:0 0 0 1px rgba(201,151,58,.35);}
+.brand b{font-family:'Cinzel',serif;font-size:15px;letter-spacing:.16em;display:block;}
+.brand small{font-size:9px;letter-spacing:.26em;color:var(--muted);}
+.navbtns{margin-left:auto;display:flex;align-items:center;gap:10px;}
+.ghost{background:transparent;border:1px solid rgba(201,151,58,.4);color:var(--gold-l);font-family:'Cinzel',serif;font-size:10px;
+  font-weight:700;letter-spacing:.12em;padding:9px 14px;border-radius:8px;cursor:pointer;text-decoration:none;}
+.ghost:hover{background:rgba(201,151,58,.12);}
+.cta{background:linear-gradient(135deg,#c8962a,#8b6018);border:none;color:#0a0814;
+  font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.1em;padding:10px 20px;border-radius:8px;cursor:pointer;}
+
+/* ── the pot banner ─────────────────────────────────────────────── */
+.pot{max-width:1180px;margin:18px auto 0;padding:0 22px;}
+.potcard{position:relative;overflow:hidden;border-radius:14px;border:1px solid rgba(201,151,58,.35);
+  background:linear-gradient(120deg,rgba(192,57,43,.15),rgba(201,151,58,.08));
+  display:flex;align-items:center;gap:18px;padding:14px 20px;}
+.potcard .torii{font-size:30px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));}
+.potcard .lbl{font-family:'Teko',sans-serif;letter-spacing:.2em;text-transform:uppercase;font-size:12px;color:var(--gold);}
+.potcard .amt{font-family:'Cinzel',serif;font-weight:900;font-size:24px;color:var(--gold-l);display:flex;align-items:center;gap:6px;line-height:1;}
+.potcard .sub{font-family:'Teko',sans-serif;font-size:13px;letter-spacing:.04em;color:#a99;margin-left:auto;max-width:320px;text-align:right;}
+.tok{width:15px;height:15px;border-radius:50%;vertical-align:middle;}
+
+/* ── intro + paste ──────────────────────────────────────────────── */
+.intro{text-align:center;padding:26px 20px 4px;max-width:720px;margin:0 auto;}
+.eyebrow{font-family:'Teko',sans-serif;font-size:14px;letter-spacing:.34em;text-transform:uppercase;color:var(--gold);}
+.intro h1{font-family:'Cinzel',serif;font-size:clamp(24px,4.4vw,38px);font-weight:900;letter-spacing:.03em;margin:4px 0 8px;
+  background:linear-gradient(180deg,#f4e2b4,#e8b84b 45%,#8b6020);-webkit-background-clip:text;background-clip:text;color:transparent;}
+.intro p{color:#9c8f7d;font-size:14.5px;line-height:1.6;}
+.intro .jp{font-family:'Noto Serif JP',serif;color:var(--gold);}
+.csearch{position:relative;max-width:560px;margin:20px auto 0;}
+.csearch>input{width:100%;background:#0e0c18;border:1px solid rgba(201,151,58,.45);color:#e8d5b4;border-radius:12px;
+  font-family:'Teko',sans-serif;font-size:18px;letter-spacing:.02em;padding:13px 46px 13px 44px;}
+.csearch>input:focus{outline:none;border-color:var(--gold);}
+.csearch::before{content:'🔍';position:absolute;left:15px;top:12px;font-size:16px;opacity:.6;}
+.cresults{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:60;background:#141020;border:1px solid rgba(201,151,58,.35);
+  border-radius:12px;overflow:hidden;box-shadow:0 20px 44px -18px rgba(0,0,0,.85);display:none;max-height:340px;overflow-y:auto;}
+.cresults.show{display:block;}
+.cres{display:flex;align-items:center;gap:12px;padding:10px 14px;cursor:pointer;border-top:1px solid rgba(255,255,255,.04);}
+.cres:first-child{border-top:none;} .cres:hover{background:rgba(201,151,58,.1);}
+.cres img{width:34px;height:34px;border-radius:8px;object-fit:contain;background:#0e0c16;padding:2px;flex:none;}
+.cres .cn{font-family:'Cinzel',serif;font-weight:700;font-size:14px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.cres .cf{font-family:'Teko',sans-serif;font-size:13px;color:var(--gold-l);white-space:nowrap;}
+.cres .cf small{color:var(--muted);}
+.cres.empty{color:var(--muted);font-family:'Teko',sans-serif;cursor:default;justify-content:center;padding:16px;}
+.paste{display:flex;gap:8px;justify-content:center;margin:12px auto 0;max-width:560px;}
+.paste input{flex:1;background:#0e0c18;border:1px solid rgba(201,151,58,.35);color:#e8d5b4;border-radius:10px;
+  font-family:'Teko',sans-serif;font-size:17px;letter-spacing:.02em;padding:11px 16px;}
+.paste input:focus{outline:none;border-color:var(--gold);}
+.paste button{background:linear-gradient(135deg,#c8962a,#8b6018);border:none;color:#0a0814;font-family:'Cinzel',serif;
+  font-size:12px;font-weight:700;letter-spacing:.08em;padding:0 22px;border-radius:10px;cursor:pointer;}
+
+/* ── filter bar (sticky) ────────────────────────────────────────── */
+.filters{position:sticky;top:69px;z-index:50;background:rgba(10,10,15,.82);backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--border);margin-top:22px;padding:11px 22px;}
+.filterwrap{position:relative;max-width:1180px;margin:0 auto;}
+.filterrow{display:flex;gap:9px;overflow-x:auto;scrollbar-width:none;align-items:center;padding-right:30px;}
+.filterrow::-webkit-scrollbar{display:none;}
+/* Scroll arrows: real buttons on a solid backing (they used to be decoration with clicks falling
+   through to the chip underneath). ‹ shows once the row has moved; › hides at the end. */
+.filterrow{padding:0 44px;}
+.filterwrap::before,.filterwrap::after{content:'';position:absolute;top:0;bottom:0;width:64px;pointer-events:none;z-index:2;transition:opacity .2s;}
+.filterwrap::before{left:0;background:linear-gradient(270deg,transparent,var(--ink) 60%);}
+.filterwrap::after{right:0;background:linear-gradient(90deg,transparent,var(--ink) 60%);}
+.filterwrap.atstart::before,.filterwrap.scrolled::after{opacity:0;}
+.fnav{position:absolute;top:50%;transform:translateY(-50%);z-index:3;width:34px;height:34px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:22px;line-height:1;padding:0 0 3px;
+  background:#141420;color:var(--gold-l);border:1px solid rgba(201,151,58,.55);box-shadow:0 2px 10px rgba(0,0,0,.6);}
+.fnav:hover{background:#221a0c;}
+.fprev{left:2px;} .fnext{right:2px;}
+.filterwrap.atstart .fprev,.filterwrap.scrolled .fnext{display:none;}
+.chip{flex:none;cursor:pointer;font-family:'Teko',sans-serif;font-size:14px;letter-spacing:.06em;
+  padding:7px 15px;border-radius:999px;border:1px solid var(--border);background:#141420;color:var(--muted);white-space:nowrap;
+  display:flex;align-items:center;gap:7px;transition:all .15s;}
+.chip:hover{border-color:rgba(201,151,58,.5);color:var(--text);}
+.chip.on{background:linear-gradient(135deg,#c8962a,#8b6018);color:#0a0814;border-color:transparent;font-weight:600;}
+.chip img{width:18px;height:18px;border-radius:50%;object-fit:cover;}
+.chip .n{opacity:.7;font-size:12px;}
+
+/* ── the display cases ──────────────────────────────────────────── */
+.hall{max-width:1180px;margin:8px auto 0;padding:14px 22px 100px;}
+.case{margin-bottom:30px;border-radius:14px;overflow:hidden;position:relative;
+  background:linear-gradient(180deg,#1a1016,#120c10);
+  box-shadow:0 20px 44px -22px rgba(0,0,0,.85);}
+/* red lacquer frame like the card-shop cases */
+.case::before{content:'';position:absolute;inset:0;border-radius:14px;pointer-events:none;z-index:5;
+  border:3px solid transparent;
+  background:linear-gradient(180deg,#d0402f,#7c1d12) border-box;-webkit-mask:linear-gradient(#000 0 0) padding-box,linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;mask-composite:exclude;}
+/* brass nameplate header */
+.casehdr{display:flex;align-items:center;gap:13px;padding:12px 16px;position:relative;z-index:6;
+  background:linear-gradient(180deg,rgba(208,64,47,.22),rgba(124,29,18,.12));border-bottom:1px solid rgba(0,0,0,.4);}
+.casecrest{width:44px;height:44px;border-radius:9px;object-fit:contain;flex:none;background:#0e0c16;padding:3px;
+  box-shadow:0 0 0 2px rgba(233,184,75,.45),0 4px 10px rgba(0,0,0,.5);}
+.casetitle{display:flex;flex-direction:column;gap:1px;min-width:0;}
+.casetitle b{font-family:'Cinzel',serif;font-weight:900;font-size:17px;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.casetitle .m{font-family:'Teko',sans-serif;font-size:13px;letter-spacing:.05em;color:var(--muted);}
+.casetitle .m b{color:var(--gold-l);font-family:'Teko',sans-serif;font-size:13px;font-weight:600;}
+.casefloor{margin-left:auto;text-align:right;flex:none;}
+.casefloor .fl{font-family:'Cinzel',serif;font-weight:900;font-size:16px;color:var(--gold-l);display:flex;align-items:center;justify-content:flex-end;gap:5px;}
+.casefloor .fs{font-family:'Teko',sans-serif;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);}
+.viewall{flex:none;margin-left:14px;font-family:'Teko',sans-serif;font-size:13px;letter-spacing:.08em;color:var(--gold-l);
+  cursor:pointer;border:1px solid rgba(201,151,58,.4);border-radius:7px;padding:6px 11px;background:transparent;white-space:nowrap;}
+.viewall:hover{background:rgba(201,151,58,.12);}
+
+/* the glass shelf strip */
+.shelfwrap{position:relative;}
+.shelf{display:flex;gap:14px;overflow-x:auto;scroll-behavior:smooth;padding:16px 16px 20px;scrollbar-width:none;
+  background:
+    /* glass sheen */
+    linear-gradient(105deg,transparent 0 40%,var(--glass) 46% 52%,transparent 58%),
+    repeating-linear-gradient(180deg,rgba(255,255,255,.015) 0 1px,transparent 1px 3px);}
+.shelf::-webkit-scrollbar{display:none;}
+/* the wooden shelf board the cards stand on */
+.shelf::after{content:'';position:absolute;left:0;right:0;bottom:0;height:12px;pointer-events:none;
+  background:linear-gradient(180deg,var(--wood),var(--wood-d));box-shadow:0 -3px 8px rgba(0,0,0,.4) inset;}
+.shelfmsg{flex:1;min-height:180px;display:flex;align-items:center;justify-content:center;color:var(--muted);
+  font-family:'Teko',sans-serif;font-size:15px;letter-spacing:.04em;padding:0 20px;text-align:center;}
+
+/* scroll arrows */
+.arrow{position:absolute;top:50%;transform:translateY(-60%);z-index:8;width:38px;height:38px;border-radius:50%;
+  border:1px solid rgba(201,151,58,.4);background:rgba(12,10,18,.85);color:var(--gold-l);cursor:pointer;
+  font-size:18px;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);transition:opacity .15s;}
+.arrow:hover{background:rgba(201,151,58,.2);}
+.arrow.l{left:6px;} .arrow.r{right:6px;}
+
+/* a card standing in the case */
+.card{flex:none;width:158px;cursor:pointer;border-radius:0 0 11px 11px;overflow:hidden;background:var(--panel);
+  border:1px solid var(--border);transition:transform .16s,border-color .16s,box-shadow .16s;
+  box-shadow:0 8px 16px -8px rgba(0,0,0,.7);}
+.card:hover{transform:translateY(-5px);border-color:rgba(201,151,58,.55);box-shadow:0 14px 24px -10px rgba(0,0,0,.8);}
+.card .art{aspect-ratio:1;background:#000;overflow:hidden;position:relative;}
+.card .art img{width:100%;height:100%;object-fit:cover;display:block;}
+.card .rank{position:absolute;top:7px;left:7px;font-family:'Teko',sans-serif;font-size:11px;letter-spacing:.04em;
+  background:rgba(10,8,14,.8);color:var(--gold-l);border-radius:5px;padding:2px 7px;backdrop-filter:blur(3px);}
+.card .body{padding:9px 10px 11px;}
+.card .nm{font-family:'Cinzel',serif;font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.card .p-ore{font-family:'Cinzel',serif;font-weight:900;font-size:15px;color:var(--gold-l);display:flex;align-items:center;gap:4px;margin-top:4px;}
+.card .p-alt{font-family:'Teko',sans-serif;font-size:11.5px;color:var(--muted);margin-top:1px;}
+
+/* ── detail drawer (click a card) ───────────────────────────────── */
+.drawer{position:fixed;inset:0;z-index:90;background:rgba(6,5,10,.72);backdrop-filter:blur(6px);display:none;}
+.drawer.open{display:flex;justify-content:flex-end;}
+.panel{width:min(460px,100%);height:100%;overflow-y:auto;background:var(--ink);border-left:1px solid rgba(201,151,58,.3);
+  background-image:radial-gradient(600px 300px at 100% -10%,rgba(192,57,43,.18),transparent 60%);
+  transform:translateX(30px);opacity:0;transition:transform .22s ease,opacity .22s ease;}
+.drawer.open .panel{transform:none;opacity:1;}
+.dclose{position:absolute;top:14px;right:16px;cursor:pointer;color:var(--muted);font-size:24px;line-height:1;z-index:3;}
+.dclose:hover{color:var(--gold-l);}
+.dart{width:100%;aspect-ratio:1;object-fit:cover;background:#000;display:block;}
+.dbody{padding:18px 20px 40px;}
+.dcol{font-family:'Teko',sans-serif;font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);}
+.dname{font-family:'Cinzel',serif;font-weight:900;font-size:22px;margin:2px 0 12px;}
+.dprice{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;padding:12px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);}
+.dprice .o{font-family:'Cinzel',serif;font-weight:900;font-size:26px;color:var(--gold-l);display:flex;align-items:center;gap:6px;}
+.dprice .a{font-family:'Teko',sans-serif;font-size:15px;color:var(--muted);}
+.dbuy{margin:16px 0 6px;width:100%;border:none;cursor:pointer;border-radius:10px;padding:14px 0;font-family:'Cinzel',serif;
+  font-size:13px;font-weight:700;letter-spacing:.09em;background:linear-gradient(135deg,#c8962a,#8b6018);color:#0a0814;}
+.dbuy:hover{filter:brightness(1.08);}
+.dnote{font-family:'Teko',sans-serif;font-size:12px;letter-spacing:.04em;color:var(--muted);text-align:center;margin-bottom:16px;}
+.dsec{font-family:'Teko',sans-serif;font-size:14px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);margin:20px 0 10px;}
+.trait{border:1px solid var(--border);border-radius:10px;padding:11px 13px;margin-bottom:9px;background:#121220;}
+.trait .th{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.trait .tt{font-family:'Teko',sans-serif;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);}
+.trait .tv{font-family:'Cinzel',serif;font-weight:700;font-size:14px;color:var(--text);}
+.trait .tr{font-family:'Teko',sans-serif;font-size:12px;color:var(--gold-l);white-space:nowrap;}
+.trait .ti{font-size:12.5px;color:#9c8f7d;line-height:1.5;margin-top:6px;}
+.seo{margin-top:22px;padding:12px 14px;border:1px dashed var(--border);border-radius:10px;font-size:11.5px;color:var(--muted);line-height:1.55;}
+
+.disc{max-width:1180px;margin:0 auto;padding:0 22px 30px;}
+.disc div{background:var(--panel);border:1px dashed var(--border);border-radius:12px;padding:12px 16px;font-size:12px;color:var(--muted);line-height:1.55;}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <img class="mk" src="dd-mark.jpg" alt="Degen Dojo" onerror="this.style.display='none'" />
+  <div class="brand"><b>DEGEN DOJO</b><small>THE MARKET</small></div>
+  <div class="navbtns">
+    <a class="ghost" href="https://degendojo.xyz/play" target="_blank" rel="noopener">PLAY</a>
+    <a class="ghost" href="https://degendojo.xyz/dojo-tower" target="_blank" rel="noopener">DOJO TOWER</a>
+    <button class="cta">Connect Wallet</button>
+  </div>
+</div>
+
+<div class="pot">
+  <div class="potcard">
+    <div class="torii">⛩️</div>
+    <div>
+      <div class="lbl">The Dojo Pot</div>
+      <div class="amt" id="potAmt">—</div>
+    </div>
+    <div class="sub">Every purchase feeds the pot from our marketplace referral — no cost to you. One buyer wins it. Grand prize draws pay out a <b style="color:var(--gold-l)">Degen Dojo</b> fighter.</div>
+  </div>
+</div>
+
+<div class="intro">
+  <div class="eyebrow">陳列棚 · The Cases</div>
+  <h1>Browse the cases. Pay in ORE.</h1>
+  <p>Each glass case is a collection — the week's <b>top 100 by volume</b>, ranked live. Slide through the <span class="jp">暖簾</span> shelf to see what's for sale, then own it in <b>ORE</b>.</p>
+</div>
+
+<div class="filters">
+  <div class="filterwrap atstart" id="filterWrap"><button class="fnav fprev" type="button" onclick="chipScroll(-1)" aria-label="Scroll collections left">‹</button><div class="filterrow" id="filterRow"></div><button class="fnav fnext" type="button" onclick="chipScroll(1)" aria-label="Scroll collections right">›</button></div>
+</div>
+
+<div class="hall" id="hall"></div>
+
+<!-- card detail drawer -->
+<div class="drawer" id="drawer" onclick="if(event.target===this)closeDrawer()">
+  <div class="panel" id="panel"></div>
+</div>
+
+<script>
+let COLLECTIONS = window.__DATA__ || [];
+let PRICES = { SOL:null, ORE:null };
+let FILTER = 'all';
+
+const $ = id => document.getElementById(id);
+const esc = s => (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const oreIcon = '<img class="tok" src="https://wsrv.nl/?url=https%3A%2F%2Fore.com%2Fassets%2Ficon.png&w=28&h=28&output=png" alt="ORE"/>';
+const solIcon = '<img class="tok" src="https://wsrv.nl/?url=https%3A%2F%2Fraw.githubusercontent.com%2Fsolana-labs%2Ftoken-list%2Fmain%2Fassets%2Fmainnet%2FSo11111111111111111111111111111111111111112%2Flogo.png&w=28&h=28&output=png" alt="SOL"/>';
+const oreOf = sol => (PRICES.SOL && PRICES.ORE) ? (sol*PRICES.SOL/PRICES.ORE) : null;
+const usdOf = sol => PRICES.SOL ? '$'+(sol*PRICES.SOL).toLocaleString('en-US',{maximumFractionDigits:0}) : '';
+// The resizer (wsrv.nl) rejects IPFS gateways and redirects, which left whole cases black. If the
+// resized image fails, load the original URL directly once; only then dim it.
+function artFallback(el){ const raw=el.dataset.raw; if(raw && !el.dataset.tried){ el.dataset.tried='1'; el.src=raw; } else el.style.opacity=.15; }
+const img = (u,s=300) => !u ? '' : u.startsWith('/') ? u : u ? `https://wsrv.nl/?url=${encodeURIComponent(u)}&w=${s}&h=${s}&fit=cover&output=webp` : '';
+const nf = (n,d=2) => n==null?'—':n.toLocaleString('en-US',{maximumFractionDigits:d});
+
+// REAL listings only — fetched live per collection. Nothing is ever fabricated;
+// every card is an actual on-chain listing (real mint, price, image), and the buy
+// re-resolves that exact mint before showing a price, so you never pay for
+// something that isn't listed or get a different NFT than the one you clicked.
+const CASE_CACHE = {};   // symbol → items[]
+
+function cardHtml(it){
+  const ore = oreOf(it.price);
+  return `<div class="card" onclick="openMint('${it.mint}')">
+    <div class="art"><img src="${img(it.image)}" data-raw="${esc(it.image||'')}" loading="lazy" onerror="artFallback(this)"/></div>
+    <div class="body">
+      <div class="nm">${esc(it.name || (it.mint.slice(0,4)+'…'+it.mint.slice(-4)))}</div>
+      <div class="p-ore">${nf(ore)} ${oreIcon}</div>
+      <div class="p-alt">${nf(it.price)} SOL · ${usdOf(it.price)}</div>
+    </div>
+  </div>`;
+}
+const shelfMsg = m => `<div class="shelfmsg">${m}</div>`;
+
+async function loadCase(symbol, shelfId, countId){
+  const shelf = document.getElementById(shelfId); if(!shelf) return;
+  if(CASE_CACHE[symbol]){ paintCase(CASE_CACHE[symbol], shelf, countId); return; }
+  shelf.innerHTML = shelfMsg('Loading live listings…');
+  // Magic Eden rate-limits bursts (many cases load at once): an empty answer then is not "nothing
+  // for sale". Retry a few times, and only cache a real answer so one bad moment can't stick.
+  for(let attempt=0; attempt<4; attempt++){
+    try{
+      const j = await (await fetch('/api/collection?symbol='+encodeURIComponent(symbol))).json();
+      const items = (j.items||[]).filter(x=>x.mint && x.price).sort((a,b)=>a.price-b.price);
+      if(items.length || !j.error){ if(items.length) CASE_CACHE[symbol] = items; paintCase(items, shelf, countId); return; }
+    }catch(e){}
+    await new Promise(r=>setTimeout(r, 2500*(attempt+1)));
+  }
+  paintCase([], shelf, countId);
+}
+function paintCase(items, shelf, countId){
+  // Only show a shelf if it actually has live listings — empty brands are hidden.
+  const box = shelf.closest('.case');
+  if(!items.length){
+    // In the all-cases view an empty case is hidden; when you picked this collection, say why.
+    if(FILTER==='all'){ if(box) box.style.display='none'; }
+    else { if(box) box.style.display=''; shelf.innerHTML = shelfMsg('No listings we can buy right now — Magic Eden pool listings aren’t supported. Try again in a minute.'); }
+    return;
+  }
+  if(box) box.style.display='';
+  shelf.innerHTML = items.map(cardHtml).join('');
+  if(countId){ const el=document.getElementById(countId); if(el) el.textContent = items.length+'+ shown live'; }
+}
+
+function renderFilters(){
+  const chips = [`<div class="chip ${FILTER==='all'?'on':''}" onclick="setFilter('all')">⛩ All cases</div>`]
+    .concat(COLLECTIONS.map((c,i)=>
+      `<div class="chip ${FILTER===i?'on':''}" onclick="setFilter(${i})">
+         <img src="${c.logo?img(c.logo,40):img(c.imgs&&c.imgs[0],40)}" onerror="this.style.opacity=.2"/>${esc(c.name)}${c.listed?` <span class="n">${c.listed.toLocaleString()}</span>`:''}
+       </div>`));
+  $('filterRow').innerHTML = chips.join('');
+  updateFilterHint();
+}
+// hide the scroll hint once the chips row has nothing more to the right (fully scrolled or all fit)
+function updateFilterHint(){
+  const r = $('filterRow'), w = $('filterWrap'); if(!r||!w) return;
+  const atEnd = r.scrollLeft + r.clientWidth >= r.scrollWidth - 6;
+  w.classList.toggle('scrolled', atEnd);
+  w.classList.toggle('atstart', r.scrollLeft <= 6);
+}
+function chipScroll(dir){ const r=$('filterRow'); if(r) r.scrollBy({left:dir*Math.max(160,r.clientWidth*0.7),behavior:'smooth'}); }
+
+function caseShell(c,i){
+  const oreFloor = oreOf(c.floor), adhoc = i==='X';
+  return `<div class="case" id="case${i}">
+    <div class="casehdr">
+      <img class="casecrest" src="${c.logo?img(c.logo,90):img(c.imgs&&c.imgs[0],90)}" onerror="this.style.opacity=.2"/>
+      <div class="casetitle"><b>${esc(c.name)}</b>
+        <div class="m"><span id="cnt${i}">${c.listed?(c.listed.toLocaleString()+' for sale'):'live from Magic Eden'}</span>${c.listed&&c.vol7?' · 7d vol <b>'+nf(c.vol7,0)+'</b> SOL':''}</div></div>
+      <div class="casefloor"><div class="fl">${nf(oreFloor)} ${oreIcon}</div><div class="fs">floor · ${nf(c.floor)} SOL</div></div>
+      <button class="viewall" onclick="${adhoc?"setFilter('all')":'setFilter('+i+')'}">${adhoc?'← all cases':'View all →'}</button>
+    </div>
+    <div class="shelfwrap">
+      <button class="arrow l" onclick="nudge('${i}',-1)">‹</button>
+      <div class="shelf" id="shelf${i}"></div>
+      <button class="arrow r" onclick="nudge('${i}',1)">›</button>
+    </div>
+  </div>`;
+}
+
+function renderHall(){
+  const list = FILTER==='all' ? COLLECTIONS.map((c,i)=>[c,i]) : [[COLLECTIONS[FILTER],FILTER]];
+  $('hall').innerHTML = list.map(([c,i])=>caseShell(c,i)).join('');
+  list.forEach(([c,i])=>loadCase(c.symbol,'shelf'+i,'cnt'+i));   // fill each case with REAL listings
+}
+
+// click a card → re-resolve the EXACT mint on-chain, then show live price + buy.
+// If it's been sold/delisted since the shelf loaded, we say so — never a stale buy.
+async function openMint(mint){
+  const shell = '<div class="dclose" onclick="closeDrawer()">×</div><div class="dbody">';
+  $('panel').innerHTML = shell + '<div class="dsec">Checking this listing on-chain…</div></div>';
+  $('drawer').classList.add('open'); $('drawer').scrollTop = 0;
+  try{
+    const j = await (await fetch('/api/resolve?q='+encodeURIComponent(mint))).json();
+    if(!j.ok){ $('panel').innerHTML = shell + '<div class="dsec">No longer listed</div><div class="seo">This NFT isn’t listed on-chain right now, so there’s nothing to buy. Listings and prices here are read live — never cached or made up.</div></div>'; return; }
+    showResolved(j.listing);
+  }catch(e){ $('panel').innerHTML = shell + '<div class="dsec">Couldn’t reach the chain</div><div class="seo">Try again in a moment.</div></div>'; }
+}
+
+function nudge(i,dir){ const s=$('shelf'+i); if(s) s.scrollBy({left:dir*Math.min(s.clientWidth*0.8,520),behavior:'smooth'}); }
+function setFilter(f){ FILTER=f; renderFilters(); renderHall(); window.scrollTo({top:$('filterRow').getBoundingClientRect().top+window.scrollY-70,behavior:'smooth'}); }
+
+function traitRows(rows){
+  return rows.map(([t,v,r,info])=>
+    `<div class="trait"><div class="th"><span class="tt">${esc(t)}</span>${r!=null?`<span class="tr">${r}%</span>`:''}</div>
+       <div class="tv">${esc(v)}</div>${info?`<div class="ti">${info}</div>`:''}</div>`).join('');
+}
+
+// ── collection search — ANY collection, live from Magic Eden ────────
+let INDEX = [];                 // small bundled set, for instant results
+const HITS = {};                // symbol → {name,logo,floor} from the last search
+let searchTimer = null, searchSeq = 0;
+async function loadIndex(){ try{ INDEX = await (await fetch('/collections-index.json')).json(); }catch{ INDEX = []; } }
+
+function renderResults(list, box){
+  box.innerHTML = list.length ? list.map(c=>{
+    HITS[c.symbol] = c;
+    const f = c.floor!=null ? `${nf(oreOf(c.floor))} ${oreIcon} <small>floor</small>` : '';
+    return `<div class="cres" onclick="pickCollection('${c.symbol}')">
+      <img src="${img(c.logo,60)}" onerror="this.style.opacity=.2"/>
+      <span class="cn">${esc(c.name)}</span><span class="cf">${f}</span></div>`;
+  }).join('') : '<div class="cres empty">No collection found — try another name.</div>';
+  box.classList.add('show');
+}
+function onSearch(){
+  const q = $('colSearch').value.trim(); const box = $('colResults');
+  if(q.length<2){ box.classList.remove('show'); box.innerHTML=''; return; }
+  // instant: local index matches while the live query runs
+  const local = INDEX.filter(c=>c.name.toLowerCase().includes(q.toLowerCase())||c.symbol.includes(q.toLowerCase()));
+  if(local.length){ renderResults(local, box); }
+  else { box.innerHTML='<div class="cres empty">Searching Magic Eden…</div>'; box.classList.add('show'); }
+  // live: query ME for ANY collection (debounced)
+  clearTimeout(searchTimer);
+  const seq = ++searchSeq;
+  searchTimer = setTimeout(async ()=>{
+    try{
+      const j = await (await fetch('/api/search?q='+encodeURIComponent(q))).json();
+      if(seq!==searchSeq) return;                       // a newer keystroke won
+      const seen = new Set(local.map(c=>c.symbol));
+      const merged = local.concat((j.results||[]).filter(c=>!seen.has(c.symbol)));
+      renderResults(merged, box);
+    }catch{}
+  }, 250);
+}
+function pickCollection(symbol){
+  if(!symbol) return;
+  $('colResults').classList.remove('show'); $('colSearch').value='';
+  const known = COLLECTIONS.findIndex(c=>c.symbol===symbol);
+  if(known>=0){ setFilter(known); return; }
+  const meta = HITS[symbol] || INDEX.find(c=>c.symbol===symbol) || {symbol,name:symbol,logo:'',floor:0};
+  const c = { symbol, name:meta.name, logo:meta.logo||'', floor:meta.floor||0, listed:0, vol7:0, imgs:[] };
+  FILTER = 'all';
+  $('hall').innerHTML = caseShell(c,'X');
+  loadCase(symbol,'shelfX','cntX');
+  window.scrollTo({top:$('filterRow').getBoundingClientRect().top+window.scrollY-70,behavior:'smooth'});
+}
+document.addEventListener('click', e=>{ const cr=$('colResults'); if(cr && !e.target.closest('.csearch')) cr.classList.remove('show'); });
+
+// ── live paste → real resolver (any collection) ────────────────────
+async function notePaste(){
+  const q = $('pasteBox').value.trim(); if(!q) return;
+  const p = document.querySelector('.intro p');
+  const prev = p.innerHTML; p.innerHTML = 'Resolving straight off the chain…';
+  try{
+    const r = await fetch('/api/resolve?q='+encodeURIComponent(q));
+    const j = await r.json();
+    if(!j.ok){ p.innerHTML = (j.error||'Could not resolve that.')+' <span style="color:var(--muted)">'+(j.mint||'')+'</span>'; return; }
+    p.innerHTML = prev;
+    showResolved(j.listing);
+  }catch(e){ p.innerHTML = 'Resolver error: '+e.message; }
+}
+
+function showResolved(L){
+  const ore = oreOf(L.priceAllIn ?? L.price);
+  const rows = (L.attributes||[]).map(a=>[a.trait_type, a.value, null, '']);
+  const traits = rows.length ? traitRows(rows)
+    : '<div class="trait"><div class="ti">No traits on this asset.</div></div>';
+  $('panel').innerHTML = `
+    <div class="dclose" onclick="closeDrawer()">×</div>
+    <img class="dart" src="${img(L.image,600)}" onerror="this.style.opacity=.15"/>
+    <div class="dbody">
+      <div class="dcol">${esc(L.collectionName||L.marketplace)} · ${esc(L.model)} listing</div>
+      <div class="dname">${esc(L.name)}</div>
+      <div class="dprice">
+        <span class="o">${nf(ore)} ${oreIcon}</span>
+        <span class="a">${usdOf(L.price)} · royalty ${(L.royaltyBps/100)}%</span>
+      </div>
+      <button class="dbuy" id="dbuyBtn" onclick="shelfBuy('${esc(L.mint)}')">⚔ Own it · pay in ORE</button>
+      <div class="dnote">Resolved live off-chain. This exact listing buys through the same ORE→SOL swap + purchase the store already uses.</div>
+      <div class="dsec">Traits</div>
+      ${traits}
+      <div class="seo">Real listing pulled by scripts/resolve-listing.mjs — seller, price, royalty, ruleset and trade-state all read from the chain, no marketplace API key.</div>
+    </div>`;
+  $('drawer').classList.add('open');
+}
+function closeDrawer(){ $('drawer').classList.remove('open'); }
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDrawer();});
+// Buy a resolved external listing in ORE, through the same proven engine the tower uses
+// (dojo-buy.js: resolve → ORE→SOL Jupiter swap → M2 purchase). Pool/MMM listings can't be bought.
+async function shelfBuy(mint){
+  const w = window.DOJO_WALLET, btn = document.getElementById('dbuyBtn');
+  if(!w){ if(btn) btn.textContent='Connect wallet (top right) first'; return; }
+  if(!window.DojoBuy){ if(btn) btn.textContent='Buying is still loading — try again'; return; }
+  if(btn) btn.disabled = true;
+  try{
+    await DojoBuy.buy({ mint, currency:'ORE', adapter:w, rpcUrl:'/api/rpc', onState:s=>{ if(btn) btn.textContent=s; } });
+    if(btn) btn.textContent='✓ Owned — it is in your wallet';
+  }catch(e){
+    if(btn){ btn.disabled=false; btn.textContent='⚔ Own it · pay in ORE'; }
+    const note=document.querySelector('.dnote'); if(note) note.textContent=(e&&e.message)||'Buy failed.';
+  }
+}
+
+function paintPot(){
+  // The pot banner was removed from the market page — no-op if the element is gone.
+  const el = $('potAmt'); if(!el) return;
+  const oreVal = 1840;
+  el.innerHTML = `${nf(oreVal)} ${oreIcon}`;
+}
+
+async function loadPrices(){
+  try{
+    const r = await fetch('https://lite-api.jup.ag/price/v3?ids=So11111111111111111111111111111111111111112,oreoU2P8bN6jkk3jbaiVxYnG1dCXcYxwhwyK9jSybcp');
+    const j = await r.json();
+    PRICES.SOL = j['So11111111111111111111111111111111111111112']?.usdPrice ?? 176;
+    PRICES.ORE = j['oreoU2P8bN6jkk3jbaiVxYnG1dCXcYxwhwyK9jSybcp']?.usdPrice ?? 66;
+  }catch{ PRICES.SOL=176; PRICES.ORE=66; }
+  renderHall(); paintPot();
+}
+// The cases shown ARE the week's top collections by volume — the same ranking
+// Magic Eden's Popular page uses, pulled live (and cached) via /api/topcollections.
+// Falls back to whatever __DATA__ was bundled if the feed is unreachable.
+// Degen Dojo is always the first case, whatever the week's volume ranking says (it is often not in
+// the top 100 at all, and the live list used to replace the bundled one and drop it).
+const DD_SYMBOL = 'degendojonft';
+function pinDegenDojo(cols){
+  const bundled = (window.__DATA__||[]).find(c=>c.symbol===DD_SYMBOL) || {symbol:DD_SYMBOL,name:'Degen Dojo'};
+  const live = cols.find(c=>c.symbol===DD_SYMBOL) || {};
+  const dd = { ...bundled, ...live, logo:'/dd-mark.jpg', floor:live.floor ?? bundled.floor ?? 0, listed:live.listed ?? bundled.listed ?? 0, vol7:live.vol7 ?? bundled.vol7 ?? 0 };
+  return [dd, ...cols.filter(c=>c.symbol!==DD_SYMBOL)];
+}
+COLLECTIONS = pinDegenDojo(COLLECTIONS);
+async function loadTopCollections(){
+  try{
+    const j = await (await fetch('/api/topcollections?window=7d&limit=100')).json();
+    const cols = (j.collections||[]).filter(c=>c.symbol);
+    if(cols.length){ COLLECTIONS = pinDegenDojo(cols); if(FILTER!=='all' && !COLLECTIONS[FILTER]) FILTER='all'; renderFilters(); renderHall(); }
+  }catch{}
+}
+renderFilters(); renderHall(); paintPot(); loadPrices(); loadTopCollections();
+$('filterRow').addEventListener('scroll', updateFilterHint, {passive:true});
+window.addEventListener('resize', updateFilterHint);
+</script>
+</body>
+</html>

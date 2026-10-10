@@ -1,0 +1,211 @@
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>List an NFT — Degen Dojo</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Teko:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#100c08;--pan:#1b1510;--pan2:#241d15;--line:#3a2f22;--gold:#e8b84b;--goldd:#c8962a;--ink:#ece4d6;--mut:#9c8f7d;--grn:#7bb26a;}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(1000px 500px at 50% -10%,#20180f,#100c08 60%);color:var(--ink);font-family:Inter,system-ui,sans-serif}
+.wrap{max-width:760px;margin:0 auto;padding:20px 14px 60px}
+.top{display:flex;align-items:center;gap:10px;margin-bottom:18px}
+.brand{font-family:Cinzel,serif;font-weight:900;letter-spacing:.14em;color:var(--gold);font-size:15px}
+.btn{background:linear-gradient(135deg,var(--goldd),#8b6018);border:none;color:#0a0814;font-family:Cinzel,serif;font-weight:700;font-size:12px;letter-spacing:.05em;padding:9px 15px;border-radius:9px;cursor:pointer}
+.btn.sub{background:var(--pan2);color:var(--ink);border:1px solid var(--line);font-family:Inter}
+h1{font-family:Teko;font-weight:700;font-size:34px;margin:0 0 2px;background:linear-gradient(180deg,#f4e2b4,var(--gold));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.sub{color:var(--mut);font-size:13px;margin-bottom:16px}
+.card{background:var(--pan);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}
+.deg{border:1px solid var(--line);border-radius:11px;overflow:hidden;background:var(--pan);cursor:pointer;transition:border-color .15s}
+.deg:hover{border-color:var(--goldd)}.deg.sel{border:2px solid var(--gold)}
+.deg img{width:100%;height:118px;object-fit:cover;background:#0d0a06;display:block}
+.deg .nm{font-size:11px;color:#d8ccb4;padding:6px 8px}
+input{width:100%;background:#0d0a06;border:1px solid #4a3c26;border-radius:8px;color:var(--ink);font-size:20px;font-family:Teko;padding:9px 11px}
+input.mint{font-size:12px;font-family:Inter}
+.cur{display:flex;gap:6px;margin-bottom:10px}
+.cur b{flex:1;text-align:center;font-size:13px;padding:8px 0;border-radius:8px;background:var(--pan2);border:1px solid var(--line);color:#c9bda6;cursor:pointer;font-weight:500}
+.cur b.on{background:var(--gold);color:#1b1206;border-color:var(--gold)}
+.row{display:flex;justify-content:space-between;font-size:13px;padding:3px 0}
+.note{font-size:12px;color:var(--mut);display:flex;gap:7px;align-items:center;margin:10px 0}
+a{color:var(--gold)}
+</style>
+
+<div id="ddnav-mount"></div>
+<div class="wrap">
+  <h1>List an NFT</h1>
+  <div class="sub">List any NFT in your wallet — priced in ORE, SKR or USDC. Non-custodial: it stays in your wallet. One signature. Cancel anytime.</div>
+
+  <div class="card">
+    <div style="font-size:13px;color:var(--mut);margin-bottom:8px">Your NFTs <span id="degcount"></span></div>
+    <div id="degs" class="grid"><div style="color:var(--mut);font-size:13px">Connect your wallet to load your NFTs…</div></div>
+    <div style="margin-top:10px;font-size:12px;color:var(--mut)">…or paste a mint: <input class="mint" id="mint" placeholder="any NFT mint address" style="margin-top:6px"></div>
+  </div>
+
+  <div class="card">
+    <div id="selname" style="font-family:Teko;font-size:22px;color:#f0e6d2;margin-bottom:2px">Select an NFT above</div>
+    <div class="cur" id="cur"><b class="on" data-c="ORE">◎ ORE</b></div>
+    <input id="price" type="number" min="0" step="0.01" placeholder="Price" value="12.5">
+    <div id="approx" class="sub" style="margin-top:6px"></div>
+    <div style="background:var(--pan2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:10px 0">
+      <div class="row"><span style="color:var(--mut)">Marketplace fee</span><span style="color:var(--grn)">0% — free</span></div>
+      <div class="row"><span style="color:var(--mut)" id="roylbl">Royalty (seller-side)</span><span style="color:#c9bda6" id="royline">—</span></div>
+      <div class="row" style="border-top:1px solid var(--line);margin-top:6px;padding-top:8px"><span>You receive</span><span style="color:var(--gold)" id="net">—</span></div>
+    </div>
+    <div class="note"><span>🔒</span><span>Listed here only (not ME/Tensor) while active — one sale delegate per pNFT.</span></div>
+    <button class="btn" id="listbtn" style="width:100%;padding:12px;font-size:14px" onclick="mainAction()">Connect wallet first</button>
+    <div id="msg" class="sub" style="margin-top:10px"></div>
+  </div>
+
+  <div class="card">
+    <div style="font-size:13px;color:var(--mut);margin-bottom:8px">Live listings</div>
+    <div id="listings" style="font-size:13px;color:var(--mut)">—</div>
+  </div>
+</div>
+
+<style>.deg{position:relative}.deg.listed{outline:2px solid var(--gold);outline-offset:-2px}.lbadge{position:absolute;top:4px;left:4px;background:var(--gold);color:#1a1206;font-size:9px;font-weight:700;padding:1px 5px;border-radius:5px;letter-spacing:.5px;pointer-events:none}</style>
+<script src="/buffer.js"></script>
+<script src="/web3.js"></script>
+<script src="/wallet-picker.js"></script>
+<script src="/dojo-ah.js"></script>
+<script>
+const RPC='/api/rpc';
+let WALLET=null, SEL=null, CUR='ORE', PRICES={ORE:0,SKR:0,USDC:1,SOL:0};
+const $=id=>document.getElementById(id);
+async function rpc(method,params){const r=await fetch(RPC,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params})});return (await r.json()).result;}
+async function waitForConfirm(sig){for(let i=0;i<40;i++){const st=await rpc('getSignatureStatuses',[[sig]]);const s=st&&st.value&&st.value[0];if(s&&(s.confirmationStatus==='confirmed'||s.confirmationStatus==='finalized')){if(s.err)throw new Error('Transaction failed on chain.');return;}await new Promise(r=>setTimeout(r,1200));}}
+
+// Wallet comes from the shared store session (the canonical nav button + walletWire, which
+// autoConnects and dispatches 'dojo-wallet-change'). Sync our local WALLET whenever it changes.
+function syncWallet(){
+  const a = window.DOJO_WALLET;
+  if(a){ WALLET={adapter:a,pubkey:a.pubkey}; const lb=$('listbtn'); if(lb&&typeof SELMODE!=='undefined'&&SELMODE!=='delist') lb.textContent='List for '+CUR; loadDegens(); loadListings(); }
+  else { WALLET=null; }
+}
+// Fallback connect used by the "List for ORE" button when nobody's connected yet.
+function conn(){ if(window.DojoWalletPicker) DojoWalletPicker.pick().then(a=>{ window.DOJO_WALLET=a; window.dispatchEvent(new Event('dojo-wallet-change')); }).catch(()=>{}); }
+window.addEventListener('dojo-wallet-change', syncWallet);
+window.addEventListener('load',function(){ loadPrices(); loadListings(); if(window.DOJO_WALLET) syncWallet(); });
+
+async function loadPrices(){ try{const j=await(await fetch('https://lite-api.jup.ag/price/v3?ids=oreoU2P8bN6jkk3jbaiVxYnG1dCXcYxwhwyK9jSybcp,SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3,So11111111111111111111111111111111111111112')).json();
+  PRICES.ORE=j['oreoU2P8bN6jkk3jbaiVxYnG1dCXcYxwhwyK9jSybcp']?.usdPrice||0;PRICES.SKR=j['SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3']?.usdPrice||0;PRICES.SOL=j['So11111111111111111111111111111111111111112']?.usdPrice||0;paint();}catch(e){} }
+
+document.querySelectorAll('#cur b').forEach(b=>b.onclick=()=>{CUR=b.dataset.c;document.querySelectorAll('#cur b').forEach(x=>x.classList.toggle('on',x===b));if(WALLET&&SELMODE!=='delist')$('listbtn').textContent='List for '+CUR;paint();});
+$('price').oninput=paint; $('mint').oninput=()=>{SEL={mint:$('mint').value.trim(),name:'Pasted mint'};$('selname').textContent='Listing '+SEL.mint.slice(0,6)+'…';paint();};
+
+const MIN_SOL=1.5;   // minimum listing = 1.5 SOL equivalent at list time
+function minInCur(){ const perUnitUsd=CUR==='USDC'?1:(PRICES[CUR]||0); if(!perUnitUsd||!PRICES.SOL)return 0; return (MIN_SOL*PRICES.SOL)/perUnitUsd; }
+function paint(){const p=parseFloat($('price').value)||0;const usd=CUR==='USDC'?p:p*(PRICES[CUR]||0);
+  const sol=PRICES.SOL?usd/PRICES.SOL:0; const min=minInCur();
+  const belowMin=min&&p&&p<min;
+  $('approx').innerHTML=(p?('≈ $'+usd.toFixed(2)+(sol?(' · ≈ '+sol.toFixed(3)+' SOL'):'')):'')+(min?(' <span style="color:'+(belowMin?'#c1443a':'var(--mut)')+'"> · min '+min.toFixed(CUR==='USDC'?2:3)+' '+CUR+' (1.5 SOL)</span>'):'');
+  // royalty = the SELECTED NFT's own on-chain rate (Degens are 13%); where it goes depends on the collection
+  const rbps=(SEL&&typeof SEL.roybps==='number')?SEL.roybps:1300, royRate=rbps/10000;
+  const roy=p*royRate, net=p-roy; const dest=(SEL&&SEL.isDegen===false)?' → to the creators':' → rebate + pot';
+  const rl=document.getElementById('roylbl'); if(rl) rl.textContent='Royalty '+(rbps/100).toFixed(rbps%100?1:0)+'% (seller-side)';
+  $('royline').textContent=p?('−'+roy.toFixed(CUR==='USDC'?2:3)+' '+CUR+dest):'—'; $('net').textContent=p?(net.toFixed(CUR==='USDC'?2:3)+' '+CUR):'—';
+  const b=$('listbtn'); if(WALLET&&!b.disabled&&SELMODE!=='delist') b.textContent='List for '+CUR; }
+
+// DAS helpers — pull a real name + image for ANY collection (not just Degens).
+const _assetName=a=>(a&&a.content&&a.content.metadata&&a.content.metadata.name)||'';
+const _assetImg=a=>{ if(!a)return''; const c=a.content||{}; return (c.links&&c.links.image)||(c.files&&c.files[0]&&(c.files[0].cdn_uri||c.files[0].uri))||''; };
+const _ddImg=m=>'https://degendojo.s3.us-west-1.amazonaws.com/degen/img/'+m+'.png';
+async function loadDegens(){ if(!WALLET)return; $('degs').innerHTML='<div style="color:var(--mut);font-size:13px">Loading…</div>';
+  try{ const res=await rpc('getTokenAccountsByOwner',[WALLET.pubkey,{programId:'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'},{encoding:'jsonParsed'}]);
+    const mints=((res&&res.value)||[]).filter(x=>x.account.data.parsed.info.tokenAmount.amount==='1'&&x.account.data.parsed.info.tokenAmount.decimals===0).map(x=>({mint:x.account.data.parsed.info.mint,ta:x.pubkey}));
+    if(!mints.length){$('degs').innerHTML='<div style="color:var(--mut);font-size:13px">No NFTs in this wallet.</div>';return;}
+    const taByMint={}; mints.forEach(m=>taByMint[m.mint]=m.ta);
+    // Resolve name + art for EVERY owned NFT via DAS (batched) — any collection, not just Degens.
+    const nfts=[];
+    for(let i=0;i<mints.length;i+=100){ const ids=mints.slice(i,i+100).map(m=>m.mint);
+      let assets=[]; try{ assets=await rpc('getAssetBatch',{ids})||[]; }catch(e){}
+      assets.forEach(a=>{ if(!a||!a.id)return; if(a.interface&&/Fungible/i.test(a.interface))return; const nm=_assetName(a),im=_assetImg(a); if(!nm&&!im)return;
+        const _g=(a.grouping||[]).find(x=>x.group_key==='collection'), _coll=_g&&_g.group_value;
+        const _dd=_coll==='2m9DupVeheZ5vfuXZxqV3KSQ7HnVDk2tG6ouH1ZnLwYb'||_coll==='WyUy9qjJekjqTAYGanANjhtviwgu1uhCkXx1uas8fWb';
+        const _rb=(a.royalty&&typeof a.royalty.basis_points==='number')?a.royalty.basis_points:(_dd?1300:0);
+        nfts.push({mint:a.id,ta:taByMint[a.id],name:nm||a.id.slice(0,6),img:im,roybps:_rb,isDegen:_dd}); }); }
+    if(!nfts.length){$('degs').innerHTML='<div style="color:var(--mut);font-size:13px">No NFTs found in this wallet.</div>';return;}
+    $('degcount').textContent='· '+nfts.length;
+    $('degs').innerHTML=nfts.map((d,i)=>`<div class="deg" data-i="${i}" onclick="selDeg(${i})"><img src="${d.img||_ddImg(d.mint)}" onerror="this.onerror=null;this.src='${_ddImg(d.mint)}';this.style.opacity=.9"><div class="nm">${(d.name||d.mint.slice(0,6)).replace(/</g,'&lt;')}</div></div>`).join('');
+    window._DEGS=nfts; markGrid();
+  }catch(e){$('degs').innerHTML='<div style="color:#c1443a;font-size:13px">Could not load: '+(e.message||e)+'</div>';}
+}
+
+// which of the loaded Degens are already listed by THIS wallet → mint → listing object
+let LISTED={}, SELMODE='list';
+function markGrid(){ document.querySelectorAll('.deg').forEach(d=>{ const deg=(window._DEGS||[])[+d.dataset.i]; const on=deg&&LISTED[deg.mint];
+  d.classList.toggle('listed',!!on); let b=d.querySelector('.lbadge');
+  if(on&&!b){b=document.createElement('div');b.className='lbadge';b.textContent='LISTED';d.appendChild(b);} else if(!on&&b){b.remove();} }); }
+
+function selDeg(i){ SEL=window._DEGS[i]; document.querySelectorAll('.deg').forEach(d=>d.classList.toggle('sel',+d.dataset.i===i)); $('mint').value=SEL.mint; applyMode(); }
+
+// flip the panel between "list this" and "delist this" based on whether SEL is already listed
+function applyMode(){ const lx=SEL&&LISTED[SEL.mint]; const b=$('listbtn'); b.disabled=false;
+  if(lx){ SELMODE='delist'; $('selname').textContent=(SEL.name||SEL.mint.slice(0,6))+' — listed';
+    CUR=lx.currency; document.querySelectorAll('#cur b').forEach(x=>x.classList.toggle('on',x.dataset.c===CUR));
+    $('price').value=lx.price; b.textContent='Delist '+(SEL.name||'this NFT'); paint();
+  } else { SELMODE='list'; if(SEL)$('selname').textContent='Listing '+(SEL.name||SEL.mint.slice(0,6));
+    if(WALLET)b.textContent='List for '+CUR; paint(); } }
+
+function mainAction(){ if(SELMODE==='delist'&&SEL&&LISTED[SEL.mint]) return doDelistListing(LISTED[SEL.mint]); return doList(); }
+
+async function doList(){ if(!WALLET){conn();return;} if(!SEL||!SEL.mint){$('msg').textContent='Pick an NFT (or paste a mint) first.';return;}
+  const price=parseFloat($('price').value); if(!price||price<=0){$('msg').textContent='Enter a price.';return;}
+  const min=minInCur(); if(false&&min&&price<min){$('msg').textContent='Minimum listing is '+min.toFixed(CUR==='USDC'?2:3)+' '+CUR+' (≈ 1.5 SOL).';return;}   // min TEMPORARILY advisory for testing — re-enable (remove `false&&`) before launch
+  const btn=$('listbtn'),orig=btn.textContent;btn.disabled=true;btn.textContent='Building…';
+  try{ const W=window.solanaWeb3||window.web3;
+    const built=DojoAH.buildSellIx({currency:CUR,seller:WALLET.pubkey,mint:SEL.mint,tokenAccount:SEL.ta,price:price});
+    const ix=new W.TransactionInstruction({programId:built.programId,keys:built.keys,data:W.Buffer?W.Buffer.from(built.data):built.data});
+    const bh=(await rpc('getLatestBlockhash',[{commitment:'confirmed'}])).value.blockhash;
+    const msg=new W.TransactionMessage({payerKey:new W.PublicKey(WALLET.pubkey),recentBlockhash:bh,instructions:[ix]}).compileToV0Message();
+    const tx=new W.VersionedTransaction(msg);
+    btn.textContent='Approve in your wallet…';
+    const sig=await WALLET.adapter.signAndSendTransaction(tx); const s=sig.signature||sig;
+    btn.textContent='Confirming…'; await waitForConfirm(s);   // let the trade state land before the index verifies it
+    btn.textContent='✓ Listed!';
+    $('msg').innerHTML='Listed — <a href="https://solscan.io/tx/'+s+'" target="_blank">view tx ↗</a>';
+    try{await fetch('/api/dd-listings',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({mint:SEL.mint,seller:WALLET.pubkey,currency:CUR,price:price,priceBaseUnits:built.priceBaseUnits,tradeState:built.tradeState,name:SEL.name||''})});}catch(e){}
+    setTimeout(()=>{btn.disabled=false;btn.textContent='List for '+CUR;loadListings();},2000);
+  }catch(e){btn.disabled=false;btn.textContent=orig; var m=(e&&e.message)||'Failed.';
+    if(/insufficient|AccountNotFound/i.test(m))m='The '+CUR+' house fee account may need funding, or you lack SOL for the network fee. '+m;
+    $('msg').textContent=m; }
+}
+
+async function loadListings(){ try{const j=await(await fetch('/api/dd-listings')).json(); const L=(j&&j.listings)||[]; window._LISTINGS=L;
+  LISTED={}; if(WALLET) L.forEach(x=>{ if(x.seller===WALLET.pubkey) LISTED[x.mint]=x; });
+  $('listings').innerHTML=L.length?L.map((x,i)=>{const act=WALLET?(x.seller===WALLET.pubkey?`<button class="btn sub" style="padding:3px 10px;font-size:11px;margin-left:10px" onclick="doDelist(${i})">Delist</button>`:`<button class="btn" style="padding:3px 12px;font-size:11px;margin-left:10px" onclick="doBuy(${i})">Buy</button>`):'';return `<div class="row"><span>${x.name||x.mint.slice(0,6)+'…'}</span><span><span style="color:var(--gold)">${x.price} ${x.currency}</span>${act}</span></div>`;}).join(''):'No live listings yet — be the first.';
+  markGrid(); applyMode();
+}catch(e){$('listings').textContent='—';} }
+
+function doDelist(i){ return doDelistListing(window._LISTINGS&&window._LISTINGS[i]); }
+async function doDelistListing(x){ if(!WALLET||!x)return;
+  const btn=$('listbtn'); btn.disabled=true; btn.textContent='Delisting…';
+  $('msg').textContent='Delisting '+(x.name||x.mint.slice(0,6))+'…';
+  try{ const W=window.solanaWeb3||window.web3;
+    const built=DojoAH.buildCancelIx({currency:x.currency,seller:WALLET.pubkey,mint:x.mint,price:x.price});
+    const ix=new W.TransactionInstruction({programId:built.programId,keys:built.keys,data:W.Buffer?W.Buffer.from(built.data):built.data});
+    const bh=(await rpc('getLatestBlockhash',[{commitment:'confirmed'}])).value.blockhash;
+    const msg=new W.TransactionMessage({payerKey:new W.PublicKey(WALLET.pubkey),recentBlockhash:bh,instructions:[ix]}).compileToV0Message();
+    const tx=new W.VersionedTransaction(msg);
+    btn.textContent='Approve in your wallet…';
+    const sig=await WALLET.adapter.signAndSendTransaction(tx); const s=sig.signature||sig;
+    btn.textContent='Confirming…'; await waitForConfirm(s);
+    $('msg').innerHTML='Delisted — <a href="https://solscan.io/tx/'+s+'" target="_blank">view tx ↗</a>';
+    delete LISTED[x.mint]; btn.disabled=false; loadListings();
+  }catch(e){ btn.disabled=false; applyMode(); $('msg').textContent='Delist failed: '+((e&&e.message)||e);} }
+
+// BUY someone else's listing. Simulates the exact tx first — only prompts the wallet if it will succeed,
+// so you can never spend ORE/SKR on a failing buy (no more "swapped but got nothing").
+let _buying=false;
+async function doBuy(i){ if(_buying)return; const x=window._LISTINGS&&window._LISTINGS[i]; if(!WALLET||!x)return;
+  if(WALLET.pubkey===x.seller){$('msg').textContent='That is your own listing.';return;}
+  _buying=true; $('msg').textContent='Checking the purchase (no charge yet)…';
+  try{
+    const r=await DojoAH.prepareBuy(rpc,{currency:x.currency,buyer:WALLET.pubkey,seller:x.seller,mint:x.mint,price:x.price});
+    if(r.err){ console.log('buy sim failed',JSON.stringify(r.err),r.logs); $('msg').innerHTML='<span style="color:#c1443a">This purchase would fail — you were NOT charged.</span> It may have just sold, or you lack enough '+x.currency+'. <span style="color:var(--mut)">('+JSON.stringify(r.err).slice(0,80)+')</span>'; return; }
+    $('msg').textContent='Approve in your wallet — you pay '+r.breakdown.price+' '+x.currency+' (seller nets '+r.breakdown.sellerNet.toFixed(x.currency==='USDC'?2:3)+' after royalty)…';
+    const s=await DojoAH.submitBuy(rpc, WALLET.adapter, r);
+    $('msg').textContent='Confirming…'; await waitForConfirm(s);
+    try{ fetch('/api/dd-royalty',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({sig:s,currency:x.currency})}); }catch(e){}   // 50% of the royalty → weekly pot
+    $('msg').innerHTML='✓ Bought '+(x.name||x.mint.slice(0,6))+' — <a href="https://solscan.io/tx/'+s+'" target="_blank">view tx ↗</a>';
+    if(window._LISTINGS) window._LISTINGS=window._LISTINGS.filter(l=>l.tradeState!==x.tradeState);
+    setTimeout(()=>{loadListings(); loadDegens();}, 9000);
+  }catch(e){ $('msg').textContent='Buy failed: '+((e&&e.message)||e); }
+  finally{ _buying=false; } }
+</script>

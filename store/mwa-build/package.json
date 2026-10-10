@@ -1,0 +1,14 @@
+{
+  "name": "dd-mwa-build",
+  "private": true,
+  "description": "Isolated build for scripts/mwa.js (Mobile Wallet Adapter + Seeker Connect). Kept separate so the Next app's transitive @solana-mobile deps are untouched.",
+  "type": "module",
+  "scripts": { "build": "node build.mjs" },
+  "dependencies": {
+    "@solana-mobile/wallet-standard-mobile": "0.6.0",
+    "@solana-mobile/seeker-connect-wallet-standard": "0.1.1"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}

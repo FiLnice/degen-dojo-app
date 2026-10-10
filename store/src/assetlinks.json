@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "xyz.degendojo.store.twa",
+        "sha256_cert_fingerprints": ["84:8C:5D:B4:FB:5C:56:41:A7:4B:CD:94:23:94:79:9D:4E:F1:F4:8B:9E:E0:73:49:C8:B0:9B:72:F1:89:E1:61"]
+      }
+    }]

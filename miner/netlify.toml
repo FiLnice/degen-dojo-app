@@ -1,0 +1,9 @@
+# Netlify build config for the Next.js app.
+# Netlify auto-installs @netlify/plugin-nextjs when it detects Next.js; this makes
+# it explicit. Do NOT set `publish` — the Next runtime plugin manages output +
+# serverless functions (needed for the API routes like /api/rpc).
+[build]
+  command = "npm run build"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
