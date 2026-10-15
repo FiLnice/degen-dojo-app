@@ -169,6 +169,7 @@ copyFileSync(`${ROOT}/scripts/store-verify-core.mjs`, `${OUT}/netlify/functions/
 copyFileSync(`${ROOT}/scripts/store-pot-core.mjs`, `${OUT}/netlify/functions/store-pot-core.mjs`);
 copyFileSync(`${ROOT}/scripts/store-cas-core.mjs`, `${OUT}/netlify/functions/store-cas-core.mjs`);   // atomic (compare-and-swap) ledger writes
 copyFileSync(`${ROOT}/scripts/store-preacher-core.mjs`, `${OUT}/netlify/functions/store-preacher-core.mjs`);   // shared preacher maths (dashboard + payouts)
+copyFileSync(`${ROOT}/scripts/store-ref-core.mjs`, `${OUT}/netlify/functions/store-ref-core.mjs`);   // signed "ddref:" memo → preacher referral
 copyFileSync(`${ROOT}/scripts/store-fn-ticket.mjs`, `${OUT}/netlify/functions/ticket.mjs`);
 copyFileSync(`${ROOT}/scripts/store-fn-draw.mjs`, `${OUT}/netlify/functions/draw.mjs`);
 // Weekly payout: the cron commits + draws + plans + notifies; /api/payouts backs the owner's /payouts

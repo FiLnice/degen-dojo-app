@@ -437,3 +437,10 @@ export function stopAutomationIx(signer: PublicKey): TransactionInstruction {
     automateData({ amount: 0n, deposit: 0n, fee: 0n, mask: 0, reload: false }),
   );
 }
+
+// Preacher referral, bound on-chain: a tiny SPL Memo "ddref:<code>" inside the buyer's own transaction, so
+// it's covered by their signature (the store credits preachers only from this memo — store-ref-core.mjs).
+export const MEMO_PROGRAM_ID = new PublicKey("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr");
+export function refMemoIx(code: string): TransactionInstruction {
+  return new TransactionInstruction({ programId: MEMO_PROGRAM_ID, keys: [], data: Buffer.from("ddref:" + code, "utf8") });
+}

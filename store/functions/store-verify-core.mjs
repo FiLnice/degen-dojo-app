@@ -32,6 +32,7 @@
 import { getStore } from "@netlify/blobs";
 import { addToPot, POT_FRAC } from "./store-pot-core.mjs";
 import { casUpdate, readWithEtag, putIfNew, putIfMatch, pushId } from "./store-cas-core.mjs";
+import { refFromTx } from "./store-ref-core.mjs";
 
 export const TREASURY = process.env.TREASURY_WALLET || "5w55F58ia3H71QjBD9bYvNQF2DcNu8K3AfJj9A4WMuWp";
 const SOL_MINT = "So11111111111111111111111111111111111111112";
@@ -121,12 +122,12 @@ export async function inspectPayment(sig, currency, wallet = TREASURY) {
     delta = (w) => { const i = keys.indexOf(w); return i < 0 ? 0n : BigInt(tx.meta.postBalances[i] || 0) - BigInt(tx.meta.preBalances[i] || 0); };
   } else {
     const mint = MINTS[currency];
-    if (!mint) return { got: 0, gainRaw: 0n, signers, payers: [], blockTime: tx.blockTime || null };
+    if (!mint) return { got: 0, gainRaw: 0n, signers, payers: [], blockTime: tx.blockTime || null, memoRef: refFromTx(tx) };
     delta = (w) => rawOf(tx.meta.postTokenBalances, mint, w) - rawOf(tx.meta.preTokenBalances, mint, w);
   }
   const gainRaw = delta(wallet);
   const payers = gainRaw > 0n ? signers.filter((s) => s !== wallet && -delta(s) >= gainRaw) : [];
-  return { got: Number(gainRaw) / DEC[currency], gainRaw, signers, payers, blockTime: tx.blockTime || null };
+  return { got: Number(gainRaw) / DEC[currency], gainRaw, signers, payers, blockTime: tx.blockTime || null, memoRef: refFromTx(tx) };
 }
 
 // how much of `currency` the given wallet (default TREASURY) GAINED in tx `sig` (null → tx missing/failed)
@@ -223,6 +224,11 @@ async function verifyOne(store, key, rec, etag, { strictReject, reattribute }) {
         { onchainPayers: pay.payers });
     }
   }
+
+  // Referral = the "ddref:<code>" memo the buyer signed into this payment — never the POSTed ref.
+  const postedRef = rec.ref ? String(rec.ref).toLowerCase() : null;
+  recPatch = { ...(recPatch || {}), ref: pay.memoRef || null,
+    ...(postedRef && postedRef !== pay.memoRef ? { postedRef } : {}) };
 
   const price = await livePrice(rec.currency);
   if (price == null) return { result: { sig, got: pay.got, ok: false, retry: "no price" } };   // fail-closed

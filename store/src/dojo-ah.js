@@ -240,6 +240,15 @@
     // 4) compile v0 (fits under the size limit only because of the ALT) + simulate
     var bh = (await rpc('getLatestBlockhash', [{ commitment: 'confirmed' }])).value.blockhash;
     var msg = new W.TransactionMessage({ payerKey: PK(opts.buyer), recentBlockhash: bh, instructions: ixs }).compileToV0Message([alt]);
+    // The preacher referral rides inside the buy as a signed "ddref:<code>" memo (wallet-picker.js DojoRef) —
+    // only when it still fits the 1232-byte limit; a buy never fails because of it.
+    var memoIx = global.DojoRef && global.DojoRef.instruction(W);
+    if (memoIx) {
+      try {
+        var withMemo = new W.TransactionMessage({ payerKey: PK(opts.buyer), recentBlockhash: bh, instructions: ixs.concat([memoIx]) }).compileToV0Message([alt]);
+        if (new W.VersionedTransaction(withMemo).serialize().length <= 1232) msg = withMemo;
+      } catch (e) {}
+    }
     var tx = new W.VersionedTransaction(msg);
     var sim = await rpc('simulateTransaction', [bytesToB64(tx.serialize()), { encoding: 'base64', sigVerify: false, replaceRecentBlockhash: true, commitment: 'processed' }]);
     var v = (sim && sim.value) || {};

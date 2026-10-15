@@ -17,6 +17,7 @@ Status legend: ✅ fixed + tested · 🟡 in progress · ⛔ operator action nee
 | 5 | High (integrity) | Unauthenticated ticket endpoint feeds the prize draw | ✅ |
 | 6 | Medium | Non-atomic coin debit / play finish (double spend / double award) | ✅ |
 | 7 | Medium | Royalty sweep can skip credits (unreadable tx, price miss, pagination) | ✅ |
+| 9 | Medium | Referral attribution not bound to the buyer (closed: on-chain memo) | ✅ |
 | 8 | Medium | Integration risks: auth fallback secrets, RPC proxy limits, asset links, miner request binding, dependency audit | ✅ (⛔ SESSION_SECRET) |
 
 ---
@@ -259,6 +260,41 @@ succeeded; finishes double-awarded. Also, a payout rebuild could overwrite a jus
 
 **Operator.** Re-check old `dd-royalties` records noted "no royalty to creator"; some may be hidden real royalties.
 
+
+## 9 · Referral attribution bound on-chain — ✅ FIXED (2026-10-15)
+
+**Problem.** The preacher `ref` was an unsigned value sent next to a purchase, recorded first-write-wins, so the
+credit for a purchase could end up with the wrong preacher.
+
+**Invariant.** A preacher is credited ONLY from a `ddref:<code>` SPL Memo inside the buyer's own signed
+transaction. Any `ref` a client POSTs is ignored for attribution and kept only as `postedRef` for audit.
+
+**Change.**
+- Client — `wallet-picker.js` `DojoRef`: `instruction`, `withRef`, `addToTx`. The memo is added to:
+  - coin packs (`dojo-credits.html`);
+  - market buys (`dojo-buy.js`: our M2 build, plus Magic Eden/Tensor-built txs, which are decompiled with
+    their lookup tables, get the memo, and have any explicit compute limit raised by 20k);
+  - store-home buys (`store-template.html`);
+  - our AuctionHouse buys (`dojo-ah.js`, only if the tx still fits);
+  - ORE-miner tips (`degen-dojo-ore`: `lib/ore.ts` `refMemoIx`, `app/mine/page.tsx`, default miner only).
+- Already-signed or oversized transactions are left untouched, so a buy never fails because of the referral.
+- Server: `store-ref-core.mjs` `refFromTx` reads the memo from the verified tx logs.
+  - `store-verify-core.mjs` sets `ref` from the memo for coin packs and tips.
+  - `store-preacher-core.mjs` requires the memo for NFT sales; a record naming another preacher is
+    re-attributed to the memo's preacher, and self-referral is judged against that preacher.
+
+**Evidence.**
+- `scratchpad/ref/e2e.mjs`: 9/9, using the real browser helper and real mainnet simulation (read-only):
+  - the chain logs `Memo (len 14): "ddref:ronin_42"` and the server parser reads it;
+  - ALT-based marketplace txs and legacy txs are rewritten and simulate OK;
+  - signed txs are untouched.
+- `sec-b/test-payments.mjs`: 81/81 (4 new: posted ref without memo earns nothing; memo beats a posted
+  ref; front-run claim gives payer AND preacher back to the chain's values; same for tips).
+- `playtest/test-nft.mjs`: 50/50 (no memo → nothing; memo re-attributes).
+- Pages load with `DojoRef` reading the cookie; no script errors.
+
+**Note.** Purchases made from a page loaded before this deploy carry no memo, so they credit no preacher.
+
 ---
 
 ## Operator runbook (what remains outside code)
@@ -277,5 +313,4 @@ succeeded; finishes double-awarded. Also, a payout rebuild could overwrite a jus
    - make one market buy.
 4. **Purge the CDN cache** for `/nft/*` if old pages linger.
 5. **Not fixed in code (design level):**
-   - referral (`ref`) front-running needs an on-chain memo;
    - Next 16.4.0 bump for local dev and the standalone miner site.

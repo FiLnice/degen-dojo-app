@@ -315,6 +315,8 @@ async function buy(i){
       const src = await spl.getAssociatedTokenAddress(mint, buyer), dst = await spl.getAssociatedTokenAddress(mint, dest);
       ixs = [ spl.createAssociatedTokenAccountIdempotentInstruction(buyer, dst, dest, mint), spl.createTransferInstruction(src, dst, buyer, BigInt(base)) ];
     }
+    // the preacher who referred this buyer goes INTO the payment as a signed "ddref:<code>" memo (wallet-picker.js)
+    if(window.DojoRef) ixs = window.DojoRef.withRef(web3, ixs);
     const { blockhash } = await conn.getLatestBlockhash();
     const msg = new TransactionMessage({ payerKey:buyer, recentBlockhash:blockhash, instructions:ixs }).compileToV0Message();
     toast('Approve in your wallet…');

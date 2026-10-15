@@ -19,6 +19,7 @@ import {
   minerNeedsCheckpoint,
   estimateRounds,
   SQUARES,
+  refMemoIx,
 } from "@/lib/ore";
 import { COLLECTION_NAME, TIP_WALLET, TIP_ENABLED, DEGENS_URL, DEGENS_INLINE_JSON } from "@/lib/config";
 
@@ -237,6 +238,10 @@ export default function MinePage() {
           lamports: tipLamports,
         }),
       );
+      // The preacher who referred this miner is written INTO the tip tx as a signed memo (default miner only —
+      // hosted /m/<slug> tips go to the collection's wallet, nothing of ours to share).
+      const ref = hosted ? null : readRef();
+      if (ref) ixs.push(refMemoIx(ref));
     }
     const buyer = publicKey.toBase58();
     const sig = await submit("Start auto-mining", ixs);

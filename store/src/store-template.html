@@ -1689,7 +1689,9 @@ async function tensorBuyTx(listing) {
   }
   const raw = Uint8Array.from(atob(j.txBase64), (c) => c.charCodeAt(0));
   const { VersionedTransaction, Transaction } = W3();
-  return j.versioned ? VersionedTransaction.deserialize(raw) : Transaction.from(raw);
+  const tx = j.versioned ? VersionedTransaction.deserialize(raw) : Transaction.from(raw);
+  // the preacher referral rides inside the buy as a signed "ddref:<code>" memo (wallet-picker.js DojoRef)
+  return window.DojoRef ? window.DojoRef.addToTx(W3(), tx, rpcCall) : tx;
 }
 
 async function payAndBuy(listing) {
@@ -1723,6 +1725,7 @@ async function payAndBuy(listing) {
     ComputeBudgetProgram.setComputeUnitLimit({ units: 400000 }),
     ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1400000 }),
     ...buildM2BuyIxs({ buyer, listing }),
+    ...(window.DojoRef && window.DojoRef.instruction(W3()) ? [window.DojoRef.instruction(W3())] : []),   // signed preacher referral
   ];
   const { blockhash, lastValidBlockHeight } = (await rpcCall('getLatestBlockhash', [{ commitment: 'confirmed' }])).value;
   const msg = new TransactionMessage({ payerKey: buyer, recentBlockhash: blockhash, instructions: ixs }).compileToV0Message();
@@ -1775,6 +1778,7 @@ async function oneApprovalBuy(listing) {
     ComputeBudgetProgram.setComputeUnitLimit({ units: 400000 }),
     ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1400000 }),
     ...buildM2BuyIxs({ buyer, listing }),
+    ...(window.DojoRef && window.DojoRef.instruction(W3()) ? [window.DojoRef.instruction(W3())] : []),   // signed preacher referral
   ];
   const buyTx = new VersionedTransaction(new TransactionMessage({ payerKey: buyer, recentBlockhash: bh.blockhash, instructions: ixs }).compileToV0Message());
   // ONE approval — sign both

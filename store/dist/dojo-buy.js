@@ -50,6 +50,9 @@
     return fetch(RPC, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: method, params: params }) })
       .then(function (r) { return r.json(); }).then(function (j) { if (j.error) throw new Error(j.error.message); return j.result; });
   }
+  // Preacher referral rides INSIDE the buy as a signed "ddref:<code>" memo (wallet-picker.js DojoRef).
+  function withRefIxs(ixs) { var R = global.DojoRef; return R && R.withRef ? R.withRef(W3(), ixs) : ixs; }
+  function withRefTx(tx) { var R = global.DojoRef; return R && R.addToTx ? R.addToTx(W3(), tx, rpcCall) : tx; }
   function readRoyaltyB(mint) {
     return rpcCall('getAccountInfo', [metaOf(PK(mint)).toBase58(), { encoding: 'base64' }]).then(function (r) {
       // No Token-Metadata account = this isn't a standard Metaplex NFT (e.g. Metaplex Core or
@@ -210,6 +213,7 @@
   function buildOurBuyTx(listing, adapter, buyerReferral, blockhash) {
     var W = W3(), buyer = PK(adapter.pubkey);
     var ixs = [W.ComputeBudgetProgram.setComputeUnitLimit({ units: 400000 }), W.ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1400000 })].concat(buildM2BuyIxs(buyer, listing, buyerReferral));
+    ixs = withRefIxs(ixs);
     var msg = new W.TransactionMessage({ payerKey: buyer, recentBlockhash: blockhash, instructions: ixs }).compileToV0Message();
     return new W.VersionedTransaction(msg);
   }
@@ -278,6 +282,7 @@
     var W = W3(), buyer = PK(adapter.pubkey);
     onState && onState('Building the transaction…');
     var ixs = [W.ComputeBudgetProgram.setComputeUnitLimit({ units: 400000 }), W.ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1400000 })].concat(buildM2BuyIxs(buyer, listing, buyerReferral));
+    ixs = withRefIxs(ixs);
     return rpcCall('getLatestBlockhash', [{ commitment: 'confirmed' }]).then(function (bh) {
       var blockhash = bh.value.blockhash;
       var msg = new W.TransactionMessage({ payerKey: buyer, recentBlockhash: blockhash, instructions: ixs }).compileToV0Message();
@@ -321,7 +326,7 @@
         if (!res.j || !res.j.txBase64) return null;
         var W = W3();
         var raw = Uint8Array.from(atob(res.j.txBase64), function (c) { return c.charCodeAt(0); });
-        return res.j.versioned ? W.VersionedTransaction.deserialize(raw) : W.Transaction.from(raw);
+        return withRefTx(res.j.versioned ? W.VersionedTransaction.deserialize(raw) : W.Transaction.from(raw));
       });
   }
   // PRE-FLIGHT a ME buy: build it AND simulate it, so we only swap when the buy will actually work.
@@ -372,7 +377,7 @@
         if (res.status === 501 || (res.j && res.j.needKey)) return null;
         if (!res.j || !res.j.txBase64) return null;
         var W = W3(), raw = Uint8Array.from(atob(res.j.txBase64), function (c) { return c.charCodeAt(0); });
-        return res.j.versioned ? W.VersionedTransaction.deserialize(raw) : W.Transaction.from(raw);
+        return withRefTx(res.j.versioned ? W.VersionedTransaction.deserialize(raw) : W.Transaction.from(raw));
       }).catch(function () { return null; });
   }
   // Build + simulate a Tensor buy — same safe pre-flight logic as probeMEBuyTx (proceed only if the tx

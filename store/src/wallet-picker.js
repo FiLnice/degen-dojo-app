@@ -17,6 +17,61 @@
     } catch (_) {}
   })();
 
+  // The referral travels INSIDE the purchase: every buy path adds a tiny SPL Memo "ddref:<code>" to the
+  // buyer's own transaction, so it's covered by their signature and the server credits the preacher from
+  // the chain (store-ref-core.mjs) — never from a separate, unsigned POST.
+  // DojoRef.instruction(web3) → a Memo TransactionInstruction for the current referral, or null if none.
+  global.DojoRef = {
+    MEMO_PROGRAM: 'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr',
+    code: function () {
+      try { var m = document.cookie.match(/(?:^|;\s*)dd_ref=([^;]+)/); var c = m ? decodeURIComponent(m[1]).toLowerCase() : '';
+        return /^[a-z0-9_-]{2,32}$/.test(c) ? c : null; } catch (_) { return null; }
+    },
+    memoText: function () { var c = this.code(); return c ? 'ddref:' + c : null; },
+    instruction: function (web3) {
+      var t = this.memoText(); if (!t || !web3) return null;
+      var data = (typeof Buffer !== 'undefined' && Buffer.from) ? Buffer.from(t, 'utf8') : (web3.Buffer ? web3.Buffer.from(t, 'utf8') : new TextEncoder().encode(t));
+      return new web3.TransactionInstruction({ programId: new web3.PublicKey(this.MEMO_PROGRAM), keys: [], data: data });
+    },
+    // ixs + the referral memo (unchanged when there's no referral)
+    withRef: function (web3, ixs) { var m = this.instruction(web3); return m ? ixs.concat([m]) : ixs; },
+    // Add the memo to a transaction a marketplace API built for us (Magic Eden / Tensor). Returns the new tx,
+    // or the ORIGINAL untouched when there's no referral, it is already partly signed, or it would no longer
+    // fit — a buy must never fail because of the referral. rpc(method, params) → result.
+    addToTx: async function (web3, tx, rpc) {
+      try {
+        var memo = this.instruction(web3); if (!memo || !tx) return tx;
+        var signed = function (s) { if (!s) return false; var b = s.signature || s; for (var i = 0; i < (b.length || 0); i++) if (b[i]) return true; return false; };
+        if ((tx.signatures || []).some(signed)) return tx;
+        if (tx.version === undefined) {                                   // legacy Transaction
+          var copy = web3.Transaction.from(tx.serialize({ requireAllSignatures: false, verifySignatures: false }));
+          copy.add(memo);
+          return copy.serialize({ requireAllSignatures: false, verifySignatures: false }).length <= 1232 ? copy : tx;
+        }
+        var lookups = tx.message.addressTableLookups || [], alts = [];
+        for (var i = 0; i < lookups.length; i++) {
+          var ai = await rpc('getAccountInfo', [lookups[i].accountKey.toBase58(), { encoding: 'base64' }]);
+          if (!ai || !ai.value) return tx;
+          var raw = atob(ai.value.data[0]), bytes = new Uint8Array(raw.length);
+          for (var k = 0; k < raw.length; k++) bytes[k] = raw.charCodeAt(k);
+          alts.push(new web3.AddressLookupTableAccount({ key: lookups[i].accountKey, state: web3.AddressLookupTableAccount.deserialize(bytes) }));
+        }
+        var tm = web3.TransactionMessage.decompile(tx.message, { addressLookupTableAccounts: alts });
+        // a memo costs a few thousand compute units: lift an explicit compute limit so the original budget still fits
+        tm.instructions.forEach(function (ix) {
+          if (ix.programId.toBase58() !== 'ComputeBudget111111111111111111111111111111' || ix.data[0] !== 2 || ix.data.length < 5) return;
+          var u = (ix.data[1] | (ix.data[2] << 8) | (ix.data[3] << 16) | (ix.data[4] << 24)) >>> 0;
+          u = Math.min(1400000, u + 20000);
+          var d = new Uint8Array(ix.data); d[1] = u & 255; d[2] = (u >> 8) & 255; d[3] = (u >> 16) & 255; d[4] = (u >>> 24) & 255;
+          ix.data = (typeof Buffer !== 'undefined' && Buffer.from) ? Buffer.from(d) : d;
+        });
+        tm.instructions.push(memo);
+        var out = new web3.VersionedTransaction(tm.compileToV0Message(alts));
+        return out.serialize().length <= 1232 ? out : tx;
+      } catch (e) { this.lastError = String((e && e.message) || e); return tx; }   // kept for debugging; the buy proceeds without the memo
+    },
+  };
+
   // Enumerate Wallet-Standard wallets (dispatch app-ready + listen for late registrations).
   function enumerate() {
     var wallets = [];

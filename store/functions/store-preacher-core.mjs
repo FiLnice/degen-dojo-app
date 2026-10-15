@@ -12,6 +12,7 @@
 // below for NFT sales). Owed amounts are kept in the token actually paid (ORE / SKR / SOL / USDC).
 import { getStore } from "@netlify/blobs";
 import { livePrice } from "./store-verify-core.mjs";
+import { refFromTx } from "./store-ref-core.mjs";
 
 export const DD_COLLECTION = "2m9DupVeheZ5vfuXZxqV3KSQ7HnVDk2tG6ouH1ZnLwYb";
 // Where every DD royalty lands (same wallet + env var as store-royalty-core.mjs).
@@ -146,9 +147,18 @@ export async function verifyNftSale(rec, preacherWallet = null) {
   if (!isDD) return { ...reject("not a Degen Dojo NFT"), isDD: false };
   const roy = royaltyOf(tx);
   if (!roy) return { ...reject("no royalty reached the royalty wallet"), isDD: true };
+  // The referral is the "ddref:<code>" memo signed into the buy itself; the POSTed ref only told us to look.
+  const memoRef = refFromTx(tx);
+  if (!memoRef) return { ...reject("no referral memo in the purchase"), isDD: true };
   const { feePayer, recipient } = buyerOf(tx, rec.mint);
-  const base = { ...rec, isDD: true, txBuyer: feePayer, txRecipient: recipient, blockTime: tx.blockTime || null };
-  if (preacherWallet && (feePayer === preacherWallet || recipient === preacherWallet))
+  // A record naming a different preacher is re-attributed to the one in the memo (the buyer's own signed choice).
+  const postedRef = String(rec.ref || "").toLowerCase();
+  const base = { ...rec, ref: memoRef, isDD: true, memoRef, txBuyer: feePayer, txRecipient: recipient, blockTime: tx.blockTime || null,
+    ...(postedRef !== memoRef ? { postedRef } : {}) };
+  // self-referral is judged against the preacher the memo names (look their wallet up if it differs)
+  let pw = preacherWallet;
+  if (postedRef !== memoRef) { try { pw = await getStore("preacher-codes").get("code:" + memoRef, { type: "text" }); } catch { return null; } }
+  if (pw && (feePayer === pw || recipient === pw))
     return { ...base, verified: false, rejected: true, rejectReason: "self-referral", nftVerifiedAt: now };
   if (tx.blockTime && rec.recordedAt && rec.recordedAt - tx.blockTime * 1000 > LATE_ATTR_MS)
     return { ...base, verified: false, rejected: true, rejectReason: "attributed long after the sale", nftVerifiedAt: now };
