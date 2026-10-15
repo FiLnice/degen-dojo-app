@@ -49,9 +49,10 @@ h1{font-family:'Cinzel',serif;font-weight:900;font-size:clamp(28px,5vw,42px);tex
 </style>
 </head>
 <body>
-<script>window.DOJO_LOCAL_ECON=1;</script>
+<script>window.DOJO_SERVER_ECON=1;</script>
 <!-- wallet-picker.js comes with the shared nav wire (after mwa.js) — loading it here too ran it twice -->
 <script src="/dojo-credits.js"></script>
+<script src="/dojo-wallet.js"></script>
 <header class="top">
   <span class="brand">道場 Degen Dojo</span>
   <nav class="topnav">
@@ -71,11 +72,17 @@ h1{font-family:'Cinzel',serif;font-weight:900;font-size:clamp(28px,5vw,42px);tex
 
 <div class="wrap">
   <h1>3 Games &amp; 2 Arenas</h1>
-  <div class="sub">Play with your wallet connected — every play earns weekly Dojo Pot tickets.</div>
+  <div class="sub">Connect your wallet and play with coins — every play earns weekly Dojo Pot tickets.<br>
+    Just want to practice for free? <a href="https://degendojo.xyz/play" style="color:var(--gold-l)">Play free at degendojo.xyz/play</a> (no pot tickets).</div>
   <!-- Coin balance + Buy coins live under the title (not in the top bar) so they're visible on phones too. -->
   <div style="display:flex;justify-content:center;align-items:center;gap:10px;flex-wrap:wrap;margin:-18px 0 30px">
     <span style="font-family:'Teko',sans-serif;font-size:19px;color:var(--gold-l);padding:7px 16px;border:1px solid var(--border);border-radius:10px">🪙 <b data-dc-credits>0</b> coins</span>
     <a href="/credits" style="color:#0a0814;background:linear-gradient(135deg,#c8962a,#8b6018);font-family:'Cinzel',serif;font-size:12px;font-weight:700;letter-spacing:.06em;padding:10px 18px;border-radius:10px;text-decoration:none">＋ Buy coins</a>
+  </div>
+  <!-- Seeker owners: one free coin per Seeker phone (server checks the wallet's Seeker Genesis Token) -->
+  <div style="text-align:center;margin:-16px 0 30px">
+    <button id="seekerBtn" type="button" onclick="claimSeekerCoin(this)" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--gold-l);background:rgba(201,151,58,.08);border:1px solid rgba(201,151,58,.45);padding:9px 16px;border-radius:9px;cursor:pointer">📱 Seeker owner? Claim your free coin</button>
+    <div id="seekerMsg" style="font-size:13px;color:var(--mut);margin-top:8px;min-height:18px"></div>
   </div>
 
   <div class="sectitle">🥷 Games <small>pure skill</small></div>
@@ -118,6 +125,20 @@ async function walletClick(){
 // silent reconnect (shares the store's remembered wallet)
 // (No page-level autoConnect: the shared nav wire reconnects the store-wide session. A second,
 // concurrent silent connect raced the wire's — and this page's own button is gone in the store build.)
+</script>
+<script>
+// Seeker free coin — kept in its own <script> (the store build strips the wallet block above).
+// Sign-in (one free signature) → the SERVER checks this wallet for a Seeker Genesis Token and
+// credits one coin per Seeker device, once. We only show what the server answers.
+function claimSeekerCoin(btn){
+  var msg=document.getElementById('seekerMsg');
+  if(!window.DojoWallet){ msg.textContent='Wallet still loading — one moment.'; return; }
+  btn.disabled=true; msg.style.color=''; msg.textContent='Sign in with your wallet — then we check it for a Seeker Genesis Token…';
+  DojoWallet.claimSeeker().then(function(r){
+    btn.disabled=false; msg.textContent=r.message; msg.style.color = r.ok ? '#7bb26a' : '';
+    if(r.ok || r.already) btn.style.display='none';
+  });
+}
 </script>
 </body>
 </html>

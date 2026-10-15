@@ -116,15 +116,15 @@ const playNavExtra =
 // Wire the nav wallet button through the shared picker. autoConnect shares ONE session across every
 // page (connect once → connected everywhere). Disconnected = gold; connected = subtle pill (matches
 // the store home). Sets window.DOJO_WALLET for the games' economy.
-const walletWire = `<script src="/dojo-credits.js"></script><script src="/dojo-profile.js"></script><script src="/mwa.js"></script><script src="/wallet-picker.js"></script><script>/*navwallet-wire*/(function(){var b=document.getElementById('dojoNavWallet');if(!b)return;var A=null,sh=function(p){return p.slice(0,4)+'\\u2026'+p.slice(-4);};var G="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#0a0814;background:linear-gradient(135deg,#c8962a,#8b6018);border:none;padding:9px 16px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;",C="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#e8b84b;background:rgba(201,151,58,.12);border:1px solid rgba(201,151,58,.5);padding:9px 14px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;";function set(a){A=a;window.DOJO_WALLET=a||null;window.dispatchEvent(new Event('dojo-wallet-change'));if(a){b.textContent='\\u25ce '+sh(a.pubkey);b.setAttribute('style',C);}else{b.textContent='Connect wallet';b.setAttribute('style',G);}}b.onclick=function(){if(A){var dc=function(){try{A.disconnect&&A.disconnect();}catch(e){}set(null);};if(window.DojoProfile)DojoProfile.menu(b,A.pubkey,dc);else dc();return;}if(window.DojoWalletPicker)DojoWalletPicker.pick().then(set).catch(function(){});};if(window.DojoWalletPicker&&DojoWalletPicker.autoConnect)DojoWalletPicker.autoConnect().then(function(a){if(a&&!A)set(a);});})();</script>`;
+const walletWire = `<script src="/dojo-credits.js"></script><script src="/dojo-wallet.js"></script><script src="/dojo-profile.js"></script><script src="/mwa.js"></script><script src="/wallet-picker.js"></script><script>/*navwallet-wire*/(function(){var b=document.getElementById('dojoNavWallet');if(!b)return;var A=null,sh=function(p){return p.slice(0,4)+'\\u2026'+p.slice(-4);};var G="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#0a0814;background:linear-gradient(135deg,#c8962a,#8b6018);border:none;padding:9px 16px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;",C="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#e8b84b;background:rgba(201,151,58,.12);border:1px solid rgba(201,151,58,.5);padding:9px 14px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;";function set(a){A=a;window.DOJO_WALLET=a||null;window.dispatchEvent(new Event('dojo-wallet-change'));if(a){b.textContent='\\u25ce '+sh(a.pubkey);b.setAttribute('style',C);}else{b.textContent='Connect wallet';b.setAttribute('style',G);}}window.dojoNavSetWallet=set;b.onclick=function(){if(A){var dc=function(){try{A.disconnect&&A.disconnect();}catch(e){}set(null);};if(window.DojoProfile)DojoProfile.menu(b,A.pubkey,dc);else dc();return;}if(window.DojoWalletPicker)DojoWalletPicker.pick().then(set).catch(function(){});};if(window.DojoWalletPicker&&DojoWalletPicker.autoConnect)DojoWalletPicker.autoConnect().then(function(a){if(a&&!A)set(a);});})();</script>`;
 for (const gf of ["dojo-flip/index.html", "play/cluck-fu/index.html", "play/teto-wars/index.html", "play/degen-duel/index.html", "play/cock-brawl/index.html"]) {
   const gp = `${OUT}/${gf}`;
   let gh = readFileSync(gp, "utf8");
   gh = gh.replace(/<nav class="(?:flips-nav|gsite-nav)">[\s\S]*?<\/nav>/, storeGameNav);
-  // The store IS the coin app: opt every game into the LOCAL coin economy so it displays +
-  // spends the shared 'dojo_credits' balance (the coins page's) instead of the server-verified
-  // ledger (not wired yet). Set BEFORE any game script runs. Main-site copies stay free demos.
-  if (!gh.includes("DOJO_LOCAL_ECON=1")) gh = gh.replace(/<head(\s[^>]*)?>/i, (m) => m + "\n<script>window.DOJO_LOCAL_ECON=1;</script>");
+  // The store IS the coin app: every game here is PAID from the SERVER coin ledger — a play
+  // signs in (once, 12h) and /api/play debits the coin + verifies the outcome (DojoWallet.begin).
+  // Set BEFORE any game script runs. Main-site copies stay free demos (no flag).
+  if (!gh.includes("DOJO_SERVER_ECON=1")) gh = gh.replace(/<head(\s[^>]*)?>/i, (m) => m + "\n<script>window.DOJO_SERVER_ECON=1;</script>");
   // A consistent wallet button in the nav on every game (connect / ◎ shortPk), shared session.
   if (!gh.includes("navwallet-wire")) gh = gh.replace(/<\/body>/i, walletWire + "</body>");
   writeFileSync(gp, gh);
@@ -167,18 +167,35 @@ copyFileSync(`${ROOT}/scripts/store-fn-verify-cron.mjs`, `${OUT}/netlify/functio
 copyFileSync(`${ROOT}/scripts/store-verify-core.mjs`, `${OUT}/netlify/functions/store-verify-core.mjs`);
 // Shared Dojo Pot ledger — verify-core adds each purchase's pot share; draw reads/resets it.
 copyFileSync(`${ROOT}/scripts/store-pot-core.mjs`, `${OUT}/netlify/functions/store-pot-core.mjs`);
+copyFileSync(`${ROOT}/scripts/store-cas-core.mjs`, `${OUT}/netlify/functions/store-cas-core.mjs`);   // atomic (compare-and-swap) ledger writes
+copyFileSync(`${ROOT}/scripts/store-preacher-core.mjs`, `${OUT}/netlify/functions/store-preacher-core.mjs`);   // shared preacher maths (dashboard + payouts)
 copyFileSync(`${ROOT}/scripts/store-fn-ticket.mjs`, `${OUT}/netlify/functions/ticket.mjs`);
 copyFileSync(`${ROOT}/scripts/store-fn-draw.mjs`, `${OUT}/netlify/functions/draw.mjs`);
+// Weekly payout: the cron commits + draws + plans + notifies; /api/payouts backs the owner's /payouts
+// page (ONE wallet-signed "Pay" click — no key on the server). Shared cores ride along.
+copyFileSync(`${ROOT}/scripts/store-draw-core.mjs`, `${OUT}/netlify/functions/store-draw-core.mjs`);     // commit/draw/verify (draw + payouts)
+copyFileSync(`${ROOT}/scripts/store-payout-core.mjs`, `${OUT}/netlify/functions/store-payout-core.mjs`); // plan + fraud checks + paid verification
+copyFileSync(`${ROOT}/scripts/store-notify.mjs`, `${OUT}/netlify/functions/store-notify.mjs`);           // Telegram / Discord (no-op if unset)
+copyFileSync(`${ROOT}/scripts/store-fn-payout-cron.mjs`, `${OUT}/netlify/functions/payout-cron.mjs`);    // every 10 min: weekly commit → draw → plan → notify
+copyFileSync(`${ROOT}/scripts/store-fn-payouts.mjs`, `${OUT}/netlify/functions/payouts.mjs`);            // /api/payouts (ADMIN_KEY)
 // Anti-cheat backbone: wallet sign-in + server-authoritative play lifecycle.
 // Coins live server-side (credited only by verify.mjs on a confirmed purchase);
 // tickets are minted only by play.mjs after it recomputes the outcome itself.
 copyFileSync(`${ROOT}/scripts/store-fn-auth.mjs`, `${OUT}/netlify/functions/auth.mjs`);
+// Shared auth primitives (SESSION_SECRET tokens, fail-closed; constant-time admin-key checks) — imported by
+// auth/play and the admin-gated functions. Not a function itself (no default export / config).
+copyFileSync(`${ROOT}/scripts/store-session-core.mjs`, `${OUT}/netlify/functions/store-session-core.mjs`);
 copyFileSync(`${ROOT}/scripts/store-fn-mebuy.mjs`, `${OUT}/netlify/functions/mebuy.mjs`);   // Magic Eden universal buy builder (/api/mebuy)
 copyFileSync(`${ROOT}/scripts/store-fn-tensorbuy.mjs`, `${OUT}/netlify/functions/tensorbuy.mjs`);   // Tensor aggregator buy builder — buys ME AMM pools too (/api/tensorbuy)
 copyFileSync(`${ROOT}/scripts/store-fn-dd-listings.mjs`, `${OUT}/netlify/functions/dd-listings.mjs`);   // DD ORE/SKR/USDC AuctionHouse listing index (/api/dd-listings)
 copyFileSync(`${ROOT}/scripts/store-fn-dd-cosign.mjs`, `${OUT}/netlify/functions/dd-cosign.mjs`);   // pNFT buy cosigner (/api/dd-cosign) — holds COSIGNER_SECRET
 copyFileSync(`${ROOT}/scripts/store-fn-dd-royalty.mjs`, `${OUT}/netlify/functions/dd-royalty.mjs`);
 copyFileSync(`${ROOT}/scripts/store-fn-launch-apply.mjs`, `${OUT}/netlify/functions/launch-apply.mjs`);   // /api/launch-apply — launchpad application intake
+// Branded miners: paid signups (ORE fee verified on-chain) + the public config each /m/<slug> loads.
+// Need ADMIN_KEY + SOLANA_RPC; optional OPERATOR_WALLET (default store treasury) + SETUP_FEE_ORE.
+copyFileSync(`${ROOT}/scripts/store-fn-miner-requests.mjs`, `${OUT}/netlify/functions/miner-requests.mjs`);   // /api/miner-requests
+copyFileSync(`${ROOT}/scripts/store-miner-core.mjs`, `${OUT}/netlify/functions/store-miner-core.mjs`);   // pure payment/slug checks, imported by miner-requests
+copyFileSync(`${ROOT}/scripts/store-fn-miner.mjs`, `${OUT}/netlify/functions/miner.mjs`);   // /api/miner?slug= — hosted miner config
 copyFileSync(`${ROOT}/scripts/store-fn-resolve.mjs`, `${OUT}/netlify/functions/resolve.mjs`);   // /api/resolve — find a live listing for a pasted/clicked mint
 copyFileSync(`${ROOT}/scripts/store-fn-tensor-listings.mjs`, `${OUT}/netlify/functions/tensor-listings.mjs`);   // live Tensor book for the tower (/api/tensor-listings)
 copyFileSync(`${ROOT}/scripts/store-royalty-core.mjs`, `${OUT}/netlify/functions/store-royalty-core.mjs`);   // shared royalty→pot sweep
@@ -193,6 +210,10 @@ copyFileSync(`${ROOT}/scripts/duel-pool.mjs`, `${OUT}/netlify/functions/duel-poo
 // Public verification page for the weekly draw.
 copyFileSync(`${ROOT}/scripts/dojo-draw.html`, `${OUT}/draw.html`);
 copyFileSync(`${ROOT}/scripts/dojo-admin.html`, `${OUT}/admin.html`);
+copyFileSync(`${ROOT}/scripts/miner-admin.html`, `${OUT}/miner-admin.html`);   // /miner-admin — approve/reject branded-miner requests (key kept in sessionStorage)
+copyFileSync(`${ROOT}/scripts/preacher-admin.html`, `${OUT}/preacher-admin.html`);   // /preacher-admin — who each preacher brought in + what's owed (ATTR_ADMIN_KEY)
+copyFileSync(`${ROOT}/scripts/payouts.html`, `${OUT}/payouts.html`);   // /payouts — weekly winners + preachers, ONE wallet-signed Pay (ADMIN_KEY in sessionStorage)
+copyFileSync(`${ROOT}/scripts/payout-tx.js`, `${OUT}/payout-tx.js`);   // its tx builder (Jupiter swap + SPL transfers, packed ≤1232B)
 copyFileSync(`${ROOT}/scripts/dojo-credits.html`, `${OUT}/credits.html`);
 // Force the coin-buy page onto the same-origin /api/rpc proxy — never a public/keyed RPC
 // (public mainnet-beta 403s; the proxy uses our Helius with the key held server-side).
@@ -230,8 +251,9 @@ copyFileSync(`${ROOT}/scripts/dojo-buy.js`, `${OUT}/dojo-buy.js`);   // shared i
 mkdirSync(`${OUT}/list`, { recursive: true });
 copyFileSync(`${ROOT}/scripts/dd-list.html`, `${OUT}/list/index.html`);   // the ORE/SKR/USDC "List a Degen" page → /list
 copyFileSync(`${ROOT}/scripts/dojo-flip-engine.mjs`, `${OUT}/dojo-flip-engine.mjs`);   // client loads it as a module
-copyFileSync(`${ROOT}/scripts/chicken-game-mockup.html`, `${OUT}/cluck-fu.html`);
-copyFileSync(`${ROOT}/scripts/teto-wars-game.html`, `${OUT}/teto.html`);
+copyFileSync(`${ROOT}/scripts/dojo-duel-engine.mjs`, `${OUT}/dojo-duel-engine.mjs`);   // Degen Duel deals the server's seeded hands with it (window.DuelEngine)
+// (The old free-demo copies /cluck-fu.html, /teto.html and /flip.html are no longer shipped — they
+// 301 to the real coin-paid games, see _redirects.)
 copyFileSync(`${ROOT}/scripts/teto.png`, `${OUT}/teto.png`);   // the TETO potato image (referenced as /teto.png)
 copyFileSync(`${ROOT}/scripts/teto-board.jpg`, `${OUT}/teto-board.jpg`);   // shoji + DD logo board background
 copyFileSync(`${ROOT}/scripts/dd-logo.png`, `${OUT}/dd-logo.png`);
@@ -239,15 +261,17 @@ copyFileSync(`${ROOT}/scripts/dd-logo.png`, `${OUT}/dd-logo.png`);
 // app opens FULL-SCREEN with no browser address bar. Served at /.well-known/assetlinks.json.
 mkdirSync(`${OUT}/.well-known`, { recursive: true });
 copyFileSync(`${ROOT}/scripts/assetlinks.json`, `${OUT}/.well-known/assetlinks.json`);
-copyFileSync(`${ROOT}/scripts/dojo-flip.html`, `${OUT}/flip.html`);
 
 // The market (shelf) browse page — featured collections from the bundled index.
 {
   const index = JSON.parse(readFileSync(`${ROOT}/scripts/collections-index.json`, "utf8"));
   const featured = index.slice(0, 8);
   let shelf = readFileSync(`${ROOT}/scripts/shelf-mockup.html`, "utf8");
+  // Collection names/logos come from Magic Eden (untrusted): HTML-safe JSON (no </script> breakout) and a
+  // FUNCTION replacer (a string one would expand "$'"/"$&" inside a collection name).
+  const { jsonForScript } = await import("./html-safe.mjs");
   shelf = shelf.replace("let COLLECTIONS = window.__DATA__ || [];",
-    `window.__DATA__ = ${JSON.stringify(featured)};\nlet COLLECTIONS = window.__DATA__ || [];`);
+    () => `window.__DATA__ = ${jsonForScript(featured)};\nlet COLLECTIONS = window.__DATA__ || [];`);
   writeFileSync(`${OUT}/market.html`, shelf);
   copyFileSync(`${ROOT}/scripts/collections-index.json`, `${OUT}/collections-index.json`);
 }
@@ -374,13 +398,12 @@ copyFileSync(`${ROOT}/scripts/store-sw.js`, `${OUT}/sw.js`);
 for (const ic of ["icon-192.png", "icon-512.png", "icon-192-maskable.png", "icon-512-maskable.png"]) {
   if (existsSync(`${ROOT}/scripts/${ic}`)) copyFileSync(`${ROOT}/scripts/${ic}`, `${OUT}/${ic}`);
 }
-// Digital Asset Links — replace the "REPLACE_ME" fingerprint with the real one from
-// `bubblewrap fingerprint generateAssetLinks` before the TWA hides the URL bar.
-mkdirSync(`${OUT}/.well-known`, { recursive: true });
-writeFileSync(`${OUT}/.well-known/assetlinks.json`, JSON.stringify([{
-  relation: ["delegate_permission/common.handle_all_urls"],
-  target: { namespace: "android_app", package_name: "xyz.degendojo.app", sha256_cert_fingerprints: ["REPLACE_ME_WITH_APK_SHA256"] },
-}], null, 2));
+// Digital Asset Links: served from scripts/assetlinks.json (copied above, package xyz.degendojo.store.twa).
+// A leftover block here used to OVERWRITE it with a "REPLACE_ME_WITH_APK_SHA256" / xyz.degendojo.app
+// placeholder, so the live store never verified the TWA. Guard against that ever coming back:
+if (/REPLACE_ME/.test(readFileSync(`${OUT}/.well-known/assetlinks.json`, "utf8"))) {
+  throw new Error("assetlinks.json is a placeholder — put the real APK signing fingerprint in scripts/assetlinks.json");
+}
 // Inject the manifest link, theme color, and SW registration into the store shell.
 {
   let idx = readFileSync(`${OUT}/index.html`, "utf8");
@@ -408,6 +431,7 @@ writeFileSync(`${OUT}/_redirects`,
   "/api/verify  /.netlify/functions/verify  200\n" +
   "/api/ticket  /.netlify/functions/ticket  200\n" +
   "/api/draw  /.netlify/functions/draw  200\n" +
+  "/api/payouts  /.netlify/functions/payouts  200\n" +
   "/api/auth  /.netlify/functions/auth  200\n" +
   "/api/play  /.netlify/functions/play  200\n" +
   "/api/mebuy  /.netlify/functions/mebuy  200\n" +
@@ -418,11 +442,20 @@ writeFileSync(`${OUT}/_redirects`,
   "/api/launch-apply  /.netlify/functions/launch-apply  200\n" +
   "/api/resolve  /.netlify/functions/resolve  200\n" +
   "/api/tensor-listings  /.netlify/functions/tensor-listings  200\n" +
+  "/api/miner-requests  /.netlify/functions/miner-requests  200\n" +
+  "/api/miner  /.netlify/functions/miner  200\n" +
   "/nft/*  /.netlify/functions/nft  200\n" +
+  // Hosted branded miners: /m/<slug> is the /mine page; it reads the slug from the URL and
+  // loads that collection's name/tip wallet/25 NFTs from /api/miner?slug=.
+  "/m/*  /mine.html  200\n" +
   // Shelves retired → send any old links to the store home so nothing 404s.
   "/shelves  /  301\n" +
   "/shelves-100  /  301\n" +
   "/shelves-100.html  /  301\n" +
+  // Old free-demo game copies → the real coin-paid games (no free side door around server coins).
+  "/cluck-fu.html  /play/cluck-fu/  301\n" +
+  "/teto.html  /play/teto-wars/  301\n" +
+  "/flip.html  /dojo-flip/  301\n" +
   // The games' shared nav points at main-site-only content (/lore /traits /framed /ore /teahouse);
   // the store hosts Play + the games itself, so send only those to the main site (Play/dojo-flip stay local).
   "/lore  https://degendojo.xyz/lore  301\n" +
@@ -457,6 +490,16 @@ writeFileSync(
     "  Cache-Control: public, max-age=0, must-revalidate",
     "/create",
     "  Cache-Control: public, max-age=0, must-revalidate",
+    "/m/*",
+    "  Cache-Control: public, max-age=0, must-revalidate",
+    "/miner-admin",
+    "  Cache-Control: no-store",
+    "/preacher-admin",
+    "  Cache-Control: no-store",
+    "/payouts",
+    "  Cache-Control: no-store",
+    "/payouts.html",
+    "  Cache-Control: no-store",
     "",
   ].join("\n"),
 );
@@ -486,7 +529,9 @@ writeFileSync(
 // zip gets no `npm install`, so without this the functions crash with "Cannot find package
 // '@netlify/blobs'". Installed at the deploy root so Node resolves it for every function.
 console.log("Vendoring @netlify/blobs into the deploy (functions dependency)…");
-writeFileSync(`${OUT}/package.json`, JSON.stringify({ private: true, dependencies: { "@netlify/blobs": "^8.2.0", "bs58": "^6.0.0" } }, null, 2));   // dd-cosign is web3-free (Node crypto) — only bs58 needed
+// @netlify/blobs is PINNED to 10.7.13: conditional writes (onlyIfMatch/onlyIfNew, store-cas-core.mjs)
+// need >= 10, setJSON only honours them from 10.7.12, and 11.x requires Node >= 22.12.
+writeFileSync(`${OUT}/package.json`, JSON.stringify({ private: true, dependencies: { "@netlify/blobs": "10.7.13", "bs58": "^6.0.0" } }, null, 2));   // dd-cosign is web3-free (Node crypto) — only bs58 needed
 execSync("npm install --omit=dev --no-audit --no-fund", { cwd: OUT, stdio: "inherit" });
 
 // The ORE miner (degen-dojo-ore) is a separate Next.js app; we fold its STATIC EXPORT

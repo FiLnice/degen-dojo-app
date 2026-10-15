@@ -8,10 +8,11 @@
 //
 // Run it on a schedule or hit it manually. Needs SOLANA_RPC + TREASURY_WALLET + ADMIN_KEY.
 import { verifyPurchases } from "./store-verify-core.mjs";
+import { adminKeyOk } from "./store-session-core.mjs";
 
 export default async (request) => {
   const url = new URL(request.url);
-  if ((url.searchParams.get("key") || "") !== (process.env.ADMIN_KEY || "\0")) return new Response("forbidden", { status: 403 });
+  if (!adminKeyOk(url.searchParams.get("key"), "ADMIN_KEY")) return new Response("forbidden", { status: 403 });
   const summary = await verifyPurchases({ strictReject: true });   // admin path rejects unreadable txs
   return new Response(JSON.stringify(summary), { headers: { "content-type": "application/json", "cache-control": "no-store" } });
 };

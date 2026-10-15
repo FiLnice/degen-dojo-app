@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NFT Rescue — recover NFTs stuck in a rugged staking program | Degen Dojo</title>
+<meta name="description" content="Free read-only tool: paste a Solana wallet to find NFTs still trapped in a staking program that rugged or disappeared — frozen in place or sitting in an escrow vault. It tells staking locks apart from normal freezes. Nothing is signed; no key is ever asked for.">
+<meta name="robots" content="index,follow">
+<link rel="canonical" href="https://degendojo.xyz/rescue/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="NFT Rescue — find NFTs stuck in a rugged staking program">
+<meta property="og:description" content="Paste a wallet to find NFTs frozen or escrowed by a staking program that disappeared. Read-only, non-custodial. Built by Degen Dojo.">
+<meta property="og:url" content="https://degendojo.xyz/rescue/">
+<meta property="og:image" content="https://degendojo.xyz/og-cover.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="NFT Rescue — find NFTs stuck in a rugged staking program">
+<meta name="twitter:description" content="Read-only diagnostic that finds NFTs trapped by a staking program that rugged. No wallet connection, no signing.">
+<meta name="twitter:image" content="https://degendojo.xyz/og-cover.png">
+<link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
+<link rel="icon" href="/favicon-32.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Degen Dojo NFT Rescue","applicationCategory":"UtilityApplication","operatingSystem":"Web","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"description":"Read-only tool that scans a Solana wallet for NFTs stuck in a staking program that rugged or disappeared — frozen in place or held in an escrow vault, told apart from normal freezes.","url":"https://degendojo.xyz/rescue/"}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#12100E; --ink-2:#1B1815; --ink-3:#241F1B;
+  --line:#2E2822; --line-2:#3A322B;
+  --cream:#F2E9DC; --dust:#8C8175; --stone:#C4B8A8;
+  --blood:#8E2226; --blood-lit:#A62D31;
+  --gold:#C9A227; --jade:#7FA86A;
+  --sans:'Archivo',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--ink); color:var(--cream); font-family:var(--sans);
+  font-size:15px; line-height:1.6; -webkit-font-smoothing:antialiased;
+}
+
+/* --- site chrome --- */
+.sitehd{
+  display:flex; align-items:center; gap:12px 20px; flex-wrap:wrap;
+  padding:14px 22px; border-bottom:1px solid var(--line); background:var(--ink-2);
+}
+.sitehd .brand{display:flex; align-items:center; gap:9px; color:var(--cream);
+  text-decoration:none; font-weight:600; font-size:16px; letter-spacing:-.01em}
+.sitehd .brand img{height:24px; width:auto; display:block; border-radius:4px}
+.sitehd nav{display:flex; flex-wrap:wrap; gap:16px; font-size:13px}
+.sitehd nav a{color:var(--stone); text-decoration:none}
+.sitehd nav a:hover{color:var(--gold)}
+.sitehd nav a.here{color:var(--gold)}
+.langBtn{margin-left:auto; padding:5px 13px; background:rgba(201,162,39,.14);
+  border:1px solid rgba(201,162,39,.45); color:var(--gold); border-radius:6px;
+  cursor:pointer; font-family:inherit; font-size:12px; white-space:nowrap}
+
+.page{padding:32px 20px 80px}
+.wrap{max-width:860px;margin:0 auto}
+
+.eyebrow{
+  font-family:var(--mono); font-size:11px; letter-spacing:.18em;
+  text-transform:uppercase; color:var(--gold); margin:0 0 10px;
+}
+h1{font-size:30px; font-weight:600; letter-spacing:-.02em; margin:0 0 8px}
+.lede{color:var(--dust); margin:0 0 18px; max-width:62ch}
+.supported{margin:0 0 26px; padding:11px 14px; border:1px solid rgba(127,168,106,.35);
+  background:rgba(127,168,106,.08); border-radius:8px; font-size:13.5px; color:var(--cream); max-width:66ch}
+.supported #farmList{color:var(--jade)}
+.supported .smut{color:var(--dust); font-weight:400}
+
+.panel{background:var(--ink-2); border:1px solid var(--line); border-radius:10px; padding:20px}
+.explain.panel{margin-top:26px}
+.explain.panel h2{margin-top:0}
+.explain.panel p{color:var(--dust); font-size:13.5px; margin:0 0 10px; max-width:none}
+.explain .fine{font-size:12px}
+.tipbox{margin-top:18px}
+.tip-head{font-weight:600; color:var(--gold); font-size:15px; margin-bottom:8px}
+.tip-head .opt{color:var(--dust); font-weight:400; font-size:12.5px}
+.tip-p{color:var(--dust); font-size:13.5px; margin:0 0 12px; max-width:70ch}
+.tip-addr{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+.tip-addr code{background:var(--ink); border:1px solid var(--line-2); border-radius:6px; padding:9px 12px; color:var(--cream); font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:13px}
+.field{margin-bottom:16px}
+.field:last-child{margin-bottom:0}
+label{display:block; font-size:12px; letter-spacing:.08em; text-transform:uppercase;
+  color:var(--dust); margin-bottom:6px; font-weight:500}
+input,select{
+  width:100%; background:var(--ink); color:var(--cream);
+  border:1px solid var(--line-2); border-radius:6px; padding:11px 13px;
+  font-family:var(--mono); font-size:13px; outline:none;
+}
+input:focus,select:focus{border-color:var(--gold)}
+input::placeholder{color:#5A5249}
+select{cursor:pointer}
+.hint{font-size:12px; color:var(--dust); margin-top:6px}
+.hint a{color:var(--gold)}
+.row{display:grid; grid-template-columns:1fr 190px; gap:14px}
+@media(max-width:620px){.row{grid-template-columns:1fr}}
+
+.actions{display:flex; align-items:center; gap:12px; margin-top:20px; flex-wrap:wrap}
+button{
+  font-family:var(--sans); font-size:14px; font-weight:500; cursor:pointer;
+  border-radius:6px; padding:11px 20px; border:1px solid transparent;
+  transition:background .12s ease, border-color .12s ease;
+}
+.btn-go{background:var(--blood); color:var(--cream)}
+.btn-go:hover:not(:disabled){background:var(--blood-lit)}
+.btn-go:disabled{opacity:.45; cursor:not-allowed}
+.btn-ghost{background:transparent; color:var(--stone); border-color:var(--line-2)}
+.btn-ghost:hover{border-color:var(--gold); color:var(--cream)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--gold); outline-offset:2px}
+
+.err{
+  margin-top:14px; padding:12px 14px; border-radius:6px;
+  background:#2A1516; border:1px solid #5C2325; color:#E9A9AB; font-size:13px;
+}
+.err code{font-family:var(--mono); color:var(--cream)}
+
+.sec{margin-top:34px}
+.sec-head{
+  display:flex; align-items:baseline; gap:10px; margin-bottom:12px;
+  border-bottom:1px solid var(--line); padding-bottom:8px;
+}
+.sec-head h2{font-size:13px; font-weight:500; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--dust); margin:0}
+.sec-head .count{font-family:var(--mono); font-size:12px; color:var(--gold); margin-left:auto}
+
+#console{
+  background:#0C0A09; border:1px solid var(--line); border-radius:8px;
+  font-family:var(--mono); font-size:12.5px; line-height:1.75;
+  padding:14px 16px; max-height:280px; overflow-y:auto;
+}
+.ln{display:flex; gap:10px; white-space:pre-wrap; word-break:break-all}
+.ln .t{color:#4E463E; flex-shrink:0}
+.ln.i .m{color:var(--stone)}
+.ln.d .m{color:#6E655B}
+.ln.g .m{color:var(--jade)}
+.ln.w .m{color:var(--gold)}
+.ln.e .m{color:#E9797C}
+.cursor{display:inline-block;width:7px;height:13px;background:var(--gold);
+  animation:blink 1.1s steps(1) infinite;vertical-align:-2px}
+@keyframes blink{50%{opacity:0}}
+@media(prefers-reduced-motion:reduce){.cursor{animation:none}}
+
+.stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr));
+  gap:10px; margin-bottom:20px}
+.stat{background:var(--ink-2); border-radius:8px; padding:13px 15px}
+.stat .k{font-size:11px; letter-spacing:.09em; text-transform:uppercase; color:var(--dust)}
+.stat .v{font-size:24px; font-weight:600; margin-top:3px}
+.stat .v.gold{color:var(--gold)}
+
+.prog{border:1px solid var(--line); border-radius:9px; margin-bottom:16px; overflow:hidden}
+.prog-head{background:var(--ink-2); padding:13px 16px; border-bottom:1px solid var(--line)}
+.prog-head .pl{font-size:14px; font-weight:500; margin-bottom:4px}
+.prog-head .pid{font-family:var(--mono); font-size:11.5px; color:var(--gold);
+  text-decoration:none; word-break:break-all}
+.prog-head .pid:hover{text-decoration:underline}
+
+.nft{padding:13px 16px; border-bottom:1px solid var(--line)}
+.nft:last-child{border-bottom:none}
+.nft .nm{font-size:13.5px; font-weight:500; margin-bottom:7px}
+.tag{display:inline-block; font-family:var(--mono); font-size:10.5px;
+  padding:2px 8px; border-radius:4px; margin-left:8px; vertical-align:1px; font-weight:500}
+.tag.froz{background:#2A2118; color:var(--gold)}
+.tag.escr{background:#1C2618; color:var(--jade)}
+dl{display:grid; grid-template-columns:88px 1fr; gap:3px 12px; margin:0; font-size:12px}
+dt{color:var(--dust)}
+dd{margin:0; font-family:var(--mono); color:var(--stone); word-break:break-all}
+dd a{color:var(--gold); text-decoration:none}
+dd a:hover{text-decoration:underline}
+
+.nft .why{font-size:12.5px; color:var(--dust); margin:0 0 8px; line-height:1.5}
+.bucket{margin-bottom:28px}
+.wstatus{margin-top:12px;font-size:13px;color:var(--jade);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.wstatus code{background:var(--ink);border:1px solid var(--line-2);border-radius:5px;padding:2px 7px;color:var(--cream);font-family:var(--mono)}
+.wdot{width:9px;height:9px;border-radius:50%;display:inline-block;background:#5ec26a}
+.btn-go.wconn{background:transparent;color:var(--jade);border-color:var(--jade)}
+.sboxes{margin:6px 0 30px;display:grid;gap:18px}
+.sbox{border:1px solid var(--line);border-radius:12px;padding:16px 18px;background:var(--ink-2)}
+.sbox.soft{border-color:rgba(94,194,106,.42)}
+.sbox.freeze{border-color:rgba(201,162,39,.35)}
+.sbox.escrow{border-color:rgba(180,70,70,.38)}
+.sbox-h{display:flex;align-items:center;gap:9px;font-weight:600;font-size:15px;color:var(--cream)}
+.sbox-h .cnt{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--dust);background:var(--ink);border:1px solid var(--line-2);border-radius:20px;padding:2px 10px}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+.dot.g{background:#5ec26a} .dot.y{background:#d8a72a} .dot.r{background:#c0504e}
+.sbox-n{color:var(--dust);font-size:12.5px;margin:8px 0 14px;line-height:1.55}
+.sbox-e{color:var(--dust);font-size:12.5px;font-style:italic;margin:0}
+.act{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:10px;padding-top:12px;border-top:1px solid var(--line)}
+.usk{background:var(--jade);color:#0e1a0c;border:none;border-radius:7px;padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer}
+.usk:hover:not(:disabled){filter:brightness(1.08)}
+.usk:disabled{cursor:not-allowed;opacity:.6}
+.usk.off{background:var(--ink);color:var(--dust);border:1px solid var(--line-2)}
+.anote{font-size:12px;color:var(--dust)}
+.nft.unstaked{opacity:.5}
+.bh{font-size:12px; font-weight:500; letter-spacing:.13em; text-transform:uppercase;
+  color:var(--stone); margin:0 0 8px}
+.bh.sum{cursor:pointer; list-style:none; padding:10px 13px; background:var(--ink-2);
+  border:1px solid var(--line); border-radius:7px; margin-bottom:0}
+.bh.sum::-webkit-details-marker{display:none}
+.bh.sum::before{content:'▸ '; color:var(--gold)}
+details[open] .bh.sum::before{content:'▾ '}
+details[open] .bh.sum{border-radius:7px 7px 0 0; margin-bottom:12px}
+.bn{font-size:12.5px; color:var(--dust); margin:0 0 12px; max-width:66ch; line-height:1.55}
+.empty{text-align:center; padding:34px 20px; border:1px dashed var(--line-2); border-radius:9px}
+.empty .h{font-size:16px; font-weight:500; margin-bottom:6px}
+.empty .p{color:var(--dust); font-size:13.5px; max-width:48ch; margin:0 auto}
+.hidden{display:none}
+
+.explain{margin-top:40px; border-top:1px solid var(--line); padding-top:26px}
+.explain h2{font-size:15px; font-weight:600; margin:0 0 12px}
+.explain h3{font-size:13px; font-weight:600; color:var(--stone); margin:20px 0 6px}
+.explain p{color:var(--dust); font-size:13.5px; max-width:70ch; margin:0 0 10px}
+.explain code{font-family:var(--mono); color:var(--stone); font-size:12.5px}
+
+footer.ft{margin-top:44px; padding:22px; border-top:1px solid var(--line);
+  font-size:12.5px; color:var(--dust); background:var(--ink-2)}
+footer.ft a{color:var(--gold); text-decoration:none}
+footer.ft a:hover{text-decoration:underline}
+footer.ft .disc{display:block; margin-top:10px; color:#6E655B; max-width:76ch}
+</style>
+</head>
+<body>
+
+<div class="page">
+<div class="wrap">
+
+  <p class="eyebrow" data-ja="道場レスキュー · 診断ツール">Dojo rescue · diagnostic</p>
+  <h1 data-ja="ステーク先が消えたNFTを探す">Find NFTs a dead project is still holding</h1>
+  <p class="lede" data-ja="プロジェクトがラグして消えても、あなたのNFTはまだステーキングプログラムの中に残っていることがあります。ウォレットを接続（またはアドレスを貼付）すると、ステークされたNFTを ソフトステーク・フリーズ型・エスクロー保管庫 の3つに分類して表示します。ソフトステークはこの場でアンステーク（デリゲートのRevoke）でき、どのコレクションでも動作します。残りは診断してプログラムIDをお渡しします。">Staked into a project that rugged and vanished? Your NFT may still be locked in its
+  staking program. Connect your wallet (or paste an address) to see everything staked, sorted into
+  <b>soft-stake</b>, <b>freeze-based</b>, and <b>escrow/vault</b>. Soft-stakes you can
+  <b>unstake right here</b> — works for any collection; the rest we diagnose and hand you the program ID.</p>
+
+  <p class="supported">🛟 <b>One-click rescue</b> (unstake + withdraw) is verified for:
+    <b id="farmList">Atadia</b><span class="smut"> — more collections are added here as each one is confirmed working.</span></p>
+
+  <div class="panel">
+    <div class="field">
+      <label for="rpc" data-ja="RPCエンドポイント（任意）">RPC endpoint (optional)</label>
+      <input id="rpc" type="text" spellcheck="false" placeholder="https://mainnet.helius-rpc.com/?api-key=…">
+      <p class="hint" data-ja="空欄のままでOK — 公開エンドポイントでクイックスキャンが動きます。ディープスキャン、NFT名の表示、そして正確な分類には、無料の Helius キーを推奨します（<a href='https://helius.dev' target='_blank' rel='noopener'>helius.dev</a>）。キーはこのブラウザ内にのみ保存されます。">Leave blank to use a public endpoint for a quick scan. For deep scans, NFT names, and
+      accurate classification, a free key from <a href="https://helius.dev" target="_blank" rel="noopener">helius.dev</a> is recommended.
+      The key is stored in this browser only and never leaves it.</p>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label for="wallet" data-ja="ウォレットアドレス">Wallet address</label>
+        <input id="wallet" type="text" spellcheck="false" placeholder="7xKq…9mNv">
+      </div>
+      <div class="field">
+        <label for="depth" data-ja="スキャンの深さ">Scan depth</label>
+        <select id="depth">
+          <option value="300" data-ja="300署名 — クイック">300 signatures — quick</option>
+          <option value="1000" selected data-ja="1,000 — 標準">1,000 — standard</option>
+          <option value="3000" data-ja="3,000 — 深い">3,000 — deep</option>
+          <option value="10000" data-ja="10,000 — 徹底">10,000 — exhaustive</option>
+        </select>
+      </div>
+    </div>
+    <div class="actions">
+      <button id="connect" class="btn-go">Connect wallet</button>
+      <button id="run" class="btn-ghost" data-ja="スキャン開始">Scan an address</button>
+      <button id="copy" class="btn-ghost hidden" data-ja="JSONをコピー">Copy JSON</button>
+    </div>
+    <p class="hint" data-ja="ウォレットを接続すると、ソフトステーク（デリゲート方式）のNFTをその場でアンステークできます。アドレスを貼るだけなら読み取り専用の診断になります。">Connect your wallet to <b>unstake</b> soft-staked NFTs in place. Or just paste an address for a read-only scan.</p>
+    <div id="wstatus" class="wstatus hidden"></div>
+    <div id="err" class="err hidden"></div>
+  </div>
+
+  <div class="panel tipbox">
+    <div class="tip-head">☕ Tip the tool <span class="opt">— optional</span></div>
+    <p class="tip-p" data-ja="このスキャナーは無料・読み取り専用です。役に立ったら運営費のチップを歓迎します。SOL・ORE・SKR を下記へどうぞ。">This scanner is free and read-only. If it helped you recover a stuck NFT, a tip keeps it running — <b>SOL, ORE or SKR</b> all welcome:</p>
+    <div class="tip-addr"><code id="tipAddr">shamanchef.sol</code><button type="button" class="btn-ghost tip-copy" onclick="try{navigator.clipboard.writeText(document.getElementById('tipAddr').textContent);}catch(e){}var b=this,o=b.textContent;b.textContent='Copied ✓';setTimeout(function(){b.textContent=o;},1800);">Copy address</button></div>
+  </div>
+
+  <div id="consoleSec" class="sec hidden">
+    <div class="sec-head"><h2 data-ja="スキャンログ">Scan log</h2><span class="count" id="rpcCount"></span></div>
+    <div id="console"></div>
+  </div>
+
+  <div id="results" class="sec hidden"></div>
+
+  <div class="explain panel">
+    <h2 data-ja="結果の読み方">How to read the result</h2>
+    <p data-ja="結果は3つに分類されます:">Every finding is sorted into three buckets:</p>
+    <p data-ja="<b>Stuck</b> — プログラムまたはその保管庫が保持。回収が狙うのはこれで、プログラムIDが出発点です。"><b>Stuck</b> — held by a program or in its vault. This is what a recovery targets; the program ID is your starting point.</p>
+    <p data-ja="<b>要確認</b> — プログラムは関与するが曖昧（デリゲートはロックか出品か）。まずSolscanでミントを確認してください。"><b>Needs review</b> — a program is involved but ambiguous (a delegate can be a staking lock or a marketplace listing). Check the mint on Solscan first.</p>
+    <p data-ja="<b>問題なし</b> — ステーキング以外で凍結（pNFTは設計上凍結）。解除するものはありません。"><b>Cleared</b> — frozen but not staked (pNFTs are frozen by design). Nothing to undo.</p>
+    <p class="fine" data-ja="検出はヒューリスティックです。必ずSolscanでIDを確認してください。詰まっているものは <a href='https://www.discord.gg/FwgpnZPzMq' target='_blank' rel='noopener'>Discord</a> へ。">Detection is heuristic — always confirm the program ID on Solscan. Found something stuck? Bring it to our <a href="https://www.discord.gg/FwgpnZPzMq" target="_blank" rel="noopener">Discord</a>.</p>
+  </div>
+
+</div>
+</div>
+
+<footer class="ft">
+  <a href="https://degendojo.xyz/explore/">Enter the Dojo →</a> ·
+  Degen Dojo on Solana ·
+  <a href="https://degendojo.xyz/license/">License</a>
+  <span class="disc" data-ja="スキャンは読み取り専用です。取引を送信するのは Unstake（デリゲートのRevoke）と Rescue（GemFarmのアンステーク＋引き出し）だけで、いずれもあなたのウォレットで署名し、署名前に必ずシミュレーションします。秘密鍵を要求することは一切ありません。検出はヒューリスティックで、リカバリー手段を保証しません。">The scan is read-only. Only <b>Unstake</b> (a standard delegate <em>Revoke</em>) and <b>Rescue</b> (a GemFarm unstake + withdraw) send a transaction — both are signed in your own wallet and <b>simulated before you sign</b>. No key is ever asked for. Detection is heuristic and does not guarantee a recovery path exists.</span>
+</footer>
+
+<script src="/web3.js"></script>
+<script src="/wallet-picker.js"></script>
+<script>
+/* ---- rescue tool ---- */
+const TOKEN='TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
+const TOKEN22='TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb';
+const SYSTEM='11111111111111111111111111111111';
+const ATA='ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL';
+const MEMO='MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr';
+const CBUDGET='ComputeBudget111111111111111111111111111111';
+const META='metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s';
+const BORING=new Set([TOKEN,TOKEN22,SYSTEM,ATA,MEMO,CBUDGET,META]);
+
+// Public fallback so the page works with no key. Rate-limited and cannot resolve
+// NFT names or token standards (DAS is Helius-only), so classification is coarser —
+// a free Helius key is far better for deep scans and accurate buckets.
+const PUBLIC_RPC='https://api.mainnet-beta.solana.com';
+
+// ── GemFarm (Gemworks) one-click rescue ──────────────────────────────────────
+// An abandoned GemFarm holds your NFT in a vault that YOU own — so the holder can
+// still unstake + withdraw it even though the farm operator is gone. Fully
+// reverse-engineered + verified against a real on-chain tx (see GEMFARM-RESCUE-SPEC.md).
+const FARM_PROG='farmL4xeBFVXJqtfxCzU9b28QACM7E2W2ctT6epAjvE';
+const BANK_PROG='bankHHdqMuaaST4qQk6mkzxGeKPHWmqdgor6Gs8r88m';
+const GEMFARM_FEE='2xhBxVVuXkdq2MRKerE9mr2s1szfHSedy21MVqf8gPoM';   // GemFarm's own unstake fee wallet
+const UNSTAKE_DISC='5a5f6b2acd7c32e1';
+const WITHDRAW_DISC='e719270d6cd16213';
+const RENT='SysvarRent111111111111111111111111111111111';
+// Where the tool fee goes (the Dojo pot wallet) + how much. Flat, no discounts.
+const RESCUE_FEE_WALLET='ED3GMCfoX3XNvavnWADvd6oCsohGg1ukdhv3PaUpvwJe';
+const RESCUE_FEE_SOL=0.01;
+// Known GemFarm farms → their bank. Add a new {name,farm,bank} to support more.
+const FARMS=[
+  {name:'Atadia', farm:'1G72FGcqtc3ZbC8guy87rMB7MSeEpce7FDgW3es8RdY', bank:'2o8DnjzW8WZSLNMo8DEbaAoScx7i7w1bAsL5h8tq6dJe'},
+];
+
+const KNOWN={[BANK_PROG]:'GemBank vault (GemFarm)',[FARM_PROG]:'GemFarm staking'};
+// keep the "verified for" line in sync with the registry — add a farm above, it lists itself here
+try{ const _fl=document.getElementById('farmList'); if(_fl) _fl.textContent=FARMS.map(f=>f.name).join(', ')||'—'; }catch(e){}
+
+const $=id=>document.getElementById(id);
+const el={rpc:$('rpc'),wallet:$('wallet'),depth:$('depth'),run:$('run'),copy:$('copy'),connect:$('connect'),
+  err:$('err'),con:$('console'),conSec:$('consoleSec'),res:$('results'),rpcCount:$('rpcCount'),wstatus:$('wstatus')};
+
+try{
+  const saved=localStorage.getItem('dojo_rpc');
+  if(saved) el.rpc.value=saved;
+  const d=localStorage.getItem('dojo_depth');
+  if(d) el.depth.value=d;
+}catch(e){}
+
+let RPC='',calls=0,payload=null,cursorLine=null;
+
+function stamp(){
+  const d=new Date();
+  return d.toTimeString().slice(0,8);
+}
+function say(msg,kind='i'){
+  if(cursorLine){cursorLine.remove();cursorLine=null;}
+  const line=document.createElement('div');
+  line.className='ln '+kind;
+  const t=document.createElement('span');t.className='t';t.textContent=stamp();
+  const m=document.createElement('span');m.className='m';m.textContent=msg;
+  line.append(t,m);
+  el.con.appendChild(line);
+  cursorLine=document.createElement('div');
+  cursorLine.className='ln';
+  cursorLine.innerHTML='<span class="t">'+stamp()+'</span><span class="m"><span class="cursor"></span></span>';
+  el.con.appendChild(cursorLine);
+  el.con.scrollTop=el.con.scrollHeight;
+  el.rpcCount.textContent=calls+' rpc calls';
+}
+function stopCursor(){ if(cursorLine){cursorLine.remove();cursorLine=null;} }
+
+function showErr(html){ el.err.innerHTML=html; el.err.classList.remove('hidden'); }
+function hideErr(){ el.err.classList.add('hidden'); }
+
+async function rpc(method,params,attempt=0){
+  calls++;
+  let r;
+  try{
+    r=await fetch(RPC,{method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({jsonrpc:'2.0',id:1,method,params})});
+  }catch(e){
+    if(attempt<3){return wait(method,params,attempt,'network');}
+    const err=new Error('NETWORK');err.network=true;throw err;
+  }
+  if(r.status===429||r.status>=500){
+    if(attempt<4) return wait(method,params,attempt,'http '+r.status);
+    throw new Error(method+': http '+r.status);
+  }
+  if(r.status===401||r.status===403) throw new Error('RPC rejected the request — check your API key');
+  const b=await r.json();
+  if(b.error){
+    if(attempt<4&&/rate|limit|busy|exceed/i.test(b.error.message||'')) return wait(method,params,attempt,'rate limit');
+    throw new Error(method+': '+b.error.message);
+  }
+  return b.result;
+}
+function wait(method,params,attempt,why){
+  const ms=400*Math.pow(2,attempt);
+  say('  retry '+method+' in '+ms+'ms ('+why+')','d');
+  return new Promise(res=>setTimeout(res,ms)).then(()=>rpc(method,params,attempt+1));
+}
+async function pool(items,size,fn){
+  const out=[];
+  for(let i=0;i<items.length;i+=size){
+    out.push(...await Promise.all(items.slice(i,i+size).map(fn)));
+  }
+  return out;
+}
+
+async function tokenAccounts(owner){
+  const all=[];
+  for(const programId of [TOKEN,TOKEN22]){
+    let r;
+    try{ r=await rpc('getTokenAccountsByOwner',[owner,{programId},{encoding:'jsonParsed'}]); }
+    catch(e){ if(programId===TOKEN22) continue; throw e; }
+    for(const a of (r&&r.value)||[]){
+      const i=a.account.data.parsed.info;
+      all.push({address:a.pubkey,mint:i.mint,amount:i.tokenAmount.amount,
+        decimals:i.tokenAmount.decimals,state:i.state,delegate:i.delegate||null,program:programId});
+    }
+  }
+  return all;
+}
+const isNft=a=>a.decimals===0&&a.amount==='1';
+
+const ownerCache=new Map();
+async function owningProgram(pk){
+  if(ownerCache.has(pk)) return ownerCache.get(pk);
+  let o=null;
+  try{ const r=await rpc('getAccountInfo',[pk,{encoding:'base64'}]); o=(r&&r.value&&r.value.owner)||null; }catch(e){}
+  ownerCache.set(pk,o);
+  return o;
+}
+
+// A frozen token account does NOT mean staked. Programmable NFTs are frozen
+// permanently by design, and plenty of collections freeze on mint. Classify
+// the freeze by asking who holds the delegate and who owns the freeze authority.
+async function classifyFrozen(accs,das){
+  const f=accs.filter(a=>isNft(a)&&a.state==='frozen');
+  say(f.length+' frozen NFT'+(f.length===1?'':'s')+' in wallet — classifying each freeze','d');
+  if(!f.length) return [];
+
+  return pool(f,4,async a=>{
+    let freezeAuth=null;
+    try{
+      const r=await rpc('getAccountInfo',[a.mint,{encoding:'jsonParsed'}]);
+      const i=r&&r.value&&r.value.data&&r.value.data.parsed&&r.value.data.parsed.info;
+      freezeAuth=(i&&i.freezeAuthority)||null;
+    }catch(e){}
+
+    const faOwner=freezeAuth?await owningProgram(freezeAuth):null;
+    const delOwner=a.delegate?await owningProgram(a.delegate):null;
+    const d=das.get(a.mint)||{};
+    const isPnft=d.iface==='ProgrammableNFT';
+    const std=(k)=>k&&k!==SYSTEM&&k!==META&&k!==TOKEN&&k!==TOKEN22;
+
+    let verdict,reason,program=null;
+
+    if(std(delOwner)){
+      verdict='stuck'; program=delOwner;
+      reason='delegate is held by a non-standard program';
+    } else if(a.delegate&&delOwner===META){
+      verdict='review'; program=META;
+      reason=isPnft
+        ? 'programmable NFT with an active Metaplex delegate — could be a staking lock or a marketplace listing'
+        : 'locked by a Metaplex delegate';
+    } else if(isPnft&&!a.delegate){
+      verdict='normal';
+      reason='programmable NFT — Metaplex keeps these frozen by design';
+    } else if(!a.delegate&&faOwner===META){
+      verdict='normal';
+      reason='freeze authority is a Metaplex PDA, no delegate set';
+    } else if(!a.delegate&&std(faOwner)){
+      verdict='review'; program=faOwner;
+      reason='frozen by a program, but no delegate is set';
+    } else {
+      verdict='normal';
+      reason='frozen by the mint freeze authority, no program involved';
+    }
+
+    return {mint:a.mint,how:'frozen',verdict,reason,delegate:a.delegate,
+      freezeAuthority:freezeAuth,program,tokenAccount:a.address,
+      tokenStandard:d.iface||null};
+  });
+}
+
+// SOFT STAKE — NFT is still in the wallet and NOT frozen, but a program holds a delegate.
+// The owner can revoke that delegate themselves (standard SPL Revoke) → recoverable anywhere.
+// pNFT delegates use a different mechanism, so those go to the frozen/review path instead.
+async function classifySoft(accs,das){
+  const s=accs.filter(a=>isNft(a)&&a.state!=='frozen'&&a.delegate);
+  if(!s.length) return [];
+  say(s.length+' delegated (unfrozen) NFT'+(s.length===1?'':'s')+' — checking for soft-stakes','d');
+  const std=(k)=>k&&k!==SYSTEM&&k!==META&&k!==TOKEN&&k!==TOKEN22;
+  const out=await pool(s,4,async a=>{
+    const d=das.get(a.mint)||{};
+    if(d.iface==='ProgrammableNFT') return null;              // not a plain-Revoke case
+    const delOwner=await owningProgram(a.delegate);
+    if(!std(delOwner)) return null;                           // delegate held by a standard/marketplace program
+    return {mint:a.mint,how:'soft',verdict:'stuck',stakeType:'soft',
+      reason:'soft-staked — a program holds a delegate you can revoke from your own wallet',
+      delegate:a.delegate,program:delOwner,tokenAccount:a.address,
+      tokenProgram:a.program||TOKEN,tokenStandard:d.iface||null};
+  });
+  return out.filter(Boolean);
+}
+
+/* ---- wallet connect (all wallets via Wallet Standard) + unstake (only part that signs) ---- */
+let WALLET=null, WADAPTER=null;
+function setWstatus(){
+  if(WALLET){ el.wstatus.classList.remove('hidden');
+    el.wstatus.innerHTML='<span class="wdot"></span>Connected <code>'+shortPk(WALLET)+'</code>'+(WADAPTER&&WADAPTER.name?' via '+esc(WADAPTER.name):'')+' — soft-staked NFTs below can be unstaked.';
+    el.connect.textContent='Wallet connected ✓'; el.connect.classList.add('wconn');
+  } else { el.wstatus.classList.add('hidden'); el.connect.textContent='Connect wallet'; el.connect.classList.remove('wconn'); }
+}
+async function connectWallet(){
+  if(!window.DojoWalletPicker){ showErr('Wallet picker unavailable — reload the page.'); return; }
+  try{
+    const a=await DojoWalletPicker.pick();                   // shows every installed wallet w/ its real icon
+    WADAPTER=a; WALLET=a.pubkey;
+    el.wallet.value=WALLET; setWstatus(); hideErr();
+    run();                                                   // scan the wallet we just connected
+  }catch(e){ if(!/cancel/i.test((e&&e.message)||'')) showErr('Wallet connection failed: '+esc((e&&e.message)||String(e))); }
+}
+async function unstake(row,btn){
+  if(!WALLET||!WADAPTER){ return connectWallet(); }
+  if(WALLET!==el.wallet.value.trim()){ showErr('The connected wallet is not the one that was scanned. Connect the wallet that holds these NFTs.'); return; }
+  const W=window.solanaWeb3;
+  if(!W){ showErr('The web3 library is unavailable — reload and try again.'); return; }
+  const orig=btn.textContent; btn.disabled=true; btn.textContent='Unstaking…';
+  try{
+    const owner=new W.PublicKey(WALLET);
+    const conn=new W.Connection(RPC||PUBLIC_RPC,'confirmed');
+    const ix=new W.TransactionInstruction({                  // SPL Token Revoke = instruction 5
+      programId:new W.PublicKey(row.tokenProgram||TOKEN),
+      keys:[{pubkey:new W.PublicKey(row.tokenAccount),isSigner:false,isWritable:true},
+            {pubkey:owner,isSigner:true,isWritable:false}],
+      data:Uint8Array.from([5])});
+    const {blockhash}=await conn.getLatestBlockhash();
+    const msg=new W.TransactionMessage({payerKey:owner,recentBlockhash:blockhash,instructions:[ix]}).compileToV0Message();
+    const vtx=new W.VersionedTransaction(msg);               // versioned tx serializes unsigned → Wallet-Standard ready
+    const sig=await WADAPTER.signAndSendTransaction(vtx);    // adapter serializes + sends; returns {signature}
+    const s=(sig&&sig.signature)?sig.signature:sig;
+    btn.textContent='Confirming…';
+    await conn.confirmTransaction(s,'confirmed');
+    btn.textContent='✓ Unstaked';
+    const card=btn.closest('.nft'); if(card) card.classList.add('unstaked');
+  }catch(e){
+    btn.disabled=false; btn.textContent=orig;
+    showErr('Unstake failed: '+esc((e&&e.message)||String(e)));
+  }
+}
+
+/* ---- GemFarm rescue: derive vault PDAs, confirm the NFT is boxed, unstake+withdraw ---- */
+const enc=s=>new TextEncoder().encode(s);
+function pk(x){return new window.solanaWeb3.PublicKey(x);}
+function pkBytes(x){return pk(x).toBytes();}
+function findPda(seeds,programId){return window.solanaWeb3.PublicKey.findProgramAddressSync(seeds,pk(programId));}
+function hexBytes(h){const a=new Uint8Array(h.length/2);for(let i=0;i<a.length;i++)a[i]=parseInt(h.substr(i*2,2),16);return a;}
+function u64le(n){const a=new Uint8Array(8);let v=BigInt(n);for(let i=0;i<8;i++){a[i]=Number(v&0xffn);v>>=8n;}return a;}
+function cat(){let len=0;for(const x of arguments)len+=x.length;const o=new Uint8Array(len);let off=0;for(const x of arguments){o.set(x,off);off+=x.length;}return o;}
+
+// All PDAs + bumps for one (owner, mint) in one farm/bank — verified against the real tx.
+function gemfarmPdas(owner,mint,farm,bank){
+  const [farmAuth,bAuth]=findPda([pkBytes(farm)],FARM_PROG);
+  const [farmTreasury,bTreasury]=findPda([enc('treasury'),pkBytes(farm)],FARM_PROG);
+  const [farmer,bFarmer]=findPda([enc('farmer'),pkBytes(farm),pkBytes(owner)],FARM_PROG);
+  const [vault,bVault]=findPda([enc('vault'),pkBytes(bank),pkBytes(owner)],BANK_PROG);
+  const [vaultAuth,bVaultAuth]=findPda([vault.toBytes()],BANK_PROG);
+  const [gemBox,bGemBox]=findPda([enc('gem_box'),vault.toBytes(),pkBytes(mint)],BANK_PROG);
+  const [gdr,bGdr]=findPda([enc('gem_deposit_receipt'),vault.toBytes(),pkBytes(mint)],BANK_PROG);
+  const [gemRarity,bRarity]=findPda([enc('gem_rarity'),pkBytes(bank),pkBytes(mint)],BANK_PROG);
+  return {farmAuth,bAuth,farmTreasury,bTreasury,farmer,bFarmer,vault,bVault,vaultAuth,bVaultAuth,
+          gemBox,bGemBox,gdr,bGdr,gemRarity,bRarity};
+}
+
+// Reliable GemFarm detection. For each known farm: derive the owner's VAULT and, if it exists,
+// scan the VAULT's own (tiny) tx history for the staked NFT mints, then confirm each is still
+// boxed. This is a handful of RPC calls — NOT the whole wallet history — because getProgramAccounts
+// is blocked for this program on public RPCs. Works from a pasted address too (read-only).
+async function detectGemFarm(owner){
+  const out=[];
+  if(!window.solanaWeb3||!FARMS.length) return out;
+  for(const cfg of FARMS){
+    let vault;
+    try{ vault=gemfarmPdas(owner,owner,cfg.farm,cfg.bank).vault; }catch(e){ continue; }
+    let vi=null;
+    try{ const r=await rpc('getAccountInfo',[vault.toBase58(),{encoding:'base64'}]); vi=r&&r.value; }catch(e){}
+    if(!vi) continue;                                  // no vault at this farm → owner never staked here
+    say('found your '+cfg.name+' vault — scanning it for staked NFTs…','w');
+    let sigs=[];
+    try{ const r=await rpc('getSignaturesForAddress',[vault.toBase58(),{limit:200}]); sigs=(r||[]).filter(s=>!s.err).map(s=>s.signature); }catch(e){}
+    const mints=new Set();
+    await pool(sigs.slice(0,150),6,async sig=>{
+      let tx; try{ tx=await rpc('getTransaction',[sig,{encoding:'jsonParsed',maxSupportedTransactionVersion:0}]); }catch(e){ return; }
+      if(!tx||!tx.meta) return;
+      for(const b of [...(tx.meta.preTokenBalances||[]),...(tx.meta.postTokenBalances||[])])
+        if(b&&b.uiTokenAmount&&b.uiTokenAmount.decimals===0&&b.mint) mints.add(b.mint);
+    });
+    say('  '+mints.size+' candidate NFT'+(mints.size===1?'':'s')+' — confirming which are still boxed…','d');
+    await pool([...mints],5,async mint=>{
+      let p; try{ p=gemfarmPdas(owner,mint,cfg.farm,cfg.bank); }catch(e){ return; }
+      let bal=null; try{ const r=await rpc('getTokenAccountBalance',[p.gemBox.toBase58()]); bal=r&&r.value&&r.value.amount; }catch(e){}
+      if(bal==='1') out.push({mint,how:'escrowed',verdict:'stuck',rescue:'gemfarm',farmCfg:cfg,pdas:p,program:BANK_PROG,
+        reason:'held in a '+cfg.name+' GemFarm vault you own — rescue it (unstake + withdraw) back to your wallet in one transaction.'});
+    });
+  }
+  if(out.length) say('✓ '+out.length+' NFT'+(out.length===1?'':'s')+' rescuable from a GemFarm vault','g');
+  return out;
+}
+
+// Build unstake×2 + withdraw_gem + tool fee, SIMULATE, then sign & send. One tx.
+async function rescueGemFarm(row,btn){
+  if(!WALLET||!WADAPTER){ return connectWallet(); }
+  if(WALLET!==el.wallet.value.trim()){ showErr('Connect the wallet that holds these NFTs to rescue them.'); return; }
+  const W=window.solanaWeb3;
+  if(!W){ showErr('The web3 library is unavailable — reload and try again.'); return; }
+  const cfg=row.farmCfg, p=row.pdas;
+  if(!cfg||!p){ showErr('This NFT is not a confirmed GemFarm vault — rescan first.'); return; }
+  const orig=btn.textContent; btn.disabled=true; btn.textContent='Preparing…';
+  try{
+    const owner=pk(WALLET);
+    const conn=new W.Connection(RPC||PUBLIC_RPC,'confirmed');
+    const farm=pk(cfg.farm), bank=pk(cfg.bank), mint=pk(row.mint);
+    const meta=(pubkey,s,w)=>({pubkey,isSigner:!!s,isWritable:!!w});
+
+    // UNSTAKE (called twice) — FARM program
+    const unstakeData=cat(hexBytes(UNSTAKE_DISC),Uint8Array.from([p.bAuth,p.bTreasury,p.bFarmer,0]));
+    const unstakeKeys=[
+      meta(farm,0,0), meta(p.farmAuth,0,1), meta(p.farmTreasury,0,1), meta(p.farmer,0,1),
+      meta(owner,1,1), meta(bank,0,1), meta(p.vault,0,1), meta(pk(BANK_PROG),0,0),
+      meta(pk(GEMFARM_FEE),0,1), meta(pk(SYSTEM),0,0)];
+    const unstakeIx=()=>new W.TransactionInstruction({programId:pk(FARM_PROG),keys:unstakeKeys,data:unstakeData});
+
+    // WITHDRAW_GEM — BANK program
+    const gemDest=findPda([owner.toBytes(),pk(TOKEN).toBytes(),mint.toBytes()],ATA)[0];
+    const withdrawData=cat(hexBytes(WITHDRAW_DISC),Uint8Array.from([p.bVaultAuth,p.bGemBox,p.bGdr,p.bRarity]),u64le(1));
+    const withdrawKeys=[
+      meta(bank,0,1), meta(p.vault,0,1), meta(owner,1,1), meta(p.vaultAuth,0,0),
+      meta(p.gemBox,0,1), meta(p.gdr,0,1), meta(gemDest,0,1), meta(mint,0,0),
+      meta(p.gemRarity,0,0), meta(owner,1,1), meta(pk(TOKEN),0,0), meta(pk(ATA),0,0),
+      meta(pk(SYSTEM),0,0), meta(pk(RENT),0,0)];
+    const withdrawIx=new W.TransactionInstruction({programId:pk(BANK_PROG),keys:withdrawKeys,data:withdrawData});
+
+    // Tool fee — bundled in the SAME tx, so if the rescue reverts, no fee is taken.
+    const feeIx=W.SystemProgram.transfer({fromPubkey:owner,toPubkey:pk(RESCUE_FEE_WALLET),lamports:Math.round(RESCUE_FEE_SOL*1e9)});
+
+    const ixs=[unstakeIx(),unstakeIx(),withdrawIx,feeIx];
+    const {blockhash,lastValidBlockHeight}=await conn.getLatestBlockhash();
+    const msg=new W.TransactionMessage({payerKey:owner,recentBlockhash:blockhash,instructions:ixs}).compileToV0Message();
+    const vtx=new W.VersionedTransaction(msg);
+
+    // SIMULATE before asking the wallet to sign — never sign a tx we haven't proven lands.
+    btn.textContent='Simulating…';
+    let sim;
+    try{ sim=await conn.simulateTransaction(vtx,{sigVerify:false,replaceRecentBlockhash:true}); }
+    catch(e){ throw new Error('could not simulate — '+((e&&e.message)||e)); }
+    if(sim&&sim.value&&sim.value.err){
+      const logs=(sim.value.logs||[]).slice(-8).join('\n');
+      say('simulation failed for '+shortPk(row.mint),'e');
+      if(logs) say(logs,'d');
+      throw new Error('simulation failed: '+JSON.stringify(sim.value.err)+'. Nothing was signed. See the scan log for program output.');
+    }
+    say('rescue simulation OK for '+shortPk(row.mint)+' — safe to sign','g');
+
+    btn.textContent='Sign in wallet…';
+    const sig=await WADAPTER.signAndSendTransaction(vtx);
+    const s=(sig&&sig.signature)?sig.signature:sig;
+    btn.textContent='Confirming…';
+    await conn.confirmTransaction({signature:s,blockhash,lastValidBlockHeight},'confirmed');
+    btn.textContent='✓ Rescued';
+    say('rescued '+shortPk(row.mint)+' → '+s,'g');
+    const card=btn.closest('.nft'); if(card) card.classList.add('unstaked');
+  }catch(e){
+    btn.disabled=false; btn.textContent=orig;
+    const m=(e&&e.message)||String(e);
+    showErr('Rescue failed: '+esc(m));
+    say('rescue failed: '+m,'e');
+  }
+}
+function rescueByMint(mint,btn){ const r=STAKE_ROWS[mint]; if(r) rescueGemFarm(r,btn); }
+
+async function findEscrowed(owner,held,limit){
+  say('fetching signature history (up to '+limit.toLocaleString()+')…');
+  const sigs=[];let before;
+  while(sigs.length<limit){
+    const p={limit:Math.min(1000,limit-sigs.length)};
+    if(before) p.before=before;
+    const batch=await rpc('getSignaturesForAddress',[owner,p]);
+    if(!batch||!batch.length) break;
+    sigs.push(...batch);
+    before=batch[batch.length-1].signature;
+    say('  '+sigs.length.toLocaleString()+' signatures','d');
+    if(batch.length<1000) break;
+  }
+  const ok=sigs.filter(s=>!s.err).map(s=>s.signature);
+  say('scanning '+ok.length.toLocaleString()+' successful transactions…');
+
+  const cand=new Map();
+  let done=0;
+  await pool(ok,8,async sig=>{
+    let tx;
+    try{ tx=await rpc('getTransaction',[sig,{encoding:'jsonParsed',maxSupportedTransactionVersion:0}]); }
+    catch(e){ return; }
+    done++;
+    if(done%250===0) say('  '+done.toLocaleString()+' / '+ok.length.toLocaleString()+' scanned','d');
+    if(!tx||!tx.meta) return;
+
+    const pre=tx.meta.preTokenBalances||[], post=tx.meta.postTokenBalances||[];
+    const keys=(tx.transaction.message.accountKeys||[]).map(k=>typeof k==='string'?k:k.pubkey);
+    const amt=(list,i)=>{const b=list.find(x=>x.accountIndex===i);return b?b.uiTokenAmount.amount:null;};
+    const idxs=new Set([...pre,...post].map(b=>b.accountIndex));
+
+    for(const idx of idxs){
+      const e=pre.find(b=>b.accountIndex===idx)||post.find(b=>b.accountIndex===idx);
+      if(!e||e.uiTokenAmount.decimals!==0||e.owner!==owner) continue;
+      const a0=amt(pre,idx), a1=amt(post,idx);
+      if(a0!=='1'||(a1!=='0'&&a1!==null)) continue;
+      const mint=e.mint;
+      if(held.has(mint)) continue;
+
+      const landed=post.find(b=>b.mint===mint&&b.owner!==owner&&b.uiTokenAmount.amount==='1');
+      const invoked=new Set();
+      for(const ix of tx.transaction.message.instructions||[]) if(ix.programId&&!BORING.has(ix.programId)) invoked.add(ix.programId);
+      for(const inn of tx.meta.innerInstructions||[]) for(const ix of inn.instructions||[]) if(ix.programId&&!BORING.has(ix.programId)) invoked.add(ix.programId);
+
+      const prev=cand.get(mint);
+      if(!prev||(tx.blockTime||0)>(prev.blockTime||0)){
+        cand.set(mint,{mint,how:'escrowed',detail:'sent to a program-owned account',
+          signature:sig,blockTime:tx.blockTime||null,
+          vaultTokenAccount:landed?keys[landed.accountIndex]:null,
+          vaultAuthority:landed?landed.owner:null,invoked:[...invoked]});
+      }
+    }
+  });
+
+  say(cand.size+' candidate'+(cand.size===1?'':'s')+' — confirming still in vault…',cand.size?'w':'d');
+
+  const out=[];
+  await pool([...cand.values()],4,async c=>{
+    let p=null;
+    if(c.vaultAuthority){ p=await owningProgram(c.vaultAuthority); if(p===SYSTEM) p=null; }
+    if(!p&&c.vaultTokenAccount){
+      try{
+        const r=await rpc('getAccountInfo',[c.vaultTokenAccount,{encoding:'jsonParsed'}]);
+        const h=r&&r.value&&r.value.data&&r.value.data.parsed&&r.value.data.parsed.info.owner;
+        if(h){ const q=await owningProgram(h); if(q&&q!==SYSTEM) p=q; }
+      }catch(e){}
+    }
+    if(!p&&c.invoked.length===1) p=c.invoked[0];
+
+    let still=null;
+    if(c.vaultTokenAccount){
+      try{ const r=await rpc('getTokenAccountBalance',[c.vaultTokenAccount]);
+        still=!!(r&&r.value&&r.value.amount==='1'); }catch(e){}
+    }
+    if(still===false) return;
+    out.push(Object.assign({},c,{program:p,stillInVault:still,
+      verdict:p?'stuck':'review',
+      reason:p?'held in an account owned by this program':'left the wallet, but the holding program could not be traced'}));
+  });
+  return out;
+}
+
+async function dasBatch(mints){
+  const m=new Map();
+  if(!/helius/i.test(RPC)||!mints.length) return m;
+  try{
+    const r=await rpc('getAssetBatch',[{ids:mints.slice(0,1000)}]);
+    for(const a of r||[]){
+      if(!a) continue;
+      const g=(a.grouping||[]).find(x=>x.group_key==='collection');
+      const o=a.ownership||{};
+      m.set(a.id,{
+        name:(a.content&&a.content.metadata&&a.content.metadata.name)||null,
+        collection:g?g.group_value:null,
+        iface:a.interface||null,
+        delegated:!!o.delegated,
+        dasDelegate:o.delegate||null,
+      });
+    }
+    say('metadata resolved for '+m.size+' mint'+(m.size===1?'':'s'),'d');
+  }catch(e){ say('metadata lookup unavailable — classification will be coarser','w'); }
+  return m;
+}
+
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+const shortPk=s=>s?s.slice(0,6)+'…'+s.slice(-4):'—';
+
+function nftCard(r,meta){
+  const m=meta.get(r.mint);
+  const tag=r.how==='frozen'?'<span class="tag froz">frozen</span>':'<span class="tag escr">escrowed</span>';
+  let h='<div class="nft"><div class="nm">'+esc((m&&m.name)||shortPk(r.mint))+tag+'</div>'+
+    '<p class="why">'+esc(r.reason||'')+'</p><dl>'+
+    '<dt>Mint</dt><dd>'+esc(r.mint)+'</dd>';
+  if(r.tokenStandard) h+='<dt>Standard</dt><dd>'+esc(r.tokenStandard)+'</dd>';
+  if(r.delegate) h+='<dt>Delegate</dt><dd>'+esc(r.delegate)+'</dd>';
+  if(r.freezeAuthority) h+='<dt>Freeze auth</dt><dd>'+esc(r.freezeAuthority)+'</dd>';
+  if(r.vaultTokenAccount) h+='<dt>Vault</dt><dd>'+esc(r.vaultTokenAccount)+'</dd>';
+  if(r.vaultAuthority) h+='<dt>Authority</dt><dd>'+esc(r.vaultAuthority)+'</dd>';
+  if(r.signature) h+='<dt>Stake tx</dt><dd><a href="https://solscan.io/tx/'+esc(r.signature)+'" target="_blank" rel="noopener">'+shortPk(r.signature)+' ↗</a></dd>';
+  h+='<dt>Inspect</dt><dd><a href="https://solscan.io/token/'+esc(r.mint)+'" target="_blank" rel="noopener">open mint ↗</a></dd>';
+  if(r.stillInVault===null&&r.how==='escrowed') h+='<dt>Note</dt><dd>vault balance unconfirmed</dd>';
+  return h+'</dl></div>';
+}
+
+// ---- the 3 stake-type boxes (soft / freeze / escrow) ----
+let STAKE_ROWS={};
+function unstakeByMint(mint,btn){ const r=STAKE_ROWS[mint]; if(r) unstake(r,btn); }
+function stakeCard(r,meta,kind){
+  const base=nftCard(r,meta);
+  let action;
+  if(kind==='soft'){
+    const dis=(!WALLET||WALLET!==el.wallet.value.trim());
+    action='<div class="act"><button class="usk"'+(dis?' disabled':'')+' onclick="unstakeByMint(\''+esc(r.mint)+'\',this)">🔓 Unstake</button>'+
+      (dis?'<span class="anote">connect this wallet to unstake</span>':'')+'</div>';
+  } else if(kind==='freeze'){
+    action='<div class="act"><button class="usk off" disabled>Locked — thaw only</button><span class="anote">Only the project&#39;s program can thaw a freeze. Bring the program ID to our Discord.</span></div>';
+  } else if(kind==='escrow'&&r.rescue==='gemfarm'){
+    const dis=(!WALLET||WALLET!==el.wallet.value.trim());
+    action='<div class="act"><button class="usk"'+(dis?' disabled':'')+' onclick="rescueByMint(\''+esc(r.mint)+'\',this)">🛟 Rescue now</button>'+
+      '<span class="anote">'+(dis?'connect this wallet to rescue'
+        :'unstake + withdraw in one signed transaction · '+RESCUE_FEE_SOL+' SOL tool fee (only if it lands)')+'</span></div>';
+  } else {
+    action='<div class="act"><button class="usk off" disabled>In a vault</button><span class="anote">Held in a program-owned account — needs that program&#39;s withdraw.</span></div>';
+  }
+  return base.replace(/<\/div>\s*$/, action+'</div>');
+}
+function stakeBoxes(rows,meta){
+  STAKE_ROWS={}; for(const r of rows) STAKE_ROWS[r.mint]=r;
+  const soft=rows.filter(r=>r.how==='soft');
+  const freeze=rows.filter(r=>r.how==='frozen'&&(r.verdict==='stuck'||r.verdict==='review'));
+  const escrow=rows.filter(r=>r.how==='escrowed');
+  if(!(soft.length+freeze.length+escrow.length)) return '';
+  const box=(cls,dot,title,note,list,kind)=>{
+    let h='<div class="sbox '+cls+'"><div class="sbox-h"><span class="dot '+dot+'"></span>'+title+' <span class="cnt">'+list.length+'</span></div>'+
+      '<p class="sbox-n">'+note+'</p>';
+    if(!list.length) h+='<p class="sbox-e">None found.</p>';
+    else for(const r of list) h+=stakeCard(r,meta,kind);
+    return h+'</div>';
+  };
+  return '<div class="sboxes">'+
+    box('soft','g','Soft stake — unstakable','The program only holds a delegate. Revoke it from your wallet and the NFT is free — works for any collection.',soft,'soft')+
+    box('freeze','y','Freeze-based — locked','Frozen in your wallet; only the project&#39;s program can thaw it. If the project rugged, this needs its own unstake instruction.',freeze,'freeze')+
+    box('escrow','r','Escrow / vault','Moved into a program-owned vault. <b>GemFarm</b> vaults are yours — rescue them here in one click (unstake + withdraw). Other programs need their own withdraw instruction.',escrow,'escrow')+
+    '</div>';
+}
+
+function groupByProgram(rows,meta,fallbackLabel){
+  const byProg=new Map();
+  for(const r of rows){
+    const k=r.program||'unresolved';
+    if(!byProg.has(k)) byProg.set(k,[]);
+    byProg.get(k).push(r);
+  }
+  let h='';
+  for(const [prog,list] of byProg){
+    const unres=prog==='unresolved';
+    h+='<div class="prog"><div class="prog-head">'+
+      '<div class="pl">'+(unres?esc(fallbackLabel):esc(KNOWN[prog]||'Unrecognised program'))+'</div>'+
+      (unres?'<div class="pid" style="color:var(--dust)">no program traced</div>'
+            :'<a class="pid" href="https://solscan.io/account/'+esc(prog)+'" target="_blank" rel="noopener">'+esc(prog)+'</a>')+
+      '</div>';
+    for(const r of list) h+=nftCard(r,meta);
+    h+='</div>';
+  }
+  return h;
+}
+
+function render(rows,meta,depth){
+  el.res.classList.remove('hidden');
+  const stuck=rows.filter(r=>r.verdict==='stuck');
+  const review=rows.filter(r=>r.verdict==='review');
+  const normal=rows.filter(r=>r.verdict==='normal');
+
+  let h=stakeBoxes(rows,meta)+'<div class="stats">'+
+    '<div class="stat"><div class="k">Stuck</div><div class="v gold">'+stuck.length+'</div></div>'+
+    '<div class="stat"><div class="k">Needs review</div><div class="v">'+review.length+'</div></div>'+
+    '<div class="stat"><div class="k">Cleared</div><div class="v">'+normal.length+'</div></div>'+
+    '<div class="stat"><div class="k">Scanned</div><div class="v">'+Number(depth).toLocaleString()+'</div></div>'+
+    '</div>';
+
+  if(stuck.length){
+    h+='<div class="bucket"><h3 class="bh">Stuck — held by a program</h3>'+
+      groupByProgram(stuck,meta,'Program unresolved')+'</div>';
+  } else {
+    h+='<div class="empty"><div class="h">Nothing confirmed stuck</div>'+
+      '<p class="p">No NFT is held by a traceable staking program. Anything below needs a look by eye, '+
+      'or was cleared as a normal freeze.</p></div>';
+  }
+
+  if(review.length){
+    h+='<div class="bucket"><h3 class="bh">Needs review — ambiguous</h3>'+
+      '<p class="bn">A program is involved but the signal is not conclusive. Open the mint on Solscan '+
+      'and read the delegate before treating any of these as recoverable.</p>'+
+      groupByProgram(review,meta,'Program unresolved')+'</div>';
+  }
+
+  if(normal.length){
+    h+='<div class="bucket"><details><summary class="bh sum">Cleared — '+normal.length+
+      ' frozen but not staked</summary>'+
+      '<p class="bn">Frozen for reasons unrelated to staking. Programmable NFTs are frozen permanently by '+
+      'design; that is not a lock you can or should undo.</p>'+
+      groupByProgram(normal,meta,'No program')+'</details></div>';
+  }
+
+  el.res.innerHTML=h;
+}
+
+async function run(){
+  hideErr();
+  el.res.classList.add('hidden');
+  el.copy.classList.add('hidden');
+  el.con.innerHTML='';
+  calls=0;payload=null;
+
+  const rpcInput=el.rpc.value.trim();
+  const wallet=el.wallet.value.trim();
+  const depth=parseInt(el.depth.value,10);
+
+  if(rpcInput&&!/^https?:\/\//i.test(rpcInput)){ showErr('The RPC endpoint must start with <code>https://</code>.'); el.rpc.focus(); return; }
+  if(!wallet){ showErr('Enter a wallet address.'); el.wallet.focus(); return; }
+  if(!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(wallet)){
+    showErr('That does not look like a Solana address. Expected 32–44 base58 characters.');
+    el.wallet.focus(); return;
+  }
+
+  const usingPublic=!rpcInput;
+  RPC=rpcInput||PUBLIC_RPC;
+
+  try{ localStorage.setItem('dojo_rpc',rpcInput); localStorage.setItem('dojo_depth',String(depth)); }catch(e){}
+
+  el.run.disabled=true; el.run.textContent='Checking…';
+  el.conSec.classList.remove('hidden');
+  say('checking '+wallet);
+  if(usingPublic) say('no key given — using the public RPC (rate-limited, no NFT names, coarser buckets). A free Helius key is better.','w');
+
+  try{
+    say('reading token accounts…');
+    const accs=await tokenAccounts(wallet);
+    const held=new Set(accs.filter(a=>a.amount!=='0').map(a=>a.mint));
+    say(accs.length+' token accounts, '+accs.filter(isNft).length+' NFT-like','d');
+
+    const meta=await dasBatch(accs.filter(isNft).map(a=>a.mint));
+    const soft=await classifySoft(accs,meta);
+    if(soft.length) say(soft.length+' soft-stake'+(soft.length===1?'':'s')+' — revocable from your wallet','g');
+    const frozen=await classifyFrozen(accs,meta);
+    const nStuck=frozen.filter(r=>r.verdict==='stuck').length;
+    const nCleared=frozen.filter(r=>r.verdict==='normal').length;
+    say(nStuck+' frozen by a program, '+nCleared+' cleared as normal freezes',nStuck?'w':'g');
+
+    // FAST GemFarm vault check first (few calls) for known farms (Atadia).
+    const gemRows=await detectGemFarm(wallet);
+    // FULL escrow scan: walk the wallet history to find NFTs that left into ANY program-owned vault
+    // and are still there — this is what catches stuck NFTs beyond the known GemFarm banks. Needs a
+    // Helius key to run well (the public RPC rate-limits the getTransaction calls).
+    let escrowed=[];
+    try{ escrowed=await findEscrowed(wallet,held,depth); }
+    catch(e){ say('wallet-history scan interrupted ('+((e&&e.message)||e)+') — showing what was found','w'); }
+    const gemMints=new Set(gemRows.map(r=>r.mint));       // a GemFarm-vaulted NFT also appears in escrow history — dedupe
+    const rows=gemRows.concat(soft).concat(frozen).concat(escrowed.filter(r=>!gemMints.has(r.mint)));
+
+    const escMeta=await dasBatch(escrowed.map(r=>r.mint).concat(gemRows.map(r=>r.mint)));
+    for(const [k,v] of escMeta) if(!meta.has(k)) meta.set(k,v);
+
+    const total=rows.filter(r=>r.verdict==='stuck').length;
+    say('done — '+total+' confirmed stuck in '+calls+' rpc calls',total?'g':'i');
+    stopCursor();
+
+    payload={wallet,scannedSignatures:depth,
+      confirmedStuck:total,needsReview:rows.filter(r=>r.verdict==='review').length,
+      cleared:rows.filter(r=>r.verdict==='normal').length,
+      findings:rows.map(r=>Object.assign({},r,meta.get(r.mint)||{}))};
+    render(rows,meta,depth);
+    if(rows.length) el.copy.classList.remove('hidden');
+  }catch(e){
+    stopCursor();
+    say('failed: '+e.message,'e');
+    if(e.network){
+      showErr('Could not reach the RPC. If the public endpoint is rate-limiting you, paste a free '+
+        'Helius key (<a href="https://helius.dev" target="_blank" rel="noopener">helius.dev</a>) and try again.');
+    } else {
+      showErr(esc(e.message));
+    }
+  }finally{
+    el.run.disabled=false; el.run.textContent='Run check';
+  }
+}
+
+el.run.addEventListener('click',run);
+el.connect.addEventListener('click',connectWallet);
+el.wallet.addEventListener('keydown',e=>{if(e.key==='Enter') run();});
+el.copy.addEventListener('click',async()=>{
+  if(!payload) return;
+  try{
+    await navigator.clipboard.writeText(JSON.stringify(payload,null,2));
+    el.copy.textContent='Copied';
+    setTimeout(()=>{el.copy.textContent='Copy JSON';},1400);
+  }catch(e){ showErr('Clipboard blocked by the browser. Open the console and read <code>window.__dojo</code> instead.'); }
+});
+Object.defineProperty(window,'__dojo',{get:()=>payload});
+</script>
+</body>
+</html>

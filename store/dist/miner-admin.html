@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<title>Miner requests</title>
+<style>
+  :root { color-scheme: dark; --bg:#0b0d12; --card:#141821; --line:#262c38; --ink:#e6e8ee; --dim:#8b93a5; --gold:#f0b429; --ok:#34d399; --bad:#f87171; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.45 system-ui, -apple-system, Segoe UI, sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: var(--dim); font-size: 12px; margin-bottom: 16px; }
+  .bar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom: 16px; }
+  input, select, button { font: inherit; color: var(--ink); background: #0f1218; border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px; }
+  button { cursor: pointer; }
+  button.primary { background: var(--gold); color: #1a1300; border-color: var(--gold); font-weight: 600; }
+  button.ok { background: #065f46; border-color: #047857; }
+  button.bad { background: #5b1414; border-color: #7f1d1d; }
+  button:disabled { opacity: .5; cursor: default; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin-bottom: 14px; }
+  .head { display:flex; justify-content:space-between; gap: 12px; flex-wrap: wrap; }
+  .name { font-weight: 600; font-size: 16px; }
+  .pill { display:inline-block; font-size: 11px; padding: 2px 8px; border-radius: 99px; border: 1px solid var(--line); }
+  .pending { color: var(--gold); border-color: #6b4f0f; }
+  .approved { color: var(--ok); border-color: #065f46; }
+  .rejected { color: var(--bad); border-color: #7f1d1d; }
+  dl { display:grid; grid-template-columns: max-content 1fr; gap: 3px 12px; margin: 10px 0; font-size: 12px; }
+  dt { color: var(--dim); } dd { margin: 0; word-break: break-all; }
+  a { color: #7dd3fc; }
+  .grid { display:grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; max-width: 360px; }
+  .grid img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 4px; background: #0f1218; display:block; }
+  .actions { display:flex; gap: 8px; flex-wrap: wrap; align-items:center; margin-top: 10px; }
+  .msg { font-size: 12px; color: var(--dim); }
+  .err { color: var(--bad); }
+  .live { font-size: 13px; }
+  @media (max-width: 520px) { dl { grid-template-columns: 1fr; } dt { margin-top: 4px; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Branded miner requests</h1>
+  <div class="sub">Review paid signups, approve to publish at <code>/m/&lt;slug&gt;</code>. The admin key stays in this tab only (sessionStorage).</div>
+  <div class="bar">
+    <input id="key" type="password" placeholder="ADMIN_KEY" autocomplete="off" style="min-width:220px">
+    <button class="primary" id="load">Load</button>
+    <select id="filter">
+      <option value="pending">Pending</option>
+      <option value="approved">Approved</option>
+      <option value="rejected">Rejected</option>
+      <option value="all">All</option>
+    </select>
+    <button id="forget">Forget key</button>
+    <span id="status" class="msg"></span>
+  </div>
+  <div id="list"></div>
+</main>
+<script>
+(function () {
+  var KEY_SS = "dd_miner_admin_key";
+  var $ = function (id) { return document.getElementById(id); };
+  var all = [];
+  var ss = { get: function () { try { return sessionStorage.getItem(KEY_SS) || ""; } catch (e) { return ""; } },
+             set: function (v) { try { sessionStorage.setItem(KEY_SS, v); } catch (e) {} },
+             del: function () { try { sessionStorage.removeItem(KEY_SS); } catch (e) {} } };
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  function safeUrl(u) { return /^https:\/\//i.test(String(u || "")) ? String(u) : ""; }
+  function status(t, bad) { var el = $("status"); el.textContent = t || ""; el.className = "msg" + (bad ? " err" : ""); }
+
+  async function load() {
+    var key = $("key").value.trim();
+    if (!key) { status("Enter the admin key.", true); return; }
+    status("Loading…");
+    try {
+      var r = await fetch("/api/miner-requests?admin=" + encodeURIComponent(key), { cache: "no-store" });
+      var j = await r.json().catch(function () { return {}; });
+      if (!r.ok) throw new Error(j.error || ("HTTP " + r.status));
+      ss.set(key);
+      all = j.requests || [];
+      status(all.length + " request(s) · fee " + j.feeOre + " ORE → " + (j.operator || "").slice(0, 6) + "…");
+      render();
+    } catch (e) { status(e.message || String(e), true); }
+  }
+
+  function render() {
+    var f = $("filter").value;
+    var rows = all.filter(function (r) { return f === "all" || r.status === f; });
+    var list = $("list");
+    if (!rows.length) { list.innerHTML = '<div class="msg">Nothing here.</div>'; return; }
+    list.innerHTML = rows.map(function (r) {
+      var live = r.status === "approved" && r.slug ? location.origin + "/m/" + r.slug : "";
+      var site = safeUrl(r.website) || (r.website ? "https://" + String(r.website).replace(/^\/+/, "") : "");
+      return '<div class="card" data-id="' + esc(r.id) + '">' +
+        '<div class="head"><div><div class="name">' + esc(r.name) + '</div>' +
+        '<div class="msg">' + esc(new Date(r.createdAt).toLocaleString()) + ' · id ' + esc(r.id) + '</div></div>' +
+        '<span class="pill ' + esc(r.status) + '">' + esc(r.status) + '</span></div>' +
+        '<dl>' +
+          '<dt>Contact</dt><dd>' + esc(r.contact) + '</dd>' +
+          (r.website ? '<dt>Website</dt><dd><a href="' + esc(site) + '" target="_blank" rel="noopener noreferrer">' + esc(r.website) + '</a></dd>' : '') +
+          '<dt>Tip wallet</dt><dd><a href="https://solscan.io/account/' + esc(r.tipWallet) + '" target="_blank" rel="noopener noreferrer">' + esc(r.tipWallet) + '</a></dd>' +
+          (r.collection ? '<dt>Collection</dt><dd><a href="https://solscan.io/token/' + esc(r.collection) + '" target="_blank" rel="noopener noreferrer">' + esc(r.collection) + '</a></dd>' : '') +
+          '<dt>Payment</dt><dd><a href="https://solscan.io/tx/' + esc(r.paymentSig) + '" target="_blank" rel="noopener noreferrer">' + esc(String(r.paymentSig).slice(0, 20)) + '…</a> · ' + esc(r.feeOre) + ' ORE from ' + esc(String(r.payer).slice(0, 6)) + '…</dd>' +
+        '</dl>' +
+        '<div class="grid">' + (r.degens || []).map(function (d) {
+          var src = safeUrl(d.image);
+          return '<img loading="lazy" referrerpolicy="no-referrer" alt="' + esc(d.name) + '" title="' + esc(d.name) + '" src="' + esc(src) + '">';
+        }).join("") + '</div>' +
+        '<div class="actions">' +
+          '<input class="slug" placeholder="slug (optional)" value="' + esc(r.slug || "") + '" style="width:180px">' +
+          '<button class="ok" data-act="approve">' + (r.status === "approved" ? "Re-approve" : "Approve") + '</button>' +
+          '<button class="bad" data-act="reject">Reject</button>' +
+          '<span class="msg out"></span>' +
+        '</div>' +
+        (live ? '<div class="live" style="margin-top:8px">Live: <a href="' + esc(live) + '" target="_blank" rel="noopener">' + esc(live) + '</a></div>' : '') +
+      '</div>';
+    }).join("");
+  }
+
+  $("list").addEventListener("click", async function (ev) {
+    var btn = ev.target.closest("button[data-act]");
+    if (!btn) return;
+    var card = btn.closest(".card");
+    var id = card.getAttribute("data-id");
+    var act = btn.getAttribute("data-act");
+    var out = card.querySelector(".out");
+    if (act === "reject" && !confirm("Reject this request? (If it's live, its /m/ link goes offline.)")) return;
+    var slug = card.querySelector(".slug").value.trim();
+    card.querySelectorAll("button").forEach(function (b) { b.disabled = true; });
+    out.textContent = "Saving…"; out.className = "msg out";
+    try {
+      var r = await fetch("/api/miner-requests", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "decide", id: id, key: $("key").value.trim(), decision: act, slug: act === "approve" && slug ? slug : undefined })
+      });
+      var j = await r.json().catch(function () { return {}; });
+      if (!r.ok) throw new Error(j.error || ("HTTP " + r.status));
+      var rec = all.find(function (x) { return x.id === id; });
+      if (rec) { rec.status = j.status; if (j.slug) rec.slug = j.slug; }
+      render();
+    } catch (e) {
+      out.textContent = e.message || String(e); out.className = "msg out err";
+      card.querySelectorAll("button").forEach(function (b) { b.disabled = false; });
+    }
+  });
+  $("load").addEventListener("click", load);
+  $("key").addEventListener("keydown", function (e) { if (e.key === "Enter") load(); });
+  $("filter").addEventListener("change", render);
+  $("forget").addEventListener("click", function () { ss.del(); $("key").value = ""; all = []; render(); status("Key cleared."); });
+  var k = ss.get();
+  if (k) { $("key").value = k; load(); }
+})();
+</script>
+</body>
+</html>

@@ -8,14 +8,16 @@
 //   POST {action:"nonce",  wallet}                 → { nonce, message }  (sign `message`)
 //   POST {action:"verify", wallet, signature}      → { token, exp }      (signature = base58 of the 64-byte sig)
 //
-// Env: SESSION_SECRET (falls back to ADMIN_KEY) signs the session token.
+// Env: SESSION_SECRET (≥ 32 chars) signs the session token. FAIL-CLOSED: if it is missing or too
+// short every action answers 503 — there is NO fallback to ADMIN_KEY or a built-in dev secret
+// (see store-session-core.mjs, shared with /api/play which accepts the tokens).
 import { getStore } from "@netlify/blobs";
-import { createHmac, createPublicKey, verify as edVerify, randomBytes } from "node:crypto";
+import { createPublicKey, verify as edVerify, randomBytes } from "node:crypto";
+import { issueToken, checkToken as checkSessionToken, sessionReady, sessionUnavailable } from "./store-session-core.mjs";
 
 const ADDR_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 const NONCE_TTL = 5 * 60 * 1000;        // a nonce is good for 5 minutes
 const SESSION_TTL = 12 * 60 * 60 * 1000; // a session lasts 12 hours
-const SECRET = () => process.env.SESSION_SECRET || process.env.ADMIN_KEY || "\0dev-secret";
 
 // ── base58 decode (Bitcoin alphabet), for Solana pubkeys & signatures ──
 const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
@@ -41,22 +43,8 @@ function verifyWalletSig(walletB58, message, sigB58) {
   return edVerify(null, Buffer.from(message, "utf8"), key, Buffer.from(sig));
 }
 
-function signToken(wallet, exp) {
-  const body = wallet + "." + exp;
-  return body + "." + createHmac("sha256", SECRET()).update(body).digest("hex");
-}
-// exported shape other functions re-implement: returns wallet if valid, else null
-export function checkToken(token) {
-  if (!token || typeof token !== "string") return null;
-  const i = token.lastIndexOf(".");
-  const body = token.slice(0, i), mac = token.slice(i + 1);
-  const [wallet, expStr] = body.split(".");
-  if (!wallet || !expStr) return null;
-  const good = createHmac("sha256", SECRET()).update(body).digest("hex");
-  if (mac !== good) return null;
-  if (Date.now() > Number(expStr)) return null;
-  return wallet;
-}
+// Kept as an export for compatibility: returns wallet if valid, else null (null when unconfigured).
+export const checkToken = checkSessionToken;
 
 function msg(wallet, nonce, iso) {
   return `Degen Dojo sign-in\nWallet: ${wallet}\nNonce: ${nonce}\nIssued: ${iso}\n\nSign to prove you own this wallet. This is free and never a transaction.`;
@@ -67,7 +55,9 @@ const CORS = { "access-control-allow-origin": "*", "access-control-allow-methods
 export default async (request) => {
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
   if (request.method !== "POST") return new Response("POST only", { status: 405, headers: CORS });
+  if (!sessionReady()) return sessionUnavailable(CORS);   // no SESSION_SECRET → issue nothing
   let r; try { r = await request.json(); } catch { return new Response("bad json", { status: 400, headers: CORS }); }
+  if (!r || typeof r !== "object") return new Response("bad json", { status: 400, headers: CORS });
   const json = (o, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { "content-type": "application/json", "cache-control": "no-store", ...CORS } });
   if (!ADDR_RE.test(r.wallet || "")) return json({ error: "bad wallet" }, 400);
   const store = getStore("auth-nonces");
@@ -83,11 +73,13 @@ export default async (request) => {
     const rec = await store.get("n:" + r.wallet, { type: "json" });
     if (!rec || Date.now() > rec.exp) return json({ error: "nonce expired — request a new one" }, 401);
     let ok = false;
-    try { ok = verifyWalletSig(r.wallet, msg(r.wallet, rec.nonce, rec.iso), r.signature || ""); } catch { ok = false; }
+    try { ok = typeof r.signature === "string" && r.signature.length <= 100 && verifyWalletSig(r.wallet, msg(r.wallet, rec.nonce, rec.iso), r.signature); } catch { ok = false; }
     if (!ok) return json({ error: "signature did not verify" }, 401);
     await store.delete("n:" + r.wallet);                 // one-time use
     const exp = Date.now() + SESSION_TTL;
-    return json({ token: signToken(r.wallet, exp), exp, wallet: r.wallet });
+    const token = issueToken(r.wallet, exp);
+    if (!token) return sessionUnavailable(CORS);
+    return json({ token, exp, wallet: r.wallet });
   }
 
   return json({ error: "unknown action" }, 400);

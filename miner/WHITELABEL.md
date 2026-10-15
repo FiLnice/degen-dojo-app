@@ -1,63 +1,56 @@
-# Whitelabel — onboard a new collection
+# Whitelabel — branded miners (hosted on the store)
 
-The whole app (ORE mining, grid, vault, auto-mine, RPC proxy) is
-collection-agnostic. Only **three things** change per collection:
+Any NFT collection can get its own ORE mining grid, **hosted by us** on the Degen Dojo
+store at `store.degendojo.xyz/m/<slug>`. No fork, no deploy, no RPC key on their side.
 
-| What | Where | How |
-| --- | --- | --- |
-| The 25 images | `public/mine/degens.json` | Replace the file |
-| The tip wallet | `NEXT_PUBLIC_TIP_WALLET` env var | Set in Netlify |
-| The collection name | `NEXT_PUBLIC_COLLECTION_NAME` env var | Set in Netlify |
+## How a collection signs up — `/create`
 
-## Easiest: the `/create` tool (fully automatic)
+1. **Name + tip wallet + contact** (website optional).
+2. **Paste the collection address** → we read its NFTs (DAS `getAssetsByGroup` through the
+   store's `/api/rpc`) and pick 25 at random (Shuffle to re-roll). Or paste 25 mints by hand.
+3. **Pay the one-time 5 ORE setup fee** with the store wallet (same session as every store
+   page). The fee goes to the operator wallet — the store treasury
+   `5w55F58ia3H71QjBD9bYvNQF2DcNu8K3AfJj9A4WMuWp` by default (`lib/config.ts`
+   `STORE_TREASURY_WALLET`, override with `NEXT_PUBLIC_OPERATOR_WALLET`).
+4. The request is POSTed to the store function **`/api/miner-requests`**, which re-reads the
+   payment on-chain (tx succeeded, payer signed it, < ~1h old, operator's ORE up by ≥ fee)
+   and stores it as *pending*. Each payment signature can only be used once.
+5. `/create?id=<id>` shows the status. Once approved it shows the live link
+   `store.degendojo.xyz/m/<slug>` with a copy button.
 
-Point the collection at **`/create`** on your master deploy. They enter their
-name + tip wallet + a **25-mint hashlist**; it fetches the art, previews the grid,
-and hands them a **Deploy-to-Netlify button + one env-var block that already
-contains their 25 images** (`NEXT_PUBLIC_DEGENS_JSON`). They paste it into Netlify
-and deploy — **no files to edit, no code.** The manual steps below are the same
-thing by hand.
+## Reviewing — `/miner-admin` (store)
 
-## Steps to spin up a client (manual)
+Enter the store's `ADMIN_KEY` (kept in that tab's sessionStorage only). Each request shows
+name, contact, tip wallet, the payment on Solscan and the 25 thumbnails.
+**Approve** (optionally choose the slug; default = from the name, de-duplicated) publishes
+`miner:<slug>` → live immediately at `/m/<slug>`. **Reject** takes it offline again.
 
-1. **Fork/copy this repo** into a new private GitHub repo for the client
-   (or a new branch), so each client is isolated.
+## How a hosted miner works
 
-2. **Drop in their 25 images.** Replace `public/mine/degens.json` with their
-   collection's entries — an array of exactly 25 objects:
-   ```json
-   [
-     { "name": "Cool Ape #1", "image": "https://.../1.png" },
-     { "name": "Cool Ape #2", "image": "https://.../2.png" }
-   ]
-   ```
-   `image` can be any public https URL (S3, Arweave, IPFS gateway, etc.) —
-   they're auto-resized/cached by Next/Image, so size doesn't matter.
-   (`mint` is optional and unused.)
+The store rewrites `/m/*` to the `/mine` page. At runtime it reads the slug from the URL
+(or `?c=<slug>`), loads `{name, tipWallet, degens}` from `/api/miner?slug=`, and uses that
+name, grid and tip wallet. Unknown slug → "Miner not found". Plain `/mine` is the Degen Dojo
+miner, configured at build time exactly as before.
 
-3. **Deploy to Netlify** and set these environment variables
-   (*Site configuration → Environment variables*):
+Tips on a hosted miner are a plain SOL transfer to **the collection's own wallet**. Only tips
+on the default Degen Dojo miner are logged to `/api/coinbuy` (with the Preacher `ref`).
 
-   | Key | Value | Notes |
-   | --- | --- | --- |
-   | `HELIUS_RPC` | a Helius mainnet RPC URL | **Tip:** have each client bring their **own** free Helius key so your RPC bill doesn't grow with their traffic |
-   | `ALLOW_RPC_PROXY` | `1` | turns the data connection on in production |
-   | `NEXT_PUBLIC_COLLECTION_NAME` | e.g. `Cool Apes` | shows in the tab title + tip label |
-   | `NEXT_PUBLIC_TIP_WALLET` | the client's Solana wallet address | receives the optional tips |
-   | `NEXT_PUBLIC_DEGENS_JSON` | `[{"name":"…","image":"…"}, …]` (25 items) | the images inline — skips editing `degens.json`. (Too long? use `NEXT_PUBLIC_DEGENS_URL` instead.) |
-   | `NEXT_PUBLIC_TIP_ENABLED` | `true` (or `false` to hide tips) | optional |
+## Store env (Netlify)
 
-That's it — they get their own link, their art on the grid, and their wallet
-collects the tips. Defaults (if the env vars are unset) = **Degen Dojo**.
+| Key | Notes |
+| --- | --- |
+| `ADMIN_KEY` | gates `/miner-admin` list + approve/reject |
+| `SOLANA_RPC` (or `HELIUS_RPC`) | `getTransaction` for fee verification |
+| `OPERATOR_WALLET` | optional; default store treasury. **Must match** the wallet baked into `/create` |
+| `SETUP_FEE_ORE` | optional; default `5`. Keep in sync with `NEXT_PUBLIC_SETUP_FEE_ORE` |
 
 ## Revenue model
-- **You:** a one-time setup fee (e.g. 2–5 SOL) per collection.
-- **The collection:** the optional per-round tips from their miners.
+- **Us:** a one-time **5 ORE** setup fee per collection.
+- **The collection:** the optional per-round tips from their miners, paid straight to their wallet.
 
-## Before scaling
-- RPC cost scales with total traffic. Either require each client to bring their
-  own Helius key (recommended — free tier covers a lot), or build the global
-  board-state caching layer so cost scales with active miners, not page views.
-- Every deploy stakes real SOL (24/25 tiles lose each round). The risk
-  disclaimer is built into the page; make sure each client owns that with their
-  community. Not financial advice.
+## Notes
+- Every miner stakes real SOL (24/25 tiles lose each round). The risk disclaimer is built
+  into the page; make sure each client owns that with their community. Not financial advice.
+- Self-hosting a fork (env vars `NEXT_PUBLIC_COLLECTION_NAME`, `NEXT_PUBLIC_TIP_WALLET`,
+  `NEXT_PUBLIC_DEGENS_JSON`/`_URL`, `HELIUS_RPC`, `ALLOW_RPC_PROXY=1`) still works, but it is
+  no longer the offered path.

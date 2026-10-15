@@ -4,6 +4,7 @@
 //   GET  ?key=<ADMIN_KEY>            → list all applications (for you to review).
 // Env: ADMIN_KEY (to read the list). Storage: Netlify Blobs (provided by the runtime).
 import { getStore } from "@netlify/blobs";
+import { adminKeyOk } from "./store-session-core.mjs";
 
 const B58 = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 const json = (o, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { "content-type": "application/json", "cache-control": "no-store", "access-control-allow-origin": "*" } });
@@ -14,7 +15,7 @@ export default async (request) => {
   const url = new URL(request.url);
 
   if (request.method === "GET") {
-    if (url.searchParams.get("key") !== process.env.ADMIN_KEY || !process.env.ADMIN_KEY) return json({ error: "unauthorized" }, 401);
+    if (!adminKeyOk(url.searchParams.get("key"), "ADMIN_KEY")) return json({ error: "unauthorized" }, 401);
     const s = store();
     const { blobs } = await s.list();
     const apps = [];

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { LAMPORTS_PER_SOL, SystemProgram, type TransactionInstruction } from "@solana/web3.js";
+import { LAMPORTS_PER_SOL, PublicKey, SystemProgram, type TransactionInstruction } from "@solana/web3.js";
 import { useWallet } from "@/lib/wallet-bridge";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { Pickaxe, Loader2, RefreshCw, LogOut, Info, X } from "lucide-react";
@@ -35,6 +35,76 @@ const solVal = (n: number, dp = 3) => (
   </span>
 );
 
+// ─── Hosted branded miners ───────────────────────────────────────────────────
+// The store rewrites /m/<slug> to this page (and ?c=<slug> works anywhere). A hosted miner
+// loads its name, tip wallet and 25 NFTs from /api/miner?slug= at runtime; plain /mine is
+// the Degen Dojo miner, configured at build time exactly as before.
+const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?$/;
+function hostedSlugFromLocation(): string | null {
+  const m = window.location.pathname.match(/^\/m\/([^/?#]+)\/?$/);
+  let raw = m ? m[1] : new URLSearchParams(window.location.search).get("c");
+  if (!raw) return null;
+  try {
+    raw = decodeURIComponent(raw);
+  } catch {
+    /* keep raw */
+  }
+  return raw.toLowerCase(); // validated by the caller (a bad slug shows "not found")
+}
+type Hosted = { slug: string; state: "loading" | "ok" | "missing" };
+type HostedConfig = { name: string; tipWallet: string; degens: GridDegen[] };
+
+// ─── Preacher referral on tips (Degen Dojo miner only) ───────────────────────
+const REF_RE = /^[a-zA-Z0-9_-]{2,32}$/;
+function readRef(): string | null {
+  try {
+    const q = new URLSearchParams(window.location.search).get("ref");
+    const c = document.cookie.match(/(?:^|;\s*)dd_ref=([^;]+)/);
+    const raw = q || (c ? decodeURIComponent(c[1]) : "");
+    return raw && REF_RE.test(raw) ? raw.toLowerCase() : null;
+  } catch {
+    return null;
+  }
+}
+async function solUsdPrice(): Promise<number> {
+  const SOL_MINT = "So11111111111111111111111111111111111111112";
+  try {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), 3000);
+    const j = await (await fetch(`https://lite-api.jup.ag/price/v3?ids=${SOL_MINT}`, { signal: ctl.signal })).json();
+    clearTimeout(t);
+    const p = Number(j?.[SOL_MINT]?.usdPrice);
+    return p > 0 ? p : 0;
+  } catch {
+    return 0;
+  }
+}
+/** Best effort: log a confirmed tip to the store's ledger (with the preacher ref, if any).
+ *  Never throws, never blocks mining — an untrusted hint the backend re-verifies on-chain. */
+async function recordTip(sig: string, buyer: string, tipSol: number): Promise<void> {
+  try {
+    const px = await solUsdPrice();
+    await fetch("/api/coinbuy", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      keepalive: true,
+      body: JSON.stringify({
+        sig,
+        buyer,
+        kind: "tip",
+        coins: 0,
+        currency: "SOL",
+        tokenAmount: tipSol,
+        usd: px ? Math.round(tipSol * px * 100) / 100 : 0,
+        ref: readRef(),
+        ts: Date.now(),
+      }),
+    });
+  } catch {
+    /* best effort */
+  }
+}
+
 export default function MinePage() {
   const { publicKey, connected, disconnect, embedded } = useWallet();
   const { board, round, lastWinner, miner, automation, motherlode, balance, secondsLeft, error, connection, refresh } =
@@ -47,9 +117,42 @@ export default function MinePage() {
   const [amountStr, setAmountStr] = useState("0.0001");
   const [depositStr, setDepositStr] = useState("0.5");
   const [tipStr, setTipStr] = useState("");
+  // Hosted (/m/<slug>) miners swap these at runtime; the default /mine keeps the build-time config.
+  const [hosted, setHosted] = useState<Hosted | null>(null);
+  const [collectionName, setCollectionName] = useState(COLLECTION_NAME);
+  const [tipWallet, setTipWallet] = useState<PublicKey>(TIP_WALLET);
 
   useEffect(() => setMounted(true), []);
   useEffect(() => {
+    const slug = hostedSlugFromLocation();
+    if (slug) {
+      setHosted({ slug, state: "loading" });
+      if (!SLUG_RE.test(slug)) {
+        setHosted({ slug, state: "missing" });
+        return;
+      }
+      let alive = true;
+      fetch(`/api/miner?slug=${encodeURIComponent(slug)}`)
+        .then(async (r) => {
+          if (!r.ok) throw new Error(String(r.status));
+          return (await r.json()) as HostedConfig;
+        })
+        .then((c) => {
+          if (!alive) return;
+          const pool = Array.isArray(c.degens) ? c.degens.filter((d) => d && typeof d.image === "string") : [];
+          const wallet = new PublicKey(c.tipWallet); // throws on a bad address → treated as missing
+          if (pool.length < SQUARES) throw new Error("incomplete");
+          setCollectionName(c.name || "ORE");
+          setTipWallet(wallet);
+          setDegenPool(pool);
+          document.title = `${c.name || "ORE"} × ORE — Grid Mining`;
+          setHosted({ slug, state: "ok" });
+        })
+        .catch(() => alive && setHosted({ slug, state: "missing" }));
+      return () => {
+        alive = false;
+      };
+    }
     if (DEGENS_INLINE_JSON) {
       try {
         setDegenPool(JSON.parse(DEGENS_INLINE_JSON) as GridDegen[]);
@@ -107,12 +210,14 @@ export default function MinePage() {
   const autoBalance = automation ? sol(automation.balance) : 0;
   const autoPerTile = automation ? sol(automation.amount) : 0;
   const estLeftRounds = automation ? estimateRounds(automation.balance, automation.amount) : 0;
-  const canStartAuto = connected && amount > 0 && deposit >= amount * SQUARES && !busy;
+  // A hosted miner must have loaded ITS tip wallet before anything can be sent — never the default.
+  const hostedReady = !hosted || hosted.state === "ok";
+  const canStartAuto = connected && amount > 0 && deposit >= amount * SQUARES && !busy && hostedReady;
 
   const pending = degens.length < SQUARES;
 
-  function onStartAuto() {
-    if (!publicKey) return;
+  async function onStartAuto() {
+    if (!publicKey || !hostedReady) return;
     const ixs: TransactionInstruction[] = [
       automateIx({
         signer: publicKey,
@@ -123,16 +228,21 @@ export default function MinePage() {
         reload: true,
       }),
     ];
-    if (TIP_ENABLED && tip > 0) {
+    const tipLamports = TIP_ENABLED && tip > 0 ? Math.floor(tip * LAMPORTS_PER_SOL) : 0;
+    if (tipLamports > 0) {
       ixs.push(
         SystemProgram.transfer({
           fromPubkey: publicKey,
-          toPubkey: TIP_WALLET,
-          lamports: Math.floor(tip * LAMPORTS_PER_SOL),
+          toPubkey: tipWallet, // hosted → the collection's own wallet; default → Degen Dojo
+          lamports: tipLamports,
         }),
       );
     }
-    submit("Start auto-mining", ixs);
+    const buyer = publicKey.toBase58();
+    const sig = await submit("Start auto-mining", ixs);
+    // Credit the preacher who referred this miner — ONLY for tips to Degen Dojo (the default
+    // miner). Hosted /m/<slug> tips go to that collection's wallet, so there's nothing of ours to share.
+    if (sig && tipLamports > 0 && !hosted) void recordTip(sig, buyer, tipLamports / LAMPORTS_PER_SOL);
   }
   const onStopAuto = () => publicKey && submit("Stop & withdraw", [stopAutomationIx(publicKey)]);
   function onClaimSol() {
@@ -143,6 +253,33 @@ export default function MinePage() {
     if (needsCheckpoint) ixs.push(checkpointIx({ signer: publicKey, roundId: miner.roundId }));
     ixs.push(claimSolIx(publicKey));
     submit("Claim SOL", ixs);
+  }
+
+  if (hosted?.state === "missing") {
+    return (
+      <>
+        <StoreNav />
+        <main className="min-h-screen px-5 py-16">
+          <div className="mx-auto max-w-md space-y-4 rounded-xl border border-slate-800 bg-slate-900/40 p-6 text-center">
+            <OreIcon className="mx-auto size-8" />
+            <h1 className="text-lg font-semibold text-slate-100">Miner not found</h1>
+            <p className="text-sm text-slate-400">
+              There&apos;s no live miner at <span className="font-mono text-slate-300">/m/{hosted.slug}</span>. It may
+              still be awaiting approval, or the link is mistyped.
+            </p>
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
+              {/* Plain <a>: a full load, so the page re-reads the URL (client nav would keep this state). */}
+              <a href="/mine" className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-500">
+                Mine with Degen Dojo
+              </a>
+              <Link href="/whitelabel" className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-200 hover:bg-slate-800">
+                Get your own miner
+              </Link>
+            </div>
+          </div>
+        </main>
+      </>
+    );
   }
 
   return (
@@ -332,7 +469,7 @@ export default function MinePage() {
                     {TIP_ENABLED && (
                       <div className="flex items-center justify-between gap-2">
                         <label className="text-xs text-slate-400">
-                          Tip {COLLECTION_NAME} <SolIcon className="inline size-3" /> (optional)
+                          Tip {collectionName} <SolIcon className="inline size-3" /> (optional)
                         </label>
                         <input
                           value={tipStr}

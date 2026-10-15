@@ -12,7 +12,11 @@
   var assetImg = function (a) { if (!a) return ""; var c = a.content || {}; return (c.links && c.links.image) || (c.files && c.files[0] && (c.files[0].cdn_uri || c.files[0].uri)) || ""; };
   var W3 = function () { return window.solanaWeb3; };
   var wallet = function () { return window.DOJO_WALLET || null; };
-  var esc = function (s) { return String(s == null ? "" : s).replace(/</g, "&lt;"); };
+  // Listing data, DAS names and image URLs are UNTRUSTED (anyone can mint an NFT with a hostile name).
+  // Everything placed in markup is fully escaped; images must be https (else our S3 art); mints base58.
+  var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"'`]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;", "`": "&#96;" }[c]; }); };
+  var safeImg = function (u) { try { var x = new URL(String(u || "")); return x.protocol === "https:" ? x.href : ""; } catch (e) { return ""; } };
+  var isB58 = function (m) { return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(String(m || "")); };
 
   async function rpcCall(method, params) {
     var r = await fetch(RPC, { method: "POST", headers: { "content-type": "application/json" },
@@ -37,11 +41,12 @@
         var st = await rpcCall("getSignatureStatuses", [[sig]]);
         var s = st && st.value && st.value[0];
         if (s && (s.confirmationStatus === "confirmed" || s.confirmationStatus === "finalized")) {
-          if (s.err) throw new Error("failed on chain"); return;
+          if (s.err) throw new Error("The transaction failed on-chain — nothing was bought. Try again."); return;
         }
-      } catch (e) {}
+      } catch (e) { if (/failed on-chain/.test(e.message)) throw e; }   // RPC hiccups retry; a real failure surfaces
       await new Promise(function (r) { setTimeout(r, 1200); });
     }
+    throw new Error("Couldn't confirm it yet — check your wallet before trying again.");
   }
 
   function render() {
@@ -53,13 +58,13 @@
     row.innerHTML = DD.map(function (x, i) {
       var mine = W && x.seller === W.pubkey;
       var m = META[x.mint] || {};
-      var art = m.img || ddImg(x.mint);
+      var art = safeImg(m.img) || safeImg(x.image) || ddImg(x.mint);
       var nm = m.name || x.name || (x.mint.slice(0, 6) + "…");
       var btn = mine
         ? '<button data-act="delist" data-i="' + i + '" style="margin:0 8px 8px;padding:7px 0;border:1px solid rgba(201,151,58,.5);border-radius:8px;background:transparent;color:#e8b84b;font-weight:700;font-size:12px;cursor:pointer">Delist</button>'
         : '<button data-act="buy" data-i="' + i + '" style="margin:0 8px 8px;padding:7px 0;border:0;border-radius:8px;background:#c9973a;color:#1a1206;font-weight:700;font-size:12px;cursor:pointer">' + (ready ? "Buy" : "Buy soon") + "</button>";
       return '<div style="border:1px solid rgba(255,255,255,.08);border-radius:12px;overflow:hidden;background:rgba(0,0,0,.25);display:flex;flex-direction:column;">'
-        + '<img src="' + art + '" alt="" style="width:100%;aspect-ratio:1/1;object-fit:cover;background:#151013;" onerror="this.onerror=null;this.src=\'' + ddImg(x.mint) + '\';this.style.opacity=.9">'
+        + '<img src="' + esc(art) + '" data-fb="' + esc(ddImg(x.mint)) + '" alt="" style="width:100%;aspect-ratio:1/1;object-fit:cover;background:#151013;" onerror="this.onerror=null;this.src=this.dataset.fb;this.style.opacity=.9">'
         + '<div style="font-size:12.5px;color:#e7ddc9;padding:8px 10px 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(nm) + "</div>"
         + '<div style="font-size:13px;color:#c9973a;font-weight:700;padding:0 10px 8px;">' + esc(x.price) + " " + esc(x.currency) + "</div>"
         + btn + "</div>";
@@ -81,16 +86,27 @@
       var ids = need.slice(i, i + 100);
       try {
         var assets = await rpcCall("getAssetBatch", { ids: ids });
-        (assets || []).forEach(function (a) { if (a && a.id) META[a.id] = { name: assetName(a), img: assetImg(a) }; });
+        (assets || []).forEach(function (a) { if (a && isB58(a.id)) META[a.id] = { name: assetName(a), img: safeImg(assetImg(a)) }; });
       } catch (e) {}
     }
   }
   async function load() {
-    try { var j = await (await fetch("/api/dd-listings")).json(); DD = (j && j.listings) || []; }
+    try { var j = await (await fetch("/api/dd-listings")).json(); DD = ((j && j.listings) || []).filter(function (x) { return x && isB58(x.mint) && isB58(x.seller); }); }
     catch (e) { DD = []; }
     render();                 // paint immediately (S3/fallback art)
     await resolveMeta();      // then upgrade to real DAS art + names
     render();
+  }
+
+  // Preacher attribution: a buy made while a dd_ref cookie is set (30 days from a /preacher/<code> visit)
+  // is recorded at /api/attr. Best-effort and fire-and-forget — the server verifies it on-chain.
+  function recordRef(sig, x, buyer) {
+    try {
+      var m = document.cookie.match(/(?:^|;\s*)dd_ref=([^;]+)/), ref = m ? decodeURIComponent(m[1]) : "";
+      if (!/^[a-zA-Z0-9_-]{2,32}$/.test(ref)) return;
+      fetch("/api/attr", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ sig: sig, ref: ref.toLowerCase(),
+        buyer: buyer, mint: x.mint, currency: x.currency, price: +x.price || null, priceLamports: 0, external: false, ts: Date.now() }) }).catch(function () {});
+    } catch (e) {}
   }
 
   async function buy(i) {
@@ -109,6 +125,7 @@
       var s = await window.DojoAH.submitBuy(rpcCall, W, r);
       toast("Confirming your purchase…"); await ddConfirm(s);
       try { fetch("/api/dd-royalty", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ sig: s, currency: x.currency }) }); } catch (e) {}
+      recordRef(s, x, W.pubkey);   // referring preacher (if any) → /api/attr, verified on-chain server-side
       DD = DD.filter(function (l) { return l.tradeState !== x.tradeState; }); render();
       toast("✓ Bought " + (x.name || "this Degen") + " — it is now in your wallet.");
       setTimeout(load, 9000);

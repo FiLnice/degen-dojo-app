@@ -30,8 +30,12 @@ export const TIP_ENABLED =
 export const DEGENS_INLINE_JSON = process.env.NEXT_PUBLIC_DEGENS_JSON || "";
 
 // ─── Whitelabel signup (paid request flow) ───────────────────────────────────
-/** Operator wallet that receives the one-time setup fee. Set NEXT_PUBLIC_OPERATOR_WALLET. */
-export const OPERATOR_WALLET = process.env.NEXT_PUBLIC_OPERATOR_WALLET || "";
+/** The Degen Dojo store treasury (also receives coin purchases). Default receiver of the
+ *  branded-miner setup fee — MUST match the store's /api/miner-requests OPERATOR_WALLET
+ *  (scripts/store-miner-core.mjs STORE_TREASURY_WALLET) or payments won't verify. */
+export const STORE_TREASURY_WALLET = "5w55F58ia3H71QjBD9bYvNQF2DcNu8K3AfJj9A4WMuWp";
+/** Operator wallet that receives the one-time setup fee (override: NEXT_PUBLIC_OPERATOR_WALLET). */
+export const OPERATOR_WALLET = process.env.NEXT_PUBLIC_OPERATOR_WALLET || STORE_TREASURY_WALLET;
 /** One-time setup fee in ORE a collection pays to request a miner. */
 export const SETUP_FEE_ORE = parseFloat(process.env.NEXT_PUBLIC_SETUP_FEE_ORE || "5") || 5;
 

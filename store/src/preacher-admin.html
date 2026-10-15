@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<title>Preacher payouts</title>
+<style>
+  :root { color-scheme: dark; --bg:#0b0d12; --card:#141821; --line:#262c38; --ink:#e6e8ee; --dim:#8b93a5; --gold:#f0b429; --ok:#34d399; --bad:#f87171; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.45 system-ui, -apple-system, Segoe UI, sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: var(--dim); font-size: 12px; margin-bottom: 16px; }
+  .bar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom: 16px; }
+  input, button { font: inherit; color: var(--ink); background: #0f1218; border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px; }
+  button { cursor: pointer; }
+  button.primary { background: var(--gold); color: #1a1300; border-color: var(--gold); font-weight: 600; }
+  button.ok { background: #065f46; border-color: #047857; }
+  button:disabled { opacity: .5; cursor: default; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin-bottom: 14px; }
+  .head { display:flex; justify-content:space-between; gap: 12px; flex-wrap: wrap; align-items: baseline; }
+  .name { font-weight: 600; font-size: 16px; }
+  .owed { font-size: 18px; font-weight: 700; color: var(--gold); }
+  .zero { color: var(--dim); }
+  .pill { display:inline-block; font-size: 11px; padding: 2px 8px; border-radius: 99px; border: 1px solid var(--line); color: var(--dim); }
+  dl { display:grid; grid-template-columns: max-content 1fr; gap: 3px 12px; margin: 10px 0; font-size: 12px; }
+  dt { color: var(--dim); } dd { margin: 0; word-break: break-all; }
+  a { color: #7dd3fc; }
+  .tok { display:flex; gap: 14px; flex-wrap: wrap; font-size: 13px; margin: 6px 0; }
+  .tok b { color: var(--ink); }
+  .actions { display:flex; gap: 8px; flex-wrap: wrap; align-items:center; margin-top: 10px; }
+  .msg { font-size: 12px; color: var(--dim); }
+  .err { color: var(--bad); }
+  .sum { display:flex; gap: 18px; flex-wrap: wrap; margin-bottom: 14px; font-size: 13px; color: var(--dim); }
+  .sum b { color: var(--ink); font-size: 16px; }
+  @media (max-width: 520px) { dl { grid-template-columns: 1fr; } dt { margin-top: 4px; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Preacher payouts</h1>
+  <div class="sub">Who brought in buyers, and what you owe each Preacher. They earn 20–30% (by fighters held) of every
+    <b>coin pack</b> and <b>ORE-miner tip</b> verified on-chain, owed in the token the buyer paid. Referred <b>Degen Dojo NFT</b> sales now earn too: 20–30% of the preacher half (6.5%) of the 13% royalty, owed in the token the royalty arrived in — each sale is checked on-chain (DD collection, royalty actually received, buyer ≠ preacher; other collections earn nothing).
+    After you pay someone, press <b>Mark paid</b> and paste the payment's transaction signature. The key stays in this tab only.</div>
+  <div class="bar">
+    <input id="key" type="password" placeholder="ATTR_ADMIN_KEY" autocomplete="off" style="min-width:220px">
+    <button class="primary" id="load">Load</button>
+    <button id="forget">Forget key</button>
+    <span id="status" class="msg"></span>
+  </div>
+  <div class="sum" id="sum"></div>
+  <div id="list"></div>
+</main>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+  var usd = function (n) { return '$' + (n || 0).toFixed(2); };
+  var amt = function (n, d) { return (n || 0).toLocaleString('en-US', { maximumFractionDigits: d }); };
+  var short = function (w) { return w ? w.slice(0, 4) + '…' + w.slice(-4) : '—'; };
+  var KEY_SS = 'dd_attr_admin_key';
+  var ROWS = [];
+  try { $('key').value = sessionStorage.getItem(KEY_SS) || ''; } catch (e) {}
+
+  function key() { return $('key').value.trim(); }
+
+  function load() {
+    var k = key(); if (!k) { $('status').textContent = 'Enter the key first.'; return; }
+    try { sessionStorage.setItem(KEY_SS, k); } catch (e) {}
+    $('status').textContent = 'Loading… (reads each preacher\'s live holdings, can take a few seconds)';
+    fetch('/api/preacher?key=' + encodeURIComponent(k) + '&export=owed', { cache: 'no-store' })
+      .then(function (r) { if (r.status === 403) throw new Error('Wrong key.'); if (!r.ok) throw new Error('Error ' + r.status); return r.json(); })
+      .then(function (rows) { ROWS = rows || []; render(); $('status').textContent = ''; })
+      .catch(function (e) { $('status').innerHTML = '<span class="err">' + esc(e.message) + '</span>'; });
+  }
+
+  function render() {
+    var owed = ROWS.reduce(function (t, r) { return t + r.owedUsd; }, 0);
+    var paid = ROWS.reduce(function (t, r) { return t + (r.paidUsd || 0); }, 0);
+    var who = ROWS.filter(function (r) { return r.packs + r.tips + r.nftBuys > 0; }).length;
+    $('sum').innerHTML = '<span>Owed now <b>' + usd(owed) + '</b></span><span>Paid so far <b>' + usd(paid) + '</b></span><span>Preachers with buyers <b>' + who + '</b></span>';
+    if (!ROWS.length) { $('list').innerHTML = '<div class="card msg">No referrals yet.</div>'; return; }
+    $('list').innerHTML = ROWS.map(function (r, i) {
+      var o = r.owedNative || {};
+      var toks = ['ORE', 'SKR', 'SOL', 'USDC'].filter(function (c) { return o[c] > 0; })
+        .map(function (c) { return '<span><b>' + amt(o[c], c === 'SKR' || c === 'USDC' ? 2 : 5) + '</b> ' + c + '</span>'; }).join('');
+      return '<div class="card">' +
+        '<div class="head"><div><span class="name">' + esc(r.code) + '</span> <span class="pill">' + esc(r.tier || '') + (r.share ? ' · ' + Math.round(r.share * 100) + '%' : '') + (r.held != null ? ' · ' + r.held + ' DD' : '') + '</span></div>' +
+        '<div class="owed ' + (r.owedUsd > 0 ? '' : 'zero') + '">' + usd(r.owedUsd) + ' owed</div></div>' +
+        (toks ? '<div class="tok">Pay: ' + toks + '</div>' : '') +
+        '<dl>' +
+        '<dt>Wallet</dt><dd>' + (r.wallet ? '<a href="https://solscan.io/account/' + esc(r.wallet) + '" target="_blank" rel="noopener">' + esc(r.wallet) + '</a>' : '<span class="err">no wallet linked to this code</span>') + '</dd>' +
+        '<dt>Coin packs</dt><dd>' + r.packs + '</dd>' +
+        '<dt>Miner tips</dt><dd>' + r.tips + '</dd>' +
+        '<dt>Referred spend</dt><dd>' + usd(r.referredUsd) + (r.checking ? ' · ' + r.checking + ' still being checked on-chain' : '') + '</dd>' +
+        '<dt>DD NFT sales</dt><dd>' + r.nftBuys + (r.nftBuys ? ' recorded · ' + (r.nftVerified || 0) + ' verified' + (r.nftRejected ? ' · ' + r.nftRejected + ' rejected' : '') + ' · earned ' + usd(r.nftUsdEarned) : '') + '</dd>' +
+        '<dt>Paid so far</dt><dd>' + usd(r.paidUsd) + '</dd>' +
+        '</dl>' +
+        (r.owedUsd > 0 && r.wallet ? '<div class="actions"><button class="ok" data-i="' + i + '">Mark paid</button><span class="msg" id="m' + i + '">Covers the ' + r.unpaidSigs.length + ' unpaid record(s) above.</span></div>' : '') +
+        '</div>';
+    }).join('');
+    Array.prototype.forEach.call(document.querySelectorAll('button[data-i]'), function (b) { b.onclick = function () { markPaid(+b.getAttribute('data-i'), b); }; });
+  }
+
+  function markPaid(i, btn) {
+    var r = ROWS[i]; if (!r) return;
+    var sig = (prompt('Paste the transaction signature of your payment to ' + r.code + ' (' + short(r.wallet) + '):') || '').trim();
+    if (!sig) return;
+    if (!/^[1-9A-HJ-NP-Za-km-z]{64,96}$/.test(sig)) { $('m' + i).innerHTML = '<span class="err">That doesn\'t look like a transaction signature.</span>'; return; }
+    btn.disabled = true; $('m' + i).textContent = 'Saving…';
+    fetch('/api/preacher', { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ action: 'markPaid', adminKey: key(), oreSig: sig, ref: r.code, wallet: r.wallet, payoutUsd: +r.owedUsd.toFixed(4), sigs: r.unpaidSigs.map(function (s) { return s.sig; }) }) })
+      .then(function (x) { return x.json(); })
+      .then(function (j) { if (!j.ok) throw new Error(j.error || 'failed'); $('m' + i).textContent = 'Marked paid ✓'; setTimeout(load, 600); })
+      .catch(function (e) { btn.disabled = false; $('m' + i).innerHTML = '<span class="err">' + esc(e.message) + '</span>'; });
+  }
+
+  $('load').onclick = load;
+  $('key').addEventListener('keydown', function (e) { if (e.key === 'Enter') load(); });
+  $('forget').onclick = function () { try { sessionStorage.removeItem(KEY_SS); } catch (e) {} $('key').value = ''; ROWS = []; $('list').innerHTML = ''; $('sum').innerHTML = ''; };
+  if (key()) load();
+})();
+</script>
+</body>
+</html>

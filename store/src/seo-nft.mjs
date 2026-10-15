@@ -10,7 +10,13 @@
 //  Degen Dojo mints get real per-trait rarity + a read; outside collections get
 //  name, image, price and trait values.
 // ============================================================================
-const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+// NFT metadata (name, collection, traits, image) is attacker-controllable — anyone can mint an NFT named
+// `</script><img onerror=…>` and this renders ANY mint. So: every HTML text/attribute goes through esc(),
+// and JSON inside <script> goes through jsonForScript() (identical to scripts/html-safe.mjs; inlined
+// because this file must stay import-clean for the Netlify function bundle).
+const esc = (s) => String(s ?? "").replace(/[&<>"'`]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;", "`": "&#96;" }[c]));
+export const jsonForScript = (v) => { const s = JSON.stringify(v); return (s === undefined ? "null" : s).replace(/[<>&\u2028\u2029]/g, (c) => "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0")); };
+const num = (n) => (Number.isFinite(+n) ? +n : null);
 const thumb = (u, w = 700) => u ? `https://wsrv.nl/?url=${encodeURIComponent(u)}&w=${w}&h=${w}&fit=cover&output=webp` : "";
 
 // A generic, per-value rarity sentence — real numbers make each page non-thin.
@@ -21,7 +27,15 @@ function rarityLine(a) {
 }
 
 /** PURE — data → full standalone HTML page (inline CSS, SEO meta, JSON-LD). */
-export function renderNftPage(d) {
+export function renderNftPage(d0) {
+  // Normalise untrusted fields once: strings stay strings (escaped at every sink below), numbers are
+  // forced numeric, the mint is URL-encoded, and only http(s) images are ever referenced.
+  const d = { ...d0,
+    name: String(d0.name ?? ""), collectionName: d0.collectionName ? String(d0.collectionName) : "",
+    mint: encodeURIComponent(String(d0.mint ?? "")), price: num(d0.price), priceOre: num(d0.priceOre), royaltyBps: num(d0.royaltyBps),
+    image: /^https?:\/\//i.test(String(d0.image ?? "")) ? String(d0.image) : "",
+    attributes: (d0.attributes || []).map((a) => ({ ...a, pct: num(a.pct), rank: num(a.rank), catSize: num(a.catSize) })),
+  };
   const title = `${d.name}${d.collectionName ? " · " + d.collectionName : ""} — own it in ORE`;
   const rarest = (d.attributes || []).filter((a) => a.pct != null).sort((a, b) => a.pct - b.pct)[0];
   const desc = d.isDD
@@ -45,7 +59,7 @@ export function renderNftPage(d) {
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>${esc(title)}</title>
 <meta name="description" content="${esc(desc)}"/>
-<link rel="canonical" href="https://store.degendojo.xyz/nft/${d.mint}"/>
+<link rel="canonical" href="https://store.degendojo.xyz/nft/${esc(d.mint)}"/>
 <meta property="og:type" content="product"/>
 <meta property="og:title" content="${esc(title)}"/>
 <meta property="og:description" content="${esc(desc)}"/>
@@ -54,7 +68,7 @@ ${d.image ? `<meta property="og:image" content="${esc(thumb(d.image, 1200))}"/>`
 <meta name="twitter:title" content="${esc(title)}"/>
 <meta name="twitter:description" content="${esc(desc)}"/>
 ${d.image ? `<meta name="twitter:image" content="${esc(thumb(d.image, 1200))}"/>` : ""}
-<script type="application/ld+json">${JSON.stringify(ld)}</script>
+<script type="application/ld+json">${jsonForScript(ld)}</script>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Inter:wght@300;400;500;600&family=Teko:wght@500;600;700&display=swap" rel="stylesheet"/>
 <style>
 :root{--ink:#0a0a0f;--panel:#16161f;--border:rgba(255,255,255,.08);--gold:#c9973a;--gold-l:#e8b84b;--red:#c0392b;--text:#e8e0d0;--muted:#8a7f6f;}
@@ -97,7 +111,7 @@ a{color:inherit;}
     <div class="col">${esc(d.collectionName || (d.isDD ? "Degen Dojo" : "Solana NFT"))}</div>
     <div class="name">${esc(d.name)}</div>
     ${d.price ? `<div class="price"><span class="o">${d.priceOre ? d.priceOre.toLocaleString("en-US", { maximumFractionDigits: 2 }) + " ◎ ORE" : d.price + " SOL"}</span><span class="a">${d.price} SOL${d.royaltyBps ? " · royalty " + d.royaltyBps / 100 + "%" : ""}</span></div>` : `<div class="price"><span class="a">Not currently listed — last seen on the market.</span></div>`}
-    <a class="buy" href="${buyUrl}">${d.price ? "⚔ Own it · pay in ORE" : "Browse the market"}</a>
+    <a class="buy" href="${esc(buyUrl)}">${d.price ? "⚔ Own it · pay in ORE" : "Browse the market"}</a>
   </div>
   <div>
     ${d.story ? `<div class="lore"><div class="lh">Who they are</div><p>${esc(d.story)}</p></div>` : ""}

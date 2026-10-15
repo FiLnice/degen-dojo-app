@@ -3,9 +3,10 @@
 // pNFT sales on the AuctionHouse need the house AUTHORITY to co-sign execute_sale
 // (Metaplex constraint). The authority is a DEDICATED low-privilege key (NOT the update
 // authority) held here in COSIGNER_SECRET. The buyer signs first in their wallet, posts
-// the tx here; we VALIDATE it is nothing but a ComputeBudget hint + our own AuctionHouse
-// buy/execute_sale (so this key can never be tricked into signing a withdraw, an authority
-// change, or anything else), add the authority signature, and return it for the buyer to send.
+// the tx here; we VALIDATE that the cosigner's signature can only reach our own AuctionHouse
+// buy/execute_sale on one of our three houses — no other instruction may reference the cosigner,
+// because a signature covers the whole tx and any program handed the account could CPI into the
+// AuctionHouse admin calls (authority change, fee withdraw, …). Then we sign and submit.
 //
 // Deliberately web3.js-free — it parses the transaction wire format and signs with Node's
 // built-in ed25519 (crypto), so it bundles reliably as a Netlify function. Only dep: bs58.
@@ -15,6 +16,13 @@ import bs58 from "bs58";
 import { createPrivateKey, sign as edSign } from "crypto";
 
 const AH = "hausS13jsjafwWwGqZTUQRmWyvyxn9EQpqMwV1PBBmk";
+// Our three houses (ORE / SKR / USDC). The cosigner is their authority, so its signature is only ever
+// lent to a buy/execute_sale on one of THESE houses.
+const HOUSES = new Set([
+  "7jAwmzBpVLL9ntSZWRFTvNXZztJJhk84HxGznq1Q3U8Y",   // ORE
+  "EfeSbHoNsXxKFRjMmNpFPNnUDYE2QmkQ5ugxvtQzCE6C",   // SKR
+  "GnbcBGfDLe3S2QaKwSPGwiJ6SoU8qzdkYAPdzTLfn1Ft",   // USDC
+]);
 const COMPUTE_BUDGET = "ComputeBudget111111111111111111111111111111";
 const BUY_DISC = [102, 6, 61, 18, 1, 218, 235, 234];
 const EXEC_DISC = [37, 74, 217, 157, 79, 49, 35, 6];
@@ -63,9 +71,9 @@ export default async (request) => {
     const ixs = [];
     for (let i = 0; i < numIx; i++) {
       const programIdIndex = message[m]; m += 1;
-      let nAcc; [nAcc, m] = readCU16(message, m); m += nAcc;
+      let nAcc; [nAcc, m] = readCU16(message, m); const accIdx = [...message.slice(m, m + nAcc)]; m += nAcc;
       let dLen; [dLen, m] = readCU16(message, m); const data = message.slice(m, m + dLen); m += dLen;
-      ixs.push({ programIdIndex, data });
+      ixs.push({ programIdIndex, accIdx, data });
     }
     let numAlt; [numAlt, m] = readCU16(message, m);
     const altLookups = [];
@@ -90,22 +98,39 @@ export default async (request) => {
     altLookups.forEach((l, li) => { for (const idx of l.rIdx) rAlt.push(altAddrs[li][idx]); });
     const accounts = [...staticKeys, ...wAlt, ...rAlt];
 
-    // GATE: any AuctionHouse instruction MUST be buy/execute_sale — that's the only thing the cosigner's
-    // authority could be abused for. Other programs (ComputeBudget, and Phantom's Lighthouse guards it
-    // injects when the wallet signs first) are harmless here — the cosigner has no assets or authority
-    // outside the AH — so we allow them, which is required for Phantom's recommended signing order.
+    // GATE (security invariant): the cosigner is the AUTHORITY of our three houses, so its signature must
+    // only ever reach an AuctionHouse buy/execute_sale on one of those houses.
+    //  · A signature covers the whole transaction, and any instruction that lists the cosigner account can
+    //    use that signer privilege — including another program that CPIs into the AuctionHouse's admin
+    //    calls (update_auction_house, withdraw_from_fee, …). So EVERY instruction that references the
+    //    cosigner (as program, or in its accounts) must be AH buy/execute_sale on one of OUR houses.
+    //  · Any AuctionHouse instruction at all must be buy/execute_sale on one of our houses.
+    //  · Other programs (ComputeBudget, Phantom's Lighthouse guards injected when the wallet signs first) are
+    //    allowed only because they never receive the cosigner account, so they can't use its signature.
+    const isAH = (ix) => b58(accounts[ix.programIdIndex]) === AH;
+    const isBuyOrExec = (ix) => { const d = [...ix.data.slice(0, 8)];
+      return d.length === 8 && (BUY_DISC.every((b, i) => d[i] === b) || EXEC_DISC.every((b, i) => d[i] === b)); };
+    const onOurHouse = (ix) => ix.accIdx.some((k) => accounts[k] && HOUSES.has(b58(accounts[k])));
+    const touchesCosigner = (ix) => b58(accounts[ix.programIdIndex] || Buffer.alloc(32)) === cosignerB58
+      || ix.accIdx.some((k) => accounts[k] && b58(accounts[k]) === cosignerB58);
     for (const ix of ixs) {
-      const pid = b58(accounts[ix.programIdIndex]);
-      if (pid !== AH) continue;
-      const disc = [...ix.data.slice(0, 8)];
-      if (!BUY_DISC.every((b, i) => disc[i] === b) && !EXEC_DISC.every((b, i) => disc[i] === b))
-        return json({ error: "refused: AuctionHouse call is not buy/execute_sale" }, 400);
+      if (ix.accIdx.some((k) => k >= accounts.length) || ix.programIdIndex >= accounts.length)
+        return json({ error: "refused: instruction references an unknown account" }, 400);
+      if (isAH(ix) && !(isBuyOrExec(ix) && onOurHouse(ix)))
+        return json({ error: "refused: AuctionHouse call is not a buy/execute_sale on a Degen Dojo house" }, 400);
+      if (touchesCosigner(ix) && !(isAH(ix) && isBuyOrExec(ix) && onOurHouse(ix)))
+        return json({ error: "refused: the cosigner may only be used by a Degen Dojo AuctionHouse buy/execute_sale" }, 400);
     }
+    if (!ixs.some((ix) => isAH(ix) && isBuyOrExec(ix) && onOurHouse(ix) && touchesCosigner(ix)))
+      return json({ error: "refused: no Degen Dojo AuctionHouse sale needs this cosigner" }, 400);
 
     // find the cosigner's signature slot
     let signerIndex = -1;
     for (let i = 0; i < numReqSig; i++) if (b58(staticKeys[i]) === cosignerB58) { signerIndex = i; break; }
     if (signerIndex < 0) return json({ error: "cosigner is not a required signer of this tx" }, 400);
+    if (signerIndex === 0) return json({ error: "refused: the cosigner can't be the fee payer" }, 400);
+    // the cosigner key must appear exactly once in the account list (no duplicate entries to confuse the checks)
+    if (accounts.filter((k) => b58(k) === cosignerB58).length !== 1) return json({ error: "refused: cosigner listed more than once" }, 400);
     // HARDENING: the cosigner must be a READ-ONLY signer. Writable signers occupy indices
     // [0, numReqSig - roSigned); a read-only signer can never be debited or have its data changed,
     // so this closes the theoretical "make the cosigner a writable account + drain it" path even

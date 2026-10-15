@@ -5,7 +5,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>The Dojo Store — Degen Dojo</title>
-<meta name="description" content="Every Degen Dojo fighter for sale, floor by floor. One character per floor, cheapest at the ground, the Kingpin at the summit. Pay in ORE, SKR or SOL." />
+<meta name="description" content="Every Degen Dojo fighter for sale, floor by floor. One character per floor, cheapest at the ground, the Kingpin at the summit. Pay in ORE." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Inter:wght@300;400;500;600&family=Noto+Serif+JP:wght@400;700&family=Teko:wght@500;600;700&display=swap" rel="stylesheet" />
@@ -1311,7 +1311,9 @@ function renderDrawer(l) {
 
   // Unique on-chain page.
   const lk = $('dLink');
-  if (l.externalUrl) { lk.style.display=''; lk.href = l.externalUrl; } else lk.style.display='none';
+  // external_url is NFT metadata (untrusted) — only ever link out over https (never javascript:/data:).
+  const _ext = (() => { try { const u = new URL(String(l.externalUrl||'')); return u.protocol === 'https:' ? u.href : ''; } catch(e) { return ''; } })();
+  if (_ext) { lk.style.display=''; lk.href = _ext; } else lk.style.display='none';
 
   const roy = l.royaltySol, fee = l.takerFeeSol;
   // The breakdown reads in ORE (the store's currency) with the ORE mark; the SOL it settles in
@@ -1573,8 +1575,8 @@ async function resolveListing(mint) {
 /* ── preacher referral attribution ─────────────────────────────────
    A visit with ?ref=<code> is remembered; when this browser later completes a
    buy we POST the sale + code to /api/attr, which appends it to the ledger. The
-   POST is only a HINT — scripts/referral-ledger.mjs re-checks every recorded
-   signature on-chain before a cent of ORE is paid, so a forged POST earns nothing. */
+   POST is only a HINT — store-preacher-core.mjs re-checks every recorded
+   signature on-chain before it earns anything, so a forged POST earns nothing. */
 // Attribution cookie — scoped to .degendojo.xyz so the SAME ref link is honoured
 // across the store AND the miner (different subdomains can't share localStorage,
 // but they share this cookie). 30-day rolling window, last-touch: a fresh ?ref
@@ -1613,13 +1615,21 @@ function getRefCookie() {
     }
   } catch {}
 })();
-async function recordSale(sig, l) {
+// Referred Degen Dojo NFT sales earn the preacher their tier share (20–30%) of the preacher half (6.5%)
+// of the 13% royalty. The server re-reads the sig on-chain (DD collection, royalty actually received,
+// buyer ≠ preacher) — other collections pay no royalty, so they earn nothing. Best-effort, never blocks.
+const ATTRIBUTE_NFT_SALES = true;
+async function recordSale(sig, l, currency) {
+  if (!ATTRIBUTE_NFT_SALES) return;
   let ref = null; try { ref = getRefCookie(); } catch {}
-  if (!ref || !sig) return;
+  if (!ref || !sig || !/^[a-zA-Z0-9_-]{2,32}$/.test(ref)) return;
+  const pk = WALLET && WALLET.pubkey;
+  const cur = currency || 'SOL';
   try {
     await fetch('/api/attr', { method:'POST', headers:{'content-type':'application/json'},
-      body: JSON.stringify({ sig, ref, buyer: WALLET?.pubkey?.toBase58?.() || null,
-        mint: l.mint, priceLamports: Math.round(l.price * 1e9), external: !!l.external, ts: Date.now() }) });
+      body: JSON.stringify({ sig, ref: ref.toLowerCase(), buyer: (typeof pk === 'string' ? pk : pk?.toBase58?.()) || null,
+        mint: l.mint, currency: cur, price: +l.price || null,
+        priceLamports: cur === 'SOL' ? Math.round((+l.price || 0) * 1e9) : 0, external: !!l.external, ts: Date.now() }) });
   } catch {}
 }
 
@@ -2276,19 +2286,19 @@ function renderDDRow(){
       ? `<button onclick="doDelistDD(${i})" style="background:transparent;border:1px solid rgba(201,151,58,.5);color:#e8b84b">Delist</button>`
       : `<button onclick="doBuyDD(${i})">${ready?'Buy':'Buy soon'}</button>`;
     return `<div class="ddcard">
-    <img src="${ddImg(x.mint)}" alt="" onerror="this.style.opacity=.15">
-    <div class="nm">${(x.name||x.mint.slice(0,6)+'…').replace(/</g,'&lt;')}</div>
-    <div class="pr">${x.price} ${x.currency}</div>
+    <img src="${esc(ddImg(x.mint))}" alt="" onerror="this.style.opacity=.15">
+    <div class="nm">${esc(x.name||String(x.mint).slice(0,6)+'…')}</div>
+    <div class="pr">${esc(x.price)} ${esc(x.currency)}</div>
     ${btn}</div>`;
   }).join('');
   strip.hidden = false;
 }
 async function loadDD(){
-  try{ const j = await (await fetch('/api/dd-listings')).json(); DD_LISTINGS = (j && j.listings) || []; }
+  try{ const j = await (await fetch('/api/dd-listings')).json(); DD_LISTINGS = ((j && j.listings) || []).filter(x => x && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(String(x.mint)) && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(String(x.seller))); }
   catch(e){ DD_LISTINGS = []; }
   renderDDRow();
 }
-async function ddConfirm(sig){ for(let k=0;k<40;k++){ try{ const st=await rpcCall('getSignatureStatuses',[[sig]]); const s=st&&st.value&&st.value[0]; if(s&&(s.confirmationStatus==='confirmed'||s.confirmationStatus==='finalized')){ if(s.err) throw new Error('failed on chain'); return; } }catch(e){} await new Promise(r=>setTimeout(r,1200)); } }
+async function ddConfirm(sig){ for(let k=0;k<40;k++){ try{ const st=await rpcCall('getSignatureStatuses',[[sig]]); const s=st&&st.value&&st.value[0]; if(s&&(s.confirmationStatus==='confirmed'||s.confirmationStatus==='finalized')){ if(s.err) throw new Error('The transaction failed on-chain — nothing was bought. Try again.'); return; } }catch(e){ if(/failed on-chain/.test(e.message)) throw e; } await new Promise(r=>setTimeout(r,1200)); } throw new Error("Couldn't confirm it yet — check your wallet before trying again."); }
 async function doBuyDD(i){
   if(_ddBusy) return;                                   // block double-clicks while a buy is in flight
   const x = DD_LISTINGS[i]; if(!x) return;
@@ -2304,6 +2314,7 @@ async function doBuyDD(i){
     const s = await DojoAH.submitBuy(rpcCall, WALLET.provider, r);
     notify('Confirming your purchase…'); await ddConfirm(s);
     try{ fetch('/api/dd-royalty',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({sig:s,currency:x.currency})}); }catch(e){}   // 50% of the royalty → weekly pot
+    recordSale(s, { mint:x.mint, price:x.price, external:false }, x.currency);   // preacher attribution (if this visit carried a ref)
     DD_LISTINGS = DD_LISTINGS.filter(l => l.tradeState !== x.tradeState);   // sold → drop it now so it can't be re-bought
     renderDDRow();
     notify('✓ Bought '+(x.name||'this Degen')+' — it is now in the buyer wallet.');

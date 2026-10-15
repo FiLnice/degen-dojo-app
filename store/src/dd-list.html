@@ -30,7 +30,7 @@ a{color:var(--gold)}
 <div id="ddnav-mount"></div>
 <div class="wrap">
   <h1>List an NFT</h1>
-  <div class="sub">List any NFT in your wallet — priced in ORE, SKR or USDC. Non-custodial: it stays in your wallet. One signature. Cancel anytime.</div>
+  <div class="sub">List any NFT in your wallet — priced in ORE. Non-custodial: it stays in your wallet. One signature. Cancel anytime.</div>
 
   <div class="card">
     <div style="font-size:13px;color:var(--mut);margin-bottom:8px">Your NFTs <span id="degcount"></span></div>
@@ -68,6 +68,12 @@ a{color:var(--gold)}
 const RPC='/api/rpc';
 let WALLET=null, SEL=null, CUR='ORE', PRICES={ORE:0,SKR:0,USDC:1,SOL:0};
 const $=id=>document.getElementById(id);
+// Listing + NFT data (names/images from DAS, the listing index, wallets) is UNTRUSTED — anyone can mint an
+// NFT with a hostile name and airdrop it. Everything that reaches innerHTML goes through esc(); image URLs
+// must be https (anything else falls back to our own S3 art); mints must be base58.
+const esc=s=>String(s==null?'':s).replace(/[&<>"'`]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','`':'&#96;'}[c]));
+const safeImg=u=>{try{const x=new URL(String(u||''));return x.protocol==='https:'?x.href:'';}catch(e){return '';}};
+const isB58=m=>/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(String(m||''));
 async function rpc(method,params){const r=await fetch(RPC,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params})});return (await r.json()).result;}
 async function waitForConfirm(sig){for(let i=0;i<40;i++){const st=await rpc('getSignatureStatuses',[[sig]]);const s=st&&st.value&&st.value[0];if(s&&(s.confirmationStatus==='confirmed'||s.confirmationStatus==='finalized')){if(s.err)throw new Error('Transaction failed on chain.');return;}await new Promise(r=>setTimeout(r,1200));}}
 
@@ -115,16 +121,16 @@ async function loadDegens(){ if(!WALLET)return; $('degs').innerHTML='<div style=
     const nfts=[];
     for(let i=0;i<mints.length;i+=100){ const ids=mints.slice(i,i+100).map(m=>m.mint);
       let assets=[]; try{ assets=await rpc('getAssetBatch',{ids})||[]; }catch(e){}
-      assets.forEach(a=>{ if(!a||!a.id)return; if(a.interface&&/Fungible/i.test(a.interface))return; const nm=_assetName(a),im=_assetImg(a); if(!nm&&!im)return;
+      assets.forEach(a=>{ if(!a||!isB58(a.id))return; if(a.interface&&/Fungible/i.test(a.interface))return; const nm=_assetName(a),im=_assetImg(a); if(!nm&&!im)return;
         const _g=(a.grouping||[]).find(x=>x.group_key==='collection'), _coll=_g&&_g.group_value;
         const _dd=_coll==='2m9DupVeheZ5vfuXZxqV3KSQ7HnVDk2tG6ouH1ZnLwYb'||_coll==='WyUy9qjJekjqTAYGanANjhtviwgu1uhCkXx1uas8fWb';
         const _rb=(a.royalty&&typeof a.royalty.basis_points==='number')?a.royalty.basis_points:(_dd?1300:0);
         nfts.push({mint:a.id,ta:taByMint[a.id],name:nm||a.id.slice(0,6),img:im,roybps:_rb,isDegen:_dd}); }); }
     if(!nfts.length){$('degs').innerHTML='<div style="color:var(--mut);font-size:13px">No NFTs found in this wallet.</div>';return;}
     $('degcount').textContent='· '+nfts.length;
-    $('degs').innerHTML=nfts.map((d,i)=>`<div class="deg" data-i="${i}" onclick="selDeg(${i})"><img src="${d.img||_ddImg(d.mint)}" onerror="this.onerror=null;this.src='${_ddImg(d.mint)}';this.style.opacity=.9"><div class="nm">${(d.name||d.mint.slice(0,6)).replace(/</g,'&lt;')}</div></div>`).join('');
+    $('degs').innerHTML=nfts.map((d,i)=>`<div class="deg" data-i="${i}" onclick="selDeg(${i})"><img src="${esc(safeImg(d.img)||_ddImg(d.mint))}" data-fb="${esc(_ddImg(d.mint))}" onerror="this.onerror=null;this.src=this.dataset.fb;this.style.opacity=.9"><div class="nm">${esc(d.name||d.mint.slice(0,6))}</div></div>`).join('');
     window._DEGS=nfts; markGrid();
-  }catch(e){$('degs').innerHTML='<div style="color:#c1443a;font-size:13px">Could not load: '+(e.message||e)+'</div>';}
+  }catch(e){$('degs').innerHTML='<div style="color:#c1443a;font-size:13px">Could not load: '+esc(e.message||e)+'</div>';}
 }
 
 // which of the loaded Degens are already listed by THIS wallet → mint → listing object
@@ -159,17 +165,19 @@ async function doList(){ if(!WALLET){conn();return;} if(!SEL||!SEL.mint){$('msg'
     const sig=await WALLET.adapter.signAndSendTransaction(tx); const s=sig.signature||sig;
     btn.textContent='Confirming…'; await waitForConfirm(s);   // let the trade state land before the index verifies it
     btn.textContent='✓ Listed!';
-    $('msg').innerHTML='Listed — <a href="https://solscan.io/tx/'+s+'" target="_blank">view tx ↗</a>';
-    try{await fetch('/api/dd-listings',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({mint:SEL.mint,seller:WALLET.pubkey,currency:CUR,price:price,priceBaseUnits:built.priceBaseUnits,tradeState:built.tradeState,name:SEL.name||''})});}catch(e){}
+    $('msg').innerHTML='Listed — <a href="https://solscan.io/tx/'+esc(encodeURIComponent(s))+'" target="_blank" rel="noopener">view tx ↗</a>';
+    // The index re-derives + verifies everything on-chain (trade-state PDA, house, price, holder) and
+    // takes the name/image from DAS — so only the listing coordinates are sent.
+    try{await fetch('/api/dd-listings',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({mint:SEL.mint,seller:WALLET.pubkey,currency:CUR,price:price,priceBaseUnits:built.priceBaseUnits,tradeState:built.tradeState,tokenAccount:SEL.ta||undefined})});}catch(e){}
     setTimeout(()=>{btn.disabled=false;btn.textContent='List for '+CUR;loadListings();},2000);
   }catch(e){btn.disabled=false;btn.textContent=orig; var m=(e&&e.message)||'Failed.';
     if(/insufficient|AccountNotFound/i.test(m))m='The '+CUR+' house fee account may need funding, or you lack SOL for the network fee. '+m;
     $('msg').textContent=m; }
 }
 
-async function loadListings(){ try{const j=await(await fetch('/api/dd-listings')).json(); const L=(j&&j.listings)||[]; window._LISTINGS=L;
+async function loadListings(){ try{const j=await(await fetch('/api/dd-listings')).json(); const L=((j&&j.listings)||[]).filter(x=>x&&isB58(x.mint)&&isB58(x.seller)); window._LISTINGS=L;
   LISTED={}; if(WALLET) L.forEach(x=>{ if(x.seller===WALLET.pubkey) LISTED[x.mint]=x; });
-  $('listings').innerHTML=L.length?L.map((x,i)=>{const act=WALLET?(x.seller===WALLET.pubkey?`<button class="btn sub" style="padding:3px 10px;font-size:11px;margin-left:10px" onclick="doDelist(${i})">Delist</button>`:`<button class="btn" style="padding:3px 12px;font-size:11px;margin-left:10px" onclick="doBuy(${i})">Buy</button>`):'';return `<div class="row"><span>${x.name||x.mint.slice(0,6)+'…'}</span><span><span style="color:var(--gold)">${x.price} ${x.currency}</span>${act}</span></div>`;}).join(''):'No live listings yet — be the first.';
+  $('listings').innerHTML=L.length?L.map((x,i)=>{const act=WALLET?(x.seller===WALLET.pubkey?`<button class="btn sub" style="padding:3px 10px;font-size:11px;margin-left:10px" onclick="doDelist(${i})">Delist</button>`:`<button class="btn" style="padding:3px 12px;font-size:11px;margin-left:10px" onclick="doBuy(${i})">Buy</button>`):'';return `<div class="row"><span>${esc(x.name||x.mint.slice(0,6)+'…')}</span><span><span style="color:var(--gold)">${esc(x.price)} ${esc(x.currency)}</span>${act}</span></div>`;}).join(''):'No live listings yet — be the first.';
   markGrid(); applyMode();
 }catch(e){$('listings').textContent='—';} }
 
@@ -186,7 +194,7 @@ async function doDelistListing(x){ if(!WALLET||!x)return;
     btn.textContent='Approve in your wallet…';
     const sig=await WALLET.adapter.signAndSendTransaction(tx); const s=sig.signature||sig;
     btn.textContent='Confirming…'; await waitForConfirm(s);
-    $('msg').innerHTML='Delisted — <a href="https://solscan.io/tx/'+s+'" target="_blank">view tx ↗</a>';
+    $('msg').innerHTML='Delisted — <a href="https://solscan.io/tx/'+esc(encodeURIComponent(s))+'" target="_blank" rel="noopener">view tx ↗</a>';
     delete LISTED[x.mint]; btn.disabled=false; loadListings();
   }catch(e){ btn.disabled=false; applyMode(); $('msg').textContent='Delist failed: '+((e&&e.message)||e);} }
 
@@ -198,12 +206,14 @@ async function doBuy(i){ if(_buying)return; const x=window._LISTINGS&&window._LI
   _buying=true; $('msg').textContent='Checking the purchase (no charge yet)…';
   try{
     const r=await DojoAH.prepareBuy(rpc,{currency:x.currency,buyer:WALLET.pubkey,seller:x.seller,mint:x.mint,price:x.price});
-    if(r.err){ console.log('buy sim failed',JSON.stringify(r.err),r.logs); $('msg').innerHTML='<span style="color:#c1443a">This purchase would fail — you were NOT charged.</span> It may have just sold, or you lack enough '+x.currency+'. <span style="color:var(--mut)">('+JSON.stringify(r.err).slice(0,80)+')</span>'; return; }
+    if(r.err){ console.log('buy sim failed',JSON.stringify(r.err),r.logs); $('msg').innerHTML='<span style="color:#c1443a">This purchase would fail — you were NOT charged.</span> It may have just sold, or you lack enough '+esc(x.currency)+'. <span style="color:var(--mut)">('+esc(JSON.stringify(r.err).slice(0,80))+')</span>'; return; }
     $('msg').textContent='Approve in your wallet — you pay '+r.breakdown.price+' '+x.currency+' (seller nets '+r.breakdown.sellerNet.toFixed(x.currency==='USDC'?2:3)+' after royalty)…';
     const s=await DojoAH.submitBuy(rpc, WALLET.adapter, r);
     $('msg').textContent='Confirming…'; await waitForConfirm(s);
     try{ fetch('/api/dd-royalty',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({sig:s,currency:x.currency})}); }catch(e){}   // 50% of the royalty → weekly pot
-    $('msg').innerHTML='✓ Bought '+(x.name||x.mint.slice(0,6))+' — <a href="https://solscan.io/tx/'+s+'" target="_blank">view tx ↗</a>';
+    try{ const m=document.cookie.match(/(?:^|;\s*)dd_ref=([^;]+)/); const ref=m?decodeURIComponent(m[1]):'';   // referring preacher → /api/attr (verified on-chain server-side)
+      if(/^[a-zA-Z0-9_-]{2,32}$/.test(ref)) fetch('/api/attr',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({sig:s,ref:ref.toLowerCase(),buyer:WALLET.pubkey,mint:x.mint,currency:x.currency,price:+x.price||null,priceLamports:0,external:false,ts:Date.now()})}).catch(()=>{}); }catch(e){}
+    $('msg').innerHTML='✓ Bought '+esc(x.name||x.mint.slice(0,6))+' — <a href="https://solscan.io/tx/'+esc(encodeURIComponent(s))+'" target="_blank" rel="noopener">view tx ↗</a>';
     if(window._LISTINGS) window._LISTINGS=window._LISTINGS.filter(l=>l.tradeState!==x.tradeState);
     setTimeout(()=>{loadListings(); loadDegens();}, 9000);
   }catch(e){ $('msg').textContent='Buy failed: '+((e&&e.message)||e); }

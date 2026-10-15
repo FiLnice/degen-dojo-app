@@ -154,6 +154,11 @@ body{background:var(--ink);color:var(--text);font-family:'Inter',sans-serif;min-
 .card:hover{transform:translateY(-5px);border-color:rgba(201,151,58,.55);box-shadow:0 14px 24px -10px rgba(0,0,0,.8);}
 .card .art{aspect-ratio:1;background:#000;overflow:hidden;position:relative;}
 .card .art img{width:100%;height:100%;object-fit:cover;display:block;}
+.card .art .noart{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:12px;text-align:center;
+  font-family:'Cinzel',serif;font-size:12px;color:var(--muted);background:radial-gradient(circle at 50% 40%,#2a1a14,#0b0a0c);}
+.card.more{display:flex;align-items:center;justify-content:center;border-radius:11px;min-height:200px;text-align:center;
+  font-family:'Teko',sans-serif;font-size:20px;letter-spacing:.04em;color:var(--gold-l);background:rgba(201,151,58,.07);}
+.hallmore{height:1px;}
 .card .rank{position:absolute;top:7px;left:7px;font-family:'Teko',sans-serif;font-size:11px;letter-spacing:.04em;
   background:rgba(10,8,14,.8);color:var(--gold-l);border-radius:5px;padding:2px 7px;backdrop-filter:blur(3px);}
 .card .body{padding:9px 10px 11px;}
@@ -231,16 +236,23 @@ let PRICES = { SOL:null, ORE:null };
 let FILTER = 'all';
 
 const $ = id => document.getElementById(id);
-const esc = s => (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+// Collection/NFT names, symbols, images and mints come from Magic Eden / Tensor / DAS — UNTRUSTED (anyone can
+// name a collection or NFT `"><svg onload=…>`). Text → esc(); a value inside an inline JS call → jsArg()
+// (JSON string, then HTML-escaped for the attribute); image URLs → img() (always escaped, proxied).
+const esc = s => (s==null?'':String(s)).replace(/[&<>"'`]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','`':'&#96;'}[c]));
+const _LSPS = new RegExp('[' + String.fromCharCode(8232, 8233) + ']', 'g');   // U+2028/2029: escape for pre-ES2019 engines
+const jsArg = s => esc(JSON.stringify(String(s==null?'':s)).replace(_LSPS, c => '\\' + 'u' + c.charCodeAt(0).toString(16)));
 const oreIcon = '<img class="tok" src="https://wsrv.nl/?url=https%3A%2F%2Fore.com%2Fassets%2Ficon.png&w=28&h=28&output=png" alt="ORE"/>';
 const solIcon = '<img class="tok" src="https://wsrv.nl/?url=https%3A%2F%2Fraw.githubusercontent.com%2Fsolana-labs%2Ftoken-list%2Fmain%2Fassets%2Fmainnet%2FSo11111111111111111111111111111111111111112%2Flogo.png&w=28&h=28&output=png" alt="SOL"/>';
 const oreOf = sol => (PRICES.SOL && PRICES.ORE) ? (sol*PRICES.SOL/PRICES.ORE) : null;
 const usdOf = sol => PRICES.SOL ? '$'+(sol*PRICES.SOL).toLocaleString('en-US',{maximumFractionDigits:0}) : '';
 // The resizer (wsrv.nl) rejects IPFS gateways and redirects, which left whole cases black. If the
 // resized image fails, load the original URL directly once; only then dim it.
-function artFallback(el){ const raw=el.dataset.raw; if(raw && !el.dataset.tried){ el.dataset.tried='1'; el.src=raw; } else el.style.opacity=.15; }
-const img = (u,s=300) => !u ? '' : u.startsWith('/') ? u : u ? `https://wsrv.nl/?url=${encodeURIComponent(u)}&w=${s}&h=${s}&fit=cover&output=webp` : '';
-const nf = (n,d=2) => n==null?'—':n.toLocaleString('en-US',{maximumFractionDigits:d});
+function artFallback(el){ const raw=el.dataset.raw; if(raw && /^https?:\/\//i.test(raw) && !el.dataset.tried){ el.dataset.tried='1'; el.src=raw; } else el.style.opacity=.15; }
+const img = (u,s=300) => { u = u==null ? '' : String(u); if(!u) return '';
+  if(u.startsWith('/') && !u.startsWith('//')) return esc(u);          // our own same-origin asset
+  return esc(`https://wsrv.nl/?url=${encodeURIComponent(u)}&w=${s}&h=${s}&fit=cover&output=webp`); };
+const nf = (n,d=2) => (n==null || n==='' || !isFinite(+n)) ? '—' : (+n).toLocaleString('en-US',{maximumFractionDigits:d});
 
 // REAL listings only — fetched live per collection. Nothing is ever fabricated;
 // every card is an actual on-chain listing (real mint, price, image), and the buy
@@ -248,12 +260,16 @@ const nf = (n,d=2) => n==null?'—':n.toLocaleString('en-US',{maximumFractionDig
 // something that isn't listed or get a different NFT than the one you clicked.
 const CASE_CACHE = {};   // symbol → items[]
 
+// Some old collections' art is gone at the source (e.g. Tomorrowland's metadata points at FTX's
+// dead servers; Magic Eden has no image either), so a missing image shows the name, not a black box.
 function cardHtml(it){
   const ore = oreOf(it.price);
-  return `<div class="card" onclick="openMint('${it.mint}')">
-    <div class="art"><img src="${img(it.image)}" data-raw="${esc(it.image||'')}" loading="lazy" onerror="artFallback(this)"/></div>
+  const art = it.image ? `<img src="${img(it.image)}" data-raw="${esc(it.image)}" loading="lazy" onerror="artFallback(this)"/>`
+                       : `<div class="noart">${esc(it.name||'No artwork')}</div>`;
+  return `<div class="card" onclick="openMint(${jsArg(it.mint)})">
+    <div class="art">${art}</div>
     <div class="body">
-      <div class="nm">${esc(it.name || (it.mint.slice(0,4)+'…'+it.mint.slice(-4)))}</div>
+      <div class="nm">${esc(it.name || (String(it.mint).slice(0,4)+'…'+String(it.mint).slice(-4)))}</div>
       <div class="p-ore">${nf(ore)} ${oreIcon}</div>
       <div class="p-alt">${nf(it.price)} SOL · ${usdOf(it.price)}</div>
     </div>
@@ -286,16 +302,22 @@ function paintCase(items, shelf, countId){
     else { if(box) box.style.display=''; shelf.innerHTML = shelfMsg('No listings we can buy right now — Magic Eden pool listings aren’t supported. Try again in a minute.'); }
     return;
   }
+  // In the all-cases view a collection with no art at all is hidden too (a shelf of blanks sells nothing).
+  if(FILTER==='all' && !items.some(x=>x.image)){ if(box) box.style.display='none'; return; }
   if(box) box.style.display='';
-  shelf.innerHTML = items.map(cardHtml).join('');
-  if(countId){ const el=document.getElementById(countId); if(el) el.textContent = items.length+'+ shown live'; }
+  // All-cases view: 5 per shelf (keeps the page light) + a "see all" tile; picking the case shows them all.
+  const i = shelf.id.slice(5);
+  const show = FILTER==='all' ? items.slice(0, SHELF_N) : items;
+  const more = FILTER==='all' && items.length > SHELF_N ? `<div class="card more" onclick="setFilter(${i})">See all ${items.length} →</div>` : '';
+  shelf.innerHTML = show.map(cardHtml).join('') + more;
+  if(countId){ const el=document.getElementById(countId); if(el) el.textContent = items.length+'+ live'; }
 }
 
 function renderFilters(){
   const chips = [`<div class="chip ${FILTER==='all'?'on':''}" onclick="setFilter('all')">⛩ All cases</div>`]
     .concat(COLLECTIONS.map((c,i)=>
       `<div class="chip ${FILTER===i?'on':''}" onclick="setFilter(${i})">
-         <img src="${c.logo?img(c.logo,40):img(c.imgs&&c.imgs[0],40)}" onerror="this.style.opacity=.2"/>${esc(c.name)}${c.listed?` <span class="n">${c.listed.toLocaleString()}</span>`:''}
+         <img src="${c.logo?img(c.logo,40):img(c.imgs&&c.imgs[0],40)}" onerror="this.style.opacity=.2"/>${esc(c.name)}${c.listed?` <span class="n">${nf(c.listed,0)}</span>`:''}
        </div>`));
   $('filterRow').innerHTML = chips.join('');
   updateFilterHint();
@@ -315,7 +337,7 @@ function caseShell(c,i){
     <div class="casehdr">
       <img class="casecrest" src="${c.logo?img(c.logo,90):img(c.imgs&&c.imgs[0],90)}" onerror="this.style.opacity=.2"/>
       <div class="casetitle"><b>${esc(c.name)}</b>
-        <div class="m"><span id="cnt${i}">${c.listed?(c.listed.toLocaleString()+' for sale'):'live from Magic Eden'}</span>${c.listed&&c.vol7?' · 7d vol <b>'+nf(c.vol7,0)+'</b> SOL':''}</div></div>
+        <div class="m"><span id="cnt${i}">${c.listed?(nf(c.listed,0)+' for sale'):'live from Magic Eden'}</span>${c.listed&&c.vol7?' · 7d vol <b>'+nf(c.vol7,0)+'</b> SOL':''}</div></div>
       <div class="casefloor"><div class="fl">${nf(oreFloor)} ${oreIcon}</div><div class="fs">floor · ${nf(c.floor)} SOL</div></div>
       <button class="viewall" onclick="${adhoc?"setFilter('all')":'setFilter('+i+')'}">${adhoc?'← all cases':'View all →'}</button>
     </div>
@@ -327,10 +349,29 @@ function caseShell(c,i){
   </div>`;
 }
 
+// Cases load 10 at a time: the next batch is added when you scroll near the bottom, instead of
+// firing ~100 listing + image requests on page open.
+const SHELF_N = 5, HALL_BATCH = 10;
+let HALL_LIST = [], HALL_SHOWN = 0, HALL_OBS = null;
 function renderHall(){
-  const list = FILTER==='all' ? COLLECTIONS.map((c,i)=>[c,i]) : [[COLLECTIONS[FILTER],FILTER]];
-  $('hall').innerHTML = list.map(([c,i])=>caseShell(c,i)).join('');
-  list.forEach(([c,i])=>loadCase(c.symbol,'shelf'+i,'cnt'+i));   // fill each case with REAL listings
+  HALL_LIST = FILTER==='all' ? COLLECTIONS.map((c,i)=>[c,i]) : [[COLLECTIONS[FILTER],FILTER]];
+  HALL_SHOWN = 0;
+  $('hall').innerHTML = '<div class="hallmore" id="hallMore"></div>';
+  if(HALL_OBS) HALL_OBS.disconnect();
+  if('IntersectionObserver' in window){
+    HALL_OBS = new IntersectionObserver(es=>{ if(es.some(e=>e.isIntersecting)) moreCases(); }, {rootMargin:'900px 0px'});
+    HALL_OBS.observe($('hallMore'));
+  }
+  moreCases();
+  if(!HALL_OBS) while(HALL_SHOWN < HALL_LIST.length) moreCases();
+}
+function moreCases(){
+  const batch = HALL_LIST.slice(HALL_SHOWN, HALL_SHOWN + HALL_BATCH); if(!batch.length) return;
+  HALL_SHOWN += batch.length;
+  $('hallMore').insertAdjacentHTML('beforebegin', batch.map(([c,i])=>caseShell(c,i)).join(''));
+  batch.forEach(([c,i])=>loadCase(c.symbol,'shelf'+i,'cnt'+i));   // fill each case with REAL listings
+  // Hidden (empty) cases take no height, so the sentinel may still be in view: re-arm it.
+  if(HALL_OBS){ const m=$('hallMore'); HALL_OBS.unobserve(m); HALL_OBS.observe(m); }
 }
 
 // click a card → re-resolve the EXACT mint on-chain, then show live price + buy.
@@ -365,7 +406,7 @@ function renderResults(list, box){
   box.innerHTML = list.length ? list.map(c=>{
     HITS[c.symbol] = c;
     const f = c.floor!=null ? `${nf(oreOf(c.floor))} ${oreIcon} <small>floor</small>` : '';
-    return `<div class="cres" onclick="pickCollection('${c.symbol}')">
+    return `<div class="cres" onclick="pickCollection(${jsArg(c.symbol)})">
       <img src="${img(c.logo,60)}" onerror="this.style.opacity=.2"/>
       <span class="cn">${esc(c.name)}</span><span class="cf">${f}</span></div>`;
   }).join('') : '<div class="cres empty">No collection found — try another name.</div>';
@@ -413,10 +454,10 @@ async function notePaste(){
   try{
     const r = await fetch('/api/resolve?q='+encodeURIComponent(q));
     const j = await r.json();
-    if(!j.ok){ p.innerHTML = (j.error||'Could not resolve that.')+' <span style="color:var(--muted)">'+(j.mint||'')+'</span>'; return; }
+    if(!j.ok){ p.innerHTML = esc(j.error||'Could not resolve that.')+' <span style="color:var(--muted)">'+esc(j.mint||'')+'</span>'; return; }
     p.innerHTML = prev;
     showResolved(j.listing);
-  }catch(e){ p.innerHTML = 'Resolver error: '+e.message; }
+  }catch(e){ p.innerHTML = 'Resolver error: '+esc(e.message); }
 }
 
 function showResolved(L){
@@ -432,9 +473,9 @@ function showResolved(L){
       <div class="dname">${esc(L.name)}</div>
       <div class="dprice">
         <span class="o">${nf(ore)} ${oreIcon}</span>
-        <span class="a">${usdOf(L.price)} · royalty ${(L.royaltyBps/100)}%</span>
+        <span class="a">${usdOf(L.price)} · royalty ${nf((+L.royaltyBps||0)/100)}%</span>
       </div>
-      <button class="dbuy" id="dbuyBtn" onclick="shelfBuy('${esc(L.mint)}')">⚔ Own it · pay in ORE</button>
+      <button class="dbuy" id="dbuyBtn" onclick="shelfBuy(${jsArg(L.mint)})">⚔ Own it · pay in ORE</button>
       <div class="dnote">Resolved live off-chain. This exact listing buys through the same ORE→SOL swap + purchase the store already uses.</div>
       <div class="dsec">Traits</div>
       ${traits}
@@ -500,5 +541,5 @@ renderFilters(); renderHall(); paintPot(); loadPrices(); loadTopCollections();
 $('filterRow').addEventListener('scroll', updateFilterHint, {passive:true});
 window.addEventListener('resize', updateFilterHint);
 </script>
-<script src="/dojo-credits.js"></script><script src="/dojo-profile.js"></script><script src="/mwa.js"></script><script src="/wallet-picker.js"></script><script>/*navwallet-wire*/(function(){var b=document.getElementById('dojoNavWallet');if(!b)return;var A=null,sh=function(p){return p.slice(0,4)+'\u2026'+p.slice(-4);};var G="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#0a0814;background:linear-gradient(135deg,#c8962a,#8b6018);border:none;padding:9px 16px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;",C="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#e8b84b;background:rgba(201,151,58,.12);border:1px solid rgba(201,151,58,.5);padding:9px 14px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;";function set(a){A=a;window.DOJO_WALLET=a||null;window.dispatchEvent(new Event('dojo-wallet-change'));if(a){b.textContent='\u25ce '+sh(a.pubkey);b.setAttribute('style',C);}else{b.textContent='Connect wallet';b.setAttribute('style',G);}}b.onclick=function(){if(A){var dc=function(){try{A.disconnect&&A.disconnect();}catch(e){}set(null);};if(window.DojoProfile)DojoProfile.menu(b,A.pubkey,dc);else dc();return;}if(window.DojoWalletPicker)DojoWalletPicker.pick().then(set).catch(function(){});};if(window.DojoWalletPicker&&DojoWalletPicker.autoConnect)DojoWalletPicker.autoConnect().then(function(a){if(a&&!A)set(a);});})();</script><script src="/buffer.js"></script><script>window.Buffer=window.Buffer||(window.buffer&&window.buffer.Buffer);</script><script src="/web3.js"></script><script src="/dojo-ah.js"></script><script src="/dojo-buy.js"></script><script src="/dd-case.js"></script></body>
+<script src="/dojo-credits.js"></script><script src="/dojo-wallet.js"></script><script src="/dojo-profile.js"></script><script src="/mwa.js"></script><script src="/wallet-picker.js"></script><script>/*navwallet-wire*/(function(){var b=document.getElementById('dojoNavWallet');if(!b)return;var A=null,sh=function(p){return p.slice(0,4)+'\u2026'+p.slice(-4);};var G="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#0a0814;background:linear-gradient(135deg,#c8962a,#8b6018);border:none;padding:9px 16px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;",C="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#e8b84b;background:rgba(201,151,58,.12);border:1px solid rgba(201,151,58,.5);padding:9px 14px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;";function set(a){A=a;window.DOJO_WALLET=a||null;window.dispatchEvent(new Event('dojo-wallet-change'));if(a){b.textContent='\u25ce '+sh(a.pubkey);b.setAttribute('style',C);}else{b.textContent='Connect wallet';b.setAttribute('style',G);}}window.dojoNavSetWallet=set;b.onclick=function(){if(A){var dc=function(){try{A.disconnect&&A.disconnect();}catch(e){}set(null);};if(window.DojoProfile)DojoProfile.menu(b,A.pubkey,dc);else dc();return;}if(window.DojoWalletPicker)DojoWalletPicker.pick().then(set).catch(function(){});};if(window.DojoWalletPicker&&DojoWalletPicker.autoConnect)DojoWalletPicker.autoConnect().then(function(a){if(a&&!A)set(a);});})();</script><script src="/buffer.js"></script><script>window.Buffer=window.Buffer||(window.buffer&&window.buffer.Buffer);</script><script src="/web3.js"></script><script src="/dojo-ah.js"></script><script src="/dojo-buy.js"></script><script src="/dd-case.js"></script></body>
 </html>

@@ -11,6 +11,7 @@
 import { readFileSync, writeFileSync, mkdirSync, copyFileSync, existsSync } from "fs";
 import { execSync } from "child_process";
 import { ddStories, ddQuotes, ddStats } from "./lore-maps.mjs";
+import { jsonForScript } from "./html-safe.mjs";
 
 const ROOT = "C:/Users/sazei/Documents/DEGEN DOJO/BULKITOR/bulkitor";
 const TEMPLATE = `${ROOT}/scripts/store-template.html`;
@@ -113,15 +114,16 @@ const template = readFileSync(TEMPLATE, "utf8");
 for (const ph of ["__STORE_DATA__", "__TRAIT_EMOJI__", "__CARDLESS_MINTS__"]) {
   if (!template.includes(ph)) { console.error(`Template is missing the ${ph} placeholder.`); process.exit(1); }
 }
-// JSON is injected as a JS literal; </script> inside a string would close the
-// block early, so neutralise the only sequence that can.
-const safe = (o) => JSON.stringify(o).replace(/<\//g, "<\\/");
+// JSON is injected as a JS literal: escape < > & U+2028/9 (html-safe.mjs) so no NFT string can close
+// the block, and splice with FUNCTION replacers — a string replacement would expand "$'" / "$&" inside
+// an NFT name and re-inject template text (incl. a raw </script>) into the page.
+const safe = (o) => jsonForScript(o);
 writeFileSync(
   OUT,
   template
-    .replace("__STORE_DATA__", safe(slim))
-    .replace("__TRAIT_EMOJI__", safe(TRAIT_EMOJI))
-    .replace("__CARDLESS_MINTS__", safe(CARDLESS_MINTS)),
+    .replace("__STORE_DATA__", () => safe(slim))
+    .replace("__TRAIT_EMOJI__", () => safe(TRAIT_EMOJI))
+    .replace("__CARDLESS_MINTS__", () => safe(CARDLESS_MINTS)),
 );
 
 console.log(`Built ${OUT}`);

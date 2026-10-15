@@ -12,8 +12,15 @@
 // from a future blockhash, so "won" can be re-checked. Wire that server-side
 // gating before real prizes ride on it; until then treat totals as indicative.
 //
-// GET ?key=ADMIN_KEY → dump the ticket ledger (for the draw / audit).
+// NEUTRALIZED: this endpoint is unauthenticated (anyone can POST any name), so it must
+// never add draw weight. POSTs now land in a separate "tickets-legacy" store the draw never
+// reads; the real ledger ("tickets") is written ONLY by /api/play (store-fn-play.mjs) after
+// a server-debited coin + a server-recomputed outcome. dojo-scores.js keeps posting here
+// harmlessly (its scoreboard is local).
+//
+// GET ?key=ADMIN_KEY → dump the REAL ticket ledger (for the draw / audit).
 import { getStore } from "@netlify/blobs";
+import { adminKeyOk } from "./store-session-core.mjs";
 
 const NAME_RE = /^[\w .\-]{1,24}$/;
 const GAME = new Set(["duel", "flip", "teto", "cluck"]);
@@ -21,11 +28,12 @@ const WIN = 3, PLAY = 1, GRAND_SLAM = 3;   // win = 3 chances, play = 1; win all
 const ALL_GAMES = ["duel", "flip", "teto", "cluck"];
 
 export default async (request) => {
-  const store = getStore("tickets");
+  const store = getStore("tickets");            // the real ledger — read-only here (admin dump)
+  const legacy = getStore("tickets-legacy");    // where untrusted POSTs go — never drawn from
   const url = new URL(request.url);
 
   if (request.method === "GET") {
-    if ((url.searchParams.get("key") || "") !== (process.env.ADMIN_KEY || "\0")) return new Response("forbidden", { status: 403 });
+    if (!adminKeyOk(url.searchParams.get("key"), "ADMIN_KEY")) return new Response("forbidden", { status: 403 });
     const { blobs } = await store.list();
     const out = [];
     for (const b of blobs) { const v = await store.get(b.key, { type: "json" }); if (v) out.push(v); }
@@ -38,7 +46,7 @@ export default async (request) => {
 
   let awarded = r.won ? WIN : PLAY;
   const key = "player:" + r.player;
-  const cur = (await store.get(key, { type: "json" })) || { name: r.player, tickets: 0, plays: 0, wins: 0, games: {}, grandSlam: false };
+  const cur = (await legacy.get(key, { type: "json" })) || { name: r.player, tickets: 0, plays: 0, wins: 0, games: {}, grandSlam: false };
   cur.tickets += awarded;
   cur.plays += 1;
   if (r.won) cur.wins += 1;
@@ -50,7 +58,7 @@ export default async (request) => {
     cur.grandSlam = true; awarded += GRAND_SLAM; cur.tickets += GRAND_SLAM;
   }
   cur.updatedAt = Date.now();
-  await store.setJSON(key, cur);
+  await legacy.setJSON(key, cur);
   return new Response(JSON.stringify({ ok: true, awarded, tickets: cur.tickets, grandSlam: cur.grandSlam }), { headers: { "content-type": "application/json" } });
 };
 

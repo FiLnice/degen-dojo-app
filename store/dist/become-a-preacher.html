@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Become a Preacher — Degen Dojo</title>
-<meta name="description" content="Spread the Degen Dojo and earn 20–30% of every fee you refer (by fighters held), paid in ORE. Hold a fighter to enter the SOL pot." />
+<meta name="description" content="Spread the Degen Dojo and earn 20–30% (by fighters held) of every game-coin pack and ORE-miner tip you refer, plus a cut of the royalty on every Degen Dojo NFT your referrals buy. Hold a fighter to enter the SOL pot." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Inter:wght@300;400;500;600&family=Noto+Serif+JP:wght@400;700;900&family=Teko:wght@500;600;700&display=swap" rel="stylesheet" />
@@ -139,22 +139,24 @@ h1{text-align:center;font-family:'Cinzel',serif;font-size:clamp(28px,5vw,44px);f
 <div class="wrap">
   <div class="eyebrow">布教者 · The Preachers</div>
   <h1>Spread the word. Earn the cut.</h1>
-  <p class="lede">Anyone can preach the dojo — share your link, and every market buy, ORE-miner tip or <b>game-coin</b> purchase opened through it earns you a
-     cut, paid in <b>ORE</b>. The buyer pays nothing extra. <span class="jp">布教者</span>
+  <p class="lede">Anyone can preach the dojo — share your link, and every <b>game-coin</b> pack, <b>ORE-miner tip</b> or <b>Degen Dojo NFT</b> bought through it earns you a
+     cut. The buyer pays nothing extra. <span class="jp">布教者</span>
      Hold more fighters, earn a bigger cut — up to <b>30%</b> — and unlock the <b>SOL pot</b> that only holders can win.</p>
 
   <div class="sect">The cut you earn</div>
   <div class="sectsub">Hold more fighters, earn a bigger cut — and unlock the SOL pot. Verified against your live holdings.</div>
   <div class="tiers">
-    <div class="tier g0"><div class="tlabel">Wanderer</div><div class="tpct">20%</div><div class="tof">of every fee you refer</div>
+    <div class="tier g0"><div class="tlabel">Wanderer</div><div class="tpct">20%</div><div class="tof">of what you refer</div>
       <div class="thold">0–1 fighters 🚶</div><div class="pot no">✕ not in the SOL pot</div></div>
-    <div class="tier g1"><div class="tlabel">Disciple</div><div class="tpct">25%</div><div class="tof">of every fee you refer</div>
+    <div class="tier g1"><div class="tlabel">Disciple</div><div class="tpct">25%</div><div class="tof">of what you refer</div>
       <div class="thold">Hold <b>2–4</b> fighters ⚔️</div><div class="pot yes">✓ SOL pot · 1× entries</div></div>
-    <div class="tier g5"><div class="tlabel">Sensei</div><div class="tpct">30%</div><div class="tof">of every fee you refer</div>
+    <div class="tier g5"><div class="tlabel">Sensei</div><div class="tpct">30%</div><div class="tof">of what you refer</div>
       <div class="thold">Hold <b>5+</b> or a <b>Mythic</b> 🥋</div><div class="pot yes">✓ SOL pot · <b>2×</b> entries</div></div>
   </div>
   <div class="egg">Example — someone mines through your link and tips <b>0.25 SOL</b>.
-     A <b>Sensei</b> keeps <b>0.075</b> (30%), a <b>Disciple</b> <b>0.0625</b> (25%), a <b>Wanderer</b> <b>0.05</b> (20%). Paid in ORE.</div>
+     A <b>Sensei</b> keeps <b>0.075</b> (30%), a <b>Disciple</b> <b>0.0625</b> (25%), a <b>Wanderer</b> <b>0.05</b> (20%).<br>
+     They buy a <b>1 SOL</b> Degen Dojo fighter → the 13% royalty is <b>0.13 SOL</b>, and its preacher half is <b>0.065</b>:
+     a Sensei keeps <b>0.0195</b>, a Disciple <b>0.01625</b>, a Wanderer <b>0.013</b>.</div>
 
   <!-- connect → dashboard -->
   <div class="claim">
@@ -181,10 +183,10 @@ h1{text-align:center;font-family:'Cinzel',serif;font-size:clamp(28px,5vw,44px);f
       <div class="cemsg" id="ceMsg">Make it yours — pick a short custom code (letters, numbers, - or _).</div>
 
       <div class="cards">
-        <div class="mc"><div class="k">Referred volume</div><div class="v" id="mVol">—</div><div class="s">all-time</div></div>
+        <div class="mc"><div class="k">Referred spend</div><div class="v" id="mVol">—</div><div class="s">all-time</div></div>
         <div class="mc"><div class="k">Pending ORE</div><div class="v" id="mPend">—</div><div class="s">next payout</div></div>
         <div class="mc"><div class="k">Paid ORE</div><div class="v" id="mPaid">—</div><div class="s">to date</div></div>
-        <div class="mc"><div class="k">Sales referred</div><div class="v" id="mCount">—</div><div class="s" id="mHeld">—</div></div>
+        <div class="mc"><div class="k">Referrals</div><div class="v" id="mCount">—</div><div class="s" id="mHeld">—</div></div>
       </div>
 
       <div class="potbox">
@@ -199,7 +201,7 @@ h1{text-align:center;font-family:'Cinzel',serif;font-size:clamp(28px,5vw,44px);f
       </div>
 
       <div class="feed">
-        <div class="fh">Coming in — sales through your link</div>
+        <div class="fh">Coming in — coin packs, miner tips &amp; NFT sales through your link</div>
         <div id="feed"></div>
       </div>
     </div>
@@ -208,15 +210,15 @@ h1{text-align:center;font-family:'Cinzel',serif;font-size:clamp(28px,5vw,44px);f
   <div class="sect">How a preacher earns</div>
   <div class="sectsub"></div>
   <div class="steps">
-    <div class="step"><div class="num">01</div><div class="st">Share your link</div><div class="sd">Post it, DM it, put it in your bio. Any market buy or miner tip opened through it is tagged to you for 30 days.</div></div>
-    <div class="step"><div class="num">02</div><div class="st">They buy, tip or grab coins</div><div class="sd">We take our normal marketplace / miner fee — the buyer pays nothing extra. And when a referral <b>buys game coins</b>, your tier share comes out of a fixed 10% slice of that purchase (so <b>2.5%–5%</b> of what they spend). Your share is split straight off, never added to their cost.</div></div>
-    <div class="step"><div class="num">03</div><div class="st">You get paid in ORE</div><div class="sd">Earnings pool and pay out in ORE on a schedule. Every sale, tip and coin purchase is verified on-chain before a cent moves.</div></div>
+    <div class="step"><div class="num">01</div><div class="st">Share your link</div><div class="sd">Post it, DM it, put it in your bio. Anyone who opens it is tagged to you for 30 days — their game-coin packs, ORE-miner tips and Degen Dojo NFT buys earn you a cut.</div></div>
+    <div class="step"><div class="num">02</div><div class="st">They tip, grab coins or buy a fighter</div><div class="sd">When a referral <b>buys game coins</b> or <b>tips while mining ORE</b>, you get your tier share — <b>20–30%</b> — of the whole amount. The buyer never pays extra: 65% of every coin pack goes to the weekly pot, your cut comes out of the rest. When they buy a <b>Degen Dojo NFT</b> (store, market or our ORE listings), half the 13% royalty — <b>6.5%</b> of the price — is the preacher half, and you get your 20–30% of it (1.3–1.95% of the price). NFTs from other collections pay us no royalty, so they don't count.</div></div>
+    <div class="step"><div class="num">03</div><div class="st">You get paid weekly</div><div class="sd">Earnings pool and pay out weekly, in the token that came in — what your referral paid with (ORE, SKR or SOL), or for an NFT sale the token the royalty arrived in (SOL on Magic Eden / Tensor, ORE on our own listings). Every tip, coin purchase and NFT royalty is verified on-chain before a cent moves; buying through your own link never counts.</div></div>
   </div>
 
   <div class="fine">
-    You earn on the fees from sales <b>you refer</b> — a referral program, not passive income for holding. Your cut is set by your
+    You earn on the coin packs, miner tips and Degen Dojo NFT sales <b>you refer</b> — a referral program, not passive income for holding. Your cut is set by your
     live fighter count at payout. The <b>SOL pot</b> is a prize you win by opting in and staying active, never a dividend you're owed;
-    entries come from real activity (buys &amp; referred volume), with a 2× multiplier for holding 5+, so it can't be farmed by splitting a wallet.
+    entries come from real activity (your coin buys &amp; what you refer), with a 2× multiplier for holding 5+, so it can't be farmed by splitting a wallet.
     Fees never add a charge to the buyer. <span id="demoNote"></span>
   </div>
 </div>
@@ -233,6 +235,7 @@ const API='/api/preacher';
 let AUTH=null;               // {wallet, sig, msg} kept so setCode reuses the same proof
 let PRICES={SOL:176,ORE:66};
 const oreOf=sol=>sol*PRICES.SOL/PRICES.ORE;
+const oreOfUsd=usd=>(usd||0)/PRICES.ORE;
 
 let WADAPTER=null;   // Wallet-Standard adapter from the shared picker (all wallets + real icons)
 // Reuse the store-wide session: if the visitor already connected elsewhere in the store, adopt
@@ -296,24 +299,26 @@ function renderDash(st){
   if(st.code){ $('codeIn').value=st.code; }
   $('who').textContent=`Connected · ${st.wallet.slice(0,4)}…${st.wallet.slice(-4)} · holds ${st.held} fighter${st.held===1?'':'s'}`;
   $('tierName').textContent=`${st.tier} — ${Math.round(st.share*100)}% cut`;
-  $('mVol').textContent=`${nf(st.volumeSol)} ◎`;
-  $('mPend').innerHTML=`${nf(oreOf(st.pendingSol),2)} ${oreIcon}`;
-  $('mPaid').innerHTML=`${nf(oreOf(st.paidSol),2)} ${oreIcon}`;
+  $('mVol').textContent='$'+nf(st.volumeUsd,2);
+  $('mPend').innerHTML=`${nf(oreOfUsd(st.pendingUsd),3)} ${oreIcon}`;
+  $('mPaid').innerHTML=`${nf(oreOfUsd((st.paidUsd||0)+(st.paidSol||0)*PRICES.SOL),3)} ${oreIcon}`;
   $('mCount').textContent=st.salesCount;
   $('mHeld').textContent=`${st.held} DD held`;
   // pot entries — computed server-side from activity × holding multiplier
   $('entN').textContent = st.potMult ? (st.entries ?? 0) : 'hold a fighter to enter';
   if(st.optedIn){ const b=$('optBtn'); b.textContent="You're in for this cycle ✓"; b.classList.add('in');
-    $('potLine').innerHTML="You're entered. Entries grow with every buy and referral through your link."; }
+    $('potLine').innerHTML="You're entered. Entries grow with your coin buys and everything you refer."; }
   $('potAmt').textContent = (st && st.potSol!=null ? st.potSol : 0) + ' SOL';
   // feed
   $('feed').innerHTML = (st.recent&&st.recent.length)
     ? st.recent.map(s=>`<div class="frow">
-        <span class="fm">${s.external?'':'⛩ '}${s.mint.slice(0,4)}…${s.mint.slice(-4)}</span>
-        <span class="fa">${nf(s.sol)} ◎</span>
-        <span class="fp ${s.paid?'paid':'pend'}">${s.paid?'paid':'pending'}</span>
+        <span class="fm">${s.kind==='tip'?'⛏ Miner tip':s.kind==='nft'?'⛩ NFT sale':'🪙 Coin pack'}</span>
+        <span class="fa">${s.kind==='nft'
+          ? (s.verified ? 'royalty $'+nf(s.usd,2)+' → '+nf(s.earnAmount,s.currency==='SOL'?4:s.currency==='ORE'?5:2)+' '+String(s.currency||'SOL').replace(/[^A-Z]/g,'').slice(0,5)+' ($'+nf(s.earnUsd,2)+')' : 'royalty share')
+          : '$'+nf(s.usd,2)+' → $'+nf(s.earnUsd,2)}</span>
+        <span class="fp ${s.paid?'paid':'pend'}">${s.paid?'paid':s.verified?'pending':'checking'}</span>
         <span class="ft">${s.ts?new Date(s.ts).toLocaleDateString():''}</span></div>`).join('')
-    : '<div class="empty">No referred sales yet — share your link and they appear here live.</div>';
+    : '<div class="empty">Nothing yet — share your link; coin packs, miner tips and NFT sales appear here live.</div>';
 }
 async function saveCode(){
   const want=$('codeIn').value.trim(); const m=$('ceMsg');
@@ -357,13 +362,14 @@ if(new URLSearchParams(location.search).get('demo')){
   $('demoNote').innerHTML='<b>Demo view</b> — sample numbers, no wallet connected.';
   $('claimStart').style.display='none'; $('dash').classList.add('show');
   renderDash({ ok:true, code:'ronin', links:{store:'https://degendojo.xyz/preacher/ronin',miner:'https://mine.degendojo.xyz/preacher/ronin'},
-    wallet:'ED3GMCfoX3XNvavnWADvd6oCsohGg1ukdhv3PaUpvwJe', held:7, tier:'Sensei', share:0.2,
-    salesCount:5, volumeSol:6.42, buyVolumeSol:0, feeSol:0.1284, pendingSol:0.0642, paidSol:0.031,
+    wallet:'ED3GMCfoX3XNvavnWADvd6oCsohGg1ukdhv3PaUpvwJe', held:7, tier:'Sensei', share:0.3,
+    salesCount:4, volumeUsd:85, buyUsd:0, pendingUsd:5.4, paidUsd:2.1,
     cycle:'2026-W30', optedIn:false, potMult:2, entries:128,
     recent:[
-      {mint:'6XwLykfMQGnDHeoEFdnxj42js3cNYqvbxymeJxFFGuLw',sol:1.114,external:true,ts:Date.now()-3600e3,paid:false},
-      {mint:'CP1b71oWgDzHGxSLnqCVK9zwbMGgd5ag27KAtqgx9DCi',sol:0.58,external:false,ts:Date.now()-86400e3,paid:false},
-      {mint:'8fEEbhsvQEQWnKDmmF1z9w41uDao7JyifcTYb487TQ3c',sol:0.66,external:false,ts:Date.now()-2*86400e3,paid:true},
+      {kind:'tip',usd:30,earnUsd:9,verified:true,ts:Date.now()-3600e3,paid:false},
+      {kind:'nft',usd:26,earnUsd:3.9,earnAmount:0.0195,currency:'SOL',verified:true,ts:Date.now()-7200e3,paid:false},
+      {kind:'coins',usd:25,earnUsd:0.75,verified:false,ts:Date.now()-86400e3,paid:false},
+      {kind:'coins',usd:50,earnUsd:1.5,verified:true,ts:Date.now()-2*86400e3,paid:true},
     ]});
 }
 </script>

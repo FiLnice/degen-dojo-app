@@ -49,7 +49,11 @@ cd miner && npm install && node export-mine.mjs
 
 `store/dist/` is a ready-to-deploy Netlify site (drag-and-drop or `netlify deploy`). The store's build script (`store/src/build-store-deploy.mjs`) assembles it from the sources and the miner export.
 
-**Environment** (set in Netlify — never committed): `SOLANA_RPC` (Helius), `TENSOR_API_KEY`, `MAGICEDEN_API_KEY`, `ADMIN_KEY`, `ATTR_ADMIN_KEY`, `SESSION_SECRET`, `COSIGNER_SECRET`.
+**Environment** (set in Netlify — never committed): `SOLANA_RPC` (Helius), `TENSOR_API_KEY`, `MAGICEDEN_API_KEY`, `ADMIN_KEY`, `ATTR_ADMIN_KEY`, `SESSION_SECRET` (required, ≥32 chars), `COSIGNER_SECRET`; optional `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID`, `DISCORD_WEBHOOK_URL`, `TEAM_WALLETS`.
+
+## Security
+
+An external review of this repo (October 2026) found eight issues, all fixed and covered by regression tests. See [docs/SECURITY-ROADMAP.md](docs/SECURITY-ROADMAP.md) for each finding, the fix, the test evidence and the remaining operator steps. Weekly prize and Preacher payouts are described in [docs/PAYOUTS-SETUP.md](docs/PAYOUTS-SETUP.md); no private key is held server-side.
 
 ## Tech
 

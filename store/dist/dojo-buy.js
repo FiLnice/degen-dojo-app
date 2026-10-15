@@ -218,6 +218,33 @@
   // signature, or null (BEFORE anything is broadcast) when this path can't apply — so the caller can
   // safely fall back to the two-step flow. Once signed+broadcast, any failure REJECTS (never falls
   // back, so the swap can't run twice).
+  // Pre-built buy (Magic Eden / Tensor builder, e.g. pNFTs): swap + buy signed in ONE prompt. Returns null
+  // (nothing broadcast) when the wallet can't batch-sign, so the caller can use the two-step flow.
+  function oneApprovalPrebuilt(buyTx, listing, currency, adapter, JUP, onState) {
+    if (!buyTx || typeof adapter.signAll !== 'function') return Promise.resolve(null);
+    onState && onState('Preparing your ' + currency + ' payment…');
+    return buildSwapTx(listing, currency, adapter, JUP, onState).then(function (swapTx) {
+      onState && onState('Approve once — pay in ' + currency + '…');
+      return adapter.signAll([swapTx, buyTx]).then(function (signed) {
+        var sSwap = signed[0] instanceof Uint8Array ? signed[0] : new Uint8Array(signed[0]);
+        var sBuy = signed[1] instanceof Uint8Array ? signed[1] : new Uint8Array(signed[1]);
+        onState && onState('Swapping ' + currency + ' → SOL…');
+        return rpcCall('sendTransaction', [b64(sSwap), { skipPreflight: true, maxRetries: 3, encoding: 'base64' }]).then(function (swapSig) {
+          return waitForConfirm(swapSig).then(function () {
+            onState && onState('Buying your NFT…');
+            return rpcCall('sendTransaction', [b64(sBuy), { skipPreflight: false, maxRetries: 3, encoding: 'base64' }]).then(function (buySig) {
+              onState && onState('Confirming…');
+              return waitForConfirm(buySig).then(function () { return buySig; });
+            });
+          });
+        });
+      }, function (signErr) {
+        var m = (signErr && signErr.message) || '';
+        if (/cannot sign multiple|not.*support|signAll/i.test(m)) return null;   // can't batch → two-step
+        throw signErr;                                                            // user cancelled / real error
+      });
+    });
+  }
   function oneApprovalTokenBuy(opts, listing, currency, adapter, JUP, onState) {
     if (listing.standard === false || typeof adapter.signAll !== 'function') return Promise.resolve(null);
     onState && onState('Preparing your ' + currency + ' payment…');
@@ -373,6 +400,23 @@
     });
   }
 
+  // Preacher attribution: if this browser carries a dd_ref cookie (a /preacher/<code> visit in the last
+  // 30 days), POST the confirmed buy to /api/attr. Fire-and-forget — never blocks or fails the buy. The
+  // server re-reads the tx on-chain: only Degen Dojo NFTs whose royalty actually reached the royalty
+  // wallet earn the preacher anything (marketplace buys settle in SOL, whatever the buyer swapped from).
+  function recordRef(sig, listing, adapter) {
+    try {
+      if (!sig || typeof sig !== 'string') return;
+      var m = document.cookie.match(/(?:^|;\s*)dd_ref=([^;]+)/), ref = m ? decodeURIComponent(m[1]) : '';
+      if (!/^[a-zA-Z0-9_-]{2,32}$/.test(ref)) return;
+      var price = +listing.price || 0;
+      fetch(RPC.replace(/\/rpc(\?|$)/, '/attr$1'), { method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ sig: sig, ref: ref.toLowerCase(), buyer: (adapter && adapter.pubkey) || null, mint: listing.mint,
+          currency: 'SOL', price: price || null, priceLamports: Math.round(price * 1e9), external: !!listing.external, ts: Date.now() }) })
+        .catch(function () {});
+    } catch (e) {}
+  }
+
   function buy(opts) {
     RPC = opts.rpcUrl || '/api/rpc';
     var JUP = opts.jup || 'https://lite-api.jup.ag';
@@ -388,7 +432,19 @@
       var lamports = (bal && bal.value != null) ? bal.value : (typeof bal === 'number' ? bal : 0);
       if (lamports < 3000000) throw new Error('Add a little SOL to your wallet (~0.005). Even paying in ' + currency + ', Solana needs SOL for the swap’s temporary account and network fees — you have ' + (lamports / 1e9).toFixed(4) + ' SOL.');
     });
-    return checkFunds.then(function () { return resolveListing(opts.mint); }).then(function (listing) {
+    // Never hang on the lookup: a slow/rate-limited account scan used to leave the button on
+    // "Finding the live listing…" forever. Cap it, and when it finds nothing ask our server (the same
+    // check the shelf uses) — if the NFT is genuinely no longer listed, say so instead of pressing on.
+    var capped = function (p, ms) { return Promise.race([p, new Promise(function (r) { setTimeout(function () { r(null); }, ms); })]); };
+    return checkFunds.then(function () { return capped(resolveListing(opts.mint), 15000); }).then(function (listing) {
+      if (listing) return listing;
+      return capped(fetch(RPC.replace(/\/rpc(\?|$)/, "/resolve$1") + "?q=" + encodeURIComponent(opts.mint)).then(function (r) { return r.json(); }), 10000)
+        .catch(function () { return null; })
+        .then(function (j) {
+          if (j && j.ok === false && /no live listing/i.test(j.error || "")) throw new Error("This NFT just sold or was delisted — it is no longer for sale.");
+          return null;
+        });
+    }).then(function (listing) {
       if (!listing) {
         // Our M2 decoder found no sell-state (AMM-pool listing, or a variant we don't decode). If the
         // caller passed the shelf's live price, we can still buy through Magic Eden's OWN builder — we
@@ -411,6 +467,8 @@
       var flow = canOne
         ? oneApprovalTokenBuy(opts, listing, currency, adapter, JUP, onState).then(function (sig) { return sig || twoStepBuy(opts, listing, currency, adapter, JUP, onState); })
         : twoStepBuy(opts, listing, currency, adapter, JUP, onState);
+      // Every route (our M2 build, ME builder, Tensor) resolves with the CONFIRMED buy signature → attribute it.
+      flow = flow.then(function (sig) { recordRef(sig, listing, adapter); return sig; });
       return flow.catch(function (err) {
         var msg = (err && err.message) || '';
         // If the USER cancelled the wallet popup, do NOT bounce them to Magic Eden — just stop.
@@ -434,10 +492,17 @@
       onState && onState('Checking this listing…');
       // Pre-flight ME first (M2 our resolver just missed), then the Tensor aggregator (pool/Tensor
       // listings ME's public API can't build). Only swap once one of them proves a sound buy tx.
+      var prebuilt = null;   // the probed buy tx, so swap + buy can be approved together
       return probeMEBuyTx(opts).then(function (me) {
-        if (me) return 'me';
-        return probeTensorBuyTx(opts, listing).then(function (ts) { return ts ? 'tensor' : null; });
+        if (me) { prebuilt = me; return 'me'; }
+        return probeTensorBuyTx(opts, listing).then(function (ts) { if (ts) prebuilt = ts; return ts ? 'tensor' : null; });
       }).then(function (route) {
+        if (!route) return route;
+        // ONE approval: sign the swap and the marketplace's buy tx together, then send them in order.
+        // Wallets that can't batch-sign fall through to the two-popup flow below, untouched.
+        return oneApprovalPrebuilt(prebuilt, listing, currency, adapter, JUP, onState).then(function (sig) { return sig ? { done: sig } : route; });
+      }).then(function (route) {
+        if (route && route.done) return route.done;
         if (!route) { var e = new Error('This one isn’t available to buy in-app (it may have just sold, or it’s an unbuyable pool listing). Your ' + currency + ' was NOT swapped.'); e.magicEdenUrl = listing.magicEdenUrl; e.fallback = true; throw e; }
         return swapToSol(listing, currency, adapter, JUP, onState).then(function () {
           if (route === 'me') return tryMagicEden(opts, listing).then(function (sig) { if (sig) return sig; var e2 = new Error('Magic Eden could not finish the buy just now.'); e2.magicEdenUrl = listing.magicEdenUrl; e2.fallback = true; throw e2; });

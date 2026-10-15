@@ -80,7 +80,7 @@ export default function WhitelabelPage() {
               See it live
             </Link>
           </div>
-          <p className="text-xs text-slate-600">One-time {SETUP_FEE_ORE} ORE setup · no recurring fees · hosted by you</p>
+          <p className="text-xs text-slate-600">One-time {SETUP_FEE_ORE} ORE setup · no recurring fees · we host it</p>
         </section>
 
         {/* Value props */}
@@ -88,7 +88,7 @@ export default function WhitelabelPage() {
           <Feature
             icon={<Sparkles className="size-5" />}
             title="Your brand, front and centre"
-            body="Your 25 NFTs on the grid, your collection name, your own link. It looks like it was built for you — because it was."
+            body="Your 25 NFTs on the grid, your collection name, your own link at store.degendojo.xyz/m/your-name. It looks like it was built for you — because it was."
           />
           <Feature
             icon={<Coins className="size-5" />}
@@ -97,13 +97,13 @@ export default function WhitelabelPage() {
           />
           <Feature
             icon={<Lock className="size-5" />}
-            title="Provably yours"
-            body="You host your own deploy, so your tip wallet lives in your config — we literally can't change it. Every tip is a visible on-chain transfer."
+            title="Tips go to your wallet"
+            body="Every tip is a plain SOL transfer straight to the wallet you set — signed by your miner, with the destination shown in their wallet. We never hold it."
           />
           <Feature
             icon={<Zap className="size-5" />}
             title="Live in minutes"
-            body="No code, no servers. Paste your NFTs, deploy in one click, and drop a “Mine ORE” button on your existing site."
+            body="No code, no servers, no RPC keys. Paste your collection address, pay once, and we host it — then drop a “Mine ORE” button on your site."
           />
         </section>
 
@@ -111,9 +111,9 @@ export default function WhitelabelPage() {
         <section className="space-y-6">
           <h2 className="text-center text-2xl font-semibold text-slate-100">How it works</h2>
           <div className="space-y-5">
-            <Step n={1} title="Pick your 25 NFTs" body="Paste a hashlist of 25 mint addresses — we pull the artwork automatically and preview your grid." />
-            <Step n={2} title={`Pay the ${SETUP_FEE_ORE} ORE setup fee`} body="A one-time fee, verified on-chain. We review your details and approve your request." />
-            <Step n={3} title="Deploy + link it" body="One click deploys your own miner. Add a link from your site and your holders can mine right away." />
+            <Step n={1} title="Paste your collection address" body="We pick 25 NFTs from it (shuffle until you like the grid) and preview it live. Prefer to hand-pick? Paste 25 mints instead." />
+            <Step n={2} title={`Pay the ${SETUP_FEE_ORE} ORE setup fee`} body="A one-time fee, verified on-chain. We review your request — usually quickly." />
+            <Step n={3} title="Go live at your own link" body="Once approved, your miner is hosted at store.degendojo.xyz/m/your-name. Share it and your holders can mine right away — tips go to your wallet." />
           </div>
           <div className="text-center">
             <Link
@@ -134,11 +134,11 @@ export default function WhitelabelPage() {
           />
           <Faq
             q="How do I know you won't redirect my tips?"
-            a="You host your own deploy. The tip wallet is baked into your configuration, on your infrastructure — we're not in the loop and can't change it. On top of that, every tip is a plain SOL transfer your miners sign, with the destination visible in their wallet."
+            a="Every tip is a plain SOL transfer your miners sign themselves, straight to the tip wallet you gave us — the destination is shown in their wallet before they approve, and every transfer is public on-chain. Tips never pass through us."
           />
           <Faq
             q="Do I need to run any servers or write code?"
-            a="No. You paste your NFTs, pay the fee, and deploy with one click. The only thing you bring is a free RPC key (from helius.dev) so the data connection is yours."
+            a="No. Paste your collection address, pay the fee, and we host your miner at store.degendojo.xyz/m/your-name. No servers, no deploys, no RPC keys."
           />
           <Faq q="What does it cost?" a={`A one-time ${SETUP_FEE_ORE} ORE setup fee. No monthly fees, no revenue share — the tips are entirely yours.`} />
         </section>

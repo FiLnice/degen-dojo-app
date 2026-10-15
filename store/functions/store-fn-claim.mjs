@@ -14,6 +14,7 @@
 // Env: CLAIM_ADMIN_KEY (preferred) or ATTR_ADMIN_KEY as a fallback. Netlify Blobs needs
 // no config on Netlify.
 import { getStore } from "@netlify/blobs";
+import { adminKeyOk } from "./store-session-core.mjs";
 
 const ID_RE = /^(?:degen|demon)_\d{1,5}$/;
 const CORS = {
@@ -21,7 +22,6 @@ const CORS = {
   "access-control-allow-methods": "GET,POST,OPTIONS",
   "access-control-allow-headers": "content-type",
 };
-const KEY = () => process.env.CLAIM_ADMIN_KEY || process.env.ATTR_ADMIN_KEY || "\0";
 
 // normalize a token into 0..2 valid ids: "demon_12" stays; "12" → both forms.
 function expand(tok) {
@@ -47,7 +47,7 @@ export default async (request) => {
   if (request.method !== "POST") return new Response("POST only", { status: 405, headers: CORS });
 
   let r; try { r = await request.json(); } catch { return new Response("bad json", { status: 400, headers: CORS }); }
-  if ((r.key || "") !== KEY()) return new Response(JSON.stringify({ error: "forbidden" }), { status: 403, headers: { ...CORS, "content-type": "application/json" } });
+  if (!adminKeyOk(r?.key, "CLAIM_ADMIN_KEY", "ATTR_ADMIN_KEY")) return new Response(JSON.stringify({ error: "forbidden" }), { status: 403, headers: { ...CORS, "content-type": "application/json" } });
 
   const add = [].concat(r.add || []).flatMap(expand);
   const remove = new Set([].concat(r.remove || []).flatMap(expand));

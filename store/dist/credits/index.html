@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Dojo Coins — Degen Dojo</title>
-<meta name="description" content="One currency for every Degen Dojo game. Buy coins with ORE, SKR or SOL — 1 coin ≈ $1 = one play on Degen Duel, Dojo Flip, Teto Wars or Cluck-Fu. A share of every purchase feeds the Dojo Pot." />
+<meta name="description" content="One currency for every Degen Dojo game. Buy coins with ORE, SKR or SOL — 1 coin ≈ $1 = one play on Degen Duel, Dojo Flip, Teto Wars, Cluck-Fu or Cock Brawl. A share of every purchase feeds the Dojo Pot." />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Teko:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -30,6 +30,15 @@ h1{font-family:"Teko",sans-serif;font-weight:700;font-size:clamp(38px,8vw,66px);
 .stat .k{font-family:"Teko";font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);}
 .stat .v{font-family:"Teko";font-size:32px;color:var(--gold);line-height:1;}
 .stat .v small{font-size:15px;color:var(--mut);}
+
+/* sign-in / Seeker claim / purchase status */
+.acct{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:6px 0 4px;}
+.acct-btn{font-family:"Teko";font-size:18px;letter-spacing:.04em;color:var(--gold);background:rgba(232,181,106,.08);border:1px solid var(--gold-dim);border-radius:11px;padding:7px 16px;cursor:pointer;}
+.acct-btn:disabled{opacity:.6;cursor:default;}
+.acct-msg{text-align:center;font-size:13px;color:var(--mut);min-height:18px;margin:4px 0 6px;}
+.acct-msg.ok{color:var(--green);}
+.buystat{background:var(--bg2);border:1px solid var(--gold-dim);border-radius:12px;padding:12px 16px;margin:10px auto 4px;max-width:640px;text-align:center;font-size:14px;line-height:1.5;color:var(--ink);word-break:break-word;}
+.buystat a{color:var(--gold);}
 
 /* currency toggle */
 .pays{display:flex;gap:8px;justify-content:center;margin:22px 0 6px;flex-wrap:wrap;}
@@ -102,8 +111,15 @@ h1{font-family:"Teko",sans-serif;font-weight:700;font-size:clamp(38px,8vw,66px);
   <div class="strip">
     <div class="stat"><div class="k">Your coins</div><div class="v">🪙 <span id="balV">0</span></div></div>
     <div class="stat"><div class="k">Plays left</div><div class="v" id="playsV">0</div></div>
-    <div class="stat"><div class="k">Into the pot / buy</div><div class="v" id="potPctV">25<small>%</small></div></div>
+    <div class="stat"><div class="k">Into the pot / buy</div><div class="v" id="potPctV">65<small>%</small></div></div>
   </div>
+  <!-- coins live on the server: sign in (one free signature, 12h) to see them; Seeker owners get one free coin -->
+  <div class="acct">
+    <button class="acct-btn" id="signInBtn" type="button" onclick="signInForBalance()">🔑 Sign in to see your coins</button>
+    <button class="acct-btn" id="seekerBtn" type="button" onclick="claimSeekerCoin(this)">📱 Seeker owner? Claim your free coin</button>
+  </div>
+  <div class="acct-msg" id="seekerMsg"></div>
+  <div class="buystat" id="buyStatus" style="display:none"></div>
 
   <div class="pays" id="pays">
     <button class="pay on" data-cur="ORE" onclick="setPay('ORE')"><img class="tok" id="oreIco" src="" alt=""> ORE</button>
@@ -114,14 +130,14 @@ h1{font-family:"Teko",sans-serif;font-weight:700;font-size:clamp(38px,8vw,66px);
   <div class="packs" id="packs"></div>
 
   <div class="potnote">
-    <span class="pill" id="potPill">25%</span>
+    <span class="pill" id="potPill">65%</span>
     <span>of every coin purchase flows straight into the <b>Dojo Pot</b> — the prize the <b>top 25 players each week</b> are raffled to win. The more everyone plays, the bigger the pot.</span>
   </div>
 
   <div class="how">
     <div class="c"><h3>Buy once, play anywhere</h3><p>Coins work across <b>Degen Duel</b>, <b>Dojo Flip</b>, <b>Teto Wars</b>, <b>Cluck-Fu</b> and <b>Cock Brawl</b>. No per-game top-ups, no juggling tokens mid-game.</p></div>
     <div class="c"><h3>Pay in what you hold</h3><p>Buy with <b>ORE</b>, <b>SKR</b> or <b>SOL</b> — priced live and swapped to settle. Same rails the store already uses.</p></div>
-    <div class="c"><h3>Play to earn raffle chances</h3><p>You never win money directly — a <b>win</b> = 3 raffle chances, a <b>play</b> = 1, and winning all 5 games at least once = <b>+3 bonus</b>. Every Sunday the weekly Dojo Pot is drawn among chance-holders, provably-fair. Degen Dojo keeps just <b>12%</b>; the rest goes back to players.</p></div>
+    <div class="c"><h3>Play to earn raffle chances</h3><p>You never win money directly — a <b>win</b> = 3 raffle chances, a <b>play</b> = 1, and playing all 5 games in the same week = <b>+5 bonus</b>. Hold <b>5+ Degen Dojo fighters</b> and every chance counts <b>2×</b>. Every week the Dojo Pot is drawn among chance-holders, provably fair, and chances start fresh. <b>65%</b> of every coin pack goes into the pot.</p></div>
   </div>
 
   <div class="games">
@@ -140,6 +156,7 @@ h1{font-family:"Teko",sans-serif;font-weight:700;font-size:clamp(38px,8vw,66px);
 <div class="toast" id="toast"></div>
 
 <script src="/wallet-picker.js"></script>
+<script src="/dojo-wallet.js"></script>
 <script>
 const MINTS = {
   SOL: 'So11111111111111111111111111111111111111112',
@@ -152,25 +169,86 @@ const ICON = {
   SKR: 'https://wsrv.nl/?url=https%3A%2F%2Fr2.solanamobiledappstore.com%2Fskr%2Fseeker.png&w=40&h=40&output=png',
 };
 // 1 credit ≈ $1. Bigger packs give bonus credits (the discount that nudges bulk buys).
+// DISPLAY ONLY — the server (store-verify-core.mjs coinsForUsd) credits from the verified
+// on-chain amount with the same table (±4% price drift), never from what this page claims.
 const PACKS = [
-  { credits: 1,  bonus: 0,  usd: 1, tag: 'Try it' },   // single coin — the cheapest way to test a real purchase
+  { credits: 3,  bonus: 0,  usd: 3, tag: 'Starter' },   // smallest pack (owner: minimum 3 coins)
   { credits: 5,  bonus: 0,  usd: 5  },
   { credits: 10, bonus: 1,  usd: 10, tag: 'Popular' },
   { credits: 25, bonus: 4,  usd: 25, tag: 'Best value', best: true },
   { credits: 50, bonus: 10, usd: 50 },
 ];
-const POT_PCT = 25;                 // share of every purchase that feeds the Dojo Pot
+const POT_PCT = 65;                 // share of every purchase that feeds the Dojo Pot
 const PRICES = { SOL:null, ORE:null, SKR:null };
 let CUR = 'ORE';
-const BAL_KEY = 'dojo_credits';
+const PENDING_KEY = 'dojo_pending_buys';   // payments sent but not yet confirmed credited (re-sent + watched on revisit)
 
 const $ = id => document.getElementById(id);
 const dp = { ORE:2, SKR:0, SOL:3 };
 const tok = c => `<img class="tok" src="${ICON[c]}" alt="${c}">`;
 
-function balance(){ return Number(localStorage.getItem(BAL_KEY) || 0); }
-function setBalance(n){ localStorage.setItem(BAL_KEY, String(n)); renderBalance(); }
-function renderBalance(){ const b = balance(); $('balV').textContent = b; $('playsV').textContent = b; }
+// Coins live on the SERVER (DojoWallet) — this page never credits a balance itself.
+function signedIn(){ return !!(window.DojoWallet && DojoWallet.signedIn()); }
+function renderBalance(){
+  const ok = signedIn(), b = ok ? DojoWallet.coins : '–';
+  $('balV').textContent = b; $('playsV').textContent = b;
+  $('signInBtn').style.display = ok ? 'none' : '';
+}
+async function signInForBalance(){
+  if(!window.DojoWallet){ toast('Wallet still loading — one moment'); return; }
+  try{ await DojoWallet.signIn(); renderBalance(); }
+  catch(e){ const m=String(e.message||e); if(!/cancel|reject|declin|denied|closed/i.test(m)) toast(m.slice(0,70)); }
+}
+// Seeker owners: one free coin per Seeker device — the SERVER checks the Seeker Genesis Token.
+function claimSeekerCoin(btn){
+  const msg=$('seekerMsg');
+  if(!window.DojoWallet){ msg.textContent='Wallet still loading — one moment.'; return; }
+  btn.disabled=true; msg.className='acct-msg'; msg.textContent='Sign in with your wallet — then we check it for a Seeker Genesis Token…';
+  DojoWallet.claimSeeker().then(r=>{
+    btn.disabled=false; msg.textContent=r.message; msg.className='acct-msg'+(r.ok?' ok':'');
+    if(r.ok || r.already) btn.style.display='none';
+    renderBalance();
+  });
+}
+
+// ---- after a payment: record it (retried, idempotent server-side) and watch it get credited ----
+function pendingList(){ try{ return JSON.parse(localStorage.getItem(PENDING_KEY)||'[]'); }catch(e){ return []; } }
+function setPending(list){ try{ localStorage.setItem(PENDING_KEY, JSON.stringify(list.slice(-10))); }catch(e){} }
+function dropPending(sig){ setPending(pendingList().filter(p=>p.sig!==sig)); }
+async function recordBuy(rec){
+  for(let i=0;i<4;i++){
+    try{ const r = await fetch('/api/coinbuy', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(rec) }); if(r.ok) return true; }catch(e){}
+    await new Promise(r=>setTimeout(r, 1500*(i+1)));
+  }
+  return false;
+}
+let watching = {};
+async function watchPurchase(sig){
+  if(watching[sig]) return; watching[sig]=true;
+  const st=$('buyStatus'); st.style.display='';
+  const short = sig.slice(0,8)+'…'+sig.slice(-6);
+  st.innerHTML = '⏳ <b>Payment sent</b> — coins appear after the on-chain check (about a minute). Tx <code>'+short+'</code>';
+  const t0 = Date.now();
+  while(Date.now()-t0 < 3*60*1000){
+    await new Promise(r=>setTimeout(r, 8000));
+    let s=null; try{ s = await (await fetch('/api/coinbuy?sig='+encodeURIComponent(sig), { cache:'no-store' })).json(); }catch(e){}
+    if(s && s.verified){
+      dropPending(sig);
+      st.innerHTML = '✅ <b>Verified on-chain</b> — +'+(s.creditedCoins||0)+' coin'+(s.creditedCoins===1?'':'s')+' added 🪙';
+      if(signedIn()) DojoWallet.refresh().then(renderBalance).catch(()=>{});
+      else st.innerHTML += ' · <a href="#" onclick="signInForBalance();return false;">sign in to see your balance</a>';
+      watching[sig]=false; return;
+    }
+    if(s && s.rejected){
+      dropPending(sig);
+      st.innerHTML = '⚠ This payment could not be verified on-chain, so no coins were added. If tokens left your wallet, contact us with tx <code>'+sig+'</code>';
+      watching[sig]=false; return;
+    }
+    if(s && !s.found){ const p = pendingList().find(x=>x.sig===sig); if(p) recordBuy(p); }   // record never landed → send it again
+  }
+  st.innerHTML = '⏳ Still waiting for the on-chain check — your coins land automatically; check back in a minute. Tx <code>'+short+'</code>';
+  watching[sig]=false;
+}
 
 function tokenOf(usd){                       // token amount for a USD price, at live prices
   const p = PRICES[CUR]; if(!p) return null;
@@ -203,8 +281,8 @@ function setPay(c){
 // ---- Real ORE / SKR / SOL purchase ----------------------------------------
 // The conversion is nailed by the live Jupiter price (tokenOf): a pack's $ price
 // → the exact token amount, sent to the treasury. The buyer signs a plain SOL or
-// SPL transfer — no custody. On deploy the backend verifies the on-chain payment
-// before granting coins (client-side grant here is optimistic for the preview).
+// SPL transfer — no custody. The backend verifies the on-chain payment (verify-cron, every
+// minute) before crediting SERVER coins; this page only watches for that (no local grant).
 const TREASURY = '5w55F58ia3H71QjBD9bYvNQF2DcNu8K3AfJj9A4WMuWp';
 const RPC = location.origin + '/api/rpc';      // same-origin proxy → our Helius RPC (key stays server-side)
 const DEC = { SOL: 1e9, ORE: 1e11, SKR: 1e6 };
@@ -243,11 +321,14 @@ async function buy(i){
     const sig = await WALLET.signAndSendTransaction(new VersionedTransaction(msg).serialize());
     toast('Confirming payment…');
     try{ await conn.confirmTransaction(sig.signature || sig, 'confirmed'); }catch(_){ /* ws confirm may not run over the /api/rpc proxy — fine, the backend re-verifies the payment on-chain */ }
-    // record the purchase for the admin dashboard (untrusted hint; backend re-verifies on-chain)
-    try{ await fetch('/api/coinbuy', { method:'POST', headers:{'content-type':'application/json'},
-      body: JSON.stringify({ sig: sig.signature||sig, buyer: WALLET.pubkey, coins: total, currency: CUR, tokenAmount: amt, usd: p.usd, ref: getRef(), ts: Date.now() }) }); }catch(e){}
-    setBalance(balance() + total);   // optimistic; the backend verifies the payment before granting on deploy
-    toast(`Paid ${fmtTok(amt)} ${CUR} → +${total} coins 🪙 ($${(p.usd*POT_PCT/100).toFixed(2)} to the pot)`);
+    // Record the purchase (an untrusted hint — the server re-reads the tx on-chain and credits coins
+    // from what the treasury ACTUALLY received). No local credit: the balance moves when the server says so.
+    const sigStr = sig.signature || sig;
+    const rec = { sig: sigStr, buyer: WALLET.pubkey, coins: total, currency: CUR, tokenAmount: amt, usd: p.usd, ref: getRef(), ts: Date.now() };
+    setPending(pendingList().concat([rec]));            // survives a closed tab — re-sent + watched on the next visit
+    recordBuy(rec);
+    toast('Payment sent — coins appear after the on-chain check (about a minute)');
+    watchPurchase(sigStr);
   }catch(e){ console.error(e); toast(e.message ? e.message.slice(0,60) : 'Purchase cancelled'); }
 }
 
@@ -269,6 +350,11 @@ async function loadPrices(){
 $('oreIco').src = ICON.ORE; $('skrIco').src = ICON.SKR; $('solIco').src = ICON.SOL;
 $('potPctV').innerHTML = POT_PCT + '<small>%</small>'; $('potPill').textContent = POT_PCT + '%';
 renderBalance(); renderPacks(); loadPrices();
+if(window.DojoWallet) DojoWallet.on(renderBalance);
+window.addEventListener('dojo-coins-change', renderBalance);
+// payments from an earlier visit that weren't confirmed yet: re-send (write-once server-side) + watch
+pendingList().filter(p => Date.now() - (p.ts||0) < 24*3600*1000).forEach(p => { recordBuy(p); watchPurchase(p.sig); });
+setPending(pendingList().filter(p => Date.now() - (p.ts||0) < 24*3600*1000));
 </script>
-<script src="/dojo-credits.js"></script><script src="/dojo-profile.js"></script><script src="/mwa.js"></script><script src="/wallet-picker.js"></script><script>/*navwallet-wire*/(function(){var b=document.getElementById('dojoNavWallet');if(!b)return;var A=null,sh=function(p){return p.slice(0,4)+'\u2026'+p.slice(-4);};var G="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#0a0814;background:linear-gradient(135deg,#c8962a,#8b6018);border:none;padding:9px 16px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;",C="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#e8b84b;background:rgba(201,151,58,.12);border:1px solid rgba(201,151,58,.5);padding:9px 14px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;";function set(a){A=a;window.DOJO_WALLET=a||null;window.dispatchEvent(new Event('dojo-wallet-change'));if(a){b.textContent='\u25ce '+sh(a.pubkey);b.setAttribute('style',C);}else{b.textContent='Connect wallet';b.setAttribute('style',G);}}b.onclick=function(){if(A){var dc=function(){try{A.disconnect&&A.disconnect();}catch(e){}set(null);};if(window.DojoProfile)DojoProfile.menu(b,A.pubkey,dc);else dc();return;}if(window.DojoWalletPicker)DojoWalletPicker.pick().then(set).catch(function(){});};if(window.DojoWalletPicker&&DojoWalletPicker.autoConnect)DojoWalletPicker.autoConnect().then(function(a){if(a&&!A)set(a);});})();</script></body>
+<script src="/dojo-credits.js"></script><script src="/dojo-wallet.js"></script><script src="/dojo-profile.js"></script><script src="/mwa.js"></script><script src="/wallet-picker.js"></script><script>/*navwallet-wire*/(function(){var b=document.getElementById('dojoNavWallet');if(!b)return;var A=null,sh=function(p){return p.slice(0,4)+'\u2026'+p.slice(-4);};var G="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#0a0814;background:linear-gradient(135deg,#c8962a,#8b6018);border:none;padding:9px 16px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;",C="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#e8b84b;background:rgba(201,151,58,.12);border:1px solid rgba(201,151,58,.5);padding:9px 14px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;";function set(a){A=a;window.DOJO_WALLET=a||null;window.dispatchEvent(new Event('dojo-wallet-change'));if(a){b.textContent='\u25ce '+sh(a.pubkey);b.setAttribute('style',C);}else{b.textContent='Connect wallet';b.setAttribute('style',G);}}window.dojoNavSetWallet=set;b.onclick=function(){if(A){var dc=function(){try{A.disconnect&&A.disconnect();}catch(e){}set(null);};if(window.DojoProfile)DojoProfile.menu(b,A.pubkey,dc);else dc();return;}if(window.DojoWalletPicker)DojoWalletPicker.pick().then(set).catch(function(){});};if(window.DojoWalletPicker&&DojoWalletPicker.autoConnect)DojoWalletPicker.autoConnect().then(function(a){if(a&&!A)set(a);});})();</script></body>
 </html>

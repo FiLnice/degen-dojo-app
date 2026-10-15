@@ -255,7 +255,28 @@ async function newBout(){
   SEED=hex(crypto.getRandomValues(new Uint8Array(32)));
   COMMITHASH=await sha256(SEED);
   WINNER=hashInt(SEED+':brawl')%N;
-  $('fair').innerHTML=`🔒 Provably fair · winner committed as <b>${COMMITHASH.slice(0,10)}…${COMMITHASH.slice(-6)}</b> before your pick.`;
+  LIVEPLAY=null;
+  $('fair').innerHTML = isLive()
+    ? `🔒 Provably fair · 1 coin per bout · the server seals the winner (committed seed) before your pick is sent.`
+    : `🔒 Provably fair · winner committed as <b>${COMMITHASH.slice(0,10)}…${COMMITHASH.slice(-6)}</b> before your pick.`;
+}
+// ── Paid (the store): every bout is a SERVER play. DojoWallet.begin signs in if needed and
+// debits 1 coin; the server commits a secret seed, we send the pick, and IT names the champion
+// = HMAC-SHA256(seed, 'brawl:'+playId) % 8 and mints the raffle entry. The animation then plays
+// out the SERVER's winner (never a local roll), and we re-check the revealed seed right here.
+let LIVEPLAY=null;
+function isLive(){ return !!(window.DojoCredits && DojoCredits.paid && DojoCredits.paid()); }
+function cbToast(msg,warn){ if(window.DojoCredits && DojoCredits.toast) DojoCredits.toast(msg,warn); }
+const hexBytes=h=>new Uint8Array((h.match(/../g)||[]).map(b=>parseInt(b,16)));
+async function verifyServerBout(seedHex, playId, commitHash, winner){
+  try{
+    const key=hexBytes(seedHex);
+    const commitOk = hex(await crypto.subtle.digest('SHA-256', key)) === commitHash;          // sha256(seed bytes)
+    const k=await crypto.subtle.importKey('raw', key, {name:'HMAC', hash:'SHA-256'}, false, ['sign']);
+    const mac=await crypto.subtle.sign('HMAC', k, new TextEncoder().encode('brawl:'+playId));
+    const w=new DataView(mac).getUint32(0) % N;                                               // readUInt32BE(0) % 8
+    return commitOk && w===winner;
+  }catch(e){ return false; }
 }
 function pickChick(i){
   if(BUSY||!chicks[i]||!chicks[i].alive) return;
@@ -274,8 +295,19 @@ function wander(){ // survivors close in and scrap INSIDE the red centre circle
 async function fight(){
   if(BUSY||SEL===null) return;
   // One coin per bout, like every other game (free when the store's coin economy is off).
-  if(window.DojoCredits && !DojoCredits.play('Cock Brawl')) return;
-  const revealed=SEED;                                  // client-side provably fair
+  let revealed=SEED;                                    // demo: client-side provably fair
+  if(isLive()){
+    if(!window.DojoWallet){ cbToast('Loading…'); return; }
+    BUSY=true; $('swords').classList.remove('show');    // no double-tap while the server answers
+    const s=await DojoWallet.begin('brawl');            // signs in if needed, debits 1 server coin
+    if(!s){ BUSY=false; $('swords').classList.add('show'); return; }   // cancelled / out of coins — already explained
+    let r;
+    try{ r=await DojoWallet.finishPlay(s.playId, { pick: SEL }); }
+    catch(e){ BUSY=false; $('swords').classList.add('show'); cbToast(String(e.message||e).replace(/^Error:\s*/,''), true); return; }
+    if(!(Number.isInteger(r.winner) && r.winner>=0 && r.winner<N)){ BUSY=false; cbToast('Server gave no winner — your entry still counts', true); newBout(); return; }
+    WINNER=r.winner; revealed=r.seed; COMMITHASH=s.commitHash;   // the SERVER's champion drives the fight
+    LIVEPLAY={ playId:s.playId, res:r, ok: await verifyServerBout(r.seed, s.playId, s.commitHash, r.winner) };
+  } else if(window.DojoCredits && !DojoCredits.play('Cock Brawl')) return;
   BUSY=true; $('swords').classList.remove('show');      // swords vanish during the fight
   chicks.forEach(c=>{ if(c.i!==SEL) c.el.classList.remove('backed'); });
   RAND=mulberry32(hashInt(revealed));
@@ -318,7 +350,10 @@ async function fight(){
   const champ=chicks[WINNER];
   champ.el.style.left='50%'; champ.el.style.top='50%'; champ.el.classList.add('win'); pop(champ.el,'🏆 CHAMPION!');
   if(champ.rcard){ champ.rcard.classList.remove('backed'); champ.rcard.classList.add('win'); }   // crown 👑 the winner's box (like 💀 for the fallen)
-  if(SEL!=null && window.DojoScores) DojoScores.record('brawl', SEL===WINNER);   // feeds the 🏆 rankings (win if you backed the champ)
+  if(LIVEPLAY){   // paid: the server already minted the entry — just report it
+    const rr=LIVEPLAY.res;
+    cbToast(rr.won ? `🎉 You backed the champ! +${rr.awarded} raffle ${rr.awarded===1?'entry':'entries'}${rr.grandSlam?' (incl. grand-slam!)':''} 🎟` : `+${rr.awarded} raffle entry for the bout 🎟`);
+  } else if(SEL!=null && window.DojoScores) DojoScores.record('brawl', SEL===WINNER);   // demo: feeds the local 🏆 rankings
   $('sun').classList.add('on');                     // rising sun blooms behind the champ
   $('result').textContent='';                       // nothing below — the winner is shown inside the circle
   // CHAMPION + name INSIDE the inner circle, just below the winning cock (on beige).
@@ -328,7 +363,9 @@ async function fight(){
   let fs=22; nm.style.fontSize=fs+'px';
   while(nm.scrollWidth>maxW && fs>10){ fs--; nm.style.fontSize=fs+'px'; }
   ci.classList.add('show');
-  $('fair').innerHTML=`✓ Verify: SHA-256(seed)=<b>${COMMITHASH.slice(0,10)}…</b> · seed <b>${revealed.slice(0,10)}…${revealed.slice(-6)}</b> · winner = hash(seed)%8 = #${WINNER+1}.`;
+  $('fair').innerHTML = LIVEPLAY
+    ? `${LIVEPLAY.ok?'✓ Verified':'⚠ Could not verify'}: SHA-256(seed)=<b>${COMMITHASH.slice(0,10)}…</b> · seed <b>${revealed.slice(0,10)}…${revealed.slice(-6)}</b> · winner = HMAC(seed,'brawl:${LIVEPLAY.playId.slice(0,6)}…')%8 = #${WINNER+1}.`
+    : `✓ Verify: SHA-256(seed)=<b>${COMMITHASH.slice(0,10)}…</b> · seed <b>${revealed.slice(0,10)}…${revealed.slice(-6)}</b> · winner = hash(seed)%8 = #${WINNER+1}.`;
   await wait(5000);                                  // hold the champion for 5 seconds…
   BUSY=false; newBout();                             // …then auto-reset (pick a cock → the FIGHT swords reappear)
 }

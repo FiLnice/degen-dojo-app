@@ -14,3 +14,13 @@
   Cache-Control: public, max-age=0, must-revalidate
 /create
   Cache-Control: public, max-age=0, must-revalidate
+/m/*
+  Cache-Control: public, max-age=0, must-revalidate
+/miner-admin
+  Cache-Control: no-store
+/preacher-admin
+  Cache-Control: no-store
+/payouts
+  Cache-Control: no-store
+/payouts.html
+  Cache-Control: no-store

@@ -13,13 +13,15 @@ import { toast } from "sonner";
 /**
  * Builds, simulates, signs and confirms an ORE transaction. Nothing is signed
  * or sent unless the on-chain simulation passes first (no wasted SOL on reverts).
+ * `submit` resolves to the CONFIRMED signature, or null if it was skipped/failed
+ * (errors are toasted, never thrown — existing callers can keep ignoring the result).
  */
 export function useOreSubmit(connection: Connection, refresh: () => Promise<void>) {
   const { publicKey, sendTransaction } = useWallet();
   const [busy, setBusy] = useState<string | null>(null);
 
-  async function submit(label: string, ixs: TransactionInstruction[]) {
-    if (!publicKey) return;
+  async function submit(label: string, ixs: TransactionInstruction[]): Promise<string | null> {
+    if (!publicKey) return null;
     setBusy(label);
     const t = toast.loading(`${label}: simulating…`);
     try {
@@ -48,9 +50,12 @@ export function useOreSubmit(connection: Connection, refresh: () => Promise<void
         await new Promise((r) => setTimeout(r, 1500));
       }
       toast.success(`${label} confirmed`, { id: t });
-      await refresh();
+      // The tx is confirmed at this point — a failed board refresh must not make it look failed.
+      await refresh().catch(() => {});
+      return sig;
     } catch (e) {
       toast.error(`${label} failed — ${e instanceof Error ? e.message : String(e)}`, { id: t });
+      return null;
     } finally {
       setBusy(null);
     }

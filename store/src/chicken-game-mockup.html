@@ -418,7 +418,8 @@ let BLOCK = null, RIGGED = null, RAND = null;
 // we send our pick, and IT decides the winner + mints the ticket. LIVE holds that
 // result; without a wallet the page runs the local demo (blockhash) flow above.
 let COMMIT = null, PLAYRES = null;
-function isLive(){ return !window.DOJO_LOCAL_ECON && !!(window.DojoWallet && DojoWallet.signedIn()); }
+// Paid (the store) → always the server path; free demo (public site) → local blockhash flow.
+function isLive(){ return !!(window.DojoCredits && DojoCredits.paid && DojoCredits.paid()); }
 async function fetchBlock(){
   // publicnode is CORS-open from the browser; api.mainnet-beta blocks browser origins (403).
   const rpcs = ['https://solana-rpc.publicnode.com','https://api.mainnet-beta.solana.com'];
@@ -534,9 +535,11 @@ async function startRace(){
 
   if(isLive()){
     // ── server-authoritative: debit a coin, commit the seed, let the backend pick ──
+    if(!window.DojoWallet){ cfToast('Loading…'); return; }
     $('goBtn').disabled=true; $('goBtn').textContent='…';
     try{
-      const s = await DojoWallet.startPlay('cluck');          // debits 1 coin, commits seed
+      const s = await DojoWallet.begin('cluck');              // signs in if needed, debits 1 coin, commits seed
+      if(!s){ $('goBtn').disabled=false; $('goBtn').textContent='🐔 START THE SCRAMBLE'; return; }   // cancelled / out of coins — already explained
       COMMIT = s.commitHash;
       const res = await DojoWallet.finishPlay(s.playId, { pick: SEL });   // server decides the winner
       PLAYRES = res; RIGGED = res.winner;

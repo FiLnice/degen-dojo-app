@@ -3,9 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { Connection, PublicKey, Transaction } from "@solana/web3.js";
-import { useWallet } from "@solana/wallet-adapter-react";
+// The store's shared wallet session (same as /mine): embedded → window.DOJO_WALLET via
+// wallet-picker.js, sending with signAndSendTransaction (the store /api/rpc refuses
+// sendTransaction); standalone → the regular wallet-adapter.
+import { useWallet } from "@/lib/wallet-bridge";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
-import { Loader2, Check, Copy, Rocket, ArrowLeft } from "lucide-react";
+import { Loader2, Check, Copy, ArrowLeft, ExternalLink } from "lucide-react";
 import { OreIcon } from "@/components/OreIcon";
 import { StoreNav } from "@/components/StoreNav";
 import { OPERATOR_WALLET, SETUP_FEE_ORE } from "@/lib/config";
@@ -13,7 +16,11 @@ import { createAtaIdempotentIx, oreTransferIx, ORE_DECIMALS } from "@/lib/ore";
 
 type Tile = { mint: string; name: string; image: string };
 const SQUARES = 25;
-const REPO = "https://github.com/FiLnice/degen-dojo-ore";
+/** Store endpoint (scripts/store-fn-miner-requests.mjs) — verifies the fee on-chain + queues review. */
+const REQUESTS_API = "/api/miner-requests";
+/** A paid-but-not-yet-accepted signature, kept so a failed submit can retry WITHOUT paying twice. */
+const PAID_KEY = "dd_create_paid_sig";
+const isHttps = (u: string) => /^https:\/\//i.test(u);
 
 let operatorKey: PublicKey | null = null;
 try {
@@ -35,7 +42,7 @@ async function resolveMint(mint: string): Promise<Tile | null> {
     const image =
       a.content?.links?.image || a.content?.files?.[0]?.cdn_uri || a.content?.files?.[0]?.uri || "";
     const name = a.content?.metadata?.name || `${mint.slice(0, 4)}…`;
-    return image ? { mint, name, image } : null;
+    return image && isHttps(image) ? { mint, name, image } : null;
   } catch {
     return null;
   }
@@ -84,22 +91,6 @@ function CopyButton({ text }: { text: string }) {
       {copied ? "Copied" : "Copy"}
     </button>
   );
-}
-
-function envBlockFor(r: { name: string; tipWallet: string; rpc: string; degens: { name: string; image: string }[] }) {
-  // NFT names almost always contain "#" (e.g. "Cool Ape #1234"), which .env parsers treat as a
-  // comment — that would truncate the list and blank the grid. Single-quote the JSON value, and
-  // swap any straight apostrophes to ’ so a name never closes the single-quote wrapper.
-  const degensJson = JSON.stringify(
-    r.degens.map((d) => ({ name: (d.name || "").replace(/'/g, "’"), image: d.image })),
-  );
-  return [
-    `NEXT_PUBLIC_COLLECTION_NAME=${r.name}`,
-    `NEXT_PUBLIC_TIP_WALLET=${r.tipWallet}`,
-    `NEXT_PUBLIC_DEGENS_JSON='${degensJson}'`,
-    `ALLOW_RPC_PROXY=1`,
-    `HELIUS_RPC=${r.rpc}`,
-  ].join("\n");
 }
 
 // ─── Page: form, or status view when ?id=<id> ────────────────────────────────
@@ -152,7 +143,7 @@ export default function CreatePage() {
 
 // ─── The paid request form ───────────────────────────────────────────────────
 function RequestForm({ onSubmitted }: { onSubmitted: (id: string) => void }) {
-  const { publicKey, connected, sendTransaction } = useWallet();
+  const { publicKey, connected, sendTransaction, embedded, select } = useWallet();
   const connection = useMemo(() => {
     const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
     return new Connection(`${origin}/api/rpc`, "confirmed");
@@ -160,14 +151,22 @@ function RequestForm({ onSubmitted }: { onSubmitted: (id: string) => void }) {
 
   const [name, setName] = useState("");
   const [tipWallet, setTipWallet] = useState("");
-  const [rpc, setRpc] = useState("");
   const [contact, setContact] = useState("");
+  // A fee already paid (confirmed) whose submission failed — retry without paying again.
+  const [paidSig, setPaidSig] = useState<string | null>(() => {
+    try {
+      return typeof window !== "undefined" ? sessionStorage.getItem(PAID_KEY) : null;
+    } catch {
+      return null;
+    }
+  });
   const [website, setWebsite] = useState("");
   const [hashlist, setHashlist] = useState("");
   const [tiles, setTiles] = useState<Tile[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [collection, setCollection] = useState("");
+  const [collectionAddr, setCollectionAddr] = useState(""); // last successfully loaded collection
   const [pool, setPool] = useState<Tile[]>([]);
 
   function pickFromPool(from: Tile[]) {
@@ -205,7 +204,11 @@ function RequestForm({ onSubmitted }: { onSubmitted: (id: string) => void }) {
         .map((a) => ({
           mint: a.id,
           name: a.content?.metadata?.name || `${a.id.slice(0, 4)}…`,
-          image: a.content?.links?.image || a.content?.files?.[0]?.cdn_uri || a.content?.files?.[0]?.uri || "",
+          // First https candidate — the hosted page can't show http/ipfs:// art (mixed content).
+          image:
+            [a.content?.links?.image, a.content?.files?.[0]?.cdn_uri, a.content?.files?.[0]?.uri].find(
+              (u): u is string => !!u && isHttps(u),
+            ) || "",
         }))
         .filter((t) => t.image);
       if (found.length < SQUARES) {
@@ -213,6 +216,7 @@ function RequestForm({ onSubmitted }: { onSubmitted: (id: string) => void }) {
         return;
       }
       setPool(found);
+      setCollectionAddr(addr);
       pickFromPool(found);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -255,51 +259,74 @@ function RequestForm({ onSubmitted }: { onSubmitted: (id: string) => void }) {
     }
   }
 
-  const infoValid =
-    name.trim() && tipValid && rpc.trim().startsWith("http") && contact.trim() && tiles.length === SQUARES;
+  const infoValid = name.trim() && tipValid && contact.trim() && tiles.length === SQUARES;
   const canPay = connected && !!operatorKey && infoValid && !busy;
+
+  function rememberPaid(sig: string | null) {
+    setPaidSig(sig);
+    try {
+      if (sig) sessionStorage.setItem(PAID_KEY, sig);
+      else sessionStorage.removeItem(PAID_KEY);
+    } catch {
+      /* private mode — the in-memory copy still covers this visit */
+    }
+  }
 
   async function onPayAndSubmit() {
     if (!publicKey || !operatorKey) return;
     setError(null);
-    setBusy("pay");
     try {
-      // Pay the fee in ORE: make sure the operator's ORE account exists, then send it.
-      const tx = new Transaction().add(
-        createAtaIdempotentIx(publicKey, operatorKey),
-        oreTransferIx(publicKey, operatorKey, BigInt(Math.round(SETUP_FEE_ORE * 10 ** ORE_DECIMALS))),
-      );
-      tx.feePayer = publicKey;
-      tx.recentBlockhash = (await connection.getLatestBlockhash("confirmed")).blockhash;
-      const sig = await sendTransaction(tx, connection);
+      let sig = paidSig;
+      if (!sig) {
+        setBusy("pay");
+        // Pay the fee in ORE: make sure the operator's ORE account exists, then send it.
+        const tx = new Transaction().add(
+          createAtaIdempotentIx(publicKey, operatorKey),
+          oreTransferIx(publicKey, operatorKey, BigInt(Math.round(SETUP_FEE_ORE * 10 ** ORE_DECIMALS))),
+        );
+        tx.feePayer = publicKey;
+        tx.recentBlockhash = (await connection.getLatestBlockhash("confirmed")).blockhash;
+        // Simulate first so a wallet without enough ORE gets a clear message, not a failed tx.
+        const sim = await connection.simulateTransaction(tx);
+        if (sim.value.err)
+          throw new Error(`You need ${SETUP_FEE_ORE} ORE (plus a little SOL for fees) in this wallet to pay the setup fee.`);
+        const sent = await sendTransaction(tx, connection);
 
-      setBusy("confirm");
-      const deadline = Date.now() + 60_000;
-      for (;;) {
-        const { value } = await connection.getSignatureStatus(sig);
-        if (value?.err) throw new Error("Payment failed on-chain.");
-        if (value?.confirmationStatus === "confirmed" || value?.confirmationStatus === "finalized") break;
-        if (Date.now() > deadline) throw new Error("Payment timed out — check your wallet.");
-        await new Promise((r) => setTimeout(r, 1500));
+        setBusy("confirm");
+        const deadline = Date.now() + 60_000;
+        for (;;) {
+          const { value } = await connection.getSignatureStatus(sent);
+          if (value?.err) throw new Error("Payment failed on-chain.");
+          if (value?.confirmationStatus === "confirmed" || value?.confirmationStatus === "finalized") break;
+          if (Date.now() > deadline) throw new Error("Payment timed out — check your wallet.");
+          await new Promise((r) => setTimeout(r, 1500));
+        }
+        sig = sent;
+        rememberPaid(sig);
       }
 
       setBusy("submit");
-      const res = await fetch("/api/requests", {
+      const res = await fetch(REQUESTS_API, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: name.trim(),
           tipWallet: tipWallet.trim(),
-          rpc: rpc.trim(),
           contact: contact.trim(),
           website: website.trim(),
-          degens: tiles.map((t) => ({ name: t.name, image: t.image })),
+          collection: collectionAddr,
+          degens: tiles.map((t) => ({ name: t.name, image: t.image, mint: t.mint })),
           paymentSig: sig,
           payer: publicKey.toBase58(),
         }),
       });
-      const j = await res.json();
-      if (!res.ok) throw new Error(j.error || "Submission failed.");
+      const j = (await res.json().catch(() => ({}))) as { id?: string; error?: string };
+      if (!res.ok || !j.id) {
+        // Already accepted (e.g. a double click) or verifiably bad → don't keep retrying this sig.
+        if (res.status === 409) rememberPaid(null);
+        throw new Error(j.error || "Submission failed.");
+      }
+      rememberPaid(null);
       onSubmitted(j.id);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -315,8 +342,9 @@ function RequestForm({ onSubmitted }: { onSubmitted: (id: string) => void }) {
     <div className="space-y-6">
       <p className="text-center text-sm text-slate-400">
         Put your collection&apos;s art on an ORE mining grid. Fill this in, pay the one-time{" "}
-        <span className="text-amber-300">{SETUP_FEE_ORE} ORE</span> setup fee, and we&apos;ll review + approve
-        it. You host it, so your tip wallet is always yours.
+        <span className="text-amber-300">{SETUP_FEE_ORE} ORE</span>{" "}setup fee, and we&apos;ll review it and host
+        your miner at <span className="text-slate-200">store.degendojo.xyz/m/your-name</span>. Tips go straight to
+        your wallet.
       </p>
 
       {/* details */}
@@ -332,16 +360,8 @@ function RequestForm({ onSubmitted }: { onSubmitted: (id: string) => void }) {
           />
           {tipWallet && !tipValid && <p className="mt-1 text-[11px] text-red-400">Not a valid Solana address.</p>}
         </div>
-        <input value={rpc} onChange={(e) => setRpc(e.target.value)} placeholder="Your Helius mainnet RPC URL (https://mainnet.helius-rpc.com/?api-key=…)" className={field} />
         <input value={contact} onChange={(e) => setContact(e.target.value)} placeholder="Contact — email / X / Discord (so we can reach you)" className={field} />
         <input value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="Your website (optional)" className={field} />
-        <p className="text-[11px] text-slate-500">
-          Need a free RPC key? Grab one at{" "}
-          <a href="https://helius.dev" target="_blank" rel="noopener noreferrer" className="text-sky-400 underline">
-            helius.dev
-          </a>
-          .
-        </p>
       </section>
 
       {/* NFTs */}
@@ -419,7 +439,17 @@ function RequestForm({ onSubmitted }: { onSubmitted: (id: string) => void }) {
         ) : !connected ? (
           <div className="flex flex-col items-center gap-2">
             <p className="text-sm text-slate-400">Connect your wallet to pay.</p>
-            <WalletMultiButton />
+            {embedded ? (
+              // Inside the store: open the store's shared wallet picker (same session as every page).
+              <button
+                onClick={() => select?.()}
+                className="rounded-lg bg-amber-600 px-5 py-2 text-sm font-medium text-white hover:bg-amber-500"
+              >
+                Connect wallet
+              </button>
+            ) : (
+              <WalletMultiButton />
+            )}
           </div>
         ) : (
           <button
@@ -438,10 +468,29 @@ function RequestForm({ onSubmitted }: { onSubmitted: (id: string) => void }) {
                   ? "Submitting…"
                   : !infoValid
                     ? "Fill everything + preview the grid"
-                    : `Pay ${SETUP_FEE_ORE} ORE & submit`}
+                    : paidSig
+                      ? "Already paid — submit request"
+                      : `Pay ${SETUP_FEE_ORE} ORE & submit`}
           </button>
         )}
         {error && <p className="text-xs text-amber-300">{error}</p>}
+        {paidSig && !busy && (
+          <p className="text-[11px] text-slate-500">
+            Your fee payment{" "}
+            <a
+              href={`https://solscan.io/tx/${paidSig}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sky-400 underline"
+            >
+              {paidSig.slice(0, 8)}…
+            </a>{" "}
+            is saved, so retrying won&apos;t charge you again.{" "}
+            <button onClick={() => rememberPaid(null)} className="text-slate-400 underline hover:text-slate-200">
+              Forget it and pay again
+            </button>
+          </p>
+        )}
       </section>
 
       <p className="text-center text-[11px] text-slate-600">
@@ -455,7 +504,9 @@ function RequestForm({ onSubmitted }: { onSubmitted: (id: string) => void }) {
 // ─── Status view (after submit, or via ?id=) ─────────────────────────────────
 type ReqData = {
   status: "pending" | "approved" | "rejected";
-  request?: { name: string; tipWallet: string; rpc: string; degens: { name: string; image: string }[] };
+  name?: string;
+  slug?: string;
+  url?: string;
 };
 
 function StatusView({ id, onBack }: { id: string; onBack: () => void }) {
@@ -464,23 +515,30 @@ function StatusView({ id, onBack }: { id: string; onBack: () => void }) {
 
   useEffect(() => {
     let alive = true;
+    let t: ReturnType<typeof setInterval> | undefined;
     const load = async () => {
       try {
-        const res = await fetch(`/api/requests?id=${encodeURIComponent(id)}`);
+        const res = await fetch(`${REQUESTS_API}?id=${encodeURIComponent(id)}`, { cache: "no-store" });
         const j = await res.json();
         if (!res.ok) throw new Error(j.error || "Not found.");
-        if (alive) setData(j);
+        if (!alive) return;
+        setError(null);
+        setData(j);
+        if (j.status !== "pending" && t) clearInterval(t); // decided — stop polling
       } catch (e) {
         if (alive) setError(e instanceof Error ? e.message : String(e));
       }
     };
     load();
-    const t = setInterval(load, 10_000);
+    t = setInterval(load, 10_000);
     return () => {
       alive = false;
       clearInterval(t);
     };
   }, [id]);
+
+  // Always show the link on THIS origin (store.degendojo.xyz in production).
+  const liveUrl = data?.slug ? `${window.location.origin}/m/${data.slug}` : "";
 
   return (
     <div className="space-y-4">
@@ -489,7 +547,10 @@ function StatusView({ id, onBack }: { id: string; onBack: () => void }) {
       </button>
 
       <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-4 text-center text-sm">
-        <div className="text-[11px] uppercase tracking-wide text-slate-500">Request {id}</div>
+        <div className="text-[11px] uppercase tracking-wide text-slate-500">
+          Request {id}
+          {data?.name ? ` · ${data.name}` : ""}
+        </div>
         {error ? (
           <p className="mt-1 text-amber-300">{error}</p>
         ) : !data ? (
@@ -499,34 +560,24 @@ function StatusView({ id, onBack }: { id: string; onBack: () => void }) {
         ) : data.status === "rejected" ? (
           <p className="mt-1 text-red-300">This request was declined. Reach out and we&apos;ll sort it.</p>
         ) : (
-          <p className="mt-1 text-emerald-300">✅ Approved! Deploy it below.</p>
+          <p className="mt-1 text-emerald-300">✅ Approved — your miner is live!</p>
         )}
       </div>
 
-      {data?.status === "approved" && data.request && (
-        <section className="space-y-4 rounded-lg border border-emerald-800/40 bg-emerald-950/10 p-4">
-          <ol className="list-decimal space-y-1 pl-4 text-xs text-slate-400">
-            <li>Click <span className="text-slate-200">Deploy to Netlify</span> (forks it into your GitHub + Netlify).</li>
-            <li>When it asks for environment variables, paste the block below.</li>
-            <li>Deploy — no code, no files. Then link a &quot;Mine ORE&quot; button from your site.</li>
-          </ol>
+      {data?.status === "approved" && liveUrl && (
+        <section className="space-y-3 rounded-lg border border-emerald-800/40 bg-emerald-950/10 p-4">
+          <div className="text-xs text-slate-400">Your miner&apos;s link — share it, or add a &quot;Mine ORE&quot; button on your site:</div>
+          <div className="flex items-center gap-2">
+            <code className="min-w-0 flex-1 truncate rounded bg-slate-950 px-3 py-2 text-sm text-emerald-300">{liveUrl}</code>
+            <CopyButton text={liveUrl} />
+          </div>
           <a
-            href={`https://app.netlify.com/start/deploy?repository=${REPO}`}
-            target="_blank"
-            rel="noopener noreferrer"
+            href={liveUrl}
             className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-amber-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-amber-500"
           >
-            <Rocket className="size-4" /> Deploy to Netlify
+            <ExternalLink className="size-4" /> Open your miner
           </a>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-slate-400">Environment variables — paste ALL into Netlify</span>
-              <CopyButton text={envBlockFor(data.request)} />
-            </div>
-            <pre className="max-h-52 overflow-auto whitespace-pre-wrap break-all rounded bg-slate-950 p-3 text-[11px] text-slate-300">
-              {envBlockFor(data.request)}
-            </pre>
-          </div>
+          <p className="text-[11px] text-slate-500">Tips your miners add go straight to the tip wallet you set.</p>
         </section>
       )}
     </div>

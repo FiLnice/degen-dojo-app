@@ -2,12 +2,13 @@
  * Clicking the connected wallet button opens a small menu: Profile / Disconnect.
  * Profile shows the player's coins, games played, and their affiliate link + returns
  * (the full affiliate dashboard, with the signed stats, lives on /become-a-preacher).
- * Depends only on window.DojoCredits (coins/games) and window.DOJO_WALLET (address).
+ * Depends only on window.DojoCredits (coins/games — the SERVER balance via DojoWallet) and
+ * window.DOJO_WALLET (address). Coins show "–" until the player has signed in.
  */
 (function () {
   if (window.DojoProfile) return;
   var sh = function (p) { return p ? p.slice(0, 4) + '…' + p.slice(-4) : ''; };
-  var coins = function () { try { return window.DojoCredits ? DojoCredits.get() : Number(localStorage.getItem('dojo_credits') || 0); } catch (e) { return 0; } };
+  var coins = function () { try { return window.DojoCredits && (!DojoCredits.known || DojoCredits.known()) ? DojoCredits.get().toLocaleString() : '–'; } catch (e) { return '–'; } };
   var games = function () { try { return window.DojoCredits && DojoCredits.gamesPlayed ? DojoCredits.gamesPlayed() : Number(localStorage.getItem('dojo_games_played') || 0); } catch (e) { return 0; } };
 
   // ---- one-time styles ----
@@ -84,7 +85,7 @@
           '<div><div class="dp-who">Your Dojo</div><div class="dp-addr" title="Copy address">' + sh(pubkey) + ' ⧉</div></div>' +
           '<button class="dp-x" aria-label="Close">×</button></div>' +
         '<div class="dp-stats">' +
-          '<div class="dp-st"><div class="k">Coins</div><div class="v">🪙 ' + coins().toLocaleString() + '</div></div>' +
+          '<div class="dp-st"><div class="k">Coins</div><div class="v dp-coins">🪙 ' + coins() + '</div></div>' +
           '<div class="dp-st"><div class="k">Games played</div><div class="v">' + games().toLocaleString() + '</div></div>' +
         '</div>' +
         '<div class="dp-sec"><div class="lbl">Affiliate &amp; returns</div>' +
@@ -99,6 +100,10 @@
     var addr = backEl.querySelector('.dp-addr');
     if (addr) addr.onclick = function () { try { navigator.clipboard.writeText(pubkey); addr.textContent = 'Copied ✓'; setTimeout(function () { addr.textContent = sh(pubkey) + ' ⧉'; }, 1200); } catch (e) {} };
     backEl.classList.add('on');
+    // pull the live server balance (signed-in players) and update the card in place
+    if (window.DojoWallet && DojoWallet.signedIn && DojoWallet.signedIn()) DojoWallet.refresh().then(function () {
+      var v = backEl.querySelector('.dp-coins'); if (v) v.textContent = '🪙 ' + coins();
+    }).catch(function () {});
   }
   function hide() { if (backEl) backEl.classList.remove('on'); }
 

@@ -9,14 +9,14 @@
 // NOTE these come from POSTed hints (untrusted). For payouts, verify on-chain
 // first — this endpoint is for at-a-glance monitoring, not settlement.
 import { getStore } from "@netlify/blobs";
+import { adminKeyOk } from "./store-session-core.mjs";
 
-const POT_PCT = 25;          // share of every purchase that funds the weekly pot
-const DD_POT_CUT = 12;       // Degen Dojo keeps 12% of the pot
-const AFFILIATE_RATE = 0.10; // ~10% of a referred purchase goes to the preacher (tier 2.5–5% of price ≈ this on coin buys)
+const POT_PCT = 65;          // share of every purchase that funds the weekly pot
+const AFFILIATE_RATE = 0.25; // preachers earn 20–30% of a referred coin pack (25% ≈ the middle tier)
 
 export default async (request) => {
   const url = new URL(request.url);
-  if ((url.searchParams.get("key") || "") !== (process.env.ADMIN_KEY || "\0")) {
+  if (!adminKeyOk(url.searchParams.get("key"), "ADMIN_KEY")) {
     return new Response("forbidden", { status: 403 });
   }
 
@@ -43,8 +43,9 @@ export default async (request) => {
   }
 
   const pot = revenueUsd * POT_PCT / 100;
-  // DD profit = its cut of the pot + the non-pot remainder minus a rough ops margin
-  const profit = pot * DD_POT_CUT / 100 + revenueUsd * (1 - POT_PCT / 100) * 0.9;
+  // DD keeps what's left after the pot (65%) and the preachers' cut of referred packs
+  const affVolume = Object.values(affMap).reduce((t, a) => t + a.volume, 0);
+  const profit = revenueUsd * (1 - POT_PCT / 100) - affVolume * AFFILIATE_RATE;
 
   const affiliates = Object.values(affMap)
     .map((a) => ({ name: a.name, tier: "Affiliate", buyers: a.buyers.size, volume: Math.round(a.volume), earnings: Math.round(a.volume * AFFILIATE_RATE) }))

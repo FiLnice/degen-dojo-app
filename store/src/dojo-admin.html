@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Dojo Admin — Degen Dojo</title>
+<meta name="robots" content="noindex" />
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Teko:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0d0b0a;--bg2:#151210;--panel:#1b1613;--panel2:#221b16;--line:#3a2f25;--gold:#e8b84b;--gold-dim:#c9973a;--ink:#ece4d6;--mut:#9c8f7d;--green:#7bb26a;--blue:#5b93c4;--purple:#a982c9;}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Inter",system-ui,sans-serif;-webkit-font-smoothing:antialiased;}
+.wrap{max-width:1080px;margin:0 auto;padding:24px 18px 60px;}
+.head{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:6px;}
+.brand{font-family:"Cinzel",serif;font-weight:900;letter-spacing:.14em;color:var(--gold);font-size:12px;text-transform:uppercase;}
+h1{font-family:"Teko",sans-serif;font-weight:700;font-size:clamp(32px,6vw,50px);line-height:.9;margin:0;background:linear-gradient(180deg,#f4e2b4,var(--gold) 45%,var(--gold-dim));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+.keybar{margin-left:auto;display:flex;gap:8px;align-items:center;}
+.keybar input{background:var(--panel);border:1px solid var(--line);border-radius:9px;color:var(--ink);font-size:13px;padding:8px 11px;width:180px;outline:none;}
+.keybar input:focus{border-color:var(--gold-dim);}
+.keybar button{font-family:"Teko";font-size:16px;letter-spacing:.04em;text-transform:uppercase;padding:8px 16px;border-radius:9px;cursor:pointer;border:1px solid var(--gold-dim);background:linear-gradient(180deg,var(--gold),var(--gold-dim));color:#1a1206;}
+.src{text-align:right;font-size:11px;color:var(--mut);margin:2px 0 18px;}
+.src b{color:var(--gold-dim);}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px;}
+.stat{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:14px;padding:16px 18px;}
+.stat .k{font-family:"Teko";font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);}
+.stat .v{font-family:"Teko";font-size:38px;line-height:1;color:var(--gold);margin-top:4px;}
+.stat .v small{font-size:16px;color:var(--mut);}
+.stat.profit .v{color:var(--green);}
+.sect{font-family:"Teko";font-size:15px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold-dim);margin:24px 0 10px;border-bottom:1px solid var(--line);padding-bottom:6px;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+@media(max-width:720px){.grid2{grid-template-columns:1fr;}}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;}
+.bar{display:flex;align-items:center;gap:10px;margin:9px 0;}
+.bar .lbl{font-family:"Teko";font-size:16px;width:56px;color:var(--ink);display:flex;align-items:center;gap:5px;}
+.bar .lbl img{width:16px;height:16px;border-radius:50%;}
+.bar .track{flex:1;height:16px;background:var(--bg2);border-radius:8px;overflow:hidden;}
+.bar .fill{height:100%;border-radius:8px;}
+.bar .amt{font-family:"Teko";font-size:15px;color:var(--mut);width:90px;text-align:right;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th{font-family:"Teko";font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--mut);text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);}
+td{padding:7px 8px;border-bottom:1px solid rgba(58,47,37,.5);color:var(--ink);}
+td.r,th.r{text-align:right;}
+.rk{font-family:"Teko";font-size:16px;color:var(--gold);}
+.mono{font-family:ui-monospace,monospace;font-size:12px;color:var(--mut);}
+.tag{font-size:11px;color:var(--gold-dim);border:1px solid var(--gold-dim);border-radius:6px;padding:1px 6px;}
+.foot{text-align:center;color:var(--mut);font-size:12px;margin-top:26px;line-height:1.6;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <div>
+      <div class="brand">道場 · Admin</div>
+      <h1>Dojo Control</h1>
+    </div>
+    <div class="keybar">
+      <input id="keyIn" type="password" placeholder="Admin key" autocomplete="off" />
+      <button onclick="load()">Load</button>
+    </div>
+  </div>
+  <div class="src" id="src"></div>
+
+  <div class="cards" id="cards"></div>
+
+  <div class="sect">Revenue by currency</div>
+  <div class="grid2">
+    <div class="box"><div id="revBars"></div></div>
+    <div class="box">
+      <div style="font-family:'Teko';font-size:15px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin-bottom:8px;">Where the money goes</div>
+      <div id="split"></div>
+    </div>
+  </div>
+
+  <div class="sect">Affiliate (Preacher) rankings</div>
+  <div class="box"><table id="affTable"><thead><tr><th>#</th><th>Preacher</th><th>Tier</th><th class="r">Referred buyers</th><th class="r">Referred volume</th><th class="r">Earnings (ORE)</th></tr></thead><tbody id="affBody"></tbody></table></div>
+
+  <div class="sect">Recent coin purchases</div>
+  <div class="box"><table id="buyTable"><thead><tr><th>When</th><th>Buyer</th><th class="r">Coins</th><th class="r">Paid</th><th>Referrer</th></tr></thead><tbody id="buyBody"></tbody></table></div>
+
+  <div class="foot">
+    Live data comes from <b>/api/admin</b> (gated by the admin key; reads the coin-purchase + referral ledgers from Netlify Blobs). Without a key or backend this shows <b>sample data</b> so you can see the layout. <span id="noteReal"></span>
+  </div>
+</div>
+
+<script>
+const ICON = {
+  ORE:'https://wsrv.nl/?url=https%3A%2F%2Fore.com%2Fassets%2Ficon.png&w=32&h=32&output=png',
+  SOL:'https://wsrv.nl/?url=https%3A%2F%2Fraw.githubusercontent.com%2Fsolana-labs%2Ftoken-list%2Fmain%2Fassets%2Fmainnet%2FSo11111111111111111111111111111111111111112%2Flogo.png&w=32&h=32&output=png',
+  SKR:'https://wsrv.nl/?url=https%3A%2F%2Fr2.solanamobiledappstore.com%2Fskr%2Fseeker.png&w=32&h=32&output=png',
+};
+const POT_PCT = 65, AFF_PCT = 25;   // 65% of every buy funds the pot; preachers get ~25% (20–30%) of referred buys
+const $ = id => document.getElementById(id);
+const usd = n => '$' + (n||0).toLocaleString('en-US',{maximumFractionDigits:0});
+const nf = (n,d=0) => (n==null?'—':n.toLocaleString('en-US',{maximumFractionDigits:d}));
+const short = a => a ? a.slice(0,4)+'…'+a.slice(-4) : '—';
+const ago = ts => { const s=Math.round((Date.now()-ts)/1000); if(s<60)return s+'s'; if(s<3600)return Math.round(s/60)+'m'; if(s<86400)return Math.round(s/3600)+'h'; return Math.round(s/86400)+'d'; };
+
+// ---- sample data (design preview until the backend is live) ----------------
+function sample(){
+  const names=['SenseiSam','KaidoKing','RikoRolls','FuguFan','OreWhale','DojoDan','SkrStacker','ChickenLord'];
+  const buys=[]; let t=Date.now();
+  for(let i=0;i<40;i++){ t-=Math.random()*5e6; const cur=['ORE','SKR','SOL'][Math.floor(Math.random()*3)];
+    const usdv=[5,10,25,50][Math.floor(Math.random()*4)]; buys.push({buyer:'W'+Math.random().toString(36).slice(2,8), coins:usdv, currency:cur, usd:usdv, ts:t, referrer:Math.random()<0.5?names[Math.floor(Math.random()*4)]:null}); }
+  const aff=[{name:'SenseiSam',tier:'Sensei',buyers:14,volume:640,earnings:210},{name:'KaidoKing',tier:'Disciple',buyers:9,volume:410,earnings:96},{name:'RikoRolls',tier:'Wanderer',buyers:6,volume:180,earnings:30},{name:'FuguFan',tier:'Wanderer',buyers:3,volume:95,earnings:16}];
+  return { coinsSold:buys.reduce((s,b)=>s+b.coins,0), buyers:new Set(buys.map(b=>b.buyer)).size, revenueUsd:buys.reduce((s,b)=>s+b.usd,0),
+    byCurrency:{ORE:buys.filter(b=>b.currency==='ORE').reduce((s,b)=>s+b.usd,0),SKR:buys.filter(b=>b.currency==='SKR').reduce((s,b)=>s+b.usd,0),SOL:buys.filter(b=>b.currency==='SOL').reduce((s,b)=>s+b.usd,0)},
+    affiliates:aff, recent:buys.sort((a,b)=>b.ts-a.ts).slice(0,12) };
+}
+
+function render(d, isSample){
+  $('src').innerHTML = isSample ? '⚠ <b>SAMPLE DATA</b> — enter the admin key to load live figures' : '● Live · updated '+new Date().toLocaleTimeString();
+  const pot = d.revenueUsd*POT_PCT/100, affVol = (d.affiliates||[]).reduce((t,a)=>t+(a.volume||0),0), profit = d.revenueUsd*(1-POT_PCT/100) - affVol*AFF_PCT/100;   // what's left after pot + preachers
+  const affPaid = d.affiliates.reduce((s,a)=>s+a.earnings,0);
+  $('cards').innerHTML =
+    card('🪙 Coins sold', nf(d.coinsSold)) +
+    card('👤 Buyers', nf(d.buyers)) +
+    card('💰 Revenue', usd(d.revenueUsd)) +
+    card('🏮 Into the pot', usd(pot)) +
+    card('📈 DD profit', usd(profit), 'profit');
+  // revenue bars
+  const max = Math.max(1, d.byCurrency.ORE, d.byCurrency.SKR, d.byCurrency.SOL);
+  const colors={ORE:'linear-gradient(90deg,#c9973a,#e8b84b)',SKR:'linear-gradient(90deg,#5c3cff,#9a7dff)',SOL:'linear-gradient(90deg,#3a8fd8,#6fd0e0)'};
+  $('revBars').innerHTML = ['ORE','SKR','SOL'].map(c=>
+    `<div class="bar"><span class="lbl"><img src="${ICON[c]}">${c}</span><span class="track"><span class="fill" style="width:${(d.byCurrency[c]/max*100)||0}%;background:${colors[c]}"></span></span><span class="amt">${usd(d.byCurrency[c])}</span></div>`).join('');
+  // split
+  $('split').innerHTML =
+    splitRow('To the weekly pot', pot, 'var(--gold)') +
+    splitRow('To preachers/affiliates', affPaid, 'var(--purple)') +
+    splitRow('Degen Dojo (profit)', profit, 'var(--green)');
+  // affiliates
+  $('affBody').innerHTML = d.affiliates.length ? d.affiliates.map((a,i)=>
+    `<tr><td class="rk">${i+1}</td><td>${a.name}</td><td><span class="tag">${a.tier}</span></td><td class="r">${nf(a.buyers)}</td><td class="r">${usd(a.volume)}</td><td class="r">${nf(a.earnings)} ◎</td></tr>`).join('')
+    : '<tr><td colspan="6" style="color:var(--mut);text-align:center;padding:16px">No referred sales yet.</td></tr>';
+  // recent
+  $('buyBody').innerHTML = d.recent.length ? d.recent.map(b=>
+    `<tr><td>${ago(b.ts)} ago</td><td class="mono">${short(b.buyer)}</td><td class="r">${nf(b.coins)} 🪙</td><td class="r">${usd(b.usd)} <span style="color:var(--gold-dim)">${b.currency}</span></td><td>${b.referrer?b.referrer:'<span style="color:var(--mut)">—</span>'}</td></tr>`).join('')
+    : '<tr><td colspan="5" style="color:var(--mut);text-align:center;padding:16px">No purchases yet.</td></tr>';
+}
+function card(k,v,cls){ return `<div class="stat ${cls||''}"><div class="k">${k}</div><div class="v">${v}</div></div>`; }
+function splitRow(lbl,amt,col){ return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(58,47,37,.5)"><span style="color:var(--mut);font-size:13px">${lbl}</span><b style="font-family:'Teko';font-size:19px;color:${col}">${usd(amt)}</b></div>`; }
+
+async function load(){
+  const key = $('keyIn').value.trim();
+  if(!key){ render(sample(), true); return; }
+  try{
+    const r = await fetch('/api/admin?key='+encodeURIComponent(key));
+    if(!r.ok) throw new Error('unauthorized');
+    render(await r.json(), false);
+    $('noteReal').textContent = '';
+  }catch(e){ render(sample(), true); $('src').innerHTML = '⚠ <b>SAMPLE DATA</b> — key rejected or backend not deployed'; }
+}
+render(sample(), true);
+</script>
+</body>
+</html>

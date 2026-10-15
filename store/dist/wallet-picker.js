@@ -6,6 +6,17 @@
 (function (global) {
   var CHAIN = 'solana:mainnet';
 
+  // Preacher links: every page that loads this script (store, miner, games, coins) keeps a ?ref=code
+  // in the shared dd_ref cookie — same 30-day last-touch rule as the store home.
+  (function captureRef() {
+    try {
+      var r = new URLSearchParams(location.search).get('ref');
+      if (!r || !/^[a-zA-Z0-9_-]{2,32}$/.test(r)) return;
+      var dom = /(^|\.)degendojo\.xyz$/.test(location.hostname) ? '; domain=.degendojo.xyz' : '';
+      document.cookie = 'dd_ref=' + encodeURIComponent(r.toLowerCase()) + dom + '; max-age=' + (30 * 86400) + '; path=/; SameSite=Lax';
+    } catch (_) {}
+  })();
+
   // Enumerate Wallet-Standard wallets (dispatch app-ready + listen for late registrations).
   function enumerate() {
     var wallets = [];
@@ -93,7 +104,9 @@
         // support the multi-input form even without an injected provider.
         var f = F['solana:signTransaction'];
         if (!f) return Promise.reject(new Error(w.name + ' cannot sign multiple transactions'));
-        var inputs = txs.map(function (t) { return { account: account, transaction: t.serialize(), chain: CHAIN }; });
+        // A legacy (non-versioned) Transaction can't serialize unsigned without these flags.
+        var ser = function (t) { return (t && t.version === undefined && typeof t.serializeMessage === 'function') ? t.serialize({ requireAllSignatures: false, verifySignatures: false }) : t.serialize(); };
+        var inputs = txs.map(function (t) { return { account: account, transaction: ser(t), chain: CHAIN }; });
         return f.signTransaction.apply(f, inputs).then(function (o) { return o.map(function (x) { return x.signedTransaction; }); });
       }
     };

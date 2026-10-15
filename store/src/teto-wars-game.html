@@ -378,7 +378,18 @@ function dieReady(){ const el=$('die'); if(!el) return; el.classList.add('ready'
 function rollDice(){
   if(busy||!started||players[turn].out||move) return;
   // 1-coin entry, charged on YOUR first roll of the war (never on page load / AI turns).
-  if(!players[turn].ai && !coinPaid){ if(window.DojoCredits && !DojoCredits.play('Teto Wars')) return; coinPaid=true; }
+  if(!players[turn].ai && !coinPaid){
+    if(isLive()){
+      // Paid (the store): the war's 1 server coin — signs in if needed, then rolls on its own.
+      if(TETOPAYING) return;
+      if(!window.DojoWallet){ tetoToast('Loading…'); return; }
+      TETOPAYING=true;
+      DojoWallet.begin('teto').then(function(s){ TETOPAYING=false; if(!s) return; TETOPLAY={playId:s.playId}; coinPaid=true; rollDice(); })
+        .catch(function(){ TETOPAYING=false; });
+      return;
+    }
+    if(window.DojoCredits && !DojoCredits.play('Teto Wars')) return; coinPaid=true;   // free demo
+  }
   busy=true; $('rollBtn').disabled=true; const die=$('die'); die.classList.add('rolling'); beep(180,.05);
   let ticks=0; const iv=setInterval(()=>{ setDie(1+Math.floor(Math.random()*6)); if(++ticks>8){clearInterval(iv);settle();} },70);
   function settle(){
@@ -565,19 +576,12 @@ let AC; function beep(f,d,type){ try{ AC=AC||new (window.AudioContext||window.we
 nPlayers=2;
 $('pick').innerHTML='';   // no seat picker — every war is you vs the Dojo
 function pickN(n){ nPlayers=n; }
-// When signed in, a war is server-authoritative: the backend debits a coin and mints
-// one raffle entry per war (Teto is flat-entries — the win isn't server-verifiable).
-let TETOPLAY=null;
-function isLive(){ return !window.DOJO_LOCAL_ECON && !!(window.DojoWallet && DojoWallet.signedIn()); }
-function startGame(){
-  if(isLive()){
-    DojoWallet.startPlay('teto').then(function(s){ TETOPLAY={playId:s.playId}; _beginWar(); })
-      .catch(function(e){ tetoToast(String(e.message||e).replace(/^Error:\s*/,'')); });
-    return;
-  }
-  if(window.DojoCredits && !DojoCredits.play('Teto Wars')) return;   // demo: one local credit per war
-  _beginWar();
-}
+// Paid (the store): a war is server-authoritative — your FIRST roll signs in if needed and
+// debits 1 server coin (rollDice), and the backend mints one raffle entry per war (Teto is
+// flat-entries — the win isn't server-verifiable). Free demo (public site): local only.
+let TETOPLAY=null, TETOPAYING=false;
+function isLive(){ return !!(window.DojoCredits && DojoCredits.paid && DojoCredits.paid()); }
+function startGame(){ _beginWar(); }   // opening the board is free; the coin is charged on your first roll
 function _beginWar(){
   // Seat order: YOU (P0) start LEFT-centre, THE DOJO (P1) RIGHT-centre (then top, bottom for 4-player).
   const SEAT=[2,3,0,1];
@@ -626,11 +630,10 @@ async function aiStep(){
 }
 setDie(1);   // show a dice face (dots) from the start, before the first roll
 // Enter straight into a war — no rules wall on the public demo. Rules live behind the “i”.
-// Server-verified mode shows the start card so a coin isn't spent without a tap; demo and the
-// store's local-coin economy jump straight into a ready board (rules live behind the “i”). The
-// war is FREE to open — the 1-coin entry is charged on your FIRST roll (in rollDice), so merely
-// visiting the page never drains coins.
-if(isLive()){ $('startOv').classList.remove('hide'); } else { _beginWar(); }
+// Every mode jumps straight into a ready board (rules live behind the “i”). The war is FREE to
+// open — in the store the 1-coin entry is taken from your SERVER balance on your FIRST roll (in
+// rollDice, signing in first if needed), so merely visiting the page never spends a coin.
+_beginWar();   // paid or demo, the board opens ready — a paid war's coin is taken on your first roll
 window.addEventListener('resize',()=>{ if(started) drawBoard(); });
 
 // ── wallet strip: connect to spend real (server-held) coins & earn verified entries ──

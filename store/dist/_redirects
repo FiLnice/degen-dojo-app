@@ -10,6 +10,7 @@
 /api/verify  /.netlify/functions/verify  200
 /api/ticket  /.netlify/functions/ticket  200
 /api/draw  /.netlify/functions/draw  200
+/api/payouts  /.netlify/functions/payouts  200
 /api/auth  /.netlify/functions/auth  200
 /api/play  /.netlify/functions/play  200
 /api/mebuy  /.netlify/functions/mebuy  200
@@ -20,10 +21,16 @@
 /api/launch-apply  /.netlify/functions/launch-apply  200
 /api/resolve  /.netlify/functions/resolve  200
 /api/tensor-listings  /.netlify/functions/tensor-listings  200
+/api/miner-requests  /.netlify/functions/miner-requests  200
+/api/miner  /.netlify/functions/miner  200
 /nft/*  /.netlify/functions/nft  200
+/m/*  /mine.html  200
 /shelves  /  301
 /shelves-100  /  301
 /shelves-100.html  /  301
+/cluck-fu.html  /play/cluck-fu/  301
+/teto.html  /play/teto-wars/  301
+/flip.html  /dojo-flip/  301
 /lore  https://degendojo.xyz/lore  301
 /traits  https://degendojo.xyz/traits  301
 /framed  https://degendojo.xyz/framed  301
