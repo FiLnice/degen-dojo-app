@@ -58,19 +58,25 @@
     row.innerHTML = DD.map(function (x, i) {
       var mine = W && x.seller === W.pubkey;
       var m = META[x.mint] || {};
-      var art = safeImg(m.img) || safeImg(x.image) || ddImg(x.mint);
+      var isCard = x.dojo === "Degen Dojo";   // genuine Degens: show the collectible card, whole
+      var art = isCard ? "https://degendojo.s3.us-west-1.amazonaws.com/degen/card/" + x.mint + ".png?v=7" : (safeImg(m.img) || safeImg(x.image) || ddImg(x.mint));
       var nm = m.name || x.name || (x.mint.slice(0, 6) + "…");
       var btn = mine
         ? '<button data-act="delist" data-i="' + i + '" style="margin:0 8px 8px;padding:7px 0;border:1px solid rgba(201,151,58,.5);border-radius:8px;background:transparent;color:#e8b84b;font-weight:700;font-size:12px;cursor:pointer">Delist</button>'
         : '<button data-act="buy" data-i="' + i + '" style="margin:0 8px 8px;padding:7px 0;border:0;border-radius:8px;background:#c9973a;color:#1a1206;font-weight:700;font-size:12px;cursor:pointer">' + (ready ? "Buy" : "Buy soon") + "</button>";
-      return '<div style="border:1px solid rgba(255,255,255,.08);border-radius:12px;overflow:hidden;background:rgba(0,0,0,.25);display:flex;flex-direction:column;">'
-        + '<img src="' + esc(art) + '" data-fb="' + esc(ddImg(x.mint)) + '" alt="" style="width:100%;aspect-ratio:1/1;object-fit:cover;background:#151013;" onerror="this.onerror=null;this.src=this.dataset.fb;this.style.opacity=.9">'
+      // the picture stands on its own; only the info box below carries the border (it isn't part of what's bought)
+      return '<div style="display:flex;flex-direction:column;gap:6px;">'
+        + '<img src="' + esc(art) + '" data-fb="' + esc(ddImg(x.mint)) + '" alt="" style="width:100%;display:block;aspect-ratio:' + (isCard ? "664/1080" : "1/1") + ';object-fit:' + (isCard ? "contain" : "cover") + ';background:' + (isCard ? "transparent" : "#151013") + ';" onerror="this.onerror=null;this.src=this.dataset.fb;this.style.opacity=.9">'
+        + '<div class="ddc-info" style="border:1px solid rgba(255,255,255,.08);border-radius:12px;background:rgba(0,0,0,.25);display:flex;flex-direction:column;transition:border-color .16s;">'
         + '<div style="font-size:12.5px;color:#e7ddc9;padding:8px 10px 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(nm) + "</div>"
+        // ✓ badge only for our verified collections (the server already hides look-alikes); others say what they are
+        + '<div style="font-size:11px;padding:0 10px 3px;color:' + (x.dojo ? "#7fd17a" : "#9a917f") + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(x.dojo ? "✓ " + x.dojo : (m.coll || "Other collection")) + "</div>"
         + '<div style="font-size:13px;color:#c9973a;font-weight:700;padding:0 10px 8px;">' + esc(x.price) + " " + esc(x.currency) + "</div>"
-        + btn + "</div>";
+        + btn + "</div></div>";
     }).join("");
     if (cnt) cnt.textContent = DD.length;
     wrap.style.display = "";
+    if (!document.getElementById("ddcInfoCss")) { var st = document.createElement("style"); st.id = "ddcInfoCss"; st.textContent = "#ddCaseRow > div:hover .ddc-info{border-color:rgba(201,151,58,.55)!important}"; document.head.appendChild(st); }
     row.querySelectorAll("button[data-act]").forEach(function (b) {
       b.onclick = function () {
         var i = +b.getAttribute("data-i");
@@ -86,7 +92,8 @@
       var ids = need.slice(i, i + 100);
       try {
         var assets = await rpcCall("getAssetBatch", { ids: ids });
-        (assets || []).forEach(function (a) { if (a && isB58(a.id)) META[a.id] = { name: assetName(a), img: safeImg(assetImg(a)) }; });
+        (assets || []).forEach(function (a) { if (a && isB58(a.id)) { var g = (a.grouping || []).filter(function (x) { return x.group_key === "collection"; })[0];
+          META[a.id] = { name: assetName(a), img: safeImg(assetImg(a)), coll: (g && g.collection_metadata && g.collection_metadata.name) || "" }; } });
       } catch (e) {}
     }
   }
@@ -119,7 +126,13 @@
     BUSY = true;
     toast("Checking the purchase — you are not charged yet…");
     try {
-      var r = await window.DojoAH.prepareBuy(rpcCall, { currency: x.currency, buyer: W.pubkey, seller: x.seller, mint: x.mint, price: x.price });
+      // price lock: buy exactly the listing shown, or — if the seller re-listed it higher — only after an explicit OK
+      x = await window.DojoAH.lockPrice(rpcCall, x);
+      if (W.pubkey === x.seller) { toast("That is your own listing."); return; }
+      // short on ORE? open the swap with exactly what's missing instead of a failed purchase
+      if (x.currency === "ORE" && window.DojoSwap) { var short = await window.DojoSwap.oreShortfall(W.pubkey, +x.price);
+        if (short > 0) { toast("You need " + short + " more ORE for this one — swap it in, then buy."); window.DojoSwap.open({ needOre: short }); return; } }
+      var r = await window.DojoAH.prepareBuy(rpcCall, { currency: x.currency, buyer: W.pubkey, seller: x.seller, mint: x.mint, price: x.price, sellerTokenAccount: x.tokenAccount });
       if (r.err) { toast("This purchase would fail — you were NOT charged. It may have just sold, or you don’t have enough " + x.currency + "."); return; }
       toast("Approve in your wallet — you pay " + x.price + " " + x.currency + " (seller nets " + r.breakdown.sellerNet.toFixed(x.currency === "USDC" ? 2 : 3) + " after the 13% royalty)…");
       var s = await window.DojoAH.submitBuy(rpcCall, W, r);
@@ -129,7 +142,7 @@
       DD = DD.filter(function (l) { return l.tradeState !== x.tradeState; }); render();
       toast("✓ Bought " + (x.name || "this Degen") + " — it is now in your wallet.");
       setTimeout(load, 9000);
-    } catch (e) { toast("Buy failed: " + ((e && e.message) || e)); }
+    } catch (e) { toast(e && e.cancelled ? e.message : "Buy failed: " + ((e && e.message) || e)); if (e && e.cancelled) load(); }
     finally { BUSY = false; }
   }
 

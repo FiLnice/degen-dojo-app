@@ -5,7 +5,7 @@ import { PublicKey } from "@solana/web3.js";
 // the collection's 25 images into public/mine/degens.json. Everything else (the
 // ORE mining, grid, vault, auto-mine) is collection-agnostic. Defaults = Degen Dojo.
 
-const DEFAULT_TIP_WALLET = "ED3GMCfoX3XNvavnWADvd6oCsohGg1ukdhv3PaUpvwJe";
+const DEFAULT_TIP_WALLET = "5w55F58ia3H71QjBD9bYvNQF2DcNu8K3AfJj9A4WMuWp";   // Degen Dojo Reserve (ED3GMC retired 2026-10-22)
 
 function toPubkey(addr: string | undefined): PublicKey {
   try {

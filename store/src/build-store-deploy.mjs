@@ -16,6 +16,8 @@
 //  feature); it cannot be set from the deploy bundle.
 // ============================================================================
 import { readFileSync, writeFileSync, mkdirSync, copyFileSync, cpSync, rmSync, existsSync, readdirSync } from "fs";
+import { assertNoSecrets } from "./build-leak-guard.mjs";
+import { CSP } from "./csp.mjs";
 import { execSync } from "child_process";
 
 const ROOT = "C:/Users/sazei/Documents/DEGEN DOJO/BULKITOR/bulkitor";
@@ -116,7 +118,7 @@ const playNavExtra =
 // Wire the nav wallet button through the shared picker. autoConnect shares ONE session across every
 // page (connect once → connected everywhere). Disconnected = gold; connected = subtle pill (matches
 // the store home). Sets window.DOJO_WALLET for the games' economy.
-const walletWire = `<script src="/dojo-credits.js"></script><script src="/dojo-wallet.js"></script><script src="/dojo-profile.js"></script><script src="/mwa.js"></script><script src="/wallet-picker.js"></script><script>/*navwallet-wire*/(function(){var b=document.getElementById('dojoNavWallet');if(!b)return;var A=null,sh=function(p){return p.slice(0,4)+'\\u2026'+p.slice(-4);};var G="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#0a0814;background:linear-gradient(135deg,#c8962a,#8b6018);border:none;padding:9px 16px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;",C="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#e8b84b;background:rgba(201,151,58,.12);border:1px solid rgba(201,151,58,.5);padding:9px 14px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;";function set(a){A=a;window.DOJO_WALLET=a||null;window.dispatchEvent(new Event('dojo-wallet-change'));if(a){b.textContent='\\u25ce '+sh(a.pubkey);b.setAttribute('style',C);}else{b.textContent='Connect wallet';b.setAttribute('style',G);}}window.dojoNavSetWallet=set;b.onclick=function(){if(A){var dc=function(){try{A.disconnect&&A.disconnect();}catch(e){}set(null);};if(window.DojoProfile)DojoProfile.menu(b,A.pubkey,dc);else dc();return;}if(window.DojoWalletPicker)DojoWalletPicker.pick().then(set).catch(function(){});};if(window.DojoWalletPicker&&DojoWalletPicker.autoConnect)DojoWalletPicker.autoConnect().then(function(a){if(a&&!A)set(a);});})();</script>`;
+const walletWire = `<script src="/dojo-credits.js"></script><script src="/dojo-wallet.js"></script><script src="/dojo-profile.js"></script><script src="/mwa.js"></script><script src="/wallet-picker.js"></script><script>/*navwallet-wire*/(function(){var b=document.getElementById('dojoNavWallet');if(!b)return;var A=null,sh=function(p){return p.slice(0,4)+'\\u2026'+p.slice(-4);};var G="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#0a0814;background:linear-gradient(135deg,#c8962a,#8b6018);border:none;padding:9px 16px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;",C="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#e8b84b;background:rgba(201,151,58,.12);border:1px solid rgba(201,151,58,.5);padding:9px 14px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;";function set(a){A=a;window.DOJO_WALLET=a||null;window.dispatchEvent(new Event('dojo-wallet-change'));if(a){b.textContent='\\u25ce '+sh(a.pubkey);b.setAttribute('style',C);}else{b.textContent='Connect wallet';b.setAttribute('style',G);}document.querySelectorAll('.dn-connect').forEach(function(x){x.textContent=a?'\\u25ce '+sh(a.pubkey):'\\ud83d\\udd11 Connect';});}window.dojoNavSetWallet=set;b.onclick=function(){if(A){var dc=function(){try{A.disconnect&&A.disconnect();}catch(e){}set(null);};if(window.DojoProfile)DojoProfile.menu(b,A.pubkey,dc);else dc();return;}if(window.DojoWalletPicker)DojoWalletPicker.pick().then(set).catch(function(){});};if(window.DojoWalletPicker&&DojoWalletPicker.autoConnect)DojoWalletPicker.autoConnect().then(function(a){if(a&&!A)set(a);});})();</script>`;
 for (const gf of ["dojo-flip/index.html", "play/cluck-fu/index.html", "play/teto-wars/index.html", "play/degen-duel/index.html", "play/cock-brawl/index.html"]) {
   const gp = `${OUT}/${gf}`;
   let gh = readFileSync(gp, "utf8");
@@ -133,6 +135,8 @@ for (const gf of ["dojo-flip/index.html", "play/cluck-fu/index.html", "play/teto
 copyFileSync(`${ROOT}/scripts/site-assets/web3.js`, `${OUT}/web3.js`);
 copyFileSync(`${ROOT}/scripts/site-assets/buffer.js`, `${OUT}/buffer.js`);
 copyFileSync(`${ROOT}/scripts/site-assets/dd-mark.jpg`, `${OUT}/dd-mark.jpg`);   // brand logo
+copyFileSync(`${ROOT}/scripts/site-assets/demon-mark.png`, `${OUT}/demon-mark.png`);   // Demon Dojo case crest (collection image)
+copyFileSync(`${ROOT}/scripts/site-assets/teto-mark.png`, `${OUT}/teto-mark.png`);     // TETO case crest (the coin)
 // Same-origin RPC proxy, so the page never carries a keyed endpoint.
 mkdirSync(`${OUT}/netlify/functions`, { recursive: true });
 copyFileSync(`${ROOT}/scripts/store-fn-rpc.mjs`, `${OUT}/netlify/functions/rpc.mjs`);
@@ -168,8 +172,19 @@ copyFileSync(`${ROOT}/scripts/store-verify-core.mjs`, `${OUT}/netlify/functions/
 // Shared Dojo Pot ledger — verify-core adds each purchase's pot share; draw reads/resets it.
 copyFileSync(`${ROOT}/scripts/store-pot-core.mjs`, `${OUT}/netlify/functions/store-pot-core.mjs`);
 copyFileSync(`${ROOT}/scripts/store-cas-core.mjs`, `${OUT}/netlify/functions/store-cas-core.mjs`);   // atomic (compare-and-swap) ledger writes
+// Rate limits (audit DD-04). Two layers:
+//  • Netlify platform rules (global per IP+domain; the plan allows only 2 code-defined rules per site on
+//    Free/Personal, 5 on Pro): /api/rpc 300/min, /api/collection 90/min — declared in each function's config.
+//  • store-ratelimit-core.mjs, an in-memory per-IP window in EVERY public function (per warm instance):
+//    rpc 240 · nft 120 · collection/search/topcollections/listings/tensor-listings/resolve/dd-listings/miner/play 60
+//    · preacher/draw/payouts 30 · attr/coinbuy/ticket/mebuy/tensorbuy/dd-cosign/dd-royalty/miner-requests 20
+//    · admin/verify/launch-apply 10 (per minute). Crons are not limited. On Pro, spend the 3 extra platform
+//    rules on /api/dd-cosign, /api/mebuy and /api/play.
+copyFileSync(`${ROOT}/scripts/store-ratelimit-core.mjs`, `${OUT}/netlify/functions/store-ratelimit-core.mjs`);
 copyFileSync(`${ROOT}/scripts/store-preacher-core.mjs`, `${OUT}/netlify/functions/store-preacher-core.mjs`);   // shared preacher maths (dashboard + payouts)
 copyFileSync(`${ROOT}/scripts/store-ref-core.mjs`, `${OUT}/netlify/functions/store-ref-core.mjs`);   // signed "ddref:" memo → preacher referral
+copyFileSync(`${ROOT}/scripts/store-min-core.mjs`, `${OUT}/netlify/functions/store-min-core.mjs`);
+copyFileSync(`${ROOT}/scripts/store-genuine-core.mjs`, `${OUT}/netlify/functions/store-genuine-core.mjs`);   // genuine vs look-alike Degens (one rule everywhere)   // 1.5 SOL listing floor (dd-listings + dd-cosign)
 copyFileSync(`${ROOT}/scripts/store-fn-ticket.mjs`, `${OUT}/netlify/functions/ticket.mjs`);
 copyFileSync(`${ROOT}/scripts/store-fn-draw.mjs`, `${OUT}/netlify/functions/draw.mjs`);
 // Weekly payout: the cron commits + draws + plans + notifies; /api/payouts backs the owner's /payouts
@@ -183,6 +198,13 @@ copyFileSync(`${ROOT}/scripts/store-fn-payouts.mjs`, `${OUT}/netlify/functions/p
 // Coins live server-side (credited only by verify.mjs on a confirmed purchase);
 // tickets are minted only by play.mjs after it recomputes the outcome itself.
 copyFileSync(`${ROOT}/scripts/store-fn-auth.mjs`, `${OUT}/netlify/functions/auth.mjs`);
+// Dojo Keeper money backend: card vaults (44/44/12), repairs (0.01 ORE), burn claims (stORE) — store-keeper-core.mjs
+copyFileSync(`${ROOT}/scripts/store-keeper-core.mjs`, `${OUT}/netlify/functions/store-keeper-core.mjs`);
+copyFileSync(`${ROOT}/scripts/store-fn-vault.mjs`, `${OUT}/netlify/functions/vault.mjs`);         // /api/vault
+copyFileSync(`${ROOT}/scripts/store-fn-repair.mjs`, `${OUT}/netlify/functions/repair.mjs`);       // /api/repair
+copyFileSync(`${ROOT}/scripts/store-fn-burnclaim.mjs`, `${OUT}/netlify/functions/burnclaim.mjs`); // /api/burnclaim
+copyFileSync(`${ROOT}/scripts/store-helius-core.mjs`, `${OUT}/netlify/functions/store-helius-core.mjs`);   // Helius batch history (keeper + reserve)
+copyFileSync(`${ROOT}/scripts/store-fn-reserve.mjs`, `${OUT}/netlify/functions/reserve.mjs`);   // /api/reserve — last-7-days inflow by source for the Reserve page
 // Shared auth primitives (SESSION_SECRET tokens, fail-closed; constant-time admin-key checks) — imported by
 // auth/play and the admin-gated functions. Not a function itself (no default export / config).
 copyFileSync(`${ROOT}/scripts/store-session-core.mjs`, `${OUT}/netlify/functions/store-session-core.mjs`);
@@ -199,8 +221,9 @@ copyFileSync(`${ROOT}/scripts/store-miner-core.mjs`, `${OUT}/netlify/functions/s
 copyFileSync(`${ROOT}/scripts/store-fn-miner.mjs`, `${OUT}/netlify/functions/miner.mjs`);   // /api/miner?slug= — hosted miner config
 copyFileSync(`${ROOT}/scripts/store-fn-resolve.mjs`, `${OUT}/netlify/functions/resolve.mjs`);   // /api/resolve — find a live listing for a pasted/clicked mint
 copyFileSync(`${ROOT}/scripts/store-fn-tensor-listings.mjs`, `${OUT}/netlify/functions/tensor-listings.mjs`);   // live Tensor book for the tower (/api/tensor-listings)
-copyFileSync(`${ROOT}/scripts/store-royalty-core.mjs`, `${OUT}/netlify/functions/store-royalty-core.mjs`);   // shared royalty→pot sweep
-copyFileSync(`${ROOT}/scripts/store-fn-royalty-cron.mjs`, `${OUT}/netlify/functions/royalty-cron.mjs`);   // every-minute sweep of ED3GMC royalties (ME/Tensor/DD) → pot
+copyFileSync(`${ROOT}/scripts/store-royalty-core.mjs`, `${OUT}/netlify/functions/store-royalty-core.mjs`);   // MARKETPLACES list (keeper + reserve); its royalty→Pot sweep is retired
+// royalty-cron RETIRED 2026-10-23 (royalties no longer feed the Pot; the Keeper core handles them) — not shipped any more,
+// so the next deploy removes the every-minute scheduled function.
 copyFileSync(`${ROOT}/scripts/store-fn-play.mjs`, `${OUT}/netlify/functions/play.mjs`);
 // Shared Dojo Flip engine + card pool — bundled WITH play.mjs (server verifies the
 // winner) and also served at root so the browser animates the identical game.
@@ -246,6 +269,7 @@ copyFileSync(`${ROOT}/scripts/dojo-buy.js`, `${OUT}/dojo-buy.js`);   // shared i
   ah = ah.replace("__DD_ALT_TABLE__", alt);
   if (auth) ah = ah.replace("__DD_AUTHORITY__", auth);
   writeFileSync(`${OUT}/dojo-ah.js`, ah);
+  copyFileSync(`${ROOT}/scripts/dojo-swap.js`, `${OUT}/dojo-swap.js`);   // "Get ORE" swap (SOL/USDC → ORE via Jupiter, checked before signing)
   console.log(alt ? `  buy lookup-table baked in: ${alt}` : "  ⚠ no scripts/dd-alt.json — buy stays disabled until you run create-lookup-table.mjs");
   console.log(auth ? `  house authority (cosigner) baked in: ${auth}` : "  · house authority: ED3GMC (default — run set-ah-authority.mjs to switch to the cosigner)");
 }
@@ -348,7 +372,7 @@ copyFileSync(`${ROOT}/scripts/dd-case.js`, `${OUT}/dd-case.js`);
   // NOTE: buffer.js (a browserify UMD) only sets window.buffer — it does NOT set window.Buffer,
   // which dojo-buy.js reads as global.Buffer. Without this shim, clicking Buy on the market throws
   // "Cannot read properties of undefined (reading 'from')" (global.Buffer.from in resolveListing).
-  const ddCaseScripts = `<script src="/buffer.js"></script><script>window.Buffer=window.Buffer||(window.buffer&&window.buffer.Buffer);</script><script src="/web3.js"></script><script src="/dojo-ah.js"></script><script src="/dojo-buy.js"></script><script src="/dd-case.js"></script>`;
+  const ddCaseScripts = `<script src="/buffer.js"></script><script>window.Buffer=window.Buffer||(window.buffer&&window.buffer.Buffer);</script><script src="/web3.js"></script><script src="/dojo-ah.js"></script><script src="/dojo-swap.js"></script><script src="/dojo-buy.js"></script><script src="/dd-case.js"></script>`;
   try { let h = readFileSync(fp, "utf8");
     // Swap the bespoke top bar for the canonical ddNav AND drop the Dojo Pot notice in one go:
     // the old markup runs <div class="top">…</div><div class="pot">…</div> right before <div class="intro">.
@@ -377,6 +401,29 @@ for (const fp of [`${OUT}/launch.html`, `${OUT}/launch/apply/index.html`]) {
 { const fp = `${OUT}/list/index.html`;
   try { let h = readFileSync(fp, "utf8");
     h = h.replace('<div id="ddnav-mount"></div>', ddNav("LIST", "list", walletBtnHtml));
+    if (!h.includes("navwallet-wire")) h = h.includes("</body>") ? h.replace(/<\/body>/i, walletWire + "</body>") : (h + walletWire);
+    writeFileSync(fp, h);
+  } catch {} }
+// Degen Dojo Reserve page (/reserve): what the Reserve wallets hold, read live (read-only) — same nav + shared wallet as /list.
+mkdirSync(`${OUT}/reserve`, { recursive: true });
+copyFileSync(`${ROOT}/scripts/store-wallets.html`, `${OUT}/reserve/index.html`);
+{ const fp = `${OUT}/reserve/index.html`;
+  try { let h = readFileSync(fp, "utf8");
+    h = h.replace('<div id="ddnav-mount"></div>', ddNav("RESERVE", "reserve", walletBtnHtml));
+    if (!h.includes("navwallet-wire")) h = h.includes("</body>") ? h.replace(/<\/body>/i, walletWire + "</body>") : (h + walletWire);
+    writeFileSync(fp, h);
+  } catch {} }
+// Repair (/repair) page: paste a wallet (or connect) → Cracked/Mono → Mint for 0.01 ORE a card (Mint cap shown).
+// The Burn page (store-burn.html) is NOT shipped while burning is off (BURN_ENABLED) — kept in the repo for later:
+// add ["store-burn.html", "burn", "BURN"] back to the list below when the owner opens burning. Same nav + wallet as /list.
+copyFileSync(`${ROOT}/scripts/dojo-card-tx.js`, `${OUT}/dojo-card-tx.js`);   // repair (ORE + ddfix memos) / burn (BurnV1) txs
+copyFileSync(`${ROOT}/scripts/dojo-qr.js`, `${OUT}/dojo-qr.js`);             // inline QR encoder for Solana Pay links
+for (const [src, dir, label] of [["store-repair.html", "repair", "REPAIR"]]) {
+  mkdirSync(`${OUT}/${dir}`, { recursive: true });
+  copyFileSync(`${ROOT}/scripts/${src}`, `${OUT}/${dir}/index.html`);
+  const fp = `${OUT}/${dir}/index.html`;
+  try { let h = readFileSync(fp, "utf8");
+    h = h.replace('<div id="ddnav-mount"></div>', ddNav(label, dir, walletBtnHtml));
     if (!h.includes("navwallet-wire")) h = h.includes("</body>") ? h.replace(/<\/body>/i, walletWire + "</body>") : (h + walletWire);
     writeFileSync(fp, h);
   } catch {} }
@@ -420,6 +467,8 @@ if (/REPLACE_ME/.test(readFileSync(`${OUT}/.well-known/assetlinks.json`, "utf8")
 // Route /api/rpc to the function's default path too, in case in-code routing
 // (config.path) isn't honoured on a drag-and-drop deploy.
 writeFileSync(`${OUT}/_redirects`,
+  // the zip carries function sources + node_modules in the publish root — never serve them
+  "/netlify/*  /404.html  404!\n/node_modules/*  /404.html  404!\n/package.json  /404.html  404!\n/package-lock.json  /404.html  404!\n/netlify.toml  /404.html  404!\n" +
   "/api/rpc  /.netlify/functions/rpc  200\n" +
   "/api/attr  /.netlify/functions/attr  200\n" +
   "/api/preacher  /.netlify/functions/preacher  200\n" +
@@ -434,6 +483,9 @@ writeFileSync(`${OUT}/_redirects`,
   "/api/draw  /.netlify/functions/draw  200\n" +
   "/api/payouts  /.netlify/functions/payouts  200\n" +
   "/api/auth  /.netlify/functions/auth  200\n" +
+  "/api/vault  /.netlify/functions/vault  200\n" +
+  "/api/repair  /.netlify/functions/repair  200\n" +
+  "/api/burnclaim  /.netlify/functions/burnclaim  200\n" +
   "/api/play  /.netlify/functions/play  200\n" +
   "/api/mebuy  /.netlify/functions/mebuy  200\n" +
   "/api/tensorbuy  /.netlify/functions/tensorbuy  200\n" +
@@ -449,6 +501,7 @@ writeFileSync(`${OUT}/_redirects`,
   // Hosted branded miners: /m/<slug> is the /mine page; it reads the slug from the URL and
   // loads that collection's name/tip wallet/25 NFTs from /api/miner?slug=.
   "/m/*  /mine.html  200\n" +
+  "/wallets  /reserve/  301\n/wallets/*  /reserve/  301\n" +
   // Shelves retired → send any old links to the store home so nothing 404s.
   "/shelves  /  301\n" +
   "/shelves-100  /  301\n" +
@@ -474,6 +527,9 @@ writeFileSync(
     "  X-Robots-Tag: noindex, nofollow, noarchive",
     "  Referrer-Policy: no-referrer",
     "  X-Content-Type-Options: nosniff",
+    // no other site may frame the store (a hidden frame could trick a click onto Own / List / Sign)
+    "  X-Frame-Options: DENY",
+    "  Content-Security-Policy: " + CSP,   // scripts/csp.mjs — what pages may load / talk to (+ frame-ancestors 'none')
     // The miner's Next export references content-hashed /_next assets that change every build.
     // If an old HTML page is cached it points at chunks the new deploy removed → CSS 404 → the
     // page renders unstyled (huge images/icons). So: cache the hashed _next assets forever
@@ -589,8 +645,24 @@ execSync("npm install --omit=dev --no-audit --no-fund", { cwd: OUT, stdio: "inhe
     }
   }
   console.log(`  mwa.js added to ${added} page(s) that loaded the wallet picker without it.`);
+  // Cracked / Mono cards (Nov 2 on): every page that shows Degen Dojo card pictures loads dd-states.js in <head>,
+  // which swaps a cracked card's picture to its cracked card (degen/card-states.json).
+  copyFileSync(`${ROOT}/scripts/dd-states.js`, `${OUT}/dd-states.js`);
+  let st = 0;
+  for (const p of walk(OUT)) {
+    const h = readFileSync(p, "utf8");
+    if (/degen\/card\/|card\/'\s*\+|\/dd-case\.js/.test(h) && !h.includes("/dd-states.js")) {
+      const tag = '<script src="/dd-states.js"></script>';
+      // some pages (List, Repair) are bare fragments with no <head> — put it at the very top there
+      writeFileSync(p, /<head(\s[^>]*)?>/i.test(h) ? h.replace(/<head(\s[^>]*)?>/i, (m) => m + tag) : h.replace(/^(\s*<!doctype[^>]*>)?/i, (m) => m + tag));
+      st++;
+    }
+  }
+  console.log(`  dd-states.js (cracked card pictures) added to ${st} page(s).`);
 }
 
+writeFileSync(`${OUT}/404.html`, '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Not found · Degen Dojo</title><body style="background:#0a0a0f;color:#e8e0d0;font:16px Inter,system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;margin:0"><div style="text-align:center"><h1 style="color:#e8b84b">Not found</h1><a href="/" style="color:#e8b84b">← Back to the store</a></div>');
+assertNoSecrets(OUT);   // never ship a key
 console.log("[3/4] Zipping for drag-and-drop…");
 // PowerShell 5.1 writes backslash paths into zips, which Netlify then serves as
 // 404s. The helper writes forward slashes (same one build-all.mjs uses).

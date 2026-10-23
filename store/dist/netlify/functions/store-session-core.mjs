@@ -10,6 +10,7 @@
 //   keyMatches(given, want)  → constant-time admin-key compare. false when `want` is unset/empty, so a
 //                              missing env var can never be matched (not even by "", "\0" or "%00").
 //   adminKeyOk(given, ...envNames) → keyMatches against the first env var in the list that is set.
+//   adminRequestOk(request, ...envNames) → the same, with the key taken ONLY from "Authorization: Bearer <key>".
 //   sessionUnavailable(headers) → the 503 Response auth/play return when SESSION_SECRET isn't configured.
 //
 // Imported by store-fn-auth.mjs (issues tokens) and store-fn-play.mjs (accepts them), plus the admin-gated
@@ -62,6 +63,16 @@ export function adminKeyOk(given, ...envNames) {
   const name = envNames.find((n) => typeof process.env[n] === "string" && process.env[n].length > 0);
   return name ? keyMatches(given, process.env[name]) : false;
 }
+
+// The admin key travels ONLY in the `Authorization: Bearer <key>` header — never in the URL (query strings end up
+// in CDN / function / proxy logs) and never in a request body. Admin pages keep it in memory for the page's life.
+export function bearerKey(request) {
+  const h = (request && request.headers && request.headers.get && request.headers.get("authorization")) || "";
+  const m = /^Bearer\s+(\S+)\s*$/i.exec(h.trim());
+  return m ? m[1] : "";
+}
+/** true when the request carries a matching admin key in its Authorization header (constant-time compare). */
+export const adminRequestOk = (request, ...envNames) => adminKeyOk(bearerKey(request), ...envNames);
 
 export function sessionUnavailable(headers = {}) {
   return new Response(JSON.stringify({ error: "Sign-in is temporarily unavailable (server not configured)." }), {

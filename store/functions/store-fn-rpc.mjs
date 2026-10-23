@@ -10,6 +10,7 @@
 // sendTransaction relays a transaction the USER already signed in their wallet (one-approval buys sign
 // swap + buy together, then send them in order). It can't move anyone's funds without their signature;
 // it's limited to one small tx per request so the proxy isn't a bulk relay on our key.
+import { limited } from "./store-ratelimit-core.mjs";
 const ALLOWED = new Set([
   "getLatestBlockhash",
   "simulateTransaction",
@@ -55,7 +56,9 @@ const gpaOk = (c) => {
   if (c?.params?.[0] !== M2_PROGRAM) return false;
   const f = c?.params?.[1]?.filters;
   if (!Array.isArray(f) || f.length < 1 || f.length > 4) return false;
-  return f.some((x) => x && x.memcmp && Number.isInteger(x.memcmp.offset) && x.memcmp.offset >= 0 &&
+  // pinned to the MINT (offset 112): a memcmp on a shared key (e.g. the auction house at offset 8) would match
+  // every Magic Eden listing and turn this into a full scan on our key.
+  return f.some((x) => x && x.memcmp && x.memcmp.offset === 112 &&
     (x.memcmp.encoding ?? "base58") === "base58" && isKey(x.memcmp.bytes));
 };
 // getAssetsByGroup: collection lookups only, one page of at most 1000, first few pages — enough to
@@ -63,6 +66,8 @@ const gpaOk = (c) => {
 const groupOk = (c) => {
   if (c?.method !== "getAssetsByGroup") return true;
   const p = c?.params || {};
+  // page-number paging only: cursor/before/after would walk past the 3-page cap
+  if (p.cursor != null || p.before != null || p.after != null) return false;
   return p.groupKey === "collection" && typeof p.groupValue === "string" && (p.limit ?? 1000) <= 1000 && (p.page ?? 1) <= 3;
 };
 // DAS takes object params ({ids}) or a one-element array ([{ids}]) — accept both, cap the size.
@@ -103,8 +108,15 @@ export function originOk(request) {
   return own.has(h);
 }
 
+// Upstream circuit breaker (per warm instance): when Helius keeps answering 429 even after a retry, stop
+// sending it more for a few seconds — plain calls go straight to Solana's public RPC, DAS calls get a fast
+// "busy" instead of piling more retries onto a saturated quota.
+const BREAKER_MS = 10_000;
+let breakerUntil = 0;
+
 export default async (request) => {
   if (request.method !== "POST") return new Response("POST only", { status: 405 });
+  const blocked = limited(request, "rpc", 240); if (blocked) return blocked;   // 240 calls / minute / IP (pages batch their reads)
 
   // Accept either name: the store historically used SOLANA_RPC, the standalone miner uses
   // HELIUS_RPC. Reading both means whichever the Netlify site has set just works (this was the
@@ -138,11 +150,18 @@ export default async (request) => {
     return new Response(JSON.stringify({ error: { message: "method or params not allowed" } }), { status: 403 });
   }
 
-  // The upstream (Helius) rate-limits bursts with a 429. Retry a few times with a short backoff so a
-  // busy second doesn't fail a page load, a mining read or a purchase step.
+  // The upstream (Helius) rate-limits bursts with a 429. Retry ONCE with a short backoff so a busy second
+  // doesn't fail a page load, a mining read or a purchase step (more retries just multiply quota use).
   let res, text;
   const plain = calls.every((c) => PUBLIC_OK.has(c?.method));
   const jsonHeaders = { "content-type": "application/json", "cache-control": "no-store" };
+  if (Date.now() < breakerUntil) {   // Helius saturated a moment ago
+    if (plain) {
+      try { const p = await fetch(PUBLIC_RPC, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }); return new Response(await p.text(), { status: p.status, headers: jsonHeaders }); }
+      catch (_) { /* fall through to the busy reply */ }
+    }
+    return new Response(JSON.stringify({ jsonrpc: "2.0", id: calls[0]?.id ?? 1, error: { code: -32005, message: "Solana RPC busy — try again in a few seconds." } }), { status: 503, headers: { ...jsonHeaders, "retry-after": "10" } });
+  }
   for (let attempt = 0; ; attempt++) {
     try {
       res = await fetch(upstream, {
@@ -162,7 +181,8 @@ export default async (request) => {
       }
       return new Response(JSON.stringify({ jsonrpc: "2.0", id: calls[0]?.id ?? 1, error: { code: -32000, message: "Solana RPC unavailable — try again in a moment." } }), { status: 502, headers: jsonHeaders });
     }
-    if (res.status === 429 && attempt < 2) { await new Promise((r) => setTimeout(r, 250 * (attempt + 1))); continue; }
+    if (res.status === 429 && attempt < 1) { await new Promise((r) => setTimeout(r, 300)); continue; }
+    if (res.status === 429) breakerUntil = Date.now() + BREAKER_MS;   // still 429 after the retry → open the breaker
     // Helius still busy: plain (non-DAS) calls can be served by Solana's public RPC instead.
     if (res.status === 429 && plain) {
       const p = await fetch(PUBLIC_RPC, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
@@ -177,4 +197,5 @@ export default async (request) => {
   });
 };
 
-export const config = { path: "/api/rpc" };
+// Netlify platform rate limit (global, per IP + domain) — one of the site's 2 code-defined rules (Free/Personal plan).
+export const config = { path: "/api/rpc", rateLimit: { windowLimit: 300, windowSize: 60, aggregateBy: ["ip", "domain"] } };

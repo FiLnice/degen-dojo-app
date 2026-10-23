@@ -1,23 +1,24 @@
 // Shared preacher maths — imported by store-fn-preacher.mjs (dashboard + admin sheet) and the weekly
 // payout engine, so every screen and every payout agree on what a preacher is owed.
 //
-// What a preacher earns on (owner's call, 2026-10), tier share = 20/25/30% by fighters held:
-//   coin pack → tier share of the whole verified pack (the pot takes 65%, Degen Dojo the rest)
-//   miner tip → tier share of the whole verified tip
-//   Degen Dojo NFT sale they referred → tier share of the "preacher-eligible half" (6.5%) of the 13%
-//     royalty, i.e. share × 0.5 × the royalty the royalty wallet ACTUALLY received in that sale tx, in the
-//     token it arrived in (SOL for Magic Eden / Tensor, ORE/SKR/USDC for our own AuctionHouse listings).
-//     Only NFTs in the DD collection count (other collections pay us no royalty); self-referrals never count.
-// Only records the server has verified on-chain count (verify-core for coins/tips, verifyReferredSales
-// below for NFT sales). Owed amounts are kept in the token actually paid (ORE / SKR / SOL / USDC).
+// What a preacher earns on (owner's call, 2026-10-23) — GAMES + MINING TIPS ONLY, tier share = 28/36/44%:
+//   coin pack → tier share of the whole verified pack     (the pack splits 22% Pot · 22% Reserve · 12% ops ·
+//   mining tip → tier share of the whole verified tip      44% preacher pool — see store-pot-core.mjs splitGame)
+// The share is LOCKED when verify-core verifies the payment (lockPreacherShare: the preacher's live fighters at
+// that moment; self-referral / no linked wallet → 0) and stored on the record as `split`; the unused part of the
+// 44% pool went to the Reserve right then, so a payout pays exactly the locked amount.
+// Dojo Pot tips (ddtip memo) earn preachers nothing (100% Pot). Referred NFT sales no longer earn anything
+// (royalties now go 44% card vault / 44% Reserve / 12% ops); their records stay readable for history.
+// Records verified BEFORE the change (no `split`) keep the old rules: live tier at payout, 20/25/30%.
+// Only records the server has verified on-chain count. Owed amounts are kept in the token actually paid.
 import { getStore } from "@netlify/blobs";
 import { livePrice } from "./store-verify-core.mjs";
 import { refFromTx } from "./store-ref-core.mjs";
 
 export const DD_COLLECTION = "2m9DupVeheZ5vfuXZxqV3KSQ7HnVDk2tG6ouH1ZnLwYb";
 // Where every DD royalty lands (same wallet + env var as store-royalty-core.mjs).
-export const ROYALTY_WALLET = process.env.ROYALTY_WALLET || "ED3GMCfoX3XNvavnWADvd6oCsohGg1ukdhv3PaUpvwJe";
-export const NFT_ELIGIBLE_HALF = 0.5;   // preachers share in half the royalty (6.5% of 13%); the other half feeds the pot
+export const ROYALTY_WALLET = process.env.ROYALTY_WALLET || "5w55F58ia3H71QjBD9bYvNQF2DcNu8K3AfJj9A4WMuWp";   // royalties go to the Degen Dojo Reserve
+export const NFT_ELIGIBLE_HALF = 0.5;   // RETIRED 2026-10-23: NFT sales no longer pay preachers (kept for reading old sale records)
 const ROY_TOKENS = {
   ORE:  { mint: "oreoU2P8bN6jkk3jbaiVxYnG1dCXcYxwhwyK9jSybcp", dec: 11 },
   SKR:  { mint: "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3", dec: 6 },
@@ -26,16 +27,37 @@ const ROY_TOKENS = {
 const VERIFY_PER_CALL = 40;              // bound the RPC work per computePreacherOwed call; the rest show as 'checking'
 const LATE_ATTR_MS = 6 * 3600e3;         // a ref recorded >6h after the sale landed is not a real checkout attribution
 const MISSING_TX_GIVEUP_MS = 24 * 3600e3; // a sig the chain never returns (forged/typo) is rejected after a day
-// Tiers (verified against LIVE holdings at claim AND before every payout):
-//   Wanderer 0–1 fighters = 20% · Disciple 2–4 = 25% · Sensei 5+ OR holds a Mythic = 30%.
-export const tierShare = (h, m) => (h >= 5 || m ? 0.30 : h >= 2 ? 0.25 : 0.20);
+// Tiers (by the preacher's live fighters): Wanderer 0–1 = 28% · Disciple 2–4 = 36% · Sensei 5+ OR a Mythic = 44%.
+export const tierPct   = (h, m) => (h >= 5 || m ? 44 : h >= 2 ? 36 : 28);
+export const tierShare = (h, m) => tierPct(h, m) / 100;
 export const tierName  = (h, m) => (h >= 5 || m ? "Sensei" : h >= 2 ? "Disciple" : "Wanderer");
-export const earnedUsd = (rec, share) => !rec?.verified ? 0 : (rec.verifiedUsd || 0) * share;
+// pre-2026-10-23 records (no `split`): the old 20/25/30% tiers, judged on live holdings at payout
+export const legacyTierShare = (h, m) => (h >= 5 || m ? 0.30 : h >= 2 ? 0.25 : 0.20);
+// what one verified record earns its preacher: the locked split for new records, legacy rules for old ones
+export const recordShare = (rec, liveLegacyShare) => (rec?.split ? (+rec.split.preacherPct || 0) / 100 : rec?.route === "tip" ? 0 : liveLegacyShare);
+export const earnedUsd = (rec, share) => !rec?.verified ? 0 : (rec.verifiedUsd || 0) * recordShare(rec, share);
 
+// Lock the preacher's share for one verified payment: the code from the buyer-signed "ddref:" memo → the
+// preacher's linked wallet → their fighters RIGHT NOW. Self-referral, an unknown code or no linked wallet → 0%.
+// Throws on an RPC failure, so the caller retries later instead of locking a wrong tier.
+export async function lockPreacherShare({ ref, buyer }) {
+  const code = ref ? String(ref).toLowerCase() : null;
+  if (!code) return { code: null, wallet: null, pct: 0, why: "no referral" };
+  const wallet = await getStore("preacher-codes").get("code:" + code, { type: "text" });
+  if (!wallet) return { code, wallet: null, pct: 0, why: "code has no linked wallet" };
+  if (wallet === buyer) return { code, wallet, pct: 0, why: "self-referral" };
+  const { count, mythic } = await ddHeld(wallet);
+  return { code, wallet, pct: tierPct(count, mythic), tier: tierName(count, mythic), held: count };
+}
+
+// throws on an RPC/HTTP error — an outage must never read as "holds 0 fighters" (that would lock a low tier)
 async function das(method, params) {
   const r = await fetch(process.env.SOLANA_RPC, { method: "POST", headers: { "content-type": "application/json" },
     body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) });
-  return (await r.json()).result;
+  if (!r.ok) throw new Error("rpc http " + r.status);
+  const j = await r.json();
+  if (j.error || j.result == null) throw new Error((j.error && j.error.message) || method + " returned nothing");
+  return j.result;
 }
 const MYTHIC_RE = /gods?|devil|sensei|mutants?|pirate|rowdy|rugger/i;   // mythic Body/Race values
 const bodyOf = (a) => ((a.content?.metadata?.attributes || []).find((x) => /^(body|race)$/i.test(x.trait_type || x.key)) || {}).value;
@@ -227,16 +249,22 @@ export async function computePreacherOwed({ verify = true } = {}) {
     nftVerified: 0, nftRejected: 0, nftUsdEarned: 0, _nftBaseUsd: 0, paidUsd: paidTotals[ref] || 0 });
   for (const rec of await purchases()) {
     const ref = String(rec.ref || "").toLowerCase(); if (!ref || rec.rejected) continue;
+    if (rec.route === "tip") continue;                              // a Dojo Pot tip: 100% Pot, no preacher share
     const r = row(ref);
     if (r.wallet && rec.buyer === r.wallet) continue;            // self-referral
     if (!rec.verified) { r.checking++; continue; }
-    if (rec.kind === "tip") r.tips++; else r.packs++;
+    const kind = rec.route === "minetip" || rec.kind === "tip" ? "tip" : "coins";
+    if (kind === "tip") r.tips++; else r.packs++;
     r.referredUsd += rec.verifiedUsd || 0;
-    if (!paidSigs.has(rec.sig)) r.unpaidSigs.push({ sig: rec.sig, kind: rec.kind === "tip" ? "tip" : "coins", usd: rec.verifiedUsd || 0, currency: rec.currency, amount: rec.verifiedAmount || 0 });
+    if (paidSigs.has(rec.sig)) continue;
+    if (rec.split) {   // locked at verification — exact raw amount, already net of the Reserve's part
+      const pct = +rec.split.preacherPct || 0;
+      if (!(pct > 0) || BigInt(rec.split.preacher || "0") <= 0n) continue;
+      r.unpaidSigs.push({ sig: rec.sig, kind, usd: rec.verifiedUsd || 0, currency: rec.currency, amount: rec.verifiedAmount || 0,
+        lockedPct: pct, earnUsd: (rec.verifiedUsd || 0) * pct / 100, earnAmount: Number(BigInt(rec.split.preacher)) / 10 ** (+rec.split.dec || 9) });
+    } else r.unpaidSigs.push({ sig: rec.sig, kind, usd: rec.verifiedUsd || 0, currency: rec.currency, amount: rec.verifiedAmount || 0, legacy: true });
   }
-  // referred Degen Dojo NFT sales → share × the eligible half of the royalty actually received.
-  // Verify a bounded batch of new records first (each is checked on-chain once, then cached).
-  if (verify) { try { await verifyReferredSales({ walletOf }); } catch {} }
+  // Referred NFT sales: history only since 2026-10-23 (royalties now go to the card vaults + Reserve) — counted, never owed.
   try {
     const ledger = getStore("preacher-ledger");
     const { blobs: lb } = await ledger.list({ prefix: "sale:" });
@@ -244,25 +272,19 @@ export async function computePreacherOwed({ verify = true } = {}) {
       const s = await ledger.get(b.key, { type: "json" }); if (!s?.ref) continue;
       const r = row(String(s.ref).toLowerCase());
       r.nftBuys++; r.nftSol += (s.priceLamports || 0) / 1e9;
-      if (s.rejected) { r.nftRejected++; continue; }
-      if (!s.verified) { r.checking++; continue; }
-      if (r.wallet && (s.txBuyer === r.wallet || s.txRecipient === r.wallet)) { r.nftRejected++; continue; }   // self-referral (code rebound since)
-      r.nftVerified++;
-      const baseUsd = (s.royaltyUsd || 0) * NFT_ELIGIBLE_HALF;
-      r._nftBaseUsd += baseUsd;
-      if (!paidSigs.has(s.sig)) r.unpaidSigs.push({ sig: s.sig, kind: "nft", usd: baseUsd, currency: s.royaltyCurrency,
-        amount: (s.royaltyAmount || 0) * NFT_ELIGIBLE_HALF, mint: s.mint, royaltyAmount: s.royaltyAmount || 0, royaltyUsd: s.royaltyUsd || 0 });
+      if (s.rejected) r.nftRejected++; else if (s.verified) r.nftVerified++;
     }
   } catch {}
   for (const r of Object.values(rows)) {
-    if (r.wallet) { try { const { count, mythic } = await ddHeld(r.wallet); r.held = count; r.tier = tierName(count, mythic); r.share = tierShare(count, mythic); } catch { r.tier = "?"; r.share = 0.20; } }
+    let legacyShare = 0;
+    if (r.wallet) { try { const { count, mythic } = await ddHeld(r.wallet); r.held = count; r.tier = tierName(count, mythic); r.share = tierShare(count, mythic); legacyShare = legacyTierShare(count, mythic); } catch { r.tier = "?"; r.share = 0.28; legacyShare = 0.20; } }
     else { r.tier = "no wallet"; r.share = 0; }
     for (const u of r.unpaidSigs) {
-      u.earnUsd = u.usd * r.share; u.earnAmount = u.amount * r.share;
+      if (u.legacy) { u.earnUsd = u.usd * legacyShare; u.earnAmount = u.amount * legacyShare; }
       r.owedUsd += u.earnUsd;
       if (u.currency) r.owedNative[u.currency] = (r.owedNative[u.currency] || 0) + u.earnAmount;
     }
-    r.nftUsdEarned = r._nftBaseUsd * r.share; delete r._nftBaseUsd;
+    r.nftUsdEarned = 0; delete r._nftBaseUsd;
   }
   return Object.values(rows).sort((a, b) => b.owedUsd - a.owedUsd);
 }

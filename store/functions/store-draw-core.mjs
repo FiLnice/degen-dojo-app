@@ -1,19 +1,34 @@
 // Shared provably-fair draw engine — the ONE place a weekly round is committed and drawn.
 // Imported by /api/draw (store-fn-draw.mjs, admin buttons) and the weekly payout cron
-// (store-fn-payout-cron.mjs), and by the payout fraud checks (re-verify a draw).
+// (store-fn-payout-cron.mjs), by /api/play (which round a new ticket goes to), and by the payout
+// fraud checks (re-verify a draw).
 //
 //   commitRound()  → secret seed stored, sha256(seed) + a future target slot published
 //   drawRound()    → blockhash at/after the target slot mixed with the seed picks the winners
 //                    (ticket-weighted, no repeats), seed revealed, pot snapshotted + reset,
-//                    tickets archived + cleared
+//                    tickets archived
 //   verifyDraw(n)  → recompute round n from its revealed seed + blockhash + archived tickets
 //
-// Blobs: "draws" (latest, public:<n>, seed:<n>), "tickets" (player:<wallet>, written ONLY by
-// /api/play), "tickets-archive" (r<n>:player:<wallet>), "pot" (via store-pot-core.mjs).
+// CRASH-SAFE (audit DD-07, 2026-10-23). A draw is a resumable state machine in a PRIVATE record
+// draws/drawing:<n> (the seed stays secret until the end; public:<n> says "committed" until the very last step):
+//   1 frozen    new tickets go to round n+1 from here on (ticketRound())
+//   2 settled   SETTLE_MS later no play that saw round n open can still be writing into it
+//   3 snapshot  the exact ticket ledger → draws/snap:<n> (create-only) → archived to tickets-archive
+//   4 pot       the pot is snapshotted to pot/round:<n> and reset ONCE (marker resetFor:<n> on the pot record)
+//   5 result    winners computed only from the stored inputs (seed, blockhash, snapshot, pot, SOL price)
+//   6 drawn     public:<n> committed → drawn (compare-and-swap, published LAST), then best-effort cleanup
+// Every step is idempotent and stored before the next one runs, so a crash anywhere is finished by the next
+// drawRound() call (the weekly cron calls it while public:<n> still says "committed"), and two concurrent calls
+// converge on the same stored values. Commits are create-only too (seed:<n>, public:<n>; "latest" is repaired).
+//
+// Blobs: "draws" (latest, public:<n>, seed:<n>, drawing:<n>, snap:<n>, legacy-closed), "tickets"
+// (r<n>:player:<wallet>, written ONLY by /api/play; the old unprefixed player:<wallet> ledger is drawn once, in
+// the first draw after this change), "tickets-archive" (r<n>:player:<wallet>), "pot" (current, round:<n>).
 // Env: SOLANA_RPC.
 import { getStore } from "@netlify/blobs";
 import { createHash, createHmac, randomBytes } from "node:crypto";
-import { getPot, archiveAndResetPot } from "./store-pot-core.mjs";
+import { getPot } from "./store-pot-core.mjs";
+import { casUpdate, readWithEtag, putIfNew, putIfMatch, CasError } from "./store-cas-core.mjs";
 
 export const SOL_MINT = "So11111111111111111111111111111111111111112";
 export const SLOTS_AHEAD = 300;   // ~2 min of slots between commit and the target blockhash
@@ -43,13 +58,19 @@ export async function rpc(method, params) {
   return j.result;
 }
 
-// the blockhash of the first finalized block at or after `slot` (skipped slots have none)
+// the blockhash of the first finalized block at or after `slot` (skipped slots have none). Only a real
+// "slot was skipped" answer moves on to the next slot — any other RPC error (timeout, rate limit, not yet
+// available) stops with a retryable DrawError, so a hiccup can never make the draw use the wrong block.
+const SKIPPED_CODES = new Set([-32007, -32009]);
 export async function blockhashAtOrAfter(slot) {
   for (let s = slot; s < slot + 150; s++) {
-    try {
-      const b = await rpc("getBlock", [s, { transactionDetails: "none", rewards: false, maxSupportedTransactionVersion: 0 }]);
-      if (b?.blockhash) return { slot: s, blockhash: b.blockhash };
-    } catch { /* skipped slot → try the next */ }
+    let b;
+    try { b = await rpc("getBlock", [s, { transactionDetails: "none", rewards: false, maxSupportedTransactionVersion: 0 }]); }
+    catch (e) {
+      if (SKIPPED_CODES.has(e.code) || /skipped/i.test(e.message || "")) continue;   // skipped slot → try the next
+      throw new DrawError(`couldn't read the block at slot ${s} (${e.message || e}) — try again shortly`);
+    }
+    if (b?.blockhash) return { slot: s, blockhash: b.blockhash };
   }
   throw new DrawError("no finalized block found near the target slot yet — try again shortly");
 }
@@ -75,12 +96,14 @@ export function pickWinners(seedHex, blockhash, entriesIn, n) {
 }
 
 // Aggregate ticket records [{key, value}] → canonical entries. Only records shaped like
-// /api/play writes them count: key "player:<wallet>" with a valid base58 wallet field.
+// /api/play writes them count: key "player:<wallet>" (or "legacy:player:<wallet>" — the pre-DD-07
+// unprefixed ledger, drawn once) with a valid base58 wallet field.
 export function entriesFromRecords(records) {
   const byWallet = new Map(); let totalTickets = 0;
   for (const { key, value: v } of records) {
     if (!v || !(v.tickets > 0)) continue;
-    if (!ADDR_RE.test(v.wallet || "") || key !== "player:" + v.wallet) continue;
+    const k = String(key || "").startsWith("legacy:") ? String(key).slice(7) : key;
+    if (!ADDR_RE.test(v.wallet || "") || k !== "player:" + v.wallet) continue;
     const e = byWallet.get(v.wallet) || { wallet: v.wallet, name: v.name || v.wallet, tickets: 0 };
     e.tickets += v.tickets || 0; byWallet.set(v.wallet, e); totalTickets += v.tickets || 0;
   }
@@ -89,68 +112,180 @@ export function entriesFromRecords(records) {
 }
 export const entriesHash = (entries) => sha256(JSON.stringify(entries.map((e) => [e.wallet, e.tickets])));
 
-export async function latestRound() { return Number((await getStore("draws").get("latest")) || 0); }
-export async function getPublic(round) { return round ? await getStore("draws").get("public:" + round, { type: "json" }) : null; }
+// Strong reads (a step must see what the previous step — maybe another invocation — just wrote).
+const strong = async (store, key) => (await readWithEtag(store, key)).value;
+
+// The latest committed round. A commit that crashed after writing public:<n+1> but before moving "latest"
+// is repaired here, so a half-finished commit can never be forgotten or re-used.
+export async function latestRound() {
+  const store = getStore("draws");
+  let n = Number((await strong(store, "latest")) || 0);
+  const start = n;
+  while (await strong(store, "public:" + (n + 1))) n++;
+  if (n > start) await casUpdate(store, "latest", (cur) => (Number(cur || 0) >= n ? undefined : n));
+  return n;
+}
+export async function getPublic(round) { return round ? await strong(getStore("draws"), "public:" + round) : null; }
+
+// Tickets: the per-round ledger key /api/play mints into, and the round a ticket earned NOW belongs to — the
+// open round, unless its draw has started (frozen) → the next one. (Before any round exists: round 1.)
+export const ticketKey = (round, wallet) => `r${round}:player:${wallet}`;
+export async function ticketRound() {
+  const n = await latestRound();
+  const pub = await getPublic(n);
+  if (pub?.status === "committed" && !(await strong(getStore("draws"), "drawing:" + n))) return n;
+  return n + 1;
+}
+export const SETTLE_MS = 30e3;   // > a play function's longest run: after it, nothing can still write into a frozen round
 
 // Open a new round: secret seed + public commitment to a FUTURE slot. Throws DrawError(409)
-// when a round is already open.
+// when a round is already open (or still being drawn). Create-only writes: two concurrent commits
+// publish ONE round, and a commit that crashed half-way is completed (its seed was never revealed).
 export async function commitRound() {
   const store = getStore("draws");
   const latest = await latestRound();
   const open = await getPublic(latest);
-  if (open && open.status === "committed") throw new DrawError("a round is already open — draw it first");
+  if (open && open.status !== "drawn") throw new DrawError("a round is already open — draw it first");
   const round = latest + 1;
-  const seed = randomBytes(32).toString("hex");
+  await putIfNew(store, "seed:" + round, { seed: randomBytes(32).toString("hex") });   // secret until the draw
+  const { seed } = (await strong(store, "seed:" + round)) || {};
+  if (!seed) throw new DrawError("seed missing", 500);
   const targetSlot = (await rpc("getSlot", [{ commitment: "finalized" }])) + SLOTS_AHEAD;
-  await store.setJSON("seed:" + round, { seed });                       // secret until the draw
   const pub = { round, status: "committed", commitHash: sha256(Buffer.from(seed, "hex")), targetSlot, committedAt: Date.now() };
-  await store.setJSON("public:" + round, pub);
-  await store.set("latest", String(round));
+  if (!(await putIfNew(store, "public:" + round, pub))) {
+    const cur = await getPublic(round);
+    if (cur?.status === "committed") return cur;   // a concurrent commit won — same round, its slot
+    throw new DrawError(`round ${round} already exists`, 409);
+  }
+  await casUpdate(store, "latest", (cur) => (Number(cur || 0) >= round ? undefined : round));
   return pub;
 }
 
+// Merge `fields` into drawing:<round> unless they are already there (first writer wins).
+async function setOnce(store, round, fields) {
+  const { value } = await casUpdate(store, "drawing:" + round, (cur) => {
+    if (!cur) throw new DrawError("draw state missing", 500);
+    const add = Object.fromEntries(Object.entries(fields).filter(([k]) => cur[k] === undefined));
+    return Object.keys(add).length ? { ...cur, ...add } : undefined;
+  });
+  return value;
+}
+
+// Snapshot the pot to round:<round> and reset it — exactly ONCE per round. The pot record carries
+// resetFor:<round> after the reset, so a re-run returns the archived snapshot instead of resetting again.
+// Until the reset lands the snapshot is re-taken, so it always equals what the reset clears (a
+// contribution arriving mid-way is in this round's snapshot or in next week's pot, never lost).
+async function archivePotOnce(round) {
+  const store = getStore("pot");
+  const routeNames = Object.keys((await getPot()).routes || {});
+  const zeroRoutes = (r = {}) => Object.fromEntries([...new Set([...routeNames, ...Object.keys(r)])].map((k) => [k, { sol: 0, skr: 0, ore: 0 }]));
+  for (let i = 0; i < 10; i++) {
+    const { value, etag } = await readWithEtag(store, "current");
+    if (value && value.resetFor === round) {
+      const snap = await strong(store, "round:" + round);
+      if (snap) return snap;
+      throw new DrawError(`the pot was reset for round ${round} but its snapshot is missing`, 500);
+    }
+    const { applied, resetFor, ...raw } = value || {};
+    const routes = { ...zeroRoutes(raw.routes), ...(raw.routes || {}) };
+    const snap = { usd: 0, since: null, updatedAt: null, ...raw, routes, round, closedAt: Date.now() };
+    await store.setJSON("round:" + round, snap);   // archive FIRST
+    const fresh = { usd: 0, routes: zeroRoutes(raw.routes), since: null, updatedAt: null, ...(applied ? { applied } : {}), resetFor: round };
+    if (etag ? await putIfMatch(store, "current", fresh, etag) : await putIfNew(store, "current", fresh)) return snap;
+  }
+  throw new CasError("pot busy — retry the draw");
+}
+
 // Draw the open round. potSolOverride / winnersOverride keep the old admin query params
-// (?potSol= manual top-up draw — then the pot ledger is NOT archived/reset).
-// A round with NO winners (no tickets) does not reset the pot: it rolls over to next week.
-export async function drawRound({ potSolOverride = 0, winnersOverride = 0 } = {}) {
+// (?potSol= manual top-up draw — then the pot ledger is NOT archived/reset); the first call's values are
+// stored with the freeze and win. A round with NO winners (no tickets) does not reset the pot: it rolls over.
+// The first call freezes the round and answers DrawError 409 "settling"; a call SETTLE_MS later (the cron's
+// next tick, or the admin again) finishes it. Any crash is resumed the same way.
+export async function drawRound({ potSolOverride = 0, winnersOverride = 0, now = Date.now() } = {}) {
   const store = getStore("draws");
   const round = await latestRound();
   const pub = await getPublic(round);
   if (!pub || pub.status !== "committed") throw new DrawError("no open round to draw — commit one first");
-  const { seed } = (await store.get("seed:" + round, { type: "json" })) || {};
+  const { seed } = (await strong(store, "seed:" + round)) || {};
   if (!seed) throw new DrawError("seed missing", 500);
-  const { slot, blockhash } = await blockhashAtOrAfter(pub.targetSlot);
 
-  // read the ticket ledger ONCE — the exact snapshot that is drawn is the one archived, so the
-  // draw can be re-verified later from tickets-archive even if someone played mid-draw.
-  const tstore = getStore("tickets");
-  const { blobs } = await tstore.list();
-  const records = [];
-  for (const b of blobs) records.push({ key: b.key, value: await tstore.get(b.key, { type: "json" }) });
-  const { entries, totalTickets } = entriesFromRecords(records);
-
-  // Prize = the REAL accumulated pot (verified purchases + tips + royalties), shown in SOL.
-  const pot = await getPot();
-  const sp = await solUsd();
-  const potFromLedger = sp && pot.usd > 0 ? +(pot.usd / sp).toFixed(4) : 0;
-  const potSol = Number(potSolOverride) || potFromLedger;
-  const nWinners = Number(winnersOverride) || winnerCount(potSol);
-  const winners = pickWinners(seed, blockhash, entries, nWinners);
-  const rollover = !winners.length;
-  const result = { ...pub, status: "drawn", seed, blockSlot: slot, blockhash, potSol, potUsd: +pot.usd.toFixed(2), potBreakdown: pot.routes,
-    nWinners, totalTickets, entrants: entries.length, entriesHash: entriesHash(entries), winners, drawnAt: Date.now(),
-    ...(rollover ? { potRolledOver: true } : {}), ...(potSolOverride ? { manualPot: true } : {}) };
-  await store.setJSON("public:" + round, result);
-  // snapshot + reset the pot so next week accumulates fresh (unless a manual override was used,
-  // or nobody won — then the pot simply carries over).
-  if (!potSolOverride && !rollover) await archiveAndResetPot(round);
-  // Chances are per round ("weekly"): archive the drawn ticket snapshot into "tickets-archive"
-  // (r<round>:<key>) and clear it, so the next round — and its grand slam — starts from zero.
-  const archive = getStore("tickets-archive");
-  for (const { key, value } of records) {
-    if (value) await archive.setJSON(`r${round}:${key}`, value);
-    await tstore.delete(key);
+  // 1) freeze — from now on /api/play mints into round+1 (only once the committed target slot is final)
+  if (!(await strong(store, "drawing:" + round))) {
+    const slot = await rpc("getSlot", [{ commitment: "finalized" }]);
+    if (slot < pub.targetSlot) throw new DrawError(`the target slot ${pub.targetSlot} isn't final yet (now ${slot}) — try again shortly`);
   }
+  await putIfNew(store, "drawing:" + round, { round, phase: "frozen", frozenAt: now, potSolOverride: Number(potSolOverride) || 0, winnersOverride: Number(winnersOverride) || 0 });
+  let st = await strong(store, "drawing:" + round);
+  // 2) settle
+  const wait = st.frozenAt + SETTLE_MS - now;
+  if (wait > 0) throw new DrawError(`round ${round} is frozen — tickets are settling; draw again in ${Math.ceil(wait / 1000)} s`, 409);
+  // 3) the blockhash at/after the committed target slot (stored once)
+  if (!st.blockhash) { const b = await blockhashAtOrAfter(pub.targetSlot); st = await setOnce(store, round, { blockSlot: b.slot, blockhash: b.blockhash }); }
+
+  // 4) the exact ticket snapshot (create-only) → archived to tickets-archive
+  let snap = await strong(store, "snap:" + round);
+  if (!snap) {
+    const tstore = getStore("tickets");
+    const legacy = !(await strong(store, "legacy-closed"));
+    // one record per player:<wallet> — this round's ledger, plus (first draw only) the old unprefixed ledger,
+    // summed per wallet; `src` = the live keys it came from. The archive keeps the counts, not every play id.
+    const byKey = new Map();
+    const add = (key, src, { playIds, ...v }) => {
+      const cur = byKey.get(key);
+      if (!cur) { byKey.set(key, { key, src: [src], value: v }); return; }
+      cur.src.push(src);
+      for (const f of ["tickets", "plays", "wins"]) cur.value[f] = (+cur.value[f] || 0) + (+v[f] || 0);
+    };
+    for (const b of (await tstore.list({ prefix: `r${round}:` })).blobs) {
+      const v = await strong(tstore, b.key); if (v) add(b.key.slice(`r${round}:`.length), b.key, v);
+    }
+    if (legacy) for (const b of (await tstore.list({ prefix: "player:" })).blobs) {
+      const v = await strong(tstore, b.key); if (v) add(b.key, b.key, v);
+    }
+    const records = [...byKey.values()].sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+    const e = entriesFromRecords(records);
+    await putIfNew(store, "snap:" + round, { round, takenAt: Date.now(), legacy, records, entriesHash: entriesHash(e.entries), totalTickets: e.totalTickets });
+    snap = await strong(store, "snap:" + round);
+  }
+  if (snap.legacy) await putIfNew(store, "legacy-closed", { round, at: Date.now() });   // the old ledger is drawn ONCE
+  if (!st.archived) {
+    const archive = getStore("tickets-archive");
+    for (const r of snap.records) await archive.setJSON(`r${round}:${r.key}`, r.value);   // r<n>:player:<wallet>, as before
+    st = await setOnce(store, round, { archived: Date.now(), phase: "snapshot" });
+  }
+  const { entries, totalTickets } = entriesFromRecords(snap.records);
+  const rollover = !entries.length;
+
+  // 5) the pot: snapshot + reset once (or just read it, when it carries over)
+  if (!st.pot) {
+    const reset = !st.potSolOverride && !rollover;
+    const p = reset ? await archivePotOnce(round) : await getPot();
+    const solPrice = await solUsd();
+    if (!solPrice && !st.potSolOverride) throw new DrawError("no SOL price right now — draw again shortly", 503);
+    st = await setOnce(store, round, { pot: { usd: +p.usd || 0, routes: p.routes || {} }, potReset: reset, solPrice: solPrice || 0, phase: "pot" });
+  }
+
+  // 6) the result — from the stored inputs only, so every re-run picks the same winners
+  if (!st.result) {
+    const potFromLedger = st.solPrice > 0 && st.pot.usd > 0 ? +(st.pot.usd / st.solPrice).toFixed(4) : 0;
+    const potSol = st.potSolOverride || potFromLedger;
+    const nWinners = st.winnersOverride || winnerCount(potSol);
+    const winners = pickWinners(seed, st.blockhash, entries, nWinners);
+    st = await setOnce(store, round, { phase: "result", result: { ...pub, status: "drawn", seed, blockSlot: st.blockSlot, blockhash: st.blockhash, potSol,
+      potUsd: +st.pot.usd.toFixed(2), potBreakdown: st.pot.routes, nWinners, totalTickets, entrants: entries.length, entriesHash: entriesHash(entries),
+      winners, drawnAt: Date.now(), ...(rollover ? { potRolledOver: true } : {}), ...(st.potSolOverride ? { manualPot: true } : {}) } });
+  }
+
+  // 7) publish LAST — committed → drawn, exactly once
+  await casUpdate(store, "public:" + round, (cur) => (cur && cur.status === "committed" ? st.result : undefined));
+  const result = await getPublic(round);
+  // 8) cleanup (best effort — nothing reads a drawn round's live tickets or the drawn legacy ledger again)
+  try {
+    const tstore = getStore("tickets");
+    for (const b of (await tstore.list({ prefix: `r${round}:` })).blobs) await tstore.delete(b.key);
+    for (const r of snap.records) for (const k of r.src || []) if (k.startsWith("player:")) await tstore.delete(k);   // the drawn old ledger
+    await setOnce(store, round, { cleanedAt: Date.now() });
+  } catch { /* leftovers are harmless */ }
   return result;
 }
 

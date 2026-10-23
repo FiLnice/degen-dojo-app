@@ -5,3 +5,6 @@ out/
 *.pem
 *.keystore
 *keypair*
+
+# co-signer / authority secret keys — never commit
+*cosigner*.json

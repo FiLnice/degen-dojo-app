@@ -25,6 +25,27 @@
   var M2_SELL_DISCS = { 'a40e5c647b39eacc': 1, '01ee48898a15fef9': 1, 'c3372e293607e19b': 1 };
   var SWAP_SLIPPAGE_BPS = 100;
 
+  // PRICE LOCK — a buyer never pays more than the price they were shown (or explicitly OK'd):
+  //  · the page passes opts.shownPrice (the listing's SOL price it displayed); a higher live price stops the buy
+  //    and asks "The price changed from X to Y — buy at Y?" before anything is swapped or signed;
+  //  · our own M2 build uses that confirmed price; Magic Eden / Tensor-built transactions are SIMULATED and the
+  //    buyer's SOL must not drop by more than the confirmed all-in price + SPEND_SLACK_SOL (rent for the accounts a
+  //    buy opens + fees) — the same kind of check dojo-swap.js makes on Jupiter's swaps.
+  var SPEND_SLACK_SOL = 0.015;
+  function priceRaised(shown, live) { shown = +shown; live = +live; return shown > 0 && live - shown > Math.max(shown * 0.0005, 1e-6); }
+  function maxSpendSol(listing) { return (+listing.priceAllIn || +listing.price) * 1.005 + SPEND_SLACK_SOL; }
+  // How much SOL a simulated transaction takes from the buyer (null when it can't be read → callers refuse).
+  function spentSol(sim, preLamports) {
+    var acc = sim && sim.value && sim.value.accounts && sim.value.accounts[0];
+    if (!acc || typeof acc.lamports !== 'number' || preLamports == null) return null;
+    return (preLamports - acc.lamports) / 1e9;
+  }
+  function spendRefusal(spent, max) {
+    var e = new Error(spent == null ? 'Couldn’t verify what this purchase would charge — nothing was signed.'
+      : 'This purchase would take ' + spent.toFixed(4) + ' SOL, more than the ' + max.toFixed(4) + ' SOL price you confirmed — nothing was signed.');
+    e.priceLock = true; return e;
+  }
+
   var W3 = function () { return global.solanaWeb3; };
   var PK = function (s) { return new (W3().PublicKey)(s); };
   var pda = function (seeds, programId) { return W3().PublicKey.findProgramAddressSync(seeds, PK(programId))[0]; };
@@ -184,6 +205,7 @@
           var maxIn = Number(q.otherAmountThreshold || q.inAmount || 0);
           if (balRaw != null && maxIn > 0 && balRaw < maxIn) {
             var dec = currency === 'ORE' ? 1e11 : 1e6, dp = currency === 'ORE' ? 4 : 2;
+            if (currency === 'ORE' && global.DojoSwap) global.DojoSwap.open({ needOre: Math.ceil((maxIn - balRaw) / dec * 1e6) / 1e6 });   // swap the shortfall in
             throw new Error('Not enough ' + currency + ' — this buy needs about ' + (maxIn / dec).toFixed(dp) + ' ' + currency + ' and you have ' + (balRaw / dec).toFixed(dp) + '. Nothing was swapped.');
           }
           return q;
@@ -319,10 +341,15 @@
     if (opts.fallbackSeller) extra += '&seller=' + encodeURIComponent(opts.fallbackSeller);
     if (opts.fallbackPrice) extra += '&price=' + encodeURIComponent(opts.fallbackPrice);
     if (opts.fallbackTokenATA) extra += '&tokenATA=' + encodeURIComponent(opts.fallbackTokenATA);
+    // price lock: the server refuses to have ME build at a live price above the one the buyer confirmed
+    if (opts._maxPriceSol > 0) extra += '&maxPrice=' + encodeURIComponent(String(opts._maxPriceSol));
     return fetch(meUrl + '?mint=' + encodeURIComponent(opts.mint) + '&buyer=' + encodeURIComponent(opts.adapter.pubkey) + extra)
       .then(function (r) { return r.json().then(function (j) { return { status: r.status, j: j }; }); })
       .then(function (res) {
         if (res.status === 501 || (res.j && res.j.needKey)) return null;
+        if (res.status === 409 && res.j && res.j.priceChanged) {   // the listing went up after the buyer confirmed
+          var e = new Error('The price just changed to ' + (+res.j.price).toFixed(4) + ' SOL — reopen it to see the new price. Nothing was signed.'); e.priceLock = true; throw e;
+        }
         if (!res.j || !res.j.txBase64) return null;
         var W = W3();
         var raw = Uint8Array.from(atob(res.j.txBase64), function (c) { return c.charCodeAt(0); });
@@ -334,30 +361,43 @@
   // have the SOL yet — which the swap is about to provide). Returns null when ME can't build it, or the
   // built tx fails simulation for a REAL reason (e.g. buy_now returned a bogus tx for a pool listing) —
   // in which case we must NOT swap. This is what stops "swapped ORE but the buy failed" strandings.
-  function probeMEBuyTx(opts) {
-    return fetchMEBuyTx(opts).then(function (tx) {
-      if (!tx) return null;
-      var W = W3(), isV0 = tx instanceof W.VersionedTransaction;
-      var b64tx = isV0 ? b64(tx.serialize()) : b64(tx.serialize({ requireAllSignatures: false, verifySignatures: false }));
-      return rpcCall('simulateTransaction', [b64tx, { encoding: 'base64', sigVerify: false, replaceRecentBlockhash: true, commitment: 'confirmed' }]).then(function (sim) {
-        if (!sim.value.err) return tx;                                   // fully valid
-        var logs = (sim.value.logs || []).join('\n');
-        if (/insufficient lamports|insufficient funds|debit an account/i.test(logs)) return tx;  // only needs the SOL the swap provides
-        return null;                                                     // real failure → don't swap
-      }, function () { return tx; });   // sim RPC itself errored → don't block a possibly-fine buy
+  // Simulate a marketplace-built tx, reading the buyer's SOL before and after → { sim, spent } (spent null = unreadable).
+  function simulateSpend(tx, buyer, replaceBlockhash) {
+    var W = W3(), isV0 = tx instanceof W.VersionedTransaction;
+    var b64tx = isV0 ? b64(tx.serialize()) : b64(tx.serialize({ requireAllSignatures: false, verifySignatures: false }));
+    return rpcCall('getBalance', [buyer, { commitment: 'confirmed' }]).then(function (bal) {
+      var pre = (bal && bal.value != null) ? bal.value : (typeof bal === 'number' ? bal : null);
+      return rpcCall('simulateTransaction', [b64tx, { encoding: 'base64', sigVerify: false, replaceRecentBlockhash: replaceBlockhash, commitment: 'confirmed', accounts: { encoding: 'base64', addresses: [buyer] } }])
+        .then(function (sim) { return { sim: sim, spent: sim && sim.value && !sim.value.err ? spentSol(sim, pre) : null }; });
     });
   }
-  // Simulate, then sign+send a ME-built buy tx.
-  function sendMEBuyTx(tx, adapter, onState) {
-    var W = W3(), isV0 = tx instanceof W.VersionedTransaction;
+  // Returns the tx when it's structurally sound (sim passes, OR fails ONLY for lack of the SOL the swap is about
+  // to provide), else null. tx._spendOk = true only when the simulation passed AND it charges no more than the
+  // confirmed price — the one-approval path (swap + buy signed together) is allowed only then.
+  function probeMEBuyTx(opts, listing) {
+    return fetchMEBuyTx(opts).then(function (tx) { return tx ? probeSpend(tx, opts, listing) : null; });
+  }
+  function probeSpend(tx, opts, listing) {
+    return simulateSpend(tx, opts.adapter.pubkey, true).then(function (r) {
+      var sim = r.sim;
+      if (!sim.value.err) { if (r.spent == null || r.spent > maxSpendSol(listing)) return null; tx._spendOk = true; return tx; }   // fully valid (and within the price) / overcharging → never use it
+      var logs = (sim.value.logs || []).join('\n');
+      if (/insufficient lamports|insufficient funds|debit an account/i.test(logs)) { tx._spendOk = false; return tx; }   // only needs the SOL the swap provides — re-checked before signing
+      return null;                                                     // real failure → don't swap
+    }, function () { tx._spendOk = false; return tx; });   // sim RPC itself errored → don't block a possibly-fine buy (re-checked before signing)
+  }
+  // Simulate, then sign+send a marketplace-built buy tx — only if it charges no more than the confirmed price.
+  function sendMEBuyTx(tx, adapter, onState, listing) {
     onState && onState('Checking it against the chain…');
-    var b64tx = isV0 ? b64(tx.serialize()) : b64(tx.serialize({ requireAllSignatures: false, verifySignatures: false }));
-    return rpcCall('simulateTransaction', [b64tx, { encoding: 'base64', sigVerify: false, replaceRecentBlockhash: false, commitment: 'confirmed' }]).then(function (sim) {
+    return simulateSpend(tx, adapter.pubkey, false).then(function (r) {
+      var sim = r.sim;
       if (sim.value.err) {
         var logs = (sim.value.logs || []).join('\n');
         if (/insufficient lamports|insufficient funds/i.test(logs)) throw new Error('Not enough SOL in this wallet to cover the price + fees. Nothing was signed.');
         throw new Error('The listing may have just sold or changed price. Nothing was signed.');
       }
+      var max = maxSpendSol(listing);
+      if (r.spent == null || r.spent > max) throw spendRefusal(r.spent, max);
       onState && onState('Approve in your wallet…');
       return adapter.signAndSendTransaction(tx).then(function (sig) { var s = sig.signature || sig; onState && onState('Confirming…'); return waitForConfirm(s).then(function () { return s; }); });
     });
@@ -383,17 +423,7 @@
   // Build + simulate a Tensor buy — same safe pre-flight logic as probeMEBuyTx (proceed only if the tx
   // is sound or merely lacks the SOL the swap is about to add; never swap for a genuinely broken tx).
   function probeTensorBuyTx(opts, listing) {
-    return fetchTensorBuyTx(opts, listing).then(function (tx) {
-      if (!tx) return null;
-      var W = W3(), isV0 = tx instanceof W.VersionedTransaction;
-      var b64tx = isV0 ? b64(tx.serialize()) : b64(tx.serialize({ requireAllSignatures: false, verifySignatures: false }));
-      return rpcCall('simulateTransaction', [b64tx, { encoding: 'base64', sigVerify: false, replaceRecentBlockhash: true, commitment: 'confirmed' }]).then(function (sim) {
-        if (!sim.value.err) return tx;
-        var logs = (sim.value.logs || []).join('\n');
-        if (/insufficient lamports|insufficient funds|debit an account/i.test(logs)) return tx;
-        return null;
-      }, function () { return tx; });
-    });
+    return fetchTensorBuyTx(opts, listing).then(function (tx) { return tx ? probeSpend(tx, opts, listing) : null; });
   }
   // Universal path: let Magic Eden build the buy tx (handles regular NFTs, pNFTs AND Core). Returns a
   // signature on success, or null when ME can't build it (→ inline engine for standard NFTs).
@@ -401,7 +431,17 @@
     opts.onState && opts.onState('Building the transaction…');
     return fetchMEBuyTx(opts).then(function (tx) {
       if (!tx) return null;
-      return sendMEBuyTx(tx, opts.adapter, opts.onState);
+      return sendMEBuyTx(tx, opts.adapter, opts.onState, listing);
+    });
+  }
+  // Ask before going on when the live price is above the one the page showed. Resolves when the buy may continue.
+  function confirmLivePrice(opts, listing) {
+    if (listing._fallback || !(opts.shownPrice > 0) || !priceRaised(opts.shownPrice, listing.price)) return Promise.resolve();
+    var ratio = listing.priceAllIn / listing.price, from = opts.shownPrice * ratio, to = listing.priceAllIn;   // shown as the all-in price, like the page
+    var fmt = opts.formatPrice || function (s) { return (+s).toFixed(4) + ' SOL'; };
+    var ask = opts.confirmPrice || function (a, b) { return global.confirm('The price changed from ' + fmt(a) + ' to ' + fmt(b) + ' — buy at ' + fmt(b) + '?'); };
+    return Promise.resolve(ask(from, to, listing)).then(function (ok) {
+      if (!ok) { var e = new Error('The price changed from ' + fmt(from) + ' to ' + fmt(to) + ' — nothing was bought or signed.'); e.cancelled = true; e.priceLock = true; throw e; }
     });
   }
 
@@ -465,6 +505,9 @@
           throw new Error('No live Magic Eden listing for that NFT — it may have sold, delisted, or be listed only on Tensor.');
         }
       }
+      return confirmLivePrice(opts, listing).then(function () { return listing; });
+    }).then(function (listing) {
+      opts._maxPriceSol = listing.price;   // the confirmed list price — /api/mebuy won't build above it
       // Paying in a token for a standard NFT with a batch-signing wallet → ONE prompt (swap + buy signed
       // together). NOT for _fallback listings: our M2 engine can't build those (no seller/token data),
       // so they must go through ME's builder in the two-step flow.
@@ -479,8 +522,8 @@
         // If the USER cancelled the wallet popup, do NOT bounce them to Magic Eden — just stop.
         var cancelled = err.code === 4001 || /reject|declin|denied|cancel|user.*(refus|abort)|abort/i.test(msg);
         err.cancelled = cancelled;
-        // Only for a genuine build/asset failure (pNFT/Core/variant) do we hand off to ME.
-        if (!cancelled && listing.magicEdenUrl && !err.magicEdenUrl && !/Not enough|Add a little SOL/i.test(msg)) { err.magicEdenUrl = listing.magicEdenUrl; err.fallback = true; }
+        // Only for a genuine build/asset failure (pNFT/Core/variant) do we hand off to ME — never for a price-lock stop.
+        if (!cancelled && !err.priceLock && listing.magicEdenUrl && !err.magicEdenUrl && !/Not enough|Add a little SOL/i.test(msg)) { err.magicEdenUrl = listing.magicEdenUrl; err.fallback = true; }
         throw err;
       });
     });
@@ -498,20 +541,22 @@
       // Pre-flight ME first (M2 our resolver just missed), then the Tensor aggregator (pool/Tensor
       // listings ME's public API can't build). Only swap once one of them proves a sound buy tx.
       var prebuilt = null;   // the probed buy tx, so swap + buy can be approved together
-      return probeMEBuyTx(opts).then(function (me) {
+      return probeMEBuyTx(opts, listing).then(function (me) {
         if (me) { prebuilt = me; return 'me'; }
         return probeTensorBuyTx(opts, listing).then(function (ts) { if (ts) prebuilt = ts; return ts ? 'tensor' : null; });
       }).then(function (route) {
         if (!route) return route;
-        // ONE approval: sign the swap and the marketplace's buy tx together, then send them in order.
-        // Wallets that can't batch-sign fall through to the two-popup flow below, untouched.
+        // ONE approval: sign the swap and the marketplace's buy tx together, then send them in order — only when the
+        // probe proved what that buy charges (price lock). Otherwise (or when the wallet can't batch-sign) the
+        // two-popup flow below re-simulates the buy after the swap and checks the charge before it is signed.
+        if (prebuilt._spendOk !== true) return route;
         return oneApprovalPrebuilt(prebuilt, listing, currency, adapter, JUP, onState).then(function (sig) { return sig ? { done: sig } : route; });
       }).then(function (route) {
         if (route && route.done) return route.done;
         if (!route) { var e = new Error('This one isn’t available to buy in-app (it may have just sold, or it’s an unbuyable pool listing). Your ' + currency + ' was NOT swapped.'); e.magicEdenUrl = listing.magicEdenUrl; e.fallback = true; throw e; }
         return swapToSol(listing, currency, adapter, JUP, onState).then(function () {
           if (route === 'me') return tryMagicEden(opts, listing).then(function (sig) { if (sig) return sig; var e2 = new Error('Magic Eden could not finish the buy just now.'); e2.magicEdenUrl = listing.magicEdenUrl; e2.fallback = true; throw e2; });
-          return fetchTensorBuyTx(opts, listing).then(function (tx) { if (!tx) { var e3 = new Error('Tensor could not finish the buy just now.'); e3.magicEdenUrl = listing.magicEdenUrl; e3.fallback = true; throw e3; } return sendMEBuyTx(tx, adapter, onState); });
+          return fetchTensorBuyTx(opts, listing).then(function (tx) { if (!tx) { var e3 = new Error('Tensor could not finish the buy just now.'); e3.magicEdenUrl = listing.magicEdenUrl; e3.fallback = true; throw e3; } return sendMEBuyTx(tx, adapter, onState, listing); });
         });
       });
     }
@@ -521,7 +566,7 @@
         if (sig) return sig;
         if (meOnly) {   // Core / pool with no swap involved (SOL payment) → try Tensor, then hand off to ME
           return fetchTensorBuyTx(opts, listing).then(function (tx) {
-            if (tx) return sendMEBuyTx(tx, adapter, onState);
+            if (tx) return sendMEBuyTx(tx, adapter, onState, listing);
             var e = new Error('This listing needs Magic Eden to finish the buy — opening it there.');
             e.magicEdenUrl = listing.magicEdenUrl; e.fallback = true; throw e;
           });
@@ -531,5 +576,5 @@
     });
   }
 
-  global.DojoBuy = { buy: buy, resolveListing: resolveListing };
+  global.DojoBuy = { buy: buy, resolveListing: resolveListing, priceRaised: priceRaised, maxSpendSol: maxSpendSol, spentSol: spentSol };
 })(window);

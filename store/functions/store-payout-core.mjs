@@ -3,21 +3,31 @@
 // this only PLANS the payout and VERIFIES it afterwards. The owner pays from /payouts with their
 // own wallet (one approval), and the page posts the signatures back for verification.
 //
-//   cronTick()          weekly state machine: commit → draw → build plan → notify
+//   cronTick()          weekly state machine: commit → draw → build plan → notify (+ resumes a
+//                       payment settlement a crashed call left in "paying")
 //   buildPlan(round)    winners (equal split of the round's pot snapshot, per token) +
 //                       preachers (owed ≥ MIN_PREACHER_PAYOUT_USD) + fraud flags
-//   recordPayment(...)  verify the pay txs on-chain, mark the plan + preacher records paid
+//   quoteSwaps(round)   SERVER-side Jupiter quote for the SOL/USDC shares → the exact ORE each payee
+//                       gets is recorded in the plan's manifest (the browser never says what's due)
+//   recordPayment(...)  verify the pay txs on-chain, then two-phase: commit covered payees +
+//                       "paying" in ONE conditional write → mark preacher records / roll over /
+//                       notify (idempotent) → "partial" | "paid"
 //
-// Blobs "payouts": round:<n> (plan), latest (n), cycle (cron state).
+// Raw token amounts are BigInt in code and decimal strings in JSON (ORE has 11 decimals, so a Number
+// stops being exact above ~90,071 ORE). USD stays a float — it is display / fraud-check only.
+//
+// Blobs "payouts": round:<n> (plan), latest (n), cycle (cron state), sig:<sig> (one round per
+// payment signature), notified:paid:<n> (the "Paid ✓" notice went out).
 // Env: SOLANA_RPC, DRAW_DAY (0=Sun, default 0), DRAW_HOUR_UTC (default 18), PAYOUT_CAP_USD
 // (default 300), MIN_PREACHER_PAYOUT_USD (default 1), TREASURY_WALLET, POT_WALLET,
 // ROYALTY_WALLET, COSIGNER_PUBKEY, TEAM_WALLETS (comma list), STORE_URL.
 import { getStore } from "@netlify/blobs";
-import { getPot, addToPot, POT_FRAC } from "./store-pot-core.mjs";
+import { getPot, addToPot, LEGACY_POT_FRAC } from "./store-pot-core.mjs";
 import { computePreacherOwed, markPreacherPaid } from "./store-preacher-core.mjs";
 import { commitRound, drawRound, latestRound, getPublic, verifyDraw, rpc, DrawError } from "./store-draw-core.mjs";
 import { notify } from "./store-notify.mjs";
 import { casUpdate, readWithEtag, putIfMatch, putIfNew } from "./store-cas-core.mjs";
+import { createHash, randomUUID } from "node:crypto";
 
 export const MINTS = { ORE: "oreoU2P8bN6jkk3jbaiVxYnG1dCXcYxwhwyK9jSybcp", SKR: "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3", USDC: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", SOL: "So11111111111111111111111111111111111111112" };
 export const DEC = { ORE: 11, SKR: 6, SOL: 9, USDC: 6 };
@@ -28,15 +38,49 @@ const num = (k, d) => { const v = Number(process.env[k]); return Number.isFinite
 export const storeUrl = () => String(env("STORE_URL", "https://store.degendojo.xyz")).replace(/\/+$/, "");
 const payStore = () => getStore("payouts");
 
-// ---------- money helpers (raw integer base units, Number is exact below 2^53) ----------
-export const toRaw = (amount, cur) => Math.max(0, Math.floor((+amount || 0) * 10 ** DEC[cur] + 1e-6));
-export const fromRaw = (raw, cur) => (+raw || 0) / 10 ** DEC[cur];
+// ---------- money helpers (raw integer base units: BigInt in code, decimal strings in JSON) ----------
+// A raw value read back from JSON → BigInt. Plans saved before the BigInt change hold integer Numbers.
+export function big(v) {
+  if (typeof v === "bigint") return v;
+  if (typeof v === "string" && /^\s*-?\d+\s*$/.test(v)) return BigInt(v.trim());
+  const n = Number(v);
+  return Number.isFinite(n) ? BigInt(Math.trunc(n)) : 0n;
+}
+const S = (b) => big(b).toString();
+const RAW_CURS = ["ORE", "SKR", "SOL", "USDC"];
+export const payOf = (p) => Object.fromEntries(RAW_CURS.map((c) => [c, big(p?.pay?.[c])]));
+// A UI amount (the pot / preacher ledgers keep floats) → raw BigInt, floored, through its shortest
+// round-trip decimal string ("1234567.89", not 1234567.8899999998…) — never `amount * 10 ** dec`.
+export function toRaw(amount, cur) {
+  const n = Number(amount), d = DEC[cur];
+  if (!(n > 0)) return 0n;
+  if (n >= 1e21) throw new Error(`amount ${amount} ${cur} out of range`);
+  let s = String(n);
+  if (/e/i.test(s)) s = n.toFixed(Math.min(100, d + 3));   // tiny amounts print as 1e-7
+  const [i, f = ""] = s.split(".");
+  return BigInt(i + f.slice(0, d).padEnd(d, "0"));
+}
+// raw → a float in UI units: for DISPLAY and the float pot ledger only, never for a settlement decision
+export const fromRaw = (raw, cur) => Number(big(raw)) / 10 ** DEC[cur];
 // Equal integer split; the rounding remainder goes to the first payees one unit each.
 export function splitEqual(total, n) {
+  total = big(total);
   if (!(n > 0)) return [];
-  const base = Math.floor(total / n), out = Array(n).fill(base);
-  for (let i = 0, rem = total - base * n; rem > 0; i++, rem--) out[i % n] += 1;
+  const N = BigInt(n), base = total / N, out = Array(n).fill(base);
+  for (let i = 0, rem = total - base * N; rem > 0n; i++, rem--) out[i % n] += 1n;
   return out;
+}
+// Proportional integer split of `total` by BigInt weights; the remainder goes one unit at a time to
+// the largest weights (ties: plan order). Sum of the result === total.
+export function allocate(total, parts) {
+  total = big(total);
+  const res = {}, sum = parts.reduce((s, p) => s + big(p.weight), 0n);
+  if (!(sum > 0n) || !(total > 0n)) { for (const p of parts) res[p.id] = 0n; return res; }
+  let given = 0n;
+  for (const p of parts) { res[p.id] = (total * big(p.weight)) / sum; given += res[p.id]; }
+  const order = parts.map((p, i) => [p, i]).sort((a, b) => (big(b[0].weight) > big(a[0].weight) ? 1 : big(b[0].weight) < big(a[0].weight) ? -1 : a[1] - b[1])).map(([p]) => p);
+  for (let k = 0, rem = total - given; rem > 0n && order.length; k++, rem--) res[order[k % order.length].id] += 1n;
+  return res;
 }
 const fmt = (raw, cur, dp = 4) => fromRaw(raw, cur).toLocaleString("en-US", { maximumFractionDigits: dp });
 
@@ -45,8 +89,10 @@ export function reservedWallets() {
   const m = new Map();
   const add = (w, label) => { if (ADDR_RE.test(w || "")) m.set(w, m.get(w) ? m.get(w) + " / " + label : label); };
   add(env("TREASURY_WALLET", "5w55F58ia3H71QjBD9bYvNQF2DcNu8K3AfJj9A4WMuWp"), "treasury");
-  add(env("POT_WALLET", "ED3GMCfoX3XNvavnWADvd6oCsohGg1ukdhv3PaUpvwJe"), "pot wallet");
-  add(env("ROYALTY_WALLET", "ED3GMCfoX3XNvavnWADvd6oCsohGg1ukdhv3PaUpvwJe"), "royalty wallet");
+  add(env("POT_WALLET", "5w55F58ia3H71QjBD9bYvNQF2DcNu8K3AfJj9A4WMuWp"), "pot wallet");
+  add(env("ROYALTY_WALLET", "5w55F58ia3H71QjBD9bYvNQF2DcNu8K3AfJj9A4WMuWp"), "royalty wallet");
+  add("DfaGo3Qht6MC2bqgFCBHgUWjaeXDNmsbE7XjyRKWM3qS", "update authority");
+  add("ED3GMCfoX3XNvavnWADvd6oCsohGg1ukdhv3PaUpvwJe", "retired authority");
   add("HEyazxpV2wxMUvNx53UZUXthRS9Rjsbv7hoHYJNbVedC", "DD creator");
   add(env("COSIGNER_PUBKEY", ""), "marketplace cosigner");
   add(env("OPERATOR_WALLET", ""), "operator");
@@ -132,8 +178,9 @@ async function potSnapshots() {
 }
 
 // ---------- the plan ----------
-// Payee: { id, kind:'winner'|'preacher', wallet, label, usd, pay:{ORE,SKR,SOL,USDC} raw units }
-//   pay.ORE / pay.SKR are transferred as-is; pay.SOL / pay.USDC are swapped to ORE at pay time.
+// Payee: { id, kind:'winner'|'preacher', wallet, label, usd, pay:{ORE,SKR,SOL,USDC} raw units as
+//   decimal strings }. pay.ORE / pay.SKR are transferred as-is; pay.SOL / pay.USDC are swapped to ORE
+//   at pay time, and the ORE each payee gets for them is fixed by the server quote (plan.manifest).
 export function potTotals(snap) {
   const t = { sol: 0, ore: 0, skr: 0 };
   for (const r of Object.values(snap?.routes || {})) { t.sol += +r.sol || 0; t.ore += +r.ore || 0; t.skr += +r.skr || 0; }
@@ -146,30 +193,30 @@ export function winnerPayees(pub, snap) {
   const sp = { ORE: splitEqual(toRaw(t.ore, "ORE"), ws.length), SKR: splitEqual(toRaw(t.skr, "SKR"), ws.length), SOL: splitEqual(toRaw(t.sol, "SOL"), ws.length) };
   const usd = (+snap?.usd || 0) / ws.length;
   return ws.map((w, i) => ({ id: "w:" + w.wallet, kind: "winner", wallet: w.wallet, label: w.name || w.wallet, tickets: w.tickets || 0,
-    usd: +usd.toFixed(2), pay: { ORE: snap ? sp.ORE[i] : 0, SKR: snap ? sp.SKR[i] : 0, SOL: snap ? sp.SOL[i] : 0, USDC: 0 } }));
+    usd: +usd.toFixed(2), pay: { ORE: S(snap ? sp.ORE[i] : 0n), SKR: S(snap ? sp.SKR[i] : 0n), SOL: S(snap ? sp.SOL[i] : 0n), USDC: "0" } }));
 }
 export function preacherPayees(rows, minUsd = num("MIN_PREACHER_PAYOUT_USD", 1)) {
   const payees = [], skipped = [];
   for (const r of rows || []) {
     if (!(r.owedUsd >= minUsd)) continue;
     if (!ADDR_RE.test(r.wallet || "")) { skipped.push({ code: r.code, owedUsd: r.owedUsd, reason: "no wallet linked" }); continue; }
-    const pay = { ORE: 0, SKR: 0, SOL: 0, USDC: 0 }, other = {};
+    const pay = { ORE: 0n, SKR: 0n, SOL: 0n, USDC: 0n }, other = {};
     for (const [cur, amt] of Object.entries(r.owedNative || {})) {
       if (!(amt > 0)) continue;
       if (cur in pay) pay[cur] += toRaw(amt, cur); else other[cur] = amt;
     }
-    if (!(pay.ORE + pay.SKR + pay.SOL + pay.USDC > 0)) { skipped.push({ code: r.code, owedUsd: r.owedUsd, reason: "owed only in unsupported token(s) " + Object.keys(other).join(", ") }); continue; }
+    if (!(pay.ORE + pay.SKR + pay.SOL + pay.USDC > 0n)) { skipped.push({ code: r.code, owedUsd: r.owedUsd, reason: "owed only in unsupported token(s) " + Object.keys(other).join(", ") }); continue; }
     payees.push({ id: "p:" + String(r.code).toLowerCase(), kind: "preacher", wallet: r.wallet, label: r.code, code: r.code, tier: r.tier, share: r.share,
-      usd: +(+r.owedUsd).toFixed(2), paidUsdBefore: +(+r.paidUsd || 0).toFixed(2), pay, unsupported: other,
+      usd: +(+r.owedUsd).toFixed(2), paidUsdBefore: +(+r.paidUsd || 0).toFixed(2), pay: Object.fromEntries(RAW_CURS.map((c) => [c, S(pay[c])])), unsupported: other,
       sigs: (r.unpaidSigs || []).map((s) => s.sig).filter(Boolean) });
   }
   return { payees, skipped };
 }
 export function planTotals(payees, excluded = []) {
-  const ex = new Set(excluded), t = { ORE: 0, SKR: 0, SOL: 0, USDC: 0, usd: 0 };
-  for (const p of payees) { if (ex.has(p.id)) continue; for (const c of ["ORE", "SKR", "SOL", "USDC"]) t[c] += p.pay[c] || 0; t.usd += p.usd || 0; }
-  t.usd = +t.usd.toFixed(2);
-  return t;
+  const ex = new Set(excluded), raw = { ORE: 0n, SKR: 0n, SOL: 0n, USDC: 0n };
+  let usd = 0;
+  for (const p of payees) { if (ex.has(p.id)) continue; const pay = payOf(p); for (const c of RAW_CURS) raw[c] += pay[c]; usd += p.usd || 0; }
+  return { ...Object.fromEntries(RAW_CURS.map((c) => [c, S(raw[c])])), usd: +usd.toFixed(2) };
 }
 
 // ---------- fraud checks ----------
@@ -240,20 +287,24 @@ export async function checkPreachers(preachers, records, { within = budget(Date.
   for (const id of failed) flags.push({ severity: "warn", who: id, check: "g", reason: "couldn't check who funded some referred buyers" });
   return flags;
 }
-// (h) the pot ledger's coin-pack + tip totals for the round vs the verified records in its window
+// (h) the pot ledger's coin-pack + tip totals for the round vs the verified records in its window.
+// Records verified since 2026-10-23 carry their exact Pot share (split.pot: 22% of a coin buy / mining tip);
+// a Dojo Pot tip is 100%; older records (no split) used 65% of a coin pack and 100% of any tip.
 export function checkPotLedger(snap, prevClosedAt, records, tol = 0.01) {
   if (!snap) return [];
-  const exp = { coinbuy: { sol: 0, ore: 0, skr: 0 }, tip: { sol: 0, ore: 0, skr: 0 } };
+  const exp = { coinbuy: { sol: 0, ore: 0, skr: 0 }, tip: { sol: 0, ore: 0, skr: 0 }, minetip: { sol: 0, ore: 0, skr: 0 } };
   const k = { SOL: "sol", ORE: "ore", SKR: "skr" };
   for (const r of records) {
     if (!r.verified || r.rejected || !k[r.currency]) continue;
     const t = r.verifiedAt || 0;
     if (!(t > (prevClosedAt || 0) && t <= snap.closedAt)) continue;
-    if (r.kind === "tip") exp.tip[k[r.currency]] += +r.verifiedAmount || 0;
-    else exp.coinbuy[k[r.currency]] += (+r.verifiedAmount || 0) * POT_FRAC;
+    const route = exp[r.route] ? r.route : r.kind === "tip" ? "tip" : "coinbuy";
+    const amt = r.split ? Number(BigInt(r.split.pot || "0")) / 10 ** (+r.split.dec || 9)
+      : route === "coinbuy" ? (+r.verifiedAmount || 0) * LEGACY_POT_FRAC : (+r.verifiedAmount || 0);
+    exp[route][k[r.currency]] += amt;
   }
   const flags = [];
-  for (const route of ["coinbuy", "tip"]) for (const c of ["sol", "ore", "skr"]) {
+  for (const route of ["coinbuy", "tip", "minetip"]) for (const c of ["sol", "ore", "skr"]) {
     const led = +snap.routes?.[route]?.[c] || 0, want = exp[route][c];
     if (Math.abs(led - want) > Math.max(led, want) * tol + 1e-9)
       flags.push({ severity: "block", who: "plan", check: "h", reason: `pot ledger ${route} ${c.toUpperCase()} = ${+led.toFixed(6)} but verified records add up to ${+want.toFixed(6)}` });
@@ -324,10 +375,10 @@ export function summary(plan) {
   const nW = plan.payees.filter((p) => p.kind === "winner" && !(plan.excluded || []).includes(p.id)).length;
   const nP = plan.payees.filter((p) => p.kind === "preacher" && !(plan.excluded || []).includes(p.id)).length;
   const parts = [];
-  if (t.ORE) parts.push(fmt(t.ORE, "ORE") + " ORE");
-  if (t.SKR) parts.push(fmt(t.SKR, "SKR", 2) + " SKR");
-  if (t.SOL) parts.push(fmt(t.SOL, "SOL") + " SOL→ORE");
-  if (t.USDC) parts.push(fmt(t.USDC, "USDC", 2) + " USDC→ORE");
+  if (big(t.ORE) > 0n) parts.push(fmt(t.ORE, "ORE") + " ORE");
+  if (big(t.SKR) > 0n) parts.push(fmt(t.SKR, "SKR", 2) + " SKR");
+  if (big(t.SOL) > 0n) parts.push(fmt(t.SOL, "SOL") + " SOL→ORE");
+  if (big(t.USDC) > 0n) parts.push(fmt(t.USDC, "USDC", 2) + " USDC→ORE");
   return `round ${plan.round}: ${nW} winner${nW === 1 ? "" : "s"} + ${nP} preacher${nP === 1 ? "" : "s"}, ${parts.join(" + ") || "nothing to send"} (≈ $${t.usd})`;
 }
 function flagText(plan) {
@@ -351,7 +402,7 @@ export async function buildAndStore(round, opts = {}) {
   for (const b of blobs) {
     const n = Number(b.key.slice(6)); if (!(n < round)) continue;
     await casUpdate(payStore(), "round:" + n, (o) => {
-      if (!o || o.status === "paid") return undefined;
+      if (!o || o.status === "paid" || o.status === "paying") return undefined;
       const paidIds = o.payment?.paidIds || {};
       const drop = o.payees.filter((p) => p.kind === "preacher" && !paidIds[p.id]);
       if (!drop.length) return undefined;
@@ -377,6 +428,11 @@ export async function buildAndStore(round, opts = {}) {
 //   3. a drawn round (after the cron took over) with no plan → build + store + notify
 export async function cronTick({ now = Date.now(), budgetMs = 20e3 } = {}) {
   const store = payStore();
+  // 0. a payment whose settlement was interrupted (crash between "paying" and "paid") → finish it
+  const lp = await latestPlanRound();
+  for (let n = lp; n > 0 && n > lp - 3; n--) {
+    if ((await getPlan(n))?.status === "paying") { const p = await settlePayment(n); return { step: "settled", round: n, status: p?.status }; }
+  }
   const state = (await store.get("cycle", { type: "json" })) || {};
   if (!state.since) { state.since = now; await store.setJSON("cycle", state); }
   const week = lastDrawTime(now);
@@ -408,45 +464,145 @@ export async function cronTick({ now = Date.now(), budgetMs = 20e3 } = {}) {
 }
 
 // ---------- paying ----------
-// Per-owner raw token deltas across txs (jsonParsed or json getTransaction results).
+// Per-owner raw token deltas across txs (jsonParsed or json getTransaction results), as BigInt.
 export function tokenDeltas(txs) {
-  const out = {};   // owner → mint → raw delta
+  const out = {};   // owner → mint → BigInt delta
   for (const tx of txs) {
-    const add = (b, sign) => { if (!b?.owner || !b?.mint) return; const v = Number(b.uiTokenAmount?.amount || 0) * sign; ((out[b.owner] ||= {})[b.mint] = (out[b.owner][b.mint] || 0) + v); };
-    for (const b of tx.meta?.postTokenBalances || []) add(b, 1);
-    for (const b of tx.meta?.preTokenBalances || []) add(b, -1);
+    const add = (b, sign) => {
+      if (!b?.owner || !b?.mint) return;
+      const v = big(b.uiTokenAmount?.amount ?? 0) * sign;
+      const o = (out[b.owner] ||= {}); o[b.mint] = (o[b.mint] || 0n) + v;
+    };
+    for (const b of tx.meta?.postTokenBalances || []) add(b, 1n);
+    for (const b of tx.meta?.preTokenBalances || []) add(b, -1n);
   }
   return out;
 }
-// What each wallet must receive: direct ORE/SKR, plus ORE bought by the swaps (client-reported
-// per payee as swapOre, only trusted as "> direct" when absent).
-export function dueByOwner(plan, ids, swapOre = {}) {
-  const due = {};
+
+// ----- server-side swap quote (the manifest) -----
+// SOL/USDC shares are swapped to ORE by the owner's wallet. WHAT each payee then gets in ORE is fixed
+// here, server-side, from a Jupiter quote: the swap's guaranteed minimum (otherAmountThreshold) split
+// by obligation. The browser is never trusted to say what is due — verification compares on-chain
+// receipts against plan.manifest.swapOre, and a SOL/USDC share with no recorded amount is never paid.
+export const SWAP_SLIPPAGE_BPS = 100;
+export const QUOTE_TTL_MS = 5 * 60e3;   // how long the page may still SWAP with a quote (verification doesn't expire)
+const jupBase = () => String(env("JUPITER_BASE", "https://lite-api.jup.ag")).replace(/\/+$/, "");
+const pendingIds = (plan) => {
+  const ex = new Set(plan.excluded || []), paid = plan.payment?.paidIds || {};
+  return new Set(plan.payees.filter((p) => !ex.has(p.id) && !paid[p.id]).map((p) => p.id));
+};
+export function swapBuckets(plan, ids = pendingIds(plan)) {
+  const b = { SOL: { total: 0n, parts: [] }, USDC: { total: 0n, parts: [] } };
   for (const p of plan.payees) {
     if (!ids.has(p.id)) continue;
-    const d = (due[p.wallet] ||= { ORE: 0, SKR: 0, swap: false, swapUnreported: false, ids: [] });
-    d.ORE += (p.pay.ORE || 0) + (+swapOre[p.id] || 0); d.SKR += p.pay.SKR || 0; d.ids.push(p.id);
-    if ((p.pay.SOL || 0) + (p.pay.USDC || 0) > 0) { d.swap = true; if (!(+swapOre[p.id] > 0)) d.swapUnreported = true; }
+    const pay = payOf(p);
+    for (const c of ["SOL", "USDC"]) if (pay[c] > 0n) { b[c].total += pay[c]; b[c].parts.push({ id: p.id, weight: pay[c] }); }
+  }
+  return b;
+}
+async function jupQuote(inputMint, amount) {
+  const url = `${jupBase()}/swap/v1/quote?inputMint=${inputMint}&outputMint=${MINTS.ORE}&amount=${amount}&swapMode=ExactIn&slippageBps=${SWAP_SLIPPAGE_BPS}`;
+  let q = null;
+  try { q = await (await fetch(url)).json(); } catch {}
+  if (!q || q.error || q.outAmount == null) throw new DrawError("no swap route to ORE right now" + (q?.error ? " (" + q.error + ")" : "") + " — try again in a minute", 502);
+  if (q.inputMint !== inputMint || q.outputMint !== MINTS.ORE || String(q.inAmount) !== String(amount) || (q.swapMode && q.swapMode !== "ExactIn"))
+    throw new DrawError("the swap quote doesn't match what was asked — not using it", 502);
+  const minOut = big(q.otherAmountThreshold ?? q.outAmount);
+  if (!(minOut > 0n) || minOut > big(q.outAmount)) throw new DrawError("the swap quote has no usable minimum output", 502);
+  return { quote: q, minOut, outAmount: big(q.outAmount) };
+}
+export function manifestHash(round, m) {
+  const swaps = Object.fromEntries(Object.entries(m.swaps || {}).sort().map(([c, s]) => [c, { inAmount: s.inAmount, minOut: s.minOut, ids: s.ids }]));
+  const so = Object.fromEntries(Object.entries(m.swapOre || {}).sort());
+  return createHash("sha256").update(JSON.stringify({ round, version: m.version, swaps, swapOre: so })).digest("hex");
+}
+// (Re)quote the SOL/USDC buckets of the still-unpaid payees and record the allocation in the plan.
+// A currency whose quoted payees already received a payment is LOCKED (its swap has evidently been
+// done) — its recorded amounts stay as they are.
+export async function quoteSwaps(round, { now = Date.now() } = {}) {
+  const plan0 = await getPlan(round);
+  if (!plan0) throw new DrawError("no payout plan for round " + round, 404);
+  if (plan0.status === "paid" || plan0.status === "paying") throw new DrawError(`round ${round} is ${plan0.status} — nothing to quote`);
+  const locked = (plan, c) => (plan.manifest?.swaps?.[c]?.ids || []).some((id) => plan.payment?.paidIds?.[id]);
+  const buckets0 = swapBuckets(plan0), fresh = {};
+  for (const c of ["SOL", "USDC"]) {
+    if (!(buckets0[c].total > 0n) || locked(plan0, c)) continue;
+    fresh[c] = { ...(await jupQuote(MINTS[c], buckets0[c].total.toString())), bucket: buckets0[c] };
+  }
+  const { value } = await casUpdate(payStore(), "round:" + round, (plan) => {
+    if (!plan) throw new DrawError("no payout plan for round " + round, 404);
+    if (plan.status === "paid" || plan.status === "paying") throw new DrawError(`round ${round} is ${plan.status} — nothing to quote`);
+    const buckets = swapBuckets(plan);
+    const old = plan.manifest || { version: 0, swaps: {}, swapOre: {} };
+    const m = { version: (old.version || 0) + 1, quotedAt: now, expiresAt: now + QUOTE_TTL_MS, slippageBps: SWAP_SLIPPAGE_BPS, swaps: {}, swapOre: {} };
+    // keep what was already paid against an earlier manifest (it is history now)
+    for (const [id, v] of Object.entries(old.swapOre || {})) if (plan.payment?.paidIds?.[id]) m.swapOre[id] = v;
+    for (const c of ["SOL", "USDC"]) {
+      if (locked(plan, c)) { m.swaps[c] = old.swaps[c]; for (const id of old.swaps[c].ids) m.swapOre[id] = old.swapOre[id]; continue; }
+      if (!(buckets[c].total > 0n)) continue;
+      const f = fresh[c];
+      // the plan changed between quoting and saving (an exclusion, a payment) → don't save a mismatched quote
+      if (!f || f.bucket.total !== buckets[c].total || f.bucket.parts.map((p) => p.id).join() !== buckets[c].parts.map((p) => p.id).join())
+        throw new DrawError(`round ${round}'s plan changed while quoting — press Pay again`, 409);
+      const alloc = allocate(f.minOut, buckets[c].parts);
+      m.swaps[c] = { inMint: MINTS[c], inAmount: S(buckets[c].total), minOut: S(f.minOut), outAmount: S(f.outAmount), ids: buckets[c].parts.map((p) => p.id), quote: f.quote };
+      for (const [id, v] of Object.entries(alloc)) m.swapOre[id] = (big(m.swapOre[id]) + v).toString();
+    }
+    m.hash = manifestHash(round, m);
+    plan.manifest = m;
+    return plan;
+  });
+  return value.manifest;
+}
+
+// ----- what's due, what arrived -----
+// What each wallet must receive: direct ORE/SKR plus, for SOL/USDC shares, the ORE recorded in the
+// server manifest. `unquoted` = payees with a SOL/USDC share and no recorded ORE amount → never covered.
+export function dueByOwner(plan, ids) {
+  const due = {}, so = plan.manifest?.swapOre || {};
+  for (const p of plan.payees) {
+    if (!ids.has(p.id)) continue;
+    const pay = payOf(p);
+    const d = (due[p.wallet] ||= { ORE: 0n, SKR: 0n, ids: [], unquoted: [] });
+    d.ORE += pay.ORE; d.SKR += pay.SKR; d.ids.push(p.id);
+    if (pay.SOL + pay.USDC > 0n) { if (so[p.id] == null) d.unquoted.push(p.id); else d.ORE += big(so[p.id]); }
   }
   return due;
 }
-// does what an owner received cover what they're due?
-export function covers(d, gotOre, gotSkr) {
-  if (d.ORE + d.SKR === 0 && !d.swap) return true;                       // nothing to send
-  const oreOk = gotOre >= Math.floor(d.ORE * 0.999) && (!d.swapUnreported || gotOre > d.ORE);
-  return oreOk && gotSkr >= Math.floor(d.SKR * 0.999);
+// does what an owner received (exact raw, per mint) cover what they're due? No tolerance.
+export function covers(d, got) {
+  if (d.unquoted.length) return false;
+  return big(got.ORE) >= d.ORE && big(got.SKR) >= d.SKR;
 }
+// what `owner` received in these txs, per mint, skipping (sig, owner) pairs already credited earlier
+export function received(owner, txs, consumed = {}) {
+  const got = { ORE: 0n, SKR: 0n }, used = [];
+  for (const { sig, tx } of txs) {
+    if (consumed[sig + ":" + owner]) continue;
+    const del = tokenDeltas([tx])[owner] || {};
+    const o = del[MINTS.ORE] || 0n, k = del[MINTS.SKR] || 0n;
+    if (o > 0n) got.ORE += o;
+    if (k > 0n) got.SKR += k;
+    if (o > 0n || k > 0n) used.push(sig);
+  }
+  return { got, used };
+}
+
+// ----- recording a payment: verify → commit ("paying") → settle → "partial" | "paid" -----
+class SettleFirst extends Error {}
+const MAX_SIGS = 40;
 // Verify the pay txs and mark what landed. Incremental: call again with more sigs after a retry.
-export async function recordPayment({ round, sigs, payer, swapOre = {}, reviewed = false }) {
-  const { value: plan, etag } = await readWithEtag(payStore(), "round:" + round);
-  if (!plan) throw new DrawError("no payout plan for round " + round, 404);
-  if (plan.status === "paid") throw new DrawError("round " + round + " is already paid");
+export async function recordPayment({ round, sigs, payer, reviewed = false }) {
+  await settlePayment(round);   // finish a settlement an earlier (crashed) call left behind
+  const first = await getPlan(round);
+  if (!first) throw new DrawError("no payout plan for round " + round, 404);
+  if (first.status === "paid") throw new DrawError("round " + round + " is already paid");
   if (!ADDR_RE.test(payer || "")) throw new DrawError("payer wallet missing", 400);
-  const list = [...new Set((sigs || []).filter((s) => /^[1-9A-HJ-NP-Za-km-z]{64,96}$/.test(s)))];
+  if (first.payment?.payer && first.payment.payer !== payer) throw new DrawError(`this round is being paid from ${first.payment.payer} — use the same wallet`, 400);
+  const list = [...new Set((sigs || []).filter((s) => typeof s === "string" && /^[1-9A-HJ-NP-Za-km-z]{64,96}$/.test(s)))].slice(0, MAX_SIGS);
   if (!list.length) throw new DrawError("no transaction signatures", 400);
-  const pay = plan.payment ||= { sigs: [], payer, paidIds: {}, reviewed: false };
-  if (pay.payer !== payer) throw new DrawError(`this round is being paid from ${pay.payer} — use the same wallet`, 400);
-  pay.reviewed = pay.reviewed || !!reviewed;
+
+  // 1) read + check every tx (no state change yet)
   const txs = [], bad = [];
   for (const s of list) {
     let tx = null;
@@ -455,50 +611,96 @@ export async function recordPayment({ round, sigs, payer, swapOre = {}, reviewed
     if (tx.meta?.err) { bad.push({ sig: s, reason: "failed on-chain" }); continue; }
     const feePayer = keyStr(tx.transaction?.message?.accountKeys?.[0]);
     if (feePayer !== payer) { bad.push({ sig: s, reason: "not sent by " + payer.slice(0, 4) + "…" }); continue; }
-    txs.push({ sig: s, tx });
-    if (!pay.sigs.includes(s)) pay.sigs.push(s);
-  }
-  // every payee not excluded and not already verified must have received what they're due
-  const ex = new Set(plan.excluded || []);
-  const pending = new Set(plan.payees.filter((p) => !ex.has(p.id) && !pay.paidIds[p.id]).map((p) => p.id));
-  const due = dueByOwner(plan, pending, swapOre);
-  const newlyPaid = [];
-  for (const [owner, d] of Object.entries(due)) {
-    let gotOre = 0, gotSkr = 0, sigOf = null;
-    for (const { sig, tx } of txs) {
-      const del = tokenDeltas([tx])[owner] || {};
-      if ((del[MINTS.ORE] || 0) > 0 || (del[MINTS.SKR] || 0) > 0) sigOf ||= sig;
-      gotOre += Math.max(0, del[MINTS.ORE] || 0); gotSkr += Math.max(0, del[MINTS.SKR] || 0);
+    // one signature pays ONE round: claim it (create-only); a sig already claimed by another round is refused
+    if (!(await putIfNew(payStore(), "sig:" + s, { round, at: Date.now() }))) {
+      const c = await payStore().get("sig:" + s, { type: "json" });
+      if (c && c.round !== round) { bad.push({ sig: s, reason: `already counted for round ${c.round}` }); continue; }
     }
-    if (covers(d, gotOre, gotSkr)) for (const id of d.ids) { pay.paidIds[id] = { sig: sigOf, ore: gotOre, skr: gotSkr }; newlyPaid.push(id); }
+    txs.push({ sig: s, tx });
   }
-  // preachers: their covered record sigs are now paid (never owed again)
-  for (const id of newlyPaid) {
-    const p = plan.payees.find((x) => x.id === id);
-    if (p?.kind === "preacher" && pay.paidIds[id].sig) await markPreacherPaid({ paySig: `${pay.paidIds[id].sig}:r${round}:${p.code}`, ref: p.code, wallet: p.wallet, payoutUsd: p.usd, sigs: p.sigs });
+
+  // 2) commit: everything newly covered + "paying" (with the settlement work) in ONE conditional write.
+  //    Preacher records / pot rollover / notices happen only AFTER this write landed (step 3).
+  let out = null;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      const { value: plan } = await casUpdate(payStore(), "round:" + round, (plan) => {
+        if (!plan) throw new DrawError("no payout plan for round " + round, 404);
+        if (plan.status === "paid") throw new DrawError("round " + round + " is already paid");
+        if (plan.status === "paying") throw new SettleFirst();
+        const pay = plan.payment ||= { sigs: [], payer, paidIds: {}, consumed: {}, reviewed: false };
+        pay.consumed ||= {};
+        if (pay.payer !== payer) throw new DrawError(`this round is being paid from ${pay.payer} — use the same wallet`, 400);
+        pay.reviewed = pay.reviewed || !!reviewed;
+        for (const { sig } of txs) if (!pay.sigs.includes(sig)) pay.sigs.push(sig);
+        // every payee not excluded and not already verified must have received what they're due
+        const ex = new Set(plan.excluded || []);
+        const pending = new Set(plan.payees.filter((p) => !ex.has(p.id) && !pay.paidIds[p.id]).map((p) => p.id));
+        const due = dueByOwner(plan, pending), newlyPaid = [], why = {};
+        for (const [owner, d] of Object.entries(due)) {
+          const { got, used } = received(owner, txs, pay.consumed);
+          if (!covers(d, got)) {
+            for (const id of d.unquoted) why[id] = "its SOL/USDC share has no server-recorded ORE amount (no quote) — not counted as paid";
+            continue;
+          }
+          for (const id of d.ids) { pay.paidIds[id] = { sig: used[0] || null, ore: S(got.ORE), skr: S(got.SKR), manifest: plan.manifest?.version || null }; newlyPaid.push(id); }
+          for (const s of used) pay.consumed[s + ":" + owner] = true;
+        }
+        const missing = plan.payees.filter((p) => !ex.has(p.id) && !pay.paidIds[p.id]).map((p) => p.id);
+        const final = missing.length ? "partial" : "paid";
+        const preachers = newlyPaid.filter((id) => plan.payees.find((p) => p.id === id)?.kind === "preacher" && pay.paidIds[id].sig);
+        out = { newlyPaid, missing, why };
+        if (!preachers.length && final !== "paid") { plan.status = final; return plan; }   // nothing to settle
+        plan.status = "paying";
+        plan.settle = { op: randomUUID(), at: Date.now(), final, preachers };
+        return plan;
+      });
+      if (plan.status === "paying") await settlePayment(round);
+      break;
+    } catch (e) {
+      if (!(e instanceof SettleFirst)) throw e;
+      await settlePayment(round);   // another call is mid-settlement: finish it (idempotent), then re-check
+      if (attempt === 3) throw new DrawError("the plan is busy settling — submit again in a moment (nothing is lost)", 409);
+    }
   }
-  const missing = plan.payees.filter((p) => !ex.has(p.id) && !pay.paidIds[p.id]).map((p) => p.id);
-  const rollover = [];
-  if (!missing.length) {
-    plan.status = "paid"; pay.paidAt = Date.now();
-    // excluded winners' shares stay in the pot: added back to the live pot for next round (below)
+  const now = await getPlan(round);
+  if (now.round >= (await latestPlanRound())) await payStore().set("latest", String(now.round));
+  return { ok: true, status: now.status, paidIds: Object.keys(now.payment?.paidIds || {}), newlyPaid: out.newlyPaid, missing: out.missing, why: out.why, bad };
+}
+
+// Step 3 — idempotent, safe to re-run any number of times (a crashed call, a racing call, the cron):
+// mark the committed preachers' records paid (keyed by the pay sig, so a repeat overwrites the same
+// record), roll excluded winners' shares into the pot (id-guarded) and send "Paid ✓" once, then
+// move "paying" → "partial" | "paid" (only for the same settlement op).
+export async function settlePayment(round) {
+  const plan = await getPlan(round);
+  if (!plan || plan.status !== "paying" || !plan.settle) return plan;
+  const s = plan.settle, pay = plan.payment, ex = new Set(plan.excluded || []);
+  for (const id of s.preachers || []) {
+    const p = plan.payees.find((x) => x.id === id), paidId = pay.paidIds[id];
+    if (p && paidId?.sig) await markPreacherPaid({ paySig: `${paidId.sig}:r${round}:${p.code}`, ref: p.code, wallet: p.wallet, payoutUsd: p.usd, sigs: p.sigs });
+  }
+  const rolled = [];
+  if (s.final === "paid") {
+    // excluded winners' shares stay in the pot: added back to the live pot for next round
     for (const p of plan.payees) {
       if (p.kind !== "winner" || !ex.has(p.id)) continue;
-      const curs = [["ORE", p.pay.ORE], ["SKR", p.pay.SKR], ["SOL", p.pay.SOL]].filter(([, v]) => v > 0);
-      if (curs.length) rollover.push({ p, curs });
+      const pay_ = payOf(p), curs = ["ORE", "SKR", "SOL"].filter((c) => pay_[c] > 0n);
+      for (const c of curs) await addToPot({ usd: (p.usd || 0.01) / curs.length, currency: c, native: fromRaw(pay_[c], c), route: "other", id: `rollover:r${round}:${p.id}:${c}` });
+      if (curs.length) rolled.push(p.id);
     }
-    pay.rolledOver = rollover.map(({ p }) => p.id);
-  } else plan.status = "partial";
-  // Save only if nobody changed the plan since we read it (a concurrent "paid" / exclude / rebuild):
-  // exactly ONE call makes the partial→paid transition, so the rollover + "Paid" notice happen once.
-  // (Preacher records marked above are keyed by the payment sig, so a repeat is a harmless overwrite.)
-  if (!(await putIfMatch(payStore(), "round:" + round, plan, etag)))
-    throw new DrawError("the plan changed while the payment was being verified — submit again (nothing is lost)", 409);
-  if (plan.round >= (await latestPlanRound())) await payStore().set("latest", String(plan.round));
-  for (const { p, curs } of rollover)
-    for (const [c, v] of curs) await addToPot({ usd: (p.usd || 0.01) / curs.length, currency: c, native: fromRaw(v, c), route: "other", id: `rollover:r${round}:${p.id}:${c}` });
-  if (plan.status === "paid") await notify(`Paid ✓ — ${summary(plan)}\n${pay.sigs.map((s) => "https://solscan.io/tx/" + s).join("\n")}`);
-  return { ok: true, status: plan.status, paidIds: Object.keys(pay.paidIds), newlyPaid, missing, bad };
+    if (await putIfNew(payStore(), "notified:paid:" + round, { at: Date.now() }))
+      await notify(`Paid ✓ — ${summary(plan)}\n${pay.sigs.map((x) => "https://solscan.io/tx/" + x).join("\n")}`);
+  }
+  const { value } = await casUpdate(payStore(), "round:" + round, (o) => {
+    if (!o || o.status !== "paying" || o.settle?.op !== s.op) return undefined;   // already finalized by another call
+    o.status = s.final;
+    if (s.final === "paid") { o.payment.paidAt ||= Date.now(); o.payment.rolledOver = rolled; }
+    delete o.settle;
+    return o;
+  });
+  if (value?.round >= (await latestPlanRound())) await payStore().set("latest", String(value.round));
+  return value;
 }
 
 // Mark exclusion (or undo). Excluded winners' shares roll into next week's pot when the round is
@@ -507,6 +709,7 @@ export async function setExcluded(round, who, exclude = true) {
   const { value } = await casUpdate(payStore(), "round:" + round, (plan) => {   // atomic vs a concurrent "paid"
     if (!plan) throw new DrawError("no payout plan for round " + round, 404);
     if (plan.status === "paid" || plan.payment?.paidIds?.[who]) throw new DrawError("already paid — can't change");
+    if (plan.status === "paying") throw new DrawError("a payment is being settled — reload in a moment");
     if (!plan.payees.some((p) => p.id === who)) throw new DrawError("unknown payee " + who, 400);
     const s = new Set(plan.excluded || []);
     exclude ? s.add(who) : s.delete(who);
@@ -528,4 +731,96 @@ export async function alreadyPaidElsewhere(plan) {
   const out = {};
   for (const p of plan.payees) if (p.kind === "preacher") { const n = p.sigs.filter((x) => paid.has(x)).length; if (n) out[p.id] = n; }
   return out;
+}
+
+// ---------- the owner's weekly statement (/payouts): what COMES IN · what GOES OUT · what STAYS ----------
+// Pure — every input is already read by /api/payouts?statement=1:
+//   reserve   the Reserve's own 7-day reading of the Treasury (store-fn-reserve.mjs: sources per mint + balances now)
+//   viaPreacher  mining tips that came through a preacher link this week (verified coin-purchase records), per mint
+//   repairs   { granted: [repair records], refunded: [refund records] } this week (store-keeper-core.mjs)
+//   plan      the round's payout plan (winners + preachers) — null when no draw is waiting
+//   keeper    keeperSummary(): refunds due, burn claims, the 12% operations share, unconverted shares, Card Vaults
+//   pot       the live Pot (next draw's prize) · prices: mint → USD
+// Amounts here are DISPLAY numbers (UI units, ≈USD); the money itself only ever moves by the plan's / Keeper's exact
+// raw amounts, and every transfer is verified on-chain afterwards.
+export const STATEMENT_SYMBOLS = {
+  [MINTS.SOL]: "SOL", [MINTS.ORE]: "ORE", [MINTS.SKR]: "SKR", [MINTS.USDC]: "USDC",
+  storenSbvkfzircixnaosc5CbzNZVrHJ6S3EKrS1yqR: "stORE", G1jonmoSEbMJSwEg1AmgDAJq2utmuBSZct8oqttBf9rT: "GRAMS",
+};
+const STORE_MINT_ = "storenSbvkfzircixnaosc5CbzNZVrHJ6S3EKrS1yqR";
+export function weeklyStatement({ now = Date.now(), reserve = null, viaPreacher = {}, repairs = { granted: [], refunded: [] }, plan = null, drawNote = null,
+  keeper = {}, pot = null, prices = {}, burnEnabled = false, opsWallet = null } = {}) {
+  const px = (m) => (+prices[m] > 0 ? +prices[m] : 0);
+  const clean = (o) => { const r = {}; for (const [m, v] of Object.entries(o || {})) { const n = +v; if (n > 1e-12) r[m] = n; } return r; };
+  const usd = (o) => +Object.entries(o || {}).reduce((s, [m, v]) => s + (+v || 0) * px(m), 0).toFixed(2);
+  const plus = (a, b) => { const r = { ...clean(a) }; for (const [m, v] of Object.entries(clean(b))) r[m] = (r[m] || 0) + v; return r; };
+  const minus = (a, b) => { const r = {}; for (const [m, v] of Object.entries(clean(a))) { const n = v - (+(b || {})[m] || 0); if (n > 1e-9) r[m] = n; } return r; };
+  const capAt = (a, cap) => (cap ? Object.fromEntries(Object.entries(clean(a)).map(([m, v]) => [m, Math.min(v, +cap[m] || 0)])) : clean(a));
+  const amt = (amounts) => { const a = clean(amounts); return { amounts: a, usd: usd(a) }; };
+  const fromPay = (p) => clean({ [MINTS.ORE]: fromRaw(p.pay?.ORE, "ORE"), [MINTS.SKR]: fromRaw(p.pay?.SKR, "SKR"), [MINTS.SOL]: fromRaw(p.pay?.SOL, "SOL"), [MINTS.USDC]: fromRaw(p.pay?.USDC, "USDC") });
+  const src = reserve?.sources || {};
+
+  // ---- COMES IN (the last 7 days) ----
+  const via = reserve ? capAt(viaPreacher, src.mining) : clean(viaPreacher);
+  const repairOre = (repairs.granted || []).length * 0.01 + (repairs.refunded || []).reduce((s, r) => s + fromRaw(r.raw, "ORE"), 0);
+  const repairIn = clean({ [MINTS.ORE]: repairOre });
+  const nCards = (repairs.granted || []).length + (repairs.refunded || []).reduce((n, r) => n + ((r.mints || []).length || 0), 0);
+  const IN = [
+    { key: "royalties", label: "Marketplace royalties", note: "sales on Magic Eden, Tensor and our store", ...amt(src.royalties) },
+    { key: "coins", label: "Game-coin buys", ...amt(src.coins) },
+    { key: "mineRef", label: "Mining tips via a preacher", note: "the preacher's share is paid out below", ...amt(via) },
+    { key: "mineNoRef", label: "Mining tips, no preacher", note: "100% Reserve", ...amt(minus(src.mining, via)) },
+    { key: "potTips", label: "Pot tips", note: "100% to the Pot", ...amt(src.tips) },
+    { key: "repairs", label: "Card repairs", note: nCards ? nCards + " card" + (nCards === 1 ? "" : "s") + " × 0.01 ORE" : "", ...amt(repairIn) },
+    { key: "direct", label: "Direct tips & other", ...amt(minus(src.direct, repairIn)) },
+  ];
+  const topUps = { key: "team", label: "Your own top-ups", note: "money you moved in — not income", ...amt(src.team) };
+
+  // ---- GOES OUT (what this batch pays) ----
+  const paidIds = plan?.payment?.paidIds || {}, excluded = new Set(plan?.excluded || []);
+  const open = plan && plan.status !== "paid" ? (plan.payees || []).filter((p) => !excluded.has(p.id) && !paidIds[p.id]) : [];
+  const group = (key, label, why, lines, extra = {}) => {
+    const amounts = lines.reduce((a, l) => plus(a, l.amounts), {});
+    return { key, label, why, lines, amounts, usd: +lines.reduce((s, l) => s + (+l.usd || 0), 0).toFixed(2), ...extra };
+  };
+  const winnerLines = open.filter((p) => p.kind === "winner").map((p) => ({ to: p.wallet, amounts: fromPay(p), usd: +(+p.usd || 0).toFixed(2), note: (p.tickets || 0) + " ticket" + (p.tickets === 1 ? "" : "s") }));
+  const preacherLines = open.filter((p) => p.kind === "preacher").map((p) => ({ to: p.wallet, amounts: fromPay(p), usd: +(+p.usd || 0).toFixed(2), note: (p.code ? p.code + " · " : "") + (p.tier || "") + (p.share ? " " + Math.round(p.share * 100) + "%" : "") }));
+  const swapped = (lines) => lines.some((l) => l.amounts[MINTS.SOL] || l.amounts[MINTS.USDC]);
+  const OUT = [];
+  OUT.push(group("winners", plan ? "Pot winners — round " + plan.round : "Pot winners", "this week's draw", winnerLines,
+    { none: winnerLines.length ? null : (drawNote || (plan && plan.status === "paid" ? "Round " + plan.round + " is already paid ✓" : "No draw to pay right now")), swapNote: swapped(winnerLines) ? "SOL / USDC parts are swapped to ORE in the same batch" : null }));
+  OUT.push(group("preachers", "Preacher shares", "28–44% of the coin buys and mining tips they brought in", preacherLines,
+    { none: preacherLines.length ? null : "No preacher is owed $1 or more", swapNote: swapped(preacherLines) ? "SOL / USDC parts are swapped to ORE in the same batch" : null }));
+  const refundLines = (keeper.refundsDue || []).map((r) => { const a = clean({ [MINTS.ORE]: fromRaw(r.raw, "ORE") }); return { to: r.payer, amounts: a, usd: usd(a), note: ((r.mints || []).length || 0) + " card(s) paid after the Mint cap was full" }; });
+  OUT.push(group("refunds", "Repair refunds", "repairs paid when every Mint spot was taken", refundLines, { none: refundLines.length ? null : "None" }));
+  const claimLines = burnEnabled ? (keeper.claimsDue || []).map((c) => ({ to: c.wallet, amounts: clean({ [STORE_MINT_]: +c.store || 0 }), usd: +(+c.usd || 0).toFixed(2), note: (c.coll || "") + (c.kind === "sent" ? " · sent to the Treasury" : " · burned by the holder") })) : [];
+  OUT.push(group("claims", "Burn claims", "a burned card's share of its Card Vault, in stORE", claimLines, { none: burnEnabled ? (claimLines.length ? null : "None") : "Burning is off — no claims" }));
+  const opsDue = clean(keeper.ops?.due);
+  const opsLines = Object.keys(opsDue).length && opsWallet ? [{ to: opsWallet, amounts: opsDue, usd: usd(opsDue), note: "12% of royalties, repairs, coin buys and referred mining tips" }] : [];
+  OUT.push(group("ops", "Operations share (12%)", "hosting, tools, the team", opsLines,
+    { none: !Object.keys(opsDue).length ? "Nothing due" : opsWallet ? null : "Operations wallet not set — set OPS_WALLET in Netlify", waiting: !opsWallet && Object.keys(opsDue).length ? amt(opsDue) : null }));
+  const OUT_USD = +OUT.reduce((s, g) => s + g.usd, 0).toFixed(2);
+  // the Card Vault + Reserve shares are swapped to stORE — that money stays with us
+  const unconv = clean(Object.fromEntries(Object.entries(keeper.totals?.unconverted || {}).filter(([m]) => m !== STORE_MINT_)));
+  const convUsd = usd(unconv), sp = px(STORE_MINT_);
+  const convert = { key: "convert", label: "Swapped to stORE (stays with us)", why: "the Card Vault and Reserve shares, as Staked ORE", amounts: unconv, usd: convUsd,
+    becomes: sp > 0 && convUsd > 0 ? { [STORE_MINT_]: +(convUsd / sp).toFixed(6) } : {}, none: Object.keys(unconv).length ? null : "Nothing to convert" };
+
+  // ---- STAYS ----
+  const now_ = clean(reserve?.holdings);
+  let leaving = {};
+  for (const g of OUT) leaving = plus(leaving, g.amounts);
+  const after = plus(minus(minus(now_, leaving), unconv), convert.becomes);
+  const potAmts = clean({ [MINTS.ORE]: Object.values(pot?.routes || {}).reduce((s, r) => s + (+r.ore || 0), 0), [MINTS.SOL]: Object.values(pot?.routes || {}).reduce((s, r) => s + (+r.sol || 0), 0), [MINTS.SKR]: Object.values(pot?.routes || {}).reduce((s, r) => s + (+r.skr || 0), 0) });
+  const vaults = Object.entries(keeper.pools || {}).map(([name, p]) => ({ name, amounts: clean(p.pool), usd: usd(p.pool), nfts: p.eligible ?? null }));
+  const potUsd = +(+(pot?.usd) || 0).toFixed(2), vaultUsd = +vaults.reduce((s, v) => s + v.usd, 0).toFixed(2), afterUsd = usd(after);
+  const opsWaiting = OUT.find((g) => g.key === "ops")?.waiting || null;
+  return {
+    at: now, from: now - 7 * DAY, partial: !reserve || !!reserve.partial, reserveAt: reserve?.at || null,
+    in: IN, inUsd: +IN.reduce((s, l) => s + l.usd, 0).toFixed(2), topUps,
+    out: OUT, outUsd: OUT_USD, convert,
+    stays: { now: now_, nowUsd: usd(now_), after, afterUsd, pot: { amounts: potAmts, usd: potUsd }, vaults, vaultUsd,
+      reserveFreeUsd: +Math.max(0, afterUsd - potUsd - vaultUsd - (opsWaiting ? opsWaiting.usd : 0)).toFixed(2), opsWaiting },
+    symbols: STATEMENT_SYMBOLS, prices,
+  };
 }

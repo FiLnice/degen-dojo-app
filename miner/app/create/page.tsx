@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { Connection, PublicKey, Transaction } from "@solana/web3.js";
+import { Connection, PublicKey, Transaction, TransactionInstruction } from "@solana/web3.js";
 // The store's shared wallet session (same as /mine): embedded → window.DOJO_WALLET via
 // wallet-picker.js, sending with signAndSendTransaction (the store /api/rpc refuses
 // sendTransaction); standalone → the regular wallet-adapter.
@@ -12,7 +12,7 @@ import { Loader2, Check, Copy, ArrowLeft, ExternalLink } from "lucide-react";
 import { OreIcon } from "@/components/OreIcon";
 import { StoreNav } from "@/components/StoreNav";
 import { OPERATOR_WALLET, SETUP_FEE_ORE } from "@/lib/config";
-import { createAtaIdempotentIx, oreTransferIx, ORE_DECIMALS } from "@/lib/ore";
+import { createAtaIdempotentIx, oreTransferIx, ORE_DECIMALS, MEMO_PROGRAM_ID } from "@/lib/ore";
 
 type Tile = { mint: string; name: string; image: string };
 const SQUARES = 25;
@@ -20,7 +20,24 @@ const SQUARES = 25;
 const REQUESTS_API = "/api/miner-requests";
 /** A paid-but-not-yet-accepted signature, kept so a failed submit can retry WITHOUT paying twice. */
 const PAID_KEY = "dd_create_paid_sig";
+/** …and the exact request that payment was made for (the payment's memo commits to it). */
+const PAID_BODY_KEY = "dd_create_paid_body";
 const isHttps = (u: string) => /^https:\/\//i.test(u);
+
+type ReqBody = {
+  name: string; tipWallet: string; contact: string; website: string; collection: string;
+  degens: { name: string; image: string; mint: string }[]; payer: string;
+};
+/** The payer commits to the exact request inside the payment: memo "ddminer:<this hash>". The store accepts a
+ *  request only when its own hash is in that memo (front-run guard) — MUST match minerRequestHash in
+ *  bulkitor/scripts/store-miner-core.mjs: sha256 of this JSON, first 32 hex characters. */
+async function requestHash(b: ReqBody): Promise<string> {
+  const s = (v: unknown) => String(v ?? "").trim();
+  const tiles = b.degens.map((d) => [s(d.mint), s(d.image)]);
+  const data = new TextEncoder().encode(JSON.stringify([1, s(b.name), s(b.tipWallet), s(b.contact), s(b.website), s(b.collection), s(b.payer), tiles]));
+  const dig = new Uint8Array(await crypto.subtle.digest("SHA-256", data));
+  return Array.from(dig, (x) => x.toString(16).padStart(2, "0")).join("").slice(0, 32);
+}
 
 let operatorKey: PublicKey | null = null;
 try {
@@ -262,13 +279,23 @@ function RequestForm({ onSubmitted }: { onSubmitted: (id: string) => void }) {
   const infoValid = name.trim() && tipValid && contact.trim() && tiles.length === SQUARES;
   const canPay = connected && !!operatorKey && infoValid && !busy;
 
-  function rememberPaid(sig: string | null) {
+  function rememberPaid(sig: string | null, body?: ReqBody) {
     setPaidSig(sig);
     try {
       if (sig) sessionStorage.setItem(PAID_KEY, sig);
       else sessionStorage.removeItem(PAID_KEY);
+      if (sig && body) sessionStorage.setItem(PAID_BODY_KEY, JSON.stringify(body));
+      if (!sig) sessionStorage.removeItem(PAID_BODY_KEY);
     } catch {
       /* private mode — the in-memory copy still covers this visit */
+    }
+  }
+  function paidBody(): ReqBody | null {
+    try {
+      const v = sessionStorage.getItem(PAID_BODY_KEY);
+      return v ? (JSON.parse(v) as ReqBody) : null;
+    } catch {
+      return null;
     }
   }
 
@@ -277,12 +304,30 @@ function RequestForm({ onSubmitted }: { onSubmitted: (id: string) => void }) {
     setError(null);
     try {
       let sig = paidSig;
+      // a retry after a failed submit sends exactly the request that was paid for (the memo commits to it)
+      let body: ReqBody = (sig && paidBody()) || {
+        name: name.trim(),
+        tipWallet: tipWallet.trim(),
+        contact: contact.trim(),
+        website: website.trim(),
+        collection: collectionAddr,
+        degens: tiles.map((t) => ({ name: t.name, image: t.image, mint: t.mint })),
+        payer: publicKey.toBase58(),
+      };
       if (!sig) {
         setBusy("pay");
-        // Pay the fee in ORE: make sure the operator's ORE account exists, then send it.
+        body = { ...body, payer: publicKey.toBase58() };
+        // Pay the fee in ORE: make sure the operator's ORE account exists, then send it — with a memo that
+        // commits this payment to THIS request, so nobody else can file a different request against it.
+        const memo = new TransactionInstruction({
+          programId: MEMO_PROGRAM_ID,
+          keys: [],
+          data: Buffer.from("ddminer:" + (await requestHash(body)), "utf8"),
+        });
         const tx = new Transaction().add(
           createAtaIdempotentIx(publicKey, operatorKey),
           oreTransferIx(publicKey, operatorKey, BigInt(Math.round(SETUP_FEE_ORE * 10 ** ORE_DECIMALS))),
+          memo,
         );
         tx.feePayer = publicKey;
         tx.recentBlockhash = (await connection.getLatestBlockhash("confirmed")).blockhash;
@@ -302,23 +347,14 @@ function RequestForm({ onSubmitted }: { onSubmitted: (id: string) => void }) {
           await new Promise((r) => setTimeout(r, 1500));
         }
         sig = sent;
-        rememberPaid(sig);
+        rememberPaid(sig, body);
       }
 
       setBusy("submit");
       const res = await fetch(REQUESTS_API, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: name.trim(),
-          tipWallet: tipWallet.trim(),
-          contact: contact.trim(),
-          website: website.trim(),
-          collection: collectionAddr,
-          degens: tiles.map((t) => ({ name: t.name, image: t.image, mint: t.mint })),
-          paymentSig: sig,
-          payer: publicKey.toBase58(),
-        }),
+        body: JSON.stringify({ ...body, paymentSig: sig }),
       });
       const j = (await res.json().catch(() => ({}))) as { id?: string; error?: string };
       if (!res.ok || !j.id) {

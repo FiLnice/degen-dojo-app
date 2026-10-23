@@ -53,18 +53,31 @@
   function closeMenu() { if (menuEl) { menuEl.classList.remove('on'); var m = menuEl; setTimeout(function () { if (m && m.parentNode) m.parentNode.removeChild(m); }, 140); menuEl = null; document.removeEventListener('click', onDoc, true); } }
   function onDoc(e) { if (menuEl && !menuEl.contains(e.target)) closeMenu(); }
 
+  // "Get ORE" lives in this menu on every page (not in the header): the swap and the self-hosted web3.js it needs
+  // load on first use.
+  function getOre() {
+    if (window.DojoSwap) return window.DojoSwap.open();
+    var load = function (src) { return new Promise(function (ok, no) { var el = document.createElement('script'); el.src = src; el.onload = ok; el.onerror = no; document.head.appendChild(el); }); };
+    var chain = Promise.resolve();
+    if (!window.solanaWeb3) chain = chain.then(function () { return window.Buffer ? null : load('/buffer.js').then(function () { window.Buffer = window.Buffer || (window.buffer && window.buffer.Buffer); }); })
+      .then(function () { return load('/web3.js'); });
+    chain.then(function () { return load('/dojo-swap.js'); }).then(function () { window.DojoSwap.open(); })
+      .catch(function () { alert('Could not load the swap — refresh the page and try again.'); });
+  }
+
   function menu(anchor, pubkey, onDisconnect) {
     closeMenu();
     var r = anchor.getBoundingClientRect();
     menuEl = document.createElement('div');
     menuEl.className = 'dp-menu';
-    menuEl.innerHTML = '<button type="button" class="dp-pf">👤 Profile</button><button type="button" class="dp-dc">⏻ Disconnect</button>';
+    menuEl.innerHTML = '<button type="button" class="dp-pf">👤 Profile</button><button type="button" class="dp-ore">⇄ Get ORE</button><button type="button" class="dp-dc">⏻ Disconnect</button>';
     document.body.appendChild(menuEl);
     // place under the button, right-aligned, kept on-screen
     var w = menuEl.offsetWidth, left = Math.min(r.right - w, window.innerWidth - w - 8);
     menuEl.style.left = Math.max(8, left) + 'px';
     menuEl.style.top = (r.bottom + 8) + 'px';
     menuEl.querySelector('.dp-pf').onclick = function () { closeMenu(); open(pubkey); };
+    menuEl.querySelector('.dp-ore').onclick = function () { closeMenu(); getOre(); };
     menuEl.querySelector('.dp-dc').onclick = function () { closeMenu(); if (onDisconnect) onDisconnect(); };
     requestAnimationFrame(function () { if (menuEl) menuEl.classList.add('on'); });
     setTimeout(function () { document.addEventListener('click', onDoc, true); }, 0);

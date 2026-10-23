@@ -41,7 +41,7 @@
 <body>
 <main>
   <h1>Branded miner requests</h1>
-  <div class="sub">Review paid signups, approve to publish at <code>/m/&lt;slug&gt;</code>. The admin key stays in this tab only (sessionStorage).</div>
+  <div class="sub">Review paid signups, approve to publish at <code>/m/&lt;slug&gt;</code>. The admin key stays in this page only (never saved, sent as a header).</div>
   <div class="bar">
     <input id="key" type="password" placeholder="ADMIN_KEY" autocomplete="off" style="min-width:220px">
     <button class="primary" id="load">Load</button>
@@ -58,12 +58,9 @@
 </main>
 <script>
 (function () {
-  var KEY_SS = "dd_miner_admin_key";
   var $ = function (id) { return document.getElementById(id); };
   var all = [];
-  var ss = { get: function () { try { return sessionStorage.getItem(KEY_SS) || ""; } catch (e) { return ""; } },
-             set: function (v) { try { sessionStorage.setItem(KEY_SS, v); } catch (e) {} },
-             del: function () { try { sessionStorage.removeItem(KEY_SS); } catch (e) {} } };
+  try { sessionStorage.removeItem("dd_miner_admin_key"); } catch (e) {}   // clear any key an older version stored
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   function safeUrl(u) { return /^https:\/\//i.test(String(u || "")) ? String(u) : ""; }
   function status(t, bad) { var el = $("status"); el.textContent = t || ""; el.className = "msg" + (bad ? " err" : ""); }
@@ -73,10 +70,9 @@
     if (!key) { status("Enter the admin key.", true); return; }
     status("Loading…");
     try {
-      var r = await fetch("/api/miner-requests?admin=" + encodeURIComponent(key), { cache: "no-store" });
+      var r = await fetch("/api/miner-requests?admin=1", { cache: "no-store", headers: { authorization: "Bearer " + key } });
       var j = await r.json().catch(function () { return {}; });
       if (!r.ok) throw new Error(j.error || ("HTTP " + r.status));
-      ss.set(key);
       all = j.requests || [];
       status(all.length + " request(s) · fee " + j.feeOre + " ORE → " + (j.operator || "").slice(0, 6) + "…");
       render();
@@ -130,8 +126,8 @@
     out.textContent = "Saving…"; out.className = "msg out";
     try {
       var r = await fetch("/api/miner-requests", {
-        method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "decide", id: id, key: $("key").value.trim(), decision: act, slug: act === "approve" && slug ? slug : undefined })
+        method: "POST", headers: { "content-type": "application/json", authorization: "Bearer " + $("key").value.trim() },
+        body: JSON.stringify({ action: "decide", id: id, decision: act, slug: act === "approve" && slug ? slug : undefined })
       });
       var j = await r.json().catch(function () { return {}; });
       if (!r.ok) throw new Error(j.error || ("HTTP " + r.status));
@@ -146,9 +142,7 @@
   $("load").addEventListener("click", load);
   $("key").addEventListener("keydown", function (e) { if (e.key === "Enter") load(); });
   $("filter").addEventListener("change", render);
-  $("forget").addEventListener("click", function () { ss.del(); $("key").value = ""; all = []; render(); status("Key cleared."); });
-  var k = ss.get();
-  if (k) { $("key").value = k; load(); }
+  $("forget").addEventListener("click", function () { $("key").value = ""; all = []; render(); status("Key cleared."); });
 })();
 </script>
 </body>

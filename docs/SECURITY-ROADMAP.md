@@ -314,3 +314,25 @@ transaction. Any `ref` a client POSTs is ignored for attribution and kept only a
 4. **Purge the CDN cache** for `/nft/*` if old pages linger.
 5. **Not fixed in code (design level):**
    - Next 16.4.0 bump for local dev and the standalone miner site.
+
+---
+
+## Review round 2 (2026-10-21) — three parallel reviews: browser/wallet signing, server functions, leaked secrets
+
+Fixed + tested locally (store + site zips rebuilt; nothing deployed or sent):
+
+| # | Severity | Item | Fix |
+|---|---|---|---|
+| 10 | High | Royalties / any deposit into the pot wallet could be claimed as a "tip" → pot paid money it never got (+ preacher share) | tip = plain transfer (System/Token/ATA/ComputeBudget/Memo only) **with the `ddtip` memo**; store tip button adds it (`store-verify-core` `plainPayment`, `store-ref-core` `memosOf`) |
+| 11 | High | Store honoured `?rpc=` / `localStorage.ddRpc` in production (fake simulations / fake listings) | override only on localhost (`store-template.html` CONFIG.rpc) |
+| 12 | High | `/credits` built payments with web3.js + spl-token from esm.sh | self-hosted `/web3.js` + hand-built ATA-create + Transfer |
+| 13 | Med-High | Helius key hard-coded in degendojo.xyz pages | 4 calls → `/api/das` (`site-fn-das.mjs`, getAssetsByOwner only); **owner must rotate the key** |
+| 14 | Medium | Cosigner signed a bid alone → house fee account drain → pNFT buys halt | every `buy` must pair with an `execute_sale` on the same buyer trade state |
+| 15 | Medium | Junk `/api/coinbuy` records stall the cron | getSignatureStatuses at POST; unreadable records expire after 15 min |
+| 16 | Medium | RPC proxy gPA memcmp bypass; DAS cursor paging | memcmp pinned to offset 112; cursor/before/after refused |
+| 17 | Medium | No anti-framing headers | `X-Frame-Options: DENY` + `frame-ancestors 'none'` |
+| 18 | Low | `/credits` stale fallback prices | live prices only, retry |
+| 19 | Info | Function sources / package files downloadable | `_redirects` 404! for /netlify/*, /node_modules/*, package*.json, netlify.toml (both sites) |
+| — | Guard | Keys could ship again | `build-leak-guard.mjs` refuses to zip if a key / private key / 64-byte array is in the output |
+
+Still open: counterfeit-Degen labelling (verified-collection badge), market buy not tied to the shown price, inspect ME/Tensor/Jupiter-built txs (payouts), admin keys in URLs, listing GET cap per seller/mint, Duel seed revealed at start, miner-fee front-run, function rate limits. Operator: rotate Helius key; delete local `scripts/dd-cosigner.json` once Netlify has COSIGNER_SECRET; delete `bulkitor/.netlify` cache; one encrypted backup of the APK keystore.

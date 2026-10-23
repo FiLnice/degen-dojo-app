@@ -16,22 +16,26 @@
 //
 //   GET  ?action=status            → latest round (public: commitment, seed if
 //                                     drawn, blockhash, winners, tickets total)
-//   GET  ?action=commit&key=KEY    → open a new round (admin)
-//   GET  ?action=draw&key=KEY      → run the draw for the open round (admin)
+//   GET  ?action=commit  (Bearer ADMIN_KEY) → open a new round (admin)
+//   GET  ?action=draw    (Bearer ADMIN_KEY) → run the draw for the open round (admin)
 //
 // The commit/draw logic lives in store-draw-core.mjs, shared with the weekly payout cron
-// (store-fn-payout-cron.mjs), which commits + draws automatically each week.
+// (store-fn-payout-cron.mjs), which commits + draws automatically each week. A draw is crash-safe and
+// resumable (DD-07): the first ?action=draw freezes the round and answers 409 "settling"; calling it
+// again ~30 s later (or the cron's next tick) finishes it. A crashed draw is finished the same way.
 //
 // Env: ADMIN_KEY (gates commit/draw), SOLANA_RPC (a Solana RPC URL).
 // Tickets come from the "tickets" Blobs store, written ONLY by /api/play (store-fn-play.mjs).
+import { limited } from "./store-ratelimit-core.mjs";
 import { getPot, POT_FRAC } from "./store-pot-core.mjs";
 import { commitRound, drawRound, latestRound, getPublic, solUsd, DrawError } from "./store-draw-core.mjs";
-import { adminKeyOk } from "./store-session-core.mjs";
+import { adminRequestOk } from "./store-session-core.mjs";
 
 export default async (request) => {
+  const blocked = limited(request, "draw", 30); if (blocked) return blocked;   // 30 / minute / IP (DD-04)
   const url = new URL(request.url);
   const action = url.searchParams.get("action") || "status";
-  const admin = () => adminKeyOk(url.searchParams.get("key"), "ADMIN_KEY");   // unset ADMIN_KEY never matches (no "\0" sentinel)
+  const admin = () => adminRequestOk(request, "ADMIN_KEY");   // unset ADMIN_KEY never matches (no "\0" sentinel)
   const json = (o, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { "content-type": "application/json", "cache-control": "no-store" } });
 
   if (action === "status") {

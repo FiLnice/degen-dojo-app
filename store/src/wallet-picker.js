@@ -279,7 +279,7 @@
   // Seeker-native options get a short tag so people know which one is their phone's own wallet.
   function walletTag(name) {
     if (name === 'Mobile Wallet Adapter') return 'Seed Vault';
-    if (name === 'Seeker Connect') return 'Beta';
+    if (name === 'Seeker Connect') return 'Seeker';
     return '';
   }
   // Turn wallet-library errors into what to do next (the MWA library used to swallow them).
@@ -292,7 +292,16 @@
     return m;
   }
 
-  function dlButton(d, i, extraStyle) { return '<button class="dwp-w" data-dl="' + i + '"' + (extraStyle ? ' style="' + extraStyle + '"' : '') + '>' + (d.icon ? '<img src="' + d.icon + '" alt="">' : '') + '<span>Open in ' + d.name + '</span></button>'; }
+  // Wallet names/icons are supplied by whatever extension registers itself — treat them as untrusted text.
+  function escH(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function safeIcon(u) {
+    u = String(u || '');
+    if (/^data:image\/(png|svg\+xml|webp|jpeg|jpg|gif);base64,[A-Za-z0-9+\/=\s]+$/i.test(u) || /^https:\/\/[^\s"'<>]+$/i.test(u)) return escH(u);
+    return '';
+  }
+  function iconImg(u) { var s = safeIcon(u); return s ? '<img src="' + s + '" alt="">' : ''; }
+
+  function dlButton(d, i, extraStyle) { return '<button class="dwp-w" data-dl="' + i + '"' + (extraStyle ? ' style="' + extraStyle + '"' : '') + '>' + iconImg(d.icon) + '<span>Open in ' + escH(d.name) + '</span></button>'; }
 
   function pick() {
     return new Promise(function (resolve, reject) {
@@ -304,7 +313,7 @@
       var ov = document.createElement('div'); ov.className = 'dwp-ov';
       var wbtns = ws.map(function (w, i) {
         var tag = walletTag(w.name);
-        return '<button class="dwp-w" data-i="' + i + '">' + (w.icon ? '<img src="' + w.icon + '" alt="">' : '') + '<span>' + (w.name || 'Wallet') + '</span>' +
+        return '<button class="dwp-w" data-i="' + i + '">' + iconImg(w.icon) + '<span>' + escH(w.name || 'Wallet') + '</span>' +
           (tag ? '<span style="margin-left:auto;font-size:11px;color:#7fd59b;letter-spacing:.04em">' + tag + '</span>' : '') + '</button>';
       }).join('');
       var dbtns = dls.map(function (d, i) { return dlButton(d, i); }).join('');
@@ -329,7 +338,7 @@
           var steps = w.name === 'Mobile Wallet Adapter'
             ? 'Tap <b>Continue to Allow</b>, then <b>Connect Wallet</b>, then approve in <b>Seed Vault</b>.'
             : 'Approve in your wallet app.';
-          box.innerHTML = '<div class="dwp-h">Connecting to ' + ((w.name || 'wallet') + '').replace(/[<&]/g, '') + '…</div><div class="dwp-empty">' + steps + '</div>';
+          box.innerHTML = '<div class="dwp-h">Connecting to ' + escH(w.name || 'wallet') + '…</div><div class="dwp-empty">' + steps + '</div>';
           connect(w).then(function (a) { ov.remove(); resolve(a); }, function (err) {
             var m = ((err && err.message) || String(err || 'failed'));
             if (/cancel/i.test(m)) { ov.remove(); reject(new Error('cancelled')); return; }

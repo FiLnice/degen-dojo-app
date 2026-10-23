@@ -18,9 +18,10 @@
 // a server-debited coin + a server-recomputed outcome. dojo-scores.js keeps posting here
 // harmlessly (its scoreboard is local).
 //
-// GET ?key=ADMIN_KEY → dump the REAL ticket ledger (for the draw / audit).
+// GET (Authorization: Bearer ADMIN_KEY) → dump the REAL ticket ledger (for the draw / audit).
+import { limited } from "./store-ratelimit-core.mjs";
 import { getStore } from "@netlify/blobs";
-import { adminKeyOk } from "./store-session-core.mjs";
+import { adminRequestOk } from "./store-session-core.mjs";
 
 const NAME_RE = /^[\w .\-]{1,24}$/;
 const GAME = new Set(["duel", "flip", "teto", "cluck"]);
@@ -28,12 +29,13 @@ const WIN = 3, PLAY = 1, GRAND_SLAM = 3;   // win = 3 chances, play = 1; win all
 const ALL_GAMES = ["duel", "flip", "teto", "cluck"];
 
 export default async (request) => {
+  const blocked = limited(request, "ticket", 20); if (blocked) return blocked;   // 20 / minute / IP (DD-04)
   const store = getStore("tickets");            // the real ledger — read-only here (admin dump)
   const legacy = getStore("tickets-legacy");    // where untrusted POSTs go — never drawn from
   const url = new URL(request.url);
 
   if (request.method === "GET") {
-    if (!adminKeyOk(url.searchParams.get("key"), "ADMIN_KEY")) return new Response("forbidden", { status: 403 });
+    if (!adminRequestOk(request, "ADMIN_KEY")) return new Response("forbidden", { status: 403 });
     const { blobs } = await store.list();
     const out = [];
     for (const b of blobs) { const v = await store.get(b.key, { type: "json" }); if (v) out.push(v); }

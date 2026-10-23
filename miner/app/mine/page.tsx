@@ -20,6 +20,9 @@ import {
   estimateRounds,
   SQUARES,
   refMemoIx,
+  oreTransferIx,
+  ataFor,
+  ORE_DECIMALS,
 } from "@/lib/ore";
 import { COLLECTION_NAME, TIP_WALLET, TIP_ENABLED, DEGENS_URL, DEGENS_INLINE_JSON } from "@/lib/config";
 
@@ -67,14 +70,19 @@ function readRef(): string | null {
     return null;
   }
 }
-async function solUsdPrice(): Promise<number> {
-  const SOL_MINT = "So11111111111111111111111111111111111111112";
+type TipCurrency = "SOL" | "ORE";
+const PRICE_MINT: Record<TipCurrency, string> = {
+  SOL: "So11111111111111111111111111111111111111112",
+  ORE: "oreoU2P8bN6jkk3jbaiVxYnG1dCXcYxwhwyK9jSybcp",
+};
+async function usdPrice(currency: TipCurrency): Promise<number> {
+  const mint = PRICE_MINT[currency];
   try {
     const ctl = new AbortController();
     const t = setTimeout(() => ctl.abort(), 3000);
-    const j = await (await fetch(`https://lite-api.jup.ag/price/v3?ids=${SOL_MINT}`, { signal: ctl.signal })).json();
+    const j = await (await fetch(`https://lite-api.jup.ag/price/v3?ids=${mint}`, { signal: ctl.signal })).json();
     clearTimeout(t);
-    const p = Number(j?.[SOL_MINT]?.usdPrice);
+    const p = Number(j?.[mint]?.usdPrice);
     return p > 0 ? p : 0;
   } catch {
     return 0;
@@ -82,9 +90,9 @@ async function solUsdPrice(): Promise<number> {
 }
 /** Best effort: log a confirmed tip to the store's ledger (with the preacher ref, if any).
  *  Never throws, never blocks mining — an untrusted hint the backend re-verifies on-chain. */
-async function recordTip(sig: string, buyer: string, tipSol: number): Promise<void> {
+async function recordTip(sig: string, buyer: string, tipAmount: number, currency: TipCurrency): Promise<void> {
   try {
-    const px = await solUsdPrice();
+    const px = await usdPrice(currency);
     await fetch("/api/coinbuy", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -94,9 +102,9 @@ async function recordTip(sig: string, buyer: string, tipSol: number): Promise<vo
         buyer,
         kind: "tip",
         coins: 0,
-        currency: "SOL",
-        tokenAmount: tipSol,
-        usd: px ? Math.round(tipSol * px * 100) / 100 : 0,
+        currency,
+        tokenAmount: tipAmount,
+        usd: px ? Math.round(tipAmount * px * 100) / 100 : 0,
         ref: readRef(),
         ts: Date.now(),
       }),
@@ -122,6 +130,11 @@ export default function MinePage() {
   const [hosted, setHosted] = useState<Hosted | null>(null);
   const [collectionName, setCollectionName] = useState(COLLECTION_NAME);
   const [tipWallet, setTipWallet] = useState<PublicKey>(TIP_WALLET);
+  // The tip can be SOL or ORE. ORE only when the tip wallet already has an ORE account (the Dojo's treasury does;
+  // a hosted collection's wallet may not) — we never create accounts for someone else's wallet.
+  const [tipCur, setTipCur] = useState<TipCurrency>("SOL");
+  const [oreTipOk, setOreTipOk] = useState(false);
+  const [oreBal, setOreBal] = useState(0);
 
   useEffect(() => setMounted(true), []);
   useEffect(() => {
@@ -213,7 +226,33 @@ export default function MinePage() {
   const estLeftRounds = automation ? estimateRounds(automation.balance, automation.amount) : 0;
   // A hosted miner must have loaded ITS tip wallet before anything can be sent — never the default.
   const hostedReady = !hosted || hosted.state === "ok";
-  const canStartAuto = connected && amount > 0 && deposit >= amount * SQUARES && !busy && hostedReady;
+  // ORE tip availability (tip wallet must already hold an ORE account) + the player's own ORE balance
+  useEffect(() => {
+    let alive = true;
+    connection
+      .getAccountInfo(ataFor(tipWallet))
+      .then((a) => alive && setOreTipOk(!!a))
+      .catch(() => alive && setOreTipOk(false));
+    return () => {
+      alive = false;
+    };
+  }, [connection, tipWallet]);
+  useEffect(() => {
+    if (!oreTipOk && tipCur === "ORE") setTipCur("SOL");
+  }, [oreTipOk, tipCur]);
+  useEffect(() => {
+    if (!publicKey) return setOreBal(0);
+    let alive = true;
+    connection
+      .getTokenAccountBalance(ataFor(publicKey))
+      .then((b) => alive && setOreBal(Number(b.value.uiAmountString || 0)))
+      .catch(() => alive && setOreBal(0));
+    return () => {
+      alive = false;
+    };
+  }, [connection, publicKey, busy]);
+  const oreTipShort = TIP_ENABLED && tipCur === "ORE" && tip > 0 && tip > oreBal;
+  const canStartAuto = connected && amount > 0 && deposit >= amount * SQUARES && !busy && hostedReady && !oreTipShort;
 
   const pending = degens.length < SQUARES;
 
@@ -229,14 +268,15 @@ export default function MinePage() {
         reload: true,
       }),
     ];
-    const tipLamports = TIP_ENABLED && tip > 0 ? Math.floor(tip * LAMPORTS_PER_SOL) : 0;
-    if (tipLamports > 0) {
+    const oreTip = tipCur === "ORE" && oreTipOk;
+    const tipLamports = TIP_ENABLED && tip > 0 && !oreTip ? Math.floor(tip * LAMPORTS_PER_SOL) : 0;
+    const tipOreRaw = TIP_ENABLED && tip > 0 && oreTip ? BigInt(Math.round(tip * 10 ** ORE_DECIMALS)) : 0n;
+    if (tipLamports > 0 || tipOreRaw > 0n) {
+      // hosted → the collection's own wallet; default → the Degen Dojo treasury
       ixs.push(
-        SystemProgram.transfer({
-          fromPubkey: publicKey,
-          toPubkey: tipWallet, // hosted → the collection's own wallet; default → Degen Dojo
-          lamports: tipLamports,
-        }),
+        tipOreRaw > 0n
+          ? oreTransferIx(publicKey, tipWallet, tipOreRaw) // ORE from the player's ORE account to the tip wallet's
+          : SystemProgram.transfer({ fromPubkey: publicKey, toPubkey: tipWallet, lamports: tipLamports }),
       );
       // The preacher who referred this miner is written INTO the tip tx as a signed memo (default miner only —
       // hosted /m/<slug> tips go to the collection's wallet, nothing of ours to share).
@@ -247,7 +287,10 @@ export default function MinePage() {
     const sig = await submit("Start auto-mining", ixs);
     // Credit the preacher who referred this miner — ONLY for tips to Degen Dojo (the default
     // miner). Hosted /m/<slug> tips go to that collection's wallet, so there's nothing of ours to share.
-    if (sig && tipLamports > 0 && !hosted) void recordTip(sig, buyer, tipLamports / LAMPORTS_PER_SOL);
+    if (sig && !hosted) {
+      if (tipOreRaw > 0n) void recordTip(sig, buyer, Number(tipOreRaw) / 10 ** ORE_DECIMALS, "ORE");
+      else if (tipLamports > 0) void recordTip(sig, buyer, tipLamports / LAMPORTS_PER_SOL, "SOL");
+    }
   }
   const onStopAuto = () => publicKey && submit("Stop & withdraw", [stopAutomationIx(publicKey)]);
   function onClaimSol() {
@@ -473,17 +516,36 @@ export default function MinePage() {
                     </div>
                     {TIP_ENABLED && (
                       <div className="flex items-center justify-between gap-2">
-                        <label className="text-xs text-slate-400">
-                          Tip {collectionName} <SolIcon className="inline size-3" /> (optional)
-                        </label>
-                        <input
-                          value={tipStr}
-                          onChange={(e) => setTipStr(e.target.value)}
-                          inputMode="decimal"
-                          placeholder="0"
-                          className="w-24 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-right text-sm text-slate-100 tabular-nums outline-none focus:border-sky-500"
-                        />
+                        <label className="text-xs text-slate-400">Tip {collectionName} (optional)</label>
+                        <div className="flex items-center gap-1.5">
+                          {oreTipOk && (
+                            <div className="flex overflow-hidden rounded border border-slate-700 text-[11px]" role="group" aria-label="Tip currency">
+                              {(["SOL", "ORE"] as const).map((c) => (
+                                <button
+                                  key={c}
+                                  type="button"
+                                  onClick={() => setTipCur(c)}
+                                  aria-pressed={tipCur === c}
+                                  className={`px-2 py-1 font-semibold ${tipCur === c ? "bg-sky-600/30 text-sky-200" : "text-slate-400 hover:text-slate-200"}`}
+                                >
+                                  {c}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                          <input
+                            value={tipStr}
+                            onChange={(e) => setTipStr(e.target.value)}
+                            inputMode="decimal"
+                            placeholder="0"
+                            aria-label={`Tip in ${tipCur}`}
+                            className="w-24 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-right text-sm text-slate-100 tabular-nums outline-none focus:border-sky-500"
+                          />
+                        </div>
                       </div>
+                    )}
+                    {oreTipShort && (
+                      <p className="text-right text-[11px] text-amber-300">Not enough ORE for this tip (you have {oreBal.toFixed(4)} ORE)</p>
                     )}
                     <ActionButton onClick={onStartAuto} busy={busy === "Start auto-mining"} disabled={!canStartAuto}>
                       <Pickaxe className="size-4" />
@@ -492,10 +554,17 @@ export default function MinePage() {
                         : deposit < amount * SQUARES
                           ? "Deposit must cover ≥ 1 round"
                           : (
-                              <>
-                                Start auto-mining ({(deposit + tip).toFixed(4)}{" "}
-                                <SolIcon className="size-3.5" />)
-                              </>
+                              tipCur === "ORE" && oreTipOk && tip > 0 ? (
+                                <>
+                                  Start auto-mining ({deposit.toFixed(4)} <SolIcon className="size-3.5" /> + {tip.toFixed(4)}{" "}
+                                  <OreIcon className="size-3.5" />)
+                                </>
+                              ) : (
+                                <>
+                                  Start auto-mining ({(deposit + tip).toFixed(4)}{" "}
+                                  <SolIcon className="size-3.5" />)
+                                </>
+                              )
                             )}
                     </ActionButton>
                     {hasLeftoverSol && (

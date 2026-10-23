@@ -111,7 +111,7 @@ h1{font-family:"Teko",sans-serif;font-weight:700;font-size:clamp(38px,8vw,66px);
   <div class="strip">
     <div class="stat"><div class="k">Your coins</div><div class="v">🪙 <span id="balV">0</span></div></div>
     <div class="stat"><div class="k">Plays left</div><div class="v" id="playsV">0</div></div>
-    <div class="stat"><div class="k">Into the pot / buy</div><div class="v" id="potPctV">65<small>%</small></div></div>
+    <div class="stat"><div class="k">Into the pot / buy</div><div class="v" id="potPctV">22<small>%</small></div></div>
   </div>
   <!-- coins live on the server: sign in (one free signature, 12h) to see them; Seeker owners get one free coin -->
   <div class="acct">
@@ -130,14 +130,14 @@ h1{font-family:"Teko",sans-serif;font-weight:700;font-size:clamp(38px,8vw,66px);
   <div class="packs" id="packs"></div>
 
   <div class="potnote">
-    <span class="pill" id="potPill">65%</span>
+    <span class="pill" id="potPill">22%</span>
     <span>of every coin purchase flows straight into the <b>Dojo Pot</b> — the prize the <b>top 25 players each week</b> are raffled to win. The more everyone plays, the bigger the pot.</span>
   </div>
 
   <div class="how">
     <div class="c"><h3>Buy once, play anywhere</h3><p>Coins work across <b>Degen Duel</b>, <b>Dojo Flip</b>, <b>Teto Wars</b>, <b>Cluck-Fu</b> and <b>Cock Brawl</b>. No per-game top-ups, no juggling tokens mid-game.</p></div>
     <div class="c"><h3>Pay in what you hold</h3><p>Buy with <b>ORE</b>, <b>SKR</b> or <b>SOL</b> — priced live and swapped to settle. Same rails the store already uses.</p></div>
-    <div class="c"><h3>Play to earn raffle chances</h3><p>You never win money directly — a <b>win</b> = 3 raffle chances, a <b>play</b> = 1, and playing all 5 games in the same week = <b>+5 bonus</b>. Hold <b>5+ Degen Dojo fighters</b> and every chance counts <b>2×</b>. Every week the Dojo Pot is drawn among chance-holders, provably fair, and chances start fresh. <b>65%</b> of every coin pack goes into the pot.</p></div>
+    <div class="c"><h3>Play to earn raffle chances</h3><p>You never win money directly — a <b>win</b> = 3 raffle chances, a <b>play</b> = 1, and playing all 5 games in the same week = <b>+5 bonus</b>. Hold <b>5+ Degen Dojo fighters</b> and every chance counts <b>2×</b>. Every week the Dojo Pot is drawn among chance-holders, provably fair, and chances start fresh. <b>22%</b> of every coin pack goes into the pot.</p></div>
   </div>
 
   <div class="games">
@@ -155,6 +155,8 @@ h1{font-family:"Teko",sans-serif;font-weight:700;font-size:clamp(38px,8vw,66px);
 </div>
 <div class="toast" id="toast"></div>
 
+<!-- self-hosted web3.js (no third-party script builds the payment); it needs a global Buffer first -->
+<script src="/buffer.js"></script><script>window.Buffer=window.Buffer||(window.buffer&&window.buffer.Buffer);</script><script src="/web3.js"></script>
 <script src="/wallet-picker.js"></script>
 <script src="/dojo-wallet.js"></script>
 <script>
@@ -170,7 +172,7 @@ const ICON = {
 };
 // 1 credit ≈ $1. Bigger packs give bonus credits (the discount that nudges bulk buys).
 // DISPLAY ONLY — the server (store-verify-core.mjs coinsForUsd) credits from the verified
-// on-chain amount with the same table (±4% price drift), never from what this page claims.
+// on-chain amount at the price LOCKED by its quote when you click Buy, never from what this page claims.
 const PACKS = [
   { credits: 3,  bonus: 0,  usd: 3, tag: 'Starter' },   // smallest pack (owner: minimum 3 coins)
   { credits: 5,  bonus: 0,  usd: 5  },
@@ -178,7 +180,7 @@ const PACKS = [
   { credits: 25, bonus: 4,  usd: 25, tag: 'Best value', best: true },
   { credits: 50, bonus: 10, usd: 50 },
 ];
-const POT_PCT = 65;                 // share of every purchase that feeds the Dojo Pot
+const POT_PCT = 22;                 // share of every purchase that feeds the Dojo Pot (store-pot-core POT_FRAC)
 const PRICES = { SOL:null, ORE:null, SKR:null };
 let CUR = 'ORE';
 const PENDING_KEY = 'dojo_pending_buys';   // payments sent but not yet confirmed credited (re-sent + watched on revisit)
@@ -279,17 +281,18 @@ function setPay(c){
 }
 
 // ---- Real ORE / SKR / SOL purchase ----------------------------------------
-// The conversion is nailed by the live Jupiter price (tokenOf): a pack's $ price
-// → the exact token amount, sent to the treasury. The buyer signs a plain SOL or
-// SPL transfer — no custody. The backend verifies the on-chain payment (verify-cron, every
-// minute) before crediting SERVER coins; this page only watches for that (no local grant).
+// Priced when you pay: Buy first asks the server for a QUOTE (/api/coinbuy action "quote") — the live price locked
+// for 10 minutes and the exact token amount for the pack. The buyer signs a plain SOL or SPL transfer of exactly that
+// amount to the treasury, plus a "ddq:<quoteId>" memo that ties the payment to its quote — no custody. The backend
+// verifies the on-chain payment (verify-cron, every minute) and credits SERVER coins at the quote's price; this page
+// only watches for that (no local grant). The pack prices shown before Buy are live estimates.
 const TREASURY = '5w55F58ia3H71QjBD9bYvNQF2DcNu8K3AfJj9A4WMuWp';
 const RPC = location.origin + '/api/rpc';      // same-origin proxy → our Helius RPC (key stays server-side)
 const DEC = { SOL: 1e9, ORE: 1e11, SKR: 1e6 };
-let WALLET = null, web3 = null, spl = null;
+let WALLET = null, web3 = null;
 // the referring preacher, if this visit carried one (?ref=code or a dd_ref cookie set by /preacher/<code>)
 function getRef(){ try{ const u=new URLSearchParams(location.search).get('ref'); if(u) return u; const m=document.cookie.match(/(?:^|;\s*)dd_ref=([^;]+)/); return m?decodeURIComponent(m[1]):null; }catch(e){ return null; } }
-async function loadWeb3(){ if(!web3) web3 = await import('https://esm.sh/@solana/web3.js@1.95.3'); if(!spl) spl = await import('https://esm.sh/@solana/spl-token@0.4.9'); }
+async function loadWeb3(){ web3 = window.solanaWeb3; if(!web3) throw new Error('Checkout failed to load — refresh the page'); }
 async function connectWallet(){
   try{ WALLET = await DojoWalletPicker.pick(); }   // picker w/ official icons: Phantom / Solflare / Backpack / Jupiter
   catch(e){ if(String(e.message||e)!=='cancelled') toast((e.message||'No wallet').slice(0,60)); return null; }
@@ -298,23 +301,44 @@ async function connectWallet(){
 }
 async function buy(i){
   const WALLET = window.DOJO_WALLET;   // the shared store session (nav wallet button / autoConnect)
-  const p = PACKS[i], total = p.credits + p.bonus, amt = tokenOf(p.usd);
-  if(amt == null){ toast('Prices still loading — one moment'); return; }
+  const p = PACKS[i];   // the server quote below sets the exact amount — no client price needed to buy
   if(!WALLET){ toast('Connect your wallet first'); const nb=document.getElementById('dojoNavWallet'); if(nb) nb.click(); return; }
   try{
     if(WALLET.pubkey === TREASURY){ toast('That’s the treasury wallet — a self-payment isn’t a real purchase. Connect a different wallet.'); return; }
     await loadWeb3();
-    const { Connection, PublicKey, VersionedTransaction, TransactionMessage, SystemProgram } = web3;
+    // lock the price NOW: the server's quote fixes the exact token amount for this pack (valid 10 minutes)
+    const cur = CUR;
+    let q;
+    try{
+      const qr = await fetch('/api/coinbuy', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ action:'quote', wallet: WALLET.pubkey, currency: cur, usd: p.usd }) });
+      q = await qr.json();
+      if(!qr.ok || !q.quoteId || !/^\d+$/.test(q.tokenRaw||'') || q.currency !== cur || q.treasury !== TREASURY) throw new Error(q.error || 'Could not lock a price — try again');
+    }catch(e){ toast(String(e.message||e).slice(0,70)); return; }
+    const st=$('buyStatus'); st.style.display='';
+    st.innerHTML = '🔒 Price locked: <b>'+q.tokenAmount+' '+cur+'</b> ≈ $'+q.usd+' → <b>'+q.coins+' coin'+(q.coins===1?'':'s')+'</b> · pay within 10 minutes';
+    const { Connection, PublicKey, VersionedTransaction, TransactionMessage, SystemProgram, TransactionInstruction } = web3;
     const conn = new Connection(RPC, 'confirmed');
     const buyer = new PublicKey(WALLET.pubkey), dest = new PublicKey(TREASURY);
-    const base = Math.round(amt * DEC[CUR]);
+    const base = BigInt(q.tokenRaw);   // exactly the quoted amount (raw units)
     let ixs;
-    if(CUR === 'SOL'){ ixs = [ SystemProgram.transfer({ fromPubkey:buyer, toPubkey:dest, lamports:base }) ]; }
+    if(cur === 'SOL'){ ixs = [ SystemProgram.transfer({ fromPubkey:buyer, toPubkey:dest, lamports:Number(base) }) ]; }
     else {
-      const mint = new PublicKey(MINTS[CUR]);
-      const src = await spl.getAssociatedTokenAddress(mint, buyer), dst = await spl.getAssociatedTokenAddress(mint, dest);
-      ixs = [ spl.createAssociatedTokenAccountIdempotentInstruction(buyer, dst, dest, mint), spl.createTransferInstruction(src, dst, buyer, BigInt(base)) ];
+      const mint = new PublicKey(MINTS[cur]);
+      // hand-built (same bytes as @solana/spl-token's helpers): ORE and SKR are classic SPL tokens
+      const TOKEN = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'), ATA = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
+      const ataOf = (owner) => PublicKey.findProgramAddressSync([owner.toBuffer(), TOKEN.toBuffer(), mint.toBuffer()], ATA)[0];
+      const src = ataOf(buyer), dst = ataOf(dest);
+      const amt8 = new Uint8Array(8); new DataView(amt8.buffer).setBigUint64(0, base, true);
+      const k = (pubkey, isSigner, isWritable) => ({ pubkey, isSigner, isWritable });
+      ixs = [
+        new TransactionInstruction({ programId: ATA, data: Buffer.from([1]),   // create the treasury's account if missing (idempotent)
+          keys: [k(buyer, true, true), k(dst, false, true), k(dest, false, false), k(mint, false, false), k(SystemProgram.programId, false, false), k(TOKEN, false, false)] }),
+        new TransactionInstruction({ programId: TOKEN, data: Buffer.from([3, ...amt8]),   // Transfer(amount)
+          keys: [k(src, false, true), k(dst, false, true), k(buyer, true, false)] }),
+      ];
     }
+    // the price quote goes INTO the payment as a memo the buyer signs — the server reads it from the chain
+    ixs.push(new TransactionInstruction({ programId: new PublicKey('MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr'), keys: [], data: Buffer.from(q.memo, 'utf8') }));
     // the preacher who referred this buyer goes INTO the payment as a signed "ddref:<code>" memo (wallet-picker.js)
     if(window.DojoRef) ixs = window.DojoRef.withRef(web3, ixs);
     const { blockhash } = await conn.getLatestBlockhash();
@@ -326,7 +350,7 @@ async function buy(i){
     // Record the purchase (an untrusted hint — the server re-reads the tx on-chain and credits coins
     // from what the treasury ACTUALLY received). No local credit: the balance moves when the server says so.
     const sigStr = sig.signature || sig;
-    const rec = { sig: sigStr, buyer: WALLET.pubkey, coins: total, currency: CUR, tokenAmount: amt, usd: p.usd, ref: getRef(), ts: Date.now() };
+    const rec = { sig: sigStr, buyer: WALLET.pubkey, coins: q.coins, currency: cur, tokenAmount: +q.tokenAmount, usd: q.usd, quoteId: q.quoteId, ref: getRef(), ts: Date.now() };
     setPending(pendingList().concat([rec]));            // survives a closed tab — re-sent + watched on the next visit
     recordBuy(rec);
     toast('Payment sent — coins appear after the on-chain check (about a minute)');
@@ -341,10 +365,11 @@ async function loadPrices(){
   try{
     const ids = [MINTS.SOL, MINTS.ORE, MINTS.SKR].join(',');
     const j = await (await fetch('https://lite-api.jup.ag/price/v3?ids='+ids)).json();
-    PRICES.SOL = j[MINTS.SOL]?.usdPrice ?? 176;
-    PRICES.ORE = j[MINTS.ORE]?.usdPrice ?? 66;
-    PRICES.SKR = j[MINTS.SKR]?.usdPrice ?? 0.008;
-  }catch{ PRICES.SOL=176; PRICES.ORE=66; PRICES.SKR=0.008; }
+    // live prices only — a stale built-in price could make a buyer overpay; without a price the buy waits
+    PRICES.SOL = j[MINTS.SOL]?.usdPrice || null;
+    PRICES.ORE = j[MINTS.ORE]?.usdPrice || null;
+    PRICES.SKR = j[MINTS.SKR]?.usdPrice || null;
+  }catch{ PRICES.SOL = PRICES.ORE = PRICES.SKR = null; setTimeout(loadPrices, 15000); }
   renderPacks();
 }
 
@@ -358,5 +383,5 @@ window.addEventListener('dojo-coins-change', renderBalance);
 pendingList().filter(p => Date.now() - (p.ts||0) < 24*3600*1000).forEach(p => { recordBuy(p); watchPurchase(p.sig); });
 setPending(pendingList().filter(p => Date.now() - (p.ts||0) < 24*3600*1000));
 </script>
-<script src="/dojo-credits.js"></script><script src="/dojo-wallet.js"></script><script src="/dojo-profile.js"></script><script src="/mwa.js"></script><script src="/wallet-picker.js"></script><script>/*navwallet-wire*/(function(){var b=document.getElementById('dojoNavWallet');if(!b)return;var A=null,sh=function(p){return p.slice(0,4)+'\u2026'+p.slice(-4);};var G="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#0a0814;background:linear-gradient(135deg,#c8962a,#8b6018);border:none;padding:9px 16px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;",C="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#e8b84b;background:rgba(201,151,58,.12);border:1px solid rgba(201,151,58,.5);padding:9px 14px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;";function set(a){A=a;window.DOJO_WALLET=a||null;window.dispatchEvent(new Event('dojo-wallet-change'));if(a){b.textContent='\u25ce '+sh(a.pubkey);b.setAttribute('style',C);}else{b.textContent='Connect wallet';b.setAttribute('style',G);}}window.dojoNavSetWallet=set;b.onclick=function(){if(A){var dc=function(){try{A.disconnect&&A.disconnect();}catch(e){}set(null);};if(window.DojoProfile)DojoProfile.menu(b,A.pubkey,dc);else dc();return;}if(window.DojoWalletPicker)DojoWalletPicker.pick().then(set).catch(function(){});};if(window.DojoWalletPicker&&DojoWalletPicker.autoConnect)DojoWalletPicker.autoConnect().then(function(a){if(a&&!A)set(a);});})();</script></body>
+<script src="/dojo-credits.js"></script><script src="/dojo-wallet.js"></script><script src="/dojo-profile.js"></script><script src="/mwa.js"></script><script src="/wallet-picker.js"></script><script>/*navwallet-wire*/(function(){var b=document.getElementById('dojoNavWallet');if(!b)return;var A=null,sh=function(p){return p.slice(0,4)+'\u2026'+p.slice(-4);};var G="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#0a0814;background:linear-gradient(135deg,#c8962a,#8b6018);border:none;padding:9px 16px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;",C="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#e8b84b;background:rgba(201,151,58,.12);border:1px solid rgba(201,151,58,.5);padding:9px 14px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;";function set(a){A=a;window.DOJO_WALLET=a||null;window.dispatchEvent(new Event('dojo-wallet-change'));if(a){b.textContent='\u25ce '+sh(a.pubkey);b.setAttribute('style',C);}else{b.textContent='Connect wallet';b.setAttribute('style',G);}document.querySelectorAll('.dn-connect').forEach(function(x){x.textContent=a?'\u25ce '+sh(a.pubkey):'\ud83d\udd11 Connect';});}window.dojoNavSetWallet=set;b.onclick=function(){if(A){var dc=function(){try{A.disconnect&&A.disconnect();}catch(e){}set(null);};if(window.DojoProfile)DojoProfile.menu(b,A.pubkey,dc);else dc();return;}if(window.DojoWalletPicker)DojoWalletPicker.pick().then(set).catch(function(){});};if(window.DojoWalletPicker&&DojoWalletPicker.autoConnect)DojoWalletPicker.autoConnect().then(function(a){if(a&&!A)set(a);});})();</script></body>
 </html>

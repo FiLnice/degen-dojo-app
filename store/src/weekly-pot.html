@@ -78,13 +78,12 @@
         <th style="text-align:right;padding:10px 8px">ORE</th>
       </tr></thead>
       <tbody id="ledgerBody">
-        <tr data-route="coinbuy"><td style="padding:11px 8px"><b>🪙 Coin purchases</b><div style="color:var(--mut);font-size:12px"><span id="potPct">a set %</span> of every coin pack bought with SOL / SKR / ORE</div></td><td class="rv" data-c="sol">—</td><td class="rv" data-c="skr">—</td><td class="rv" data-c="ore">—</td></tr>
-        <tr data-route="games"><td style="padding:11px 8px"><b>🎮 Game entries</b><div style="color:var(--mut);font-size:12px">1 coin per play of Flip · Teto · Duel — a slice routes to the pot</div></td><td class="rv" data-c="sol">—</td><td class="rv" data-c="skr">—</td><td class="rv" data-c="ore">—</td></tr>
+        <tr data-route="coinbuy"><td style="padding:11px 8px"><b>🪙 Coin purchases</b><div style="color:var(--mut);font-size:12px"><span id="potPct">22%</span> of every coin pack bought with SOL / SKR / ORE</div></td><td class="rv" data-c="sol">—</td><td class="rv" data-c="skr">—</td><td class="rv" data-c="ore">—</td></tr>
+        <tr data-route="game"><td style="padding:11px 8px"><b>🎮 Game entries</b><div style="color:var(--mut);font-size:12px">1 coin per play of Flip · Teto · Duel — a slice routes to the pot</div></td><td class="rv" data-c="sol">—</td><td class="rv" data-c="skr">—</td><td class="rv" data-c="ore">—</td></tr>
         <tr data-route="cluck"><td style="padding:11px 8px"><b>🐔 Cluck-Fu sweep</b><div style="color:var(--mut);font-size:12px">the last <b>1/8</b> of every chicken-race pot</div></td><td class="rv" data-c="sol">—</td><td class="rv" data-c="skr">—</td><td class="rv" data-c="ore">—</td></tr>
-        <tr data-route="ore_mining"><td style="padding:11px 8px"><b>⛏️ ORE mining tips</b><div style="color:var(--mut);font-size:12px">tips from the ORE miner at mine.degendojo.xyz</div></td><td class="rv" data-c="sol">—</td><td class="rv" data-c="skr">—</td><td class="rv" data-c="ore">—</td></tr>
-        <tr data-route="shelves_tips"><td style="padding:11px 8px"><b>🛒 Shelves tips</b><div style="color:var(--mut);font-size:12px">optional tips when buying an NFT from the shelves</div></td><td class="rv" data-c="sol">—</td><td class="rv" data-c="skr">—</td><td class="rv" data-c="ore">—</td></tr>
-        <tr data-route="royalty"><td style="padding:11px 8px"><b>🏛 Marketplace royalties</b><div style="color:var(--mut);font-size:12px"><b>50%</b> of the 13% creator royalty on every Degen sold — in the Dojo store or any marketplace</div></td><td class="rv" data-c="sol">—</td><td class="rv" data-c="skr">—</td><td class="rv" data-c="ore">—</td></tr>
-        <tr data-route="tips"><td style="padding:11px 8px"><b>🎁 Other tips</b><div style="color:var(--mut);font-size:12px">coins &amp; rescue pages, plus periodic buy-and-burn sweeps</div></td><td class="rv" data-c="sol">—</td><td class="rv" data-c="skr">—</td><td class="rv" data-c="ore">—</td></tr>
+        <tr data-route="minetip"><td style="padding:11px 8px"><b>⛏️ ORE mining tips</b><div style="color:var(--mut);font-size:12px"><b>22%</b> of every mining tip that comes through a preacher&rsquo;s link (SOL or ORE) &mdash; tips with no preacher go to the Reserve</div></td><td class="rv" data-c="sol">—</td><td class="rv" data-c="skr">—</td><td class="rv" data-c="ore">—</td></tr>
+        <tr data-route="shelves"><td style="padding:11px 8px"><b>🛒 Shelves tips</b><div style="color:var(--mut);font-size:12px">optional tips when buying an NFT from the shelves</div></td><td class="rv" data-c="sol">—</td><td class="rv" data-c="skr">—</td><td class="rv" data-c="ore">—</td></tr>
+        <tr data-route="tip"><td style="padding:11px 8px"><b>🎁 Dojo Pot tips</b><div style="color:var(--mut);font-size:12px"><b>100%</b> — tips sent straight to the Pot from the coins &amp; rescue pages</div></td><td class="rv" data-c="sol">—</td><td class="rv" data-c="skr">—</td><td class="rv" data-c="ore">—</td></tr>
       </tbody>
       <tfoot><tr style="border-top:1px solid rgba(201,151,58,.4);font-family:'Teko',sans-serif;font-size:17px;color:var(--gold-l)">
         <td style="text-align:left;padding:12px 8px;letter-spacing:.04em">TOTAL IN THIS WEEK</td>
@@ -100,6 +99,18 @@
     #ledgerBody .rv{text-align:right;padding:11px 8px;font-family:'Teko',sans-serif;font-size:17px;color:var(--text);white-space:nowrap}
     #ledgerBody .rv.zero{color:var(--mut)}
   </style>
+
+  <h2>Where every coin pack &amp; mining tip goes</h2>
+  <div class="card">
+    <ul class="steps">
+      <li><b>22%</b> → this weekly <b>Pot</b> — players win it back in the draw.</li>
+      <li><b>22%</b> → the <a href="/reserve/" style="color:var(--gold-l)">Degen Dojo Reserve</a>.</li>
+      <li><b>44%</b> → the <b>preacher</b> who brought the player in: <b>28%</b> Wanderer · <b>36%</b> Disciple · <b>44%</b> Sensei (by fighters held). Whatever their tier doesn’t take — or all 44% when nobody referred the player — goes to the Reserve.</li>
+      <li><b>12%</b> → running the Dojo (hosting, tools, the team).</li>
+    </ul>
+    <p class="fine" style="margin-top:10px">A mining tip that comes <b>without</b> a preacher goes <b>100%</b> to the Reserve.</p>
+    <p class="fine" style="margin-top:10px">Marketplace royalties no longer feed the Pot: every royalty is split <b>44%</b> to the collection’s Card Vault · <b>44%</b> to the Reserve · <b>12%</b> to running the Dojo. <a href="/become-a-preacher" style="color:var(--gold-l)">Become a preacher ↗</a></p>
+  </div>
 
   <h2>How you earn chances</h2>
   <div class="card">

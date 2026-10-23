@@ -6,12 +6,14 @@
 <meta name="robots" content="noindex, nofollow, noarchive">
 <title>Weekly payouts</title>
 <style>
-  :root { color-scheme: dark; --bg:#0b0d12; --card:#141821; --line:#262c38; --ink:#e6e8ee; --dim:#8b93a5; --gold:#f0b429; --ok:#34d399; --bad:#f87171; --warn:#fbbf24; }
+  :root { color-scheme: dark; --bg:#0b0d12; --card:#141821; --line:#262c38; --ink:#e6e8ee; --dim:#8b93a5; --gold:#f0b429; --ok:#34d399; --bad:#f87171; --warn:#fbbf24; --in:#34d399; --out:#f0b429; --stay:#7dd3fc; }
   * { box-sizing: border-box; }
   body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.45 system-ui, -apple-system, Segoe UI, sans-serif; }
-  main { max-width: 1040px; margin: 0 auto; padding: 24px 16px 64px; }
+  main { max-width: 1120px; margin: 0 auto; padding: 24px 16px 64px; }
   h1 { font-size: 20px; margin: 0 0 4px; }
   h2 { font-size: 15px; margin: 0 0 10px; }
+  h3 { font-size: 13px; margin: 0 0 8px; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); display:flex; align-items:center; gap:8px; }
+  h3 b { margin-left:auto; color: var(--ink); font-size: 15px; letter-spacing: 0; text-transform: none; }
   .sub { color: var(--dim); font-size: 12px; margin-bottom: 16px; }
   .bar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom: 16px; }
   input, button { font: inherit; color: var(--ink); background: #0f1218; border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px; }
@@ -39,16 +41,47 @@
   .msg { font-size: 12px; color: var(--dim); }
   .err { color: var(--bad); } .okc { color: var(--ok); } .warnc { color: var(--warn); }
   .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-  .log { font: 12px/1.5 ui-monospace, Consolas, monospace; white-space: pre-wrap; word-break: break-all; max-height: 260px; overflow:auto; background:#0f1218; border:1px solid var(--line); border-radius: 6px; padding: 8px; }
+  .log { font: 12px/1.5 ui-monospace, Consolas, monospace; white-space: pre-wrap; word-break: break-word; max-height: 300px; overflow:auto; background:#0f1218; border:1px solid var(--line); border-radius: 6px; padding: 8px; }
+  .log:empty { display:none; }
   label.rev { display:flex; gap: 8px; align-items: center; margin: 10px 0; font-weight: 600; color: var(--warn); }
+  /* the weekly statement */
+  .stmt { overflow: visible; }
+  .stmt-head { display:flex; flex-wrap:wrap; gap: 8px 12px; align-items: baseline; margin-bottom: 12px; }
+  .stmt-head h2 { margin: 0; font-size: 17px; }
+  .cols { display:grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .col { background: #10141c; border: 1px solid var(--line); border-radius: 8px; padding: 12px; min-width: 0; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; display:inline-block; }
+  .dot.in { background: var(--in); } .dot.out { background: var(--out); } .dot.stay { background: var(--stay); }
+  ul.lines { list-style:none; margin: 0; padding: 0; }
+  ul.lines li { display:grid; grid-template-columns: 1fr auto; gap: 0 10px; padding: 6px 0; border-bottom: 1px dashed #222838; font-size: 13px; }
+  ul.lines li:last-child { border-bottom: 0; }
+  ul.lines .lbl { grid-column: 1 / -1; }
+  ul.lines .amt { color: var(--ink); font-variant-numeric: tabular-nums; word-break: break-word; }
+  ul.lines .usd { color: var(--dim); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+  ul.lines .note { display:block; color: var(--dim); font-size: 11.5px; }
+  .grp { padding: 8px 0; border-bottom: 1px solid #222838; }
+  .grp:last-child { border-bottom: 0; }
+  .grp .gh { display:flex; justify-content: space-between; gap: 8px; font-weight: 600; font-size: 13px; }
+  .grp .why { color: var(--dim); font-size: 11.5px; margin: 1px 0 4px; }
+  .grp .none { color: var(--dim); font-size: 12.5px; font-style: italic; }
+  .grp.keep .gh { color: var(--stay); }
+  .why { color: var(--dim); font-size: 11.5px; }
+  .aside { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); color: var(--dim); font-size: 12px; }
+  .free { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); display:flex; justify-content: space-between; font-size: 14px; }
+  .paybar { display:flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 14px 0 10px; }
+  .rcpt { list-style:none; margin: 8px 0 0; padding: 0; font-size: 12.5px; }
+  .rcpt li { padding: 6px 0; border-bottom: 1px dashed #222838; display:flex; gap: 10px; flex-wrap: wrap; align-items: baseline; }
+  details.more { margin-top: 18px; }
+  details.more > summary { cursor: pointer; color: var(--dim); font-size: 13px; margin-bottom: 12px; }
+  @media (max-width: 900px) { .cols { grid-template-columns: 1fr; } }
   @media (max-width: 720px) { .grid2 { grid-template-columns: 1fr; } dl { grid-template-columns: 1fr; } dt { margin-top: 4px; } }
 </style>
 </head>
 <body>
 <main>
   <h1>Weekly payouts</h1>
-  <div class="sub">Each week the store draws the Dojo Pot winners by itself (provably fair), works out what every winner and Preacher gets, checks for anything fishy, and messages you.
-    You connect the wallet that holds the money and press <b>Pay everything</b> — one approval in your wallet. SOL / USDC amounts are swapped to ORE in the same approval.
+  <div class="sub">Once a week: see what came in, what this batch pays out and what stays, then press <b>Pay this week</b> — one approval in the Treasury wallet.
+    Every transaction is checked before you sign it, the store re-checks every payment on-chain afterwards, and a half-finished batch continues where it stopped.
     No key ever leaves your wallet. The admin key stays in this tab only.</div>
   <div class="bar">
     <input id="key" type="password" placeholder="ADMIN_KEY" autocomplete="off" style="min-width:200px">
@@ -58,7 +91,11 @@
     <button id="forget">Forget key</button>
     <span id="status" class="msg"></span>
   </div>
-  <div id="view"></div>
+  <div id="stmt"></div>
+  <details class="more" id="more"><summary>Details — the draw, flags, every payee, the Keeper desk and one-step tools</summary>
+    <div id="view"></div>
+    <div id="keeper"></div>
+  </details>
 </main>
 <script src="/buffer.js"></script>
 <script>window.Buffer = window.Buffer || (window.buffer && window.buffer.Buffer);</script>
@@ -70,74 +107,430 @@
   var $ = function (id) { return document.getElementById(id); };
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
   var T = window.DojoPayoutTx, W3 = function () { return window.solanaWeb3; };
-  var MINTS = T.MINTS, DEC = T.DEC;
-  var KEY_SS = 'dd_admin_key';
-  var V = null, ADAPTER = null, BAL = null, BUSY = false, REVIEWED = false;
-  var ui = function (raw, c, dp) { return ((+raw || 0) / Math.pow(10, DEC[c])).toLocaleString('en-US', { maximumFractionDigits: dp == null ? (c === 'ORE' ? 5 : c === 'SOL' ? 4 : 2) : dp }); };
+  var MINTS = T.MINTS, DEC = T.DEC, STORE_MINT = T.STORE, SOLM = MINTS.SOL;
+  var V = null, KP = null, STMT = null, ADAPTER = null, BUSY = false, REVIEWED = false;
+  // raw amounts are BigInt / decimal strings (exact); Number() here is for DISPLAY only
+  var ui = function (raw, c, dp) { return (Number(T.B(raw)) / Math.pow(10, DEC[c])).toLocaleString('en-US', { maximumFractionDigits: dp == null ? (c === 'ORE' ? 5 : c === 'SOL' ? 4 : 2) : dp }); };
   var short = function (w) { return w ? w.slice(0, 4) + '…' + w.slice(-4) : '—'; };
   var acct = function (w) { return '<a href="https://solscan.io/account/' + esc(w) + '" target="_blank" rel="noopener">' + esc(short(w)) + '</a>'; };
   var txl = function (s) { return '<a href="https://solscan.io/tx/' + esc(s) + '" target="_blank" rel="noopener">' + esc(short(s)) + '</a>'; };
-  try { $('key').value = sessionStorage.getItem(KEY_SS) || ''; } catch (e) {}
+  var KNAME = {}; KNAME[STORE_MINT] = 'stORE'; KNAME[SOLM] = 'SOL'; KNAME[MINTS.ORE] = 'ORE'; KNAME[MINTS.SKR] = 'SKR'; KNAME[MINTS.USDC] = 'USDC';
+  var kname = function (m) { return (STMT && STMT.symbols && STMT.symbols[m]) || KNAME[m] || short(m); };
+  var amtList = function (o) { var k = Object.keys(o || {}).filter(function (m) { return +o[m] !== 0; }); return k.length ? k.map(function (m) { return esc(o[m]) + ' ' + esc(kname(m)); }).join(' · ') : '—'; };
+  var DECS = {}; DECS[MINTS.ORE] = 11; DECS[STORE_MINT] = 11; DECS[MINTS.SKR] = 6; DECS[MINTS.USDC] = 6; DECS[SOLM] = 9;
+  var CUR_OF = {}; CUR_OF[MINTS.ORE] = 'ORE'; CUR_OF[MINTS.SKR] = 'SKR'; CUR_OF[MINTS.USDC] = 'USDC'; CUR_OF[SOLM] = 'SOL';
+  var KCOLL = { 'Degen Dojo': '2m9DupVeheZ5vfuXZxqV3KSQ7HnVDk2tG6ouH1ZnLwYb', 'Demon Dojo': 'WyUy9qjJekjqTAYGanANjhtviwgu1uhCkXx1uas8fWb', 'TETO': 'dgd6We3oS4M5LSVzT6Ep39wwVpjLC336tCpyPZkLAHx' };
+  // the admin key lives only in the field above for this tab's life (never URL / sessionStorage) — sent as a header
+  try { sessionStorage.removeItem('dd_admin_key'); } catch (e) {}   // clear any key an older version stored
   function key() { return $('key').value.trim(); }
-  function log(html) { var el = $('log'); if (!el) return; el.innerHTML += html + '\n'; el.scrollTop = el.scrollHeight; }
 
   // ---------- server ----------
   function api(body) {
-    body.key = key();
-    return fetch('/api/payouts', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+    return fetch('/api/payouts', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + key() }, body: JSON.stringify(body) })
       .then(function (r) { return r.json().then(function (j) { if (!r.ok || j.error) throw new Error(j.error || ('Error ' + r.status)); return j; }); });
+  }
+  function getJ(q) {
+    return fetch('/api/payouts' + q, { cache: 'no-store', headers: { authorization: 'Bearer ' + key() } })
+      .then(function (x) { if (x.status === 403) throw new Error('Wrong key.'); return x.json().then(function (j) { if (j.error) throw new Error(j.error); return j; }); });
   }
   function rpcCall(method, params) {
     return fetch('/api/rpc', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: method, params: params }) })
       .then(function (r) { return r.json(); }).then(function (j) { if (j.error) throw new Error(j.error.message); return j.result; });
   }
+  function loadView() { var r = $('round').value ? '?round=' + encodeURIComponent($('round').value) : ''; return getJ(r).then(function (j) { V = j; $('round').value = j.round || ''; render(); }); }
+  function loadKeeper() { return getJ('?keeper=1').then(function (j) { KP = j; renderKeeper(); }).catch(function (e) { $('keeper').innerHTML = '<div class="card err">Keeper: ' + esc(e.message) + '</div>'; }); }
+  function loadStatement() { return getJ('?statement=1').then(function (j) { STMT = j; renderStatement(); }).catch(function (e) { $('stmt').innerHTML = '<div class="card err">This week: ' + esc(e.message) + '</div>'; }); }
+  function reloadAll() { return Promise.all([loadView(), loadKeeper(), loadStatement()]); }
   function load() {
-    var k = key(); if (!k) { $('status').textContent = 'Enter the key first.'; return; }
-    try { sessionStorage.setItem(KEY_SS, k); } catch (e) {}
-    $('status').textContent = 'Loading…';
-    var r = $('round').value ? '&round=' + encodeURIComponent($('round').value) : '';
-    fetch('/api/payouts?key=' + encodeURIComponent(k) + r, { cache: 'no-store' })
-      .then(function (x) { if (x.status === 403) throw new Error('Wrong key.'); return x.json().then(function (j) { if (j.error) throw new Error(j.error); return j; }); })
-      .then(function (j) { V = j; REVIEWED = false; $('round').value = j.round || ''; $('status').textContent = ''; render(); if (ADAPTER) balances(); })
+    if (!key()) { $('status').textContent = 'Enter the key first.'; return; }
+    $('status').textContent = 'Reading this week (the Treasury\'s latest transactions)…';
+    REVIEWED = false;
+    // refresh the Reserve's own reading of the Treasury first (public, cached a minute), then everything else
+    fetch('/api/reserve', { cache: 'no-store' }).catch(function () {}).then(function () { return reloadAll(); })
+      .then(function () { $('status').textContent = ''; })
       .catch(function (e) { $('status').innerHTML = '<span class="err">' + esc(e.message) + '</span>'; });
   }
 
-  // ---------- progress (survives a reload, so a half-finished payout never re-swaps) ----------
-  function progKey() { return 'dd_payout_r' + (V && V.round) + '_' + (ADAPTER ? ADAPTER.pubkey : ''); }
-  function prog() { try { return JSON.parse(localStorage.getItem(progKey()) || 'null') || { swaps: {}, swapOre: {}, sigs: [], doneIds: {} }; } catch (e) { return { swaps: {}, swapOre: {}, sigs: [], doneIds: {} }; } }
-  function saveProg(p) { try { localStorage.setItem(progKey(), JSON.stringify(p)); } catch (e) {} }
+  // ================= THIS WEEK: comes in · goes out · stays =================
+  var fmtAmt = function (v, m) { var s = kname(m), d = (s === 'SKR' || s === 'USDC') ? 2 : 4, n = +v || 0; if (n > 0 && n < Math.pow(10, -d)) d = 8; return n.toLocaleString('en-US', { maximumFractionDigits: d }) + ' ' + s; };
+  var amts = function (o) { var k = Object.keys(o || {}).filter(function (m) { return +o[m] > 0; }); return k.length ? k.map(function (m) { return esc(fmtAmt(o[m], m)); }).join(' · ') : '—'; };
+  var usdS = function (x) { return '≈ $' + (+x || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+  var ago = function (t) { var m = Math.round((Date.now() - t) / 60000); return m < 1 ? 'just now' : m < 60 ? m + ' min ago' : Math.round(m / 60) + ' h ago'; };
+  function li(label, note, amountHtml, usd) {
+    return '<li><span class="lbl">' + esc(label) + (note ? '<span class="note">' + esc(note) + '</span>' : '') + '</span><span class="amt">' + amountHtml + '</span><span class="usd">' + (usd ? usdS(usd) : '') + '</span></li>';
+  }
+  function renderStatement() {
+    var s = STMT; if (!s) return;
+    var h = '<div class="card stmt"><div class="stmt-head"><h2>This week</h2><span class="msg">' + new Date(s.from).toLocaleDateString() + ' – ' + new Date(s.at).toLocaleDateString() +
+      (s.reserveAt ? ' · Treasury read ' + ago(s.reserveAt) : '') + '</span>' + (s.partial ? ' <span class="pill warn">still reading the newest transactions — reload in a minute for the full week</span>' : '') + '</div><div class="cols">';
+    // COMES IN
+    var ins = s.in.filter(function (l) { return Object.keys(l.amounts || {}).length; });
+    h += '<section class="col"><h3><span class="dot in"></span>Comes in <b>' + usdS(s.inUsd) + '</b></h3><ul class="lines">' +
+      (ins.length ? ins.map(function (l) { return li(l.label, l.note, amts(l.amounts), l.usd); }).join('') : '<li class="msg">Nothing came in this week.</li>') + '</ul>' +
+      (Object.keys(s.topUps.amounts || {}).length ? '<div class="aside">' + esc(s.topUps.label) + ': ' + amts(s.topUps.amounts) + ' (' + usdS(s.topUps.usd) + ') — ' + esc(s.topUps.note) + '</div>' : '') + '</section>';
+    // GOES OUT
+    h += '<section class="col"><h3><span class="dot out"></span>Goes out <b>' + usdS(s.outUsd) + '</b></h3>';
+    s.out.forEach(function (g) {
+      h += '<div class="grp"><div class="gh"><span>' + esc(g.label) + '</span>' + (g.lines.length ? '<span>' + usdS(g.usd) + '</span>' : '') + '</div><div class="why">' + esc(g.why) + '</div>';
+      h += g.lines.length ? '<ul class="lines">' + g.lines.map(function (l) { return '<li><span class="lbl">→ ' + acct(l.to) + (l.note ? ' <span class="note" style="display:inline">' + esc(l.note) + '</span>' : '') + '</span><span class="amt">' + amts(l.amounts) + '</span><span class="usd">' + usdS(l.usd) + '</span></li>'; }).join('') + '</ul>'
+        : '<div class="none">' + esc(g.none || 'None') + '</div>';
+      if (g.swapNote) h += '<div class="why">' + esc(g.swapNote) + '</div>';
+      h += '</div>';
+    });
+    var c = s.convert;
+    h += '<div class="grp keep"><div class="gh"><span>' + esc(c.label) + '</span>' + (c.none ? '' : '<span>' + usdS(c.usd) + '</span>') + '</div><div class="why">' + esc(c.why) + '</div>' +
+      (c.none ? '<div class="none">' + esc(c.none) + '</div>' : '<div style="font-size:13px">' + amts(c.amounts) + ' → ' + amts(c.becomes) + '</div>') + '</div></section>';
+    // STAYS
+    var st = s.stays, px = s.prices || {};
+    var afterKeys = Object.keys(st.after || {}).sort(function (a, b) { return (st.after[b] * (px[b] || 0)) - (st.after[a] * (px[a] || 0)); });
+    h += '<section class="col"><h3><span class="dot stay"></span>Stays <b>' + usdS(st.afterUsd) + '</b></h3><div class="why">In the Treasury after this batch (now ' + usdS(st.nowUsd) + ')</div><ul class="lines">' +
+      (afterKeys.length ? afterKeys.map(function (m) { return li(kname(m), '', esc(fmtAmt(st.after[m], m)), px[m] ? st.after[m] * px[m] : 0); }).join('') : '<li class="msg">The Treasury\'s balances aren\'t read yet.</li>') + '</ul>' +
+      '<div class="why" style="margin-top:10px">Of that, set aside:</div><ul class="lines">' +
+      li('Pot — next draw\'s prize', '', amts(st.pot.amounts), st.pot.usd) +
+      (st.vaults || []).map(function (v) { return li('Card Vault — ' + v.name, v.nfts != null ? v.nfts + ' NFTs share it when burning opens' : '', amts(v.amounts), v.usd); }).join('') +
+      (st.opsWaiting ? li('Operations share (waits for OPS_WALLET)', '', amts(st.opsWaiting.amounts), st.opsWaiting.usd) : '') +
+      '</ul><div class="free"><span>Free Reserve</span><b>' + usdS(st.reserveFreeUsd) + '</b></div></section></div>';
+    // PAY
+    var fl = V && V.plan ? flagsNow() : [];
+    h += '<div class="paybar"><button id="wconnect">' + (ADAPTER ? 'Wallet: ' + esc(short(ADAPTER.pubkey)) + ' (change)' : 'Connect the Treasury wallet') + '</button>' +
+      '<button class="pay" id="payweek">Pay this week</button><span id="weekwhy" class="msg"></span></div>' +
+      (fl.length ? '<label class="rev"><input type="checkbox" id="wrev"' + (REVIEWED ? ' checked' : '') + '> I reviewed the ' + fl.length + ' flag' + (fl.length === 1 ? '' : 's') + ' (see Details below)' + (fl.some(function (f) { return f.severity === 'block'; }) ? ' — including BLOCK flags' : '') + '</label>' : '') +
+      '<div class="log" id="wlog"></div><div id="receipts"></div></div>';
+    $('stmt').innerHTML = h;
+    $('wconnect').onclick = connect;
+    $('payweek').onclick = function () { payWeek(null); };
+    if ($('wrev')) $('wrev').onchange = function () { REVIEWED = this.checked; if ($('rev')) $('rev').checked = REVIEWED; gate(); };
+    renderReceipts();
+    gate();
+  }
+  function hasWork() {
+    if (!STMT) return false;
+    return STMT.out.some(function (g) { return g.lines.length; }) || !STMT.convert.none || ((KP && KP.toBurn) || []).length > 0;
+  }
+  function gate() {
+    var why = '', fl = V && V.plan ? flagsNow() : [];
+    if (BUSY) why = 'Working…';
+    else if (!STMT || !KP) why = 'Load first.';
+    else if (!ADAPTER) why = 'Connect the Treasury wallet ' + short(KP.treasury) + '.';
+    else if (ADAPTER.pubkey !== KP.treasury) why = 'The connected wallet is not the Treasury ' + short(KP.treasury) + '.';
+    else if (fl.length && !REVIEWED) why = 'Tick "I reviewed the flags" first (or exclude the flagged payees in Details).';
+    else if (!hasWork()) why = 'Nothing to pay this week.';
+    if ($('payweek')) { $('payweek').disabled = !!why; $('weekwhy').innerHTML = esc(why || 'One approval in your wallet; every transaction is checked first.'); }
+    Array.prototype.forEach.call(document.querySelectorAll('[data-only]'), function (b) { b.disabled = !!why && why !== 'Nothing to pay this week.'; });
+  }
 
-  // ---------- flags ----------
+  // ---------- progress of the weekly batches (survives a reload: a sent transaction is never sent twice) ----------
+  // ONE record per Treasury (not per round), so a payment that landed but wasn't verified yet is never forgotten when
+  // the next round starts. plans[round] = that round's swaps done / payees done / signatures.
+  function weekKey() { return 'dd_week_' + (KP ? KP.treasury : ''); }
+  function curRound() { return (V && V.plan && V.plan.round) || 0; }
+  function planP(P, r) { r = r || curRound(); P.plans[r] = P.plans[r] || { swaps: {}, doneIds: {}, sigs: [] }; return P.plans[r]; }
+  function weekProg() {
+    var P = null; try { P = JSON.parse(localStorage.getItem(weekKey()) || 'null'); } catch (e) {}
+    P = P || {}; P.plans = P.plans || {}; P.pending = P.pending || {}; P.done = P.done || {}; P.recorded = P.recorded || {}; P.receipts = P.receipts || []; P.migrated = P.migrated || {};
+    // an unfinished payment from the older page version (round payout only) is carried over
+    try {
+      var r = curRound(), old = ADAPTER && r && !P.migrated[r] ? JSON.parse(localStorage.getItem('dd_payout_r' + r + '_' + ADAPTER.pubkey) || 'null') : null;
+      if (old) {
+        var pp = planP(P, r);
+        Object.keys(old.swaps || {}).forEach(function (c) { pp.swaps[c] = old.swaps[c]; });
+        Object.keys(old.doneIds || {}).forEach(function (id) { pp.doneIds[id] = old.doneIds[id]; });
+        (old.sigs || []).forEach(function (s) { if (pp.sigs.indexOf(s) < 0) { pp.sigs.push(s); P.done[s] = P.done[s] || { kind: 'planPack', round: r, ids: [] }; } });
+        Object.keys(old.pending || {}).forEach(function (s) { var x = old.pending[s]; P.pending[s] = x.swap ? { kind: 'planSwap', round: r, cur: x.swap, at: x.at } : { kind: 'planPack', round: r, ids: x.ids || [], at: x.at }; });
+        P.migrated[r] = true;
+      }
+    } catch (e) {}
+    return P;
+  }
+  function saveProg(P) { if (P.receipts.length > 200) P.receipts = P.receipts.slice(-200); try { localStorage.setItem(weekKey(), JSON.stringify(P)); } catch (e) {} }
+  function wlog(html) { var el = $('wlog'); if (!el) return; el.innerHTML += html + '\n'; el.scrollTop = el.scrollHeight; }
+  function renderReceipts() {
+    var el = $('receipts'); if (!el || !KP || !V) return;
+    var R = weekProg().receipts || [];
+    if (!R.length) { el.innerHTML = ''; return; }
+    el.innerHTML = '<h3 style="margin-top:12px">Receipts — every transaction this batch sent</h3><ul class="rcpt">' + R.slice().reverse().map(function (r) {
+      return '<li><span>' + new Date(r.at).toLocaleString() + '</span><b>' + esc(r.label) + '</b><span>' + esc(r.text) + '</span>' + txl(r.sig) + (r.recorded ? ' <span class="okc">verified by the store ✓</span>' : ' <span class="warnc">sent — being verified</span>') + '</li>';
+    }).join('') + '</ul>';
+  }
+
+  // ---------- wallet ----------
+  function connect() {
+    var picker = window.DojoWalletPicker; if (!picker) return;
+    picker.pick().then(function (a) { ADAPTER = a; render(); renderKeeper(); renderStatement(); }).catch(function (e) { if (!/cancel/i.test(e.message || '')) alert(e.message); });
+  }
+  function needTreasury() { if (!ADAPTER) throw new Error('Connect the Treasury wallet first.'); if (ADAPTER.pubkey !== KP.treasury) throw new Error('The connected wallet is not the Treasury ' + short(KP.treasury) + '.'); }
+  function tokBal(owner, mint) {
+    return rpcCall('getTokenAccountsByOwner', [owner, { mint: mint }, { encoding: 'jsonParsed' }]).then(function (res) {
+      return ((res && res.value) || []).reduce(function (s, a) { return s + T.B(a.account.data.parsed.info.tokenAmount.amount); }, 0n);
+    });
+  }
+  var b64 = function (u8) { var s = ''; for (var i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); };
+  var unb64 = function (s) { return Uint8Array.from(atob(s), function (c) { return c.charCodeAt(0); }); };
+  function relay(u8) { return api({ action: 'send', tx: b64(u8), skipPreflight: true }).then(function (j) { return j.signature; }); }
+  function sigStatus(sig) { return rpcCall('getSignatureStatuses', [[sig], { searchTransactionHistory: true }]).then(function (st) { return st.value && st.value[0]; }); }
+  function waitConfirm(sig) {
+    var tries = 0;
+    return new Promise(function (resolve, reject) {
+      (function loop() {
+        rpcCall('getSignatureStatuses', [[sig], { searchTransactionHistory: false }]).then(function (st) {
+          var s = st.value && st.value[0];
+          if (s && s.err) return reject(new Error('Transaction failed on-chain: ' + sig));
+          if (s && (s.confirmationStatus === 'confirmed' || s.confirmationStatus === 'finalized')) return resolve(sig);
+          if (++tries > 60) return reject(new Error('Timed out waiting for ' + sig + ' — check Solscan, then press Pay again (finished steps are skipped).'));
+          setTimeout(loop, 1500);
+        }).catch(function () { if (++tries > 60) reject(new Error('confirm failed')); else setTimeout(loop, 1500); });
+      })();
+    });
+  }
+
+  // ================= the weekly batch =================
+  // parts: { key, kind, phase (1 = swaps, 2 = payments), label, tx, expect, …meta }. Kinds:
+  //   planSwap / planPack — the round's winners + preachers · refund · ops · conv (→ stORE) · burn · claims
+  async function buildParts(only, P) {
+    var held = blockedParts(P);
+    Object.keys(held).forEach(function (k) { if (!only || only.indexOf(k) >= 0) wlog('<span class="warnc">' + esc(k) + ': waits — an earlier payment of this kind landed but isn\'t verified by the store yet (press Pay again in a minute).</span>'); });
+    var payer = ADAPTER.pubkey, w3 = W3(), parts = [], want = function (k) { return (!only || only.indexOf(k) >= 0) && !held[k]; };
+    var bh = (await rpcCall('getLatestBlockhash', [{ commitment: 'confirmed' }])).value.blockhash;
+    var deser = function (b) { return w3.VersionedTransaction.deserialize(unb64(b)); };
+    var swapsInBatch = false;
+    // 1) the round's winners + preachers
+    var plan = V && V.plan, PP = plan ? planP(P, plan.round) : null;
+    if (want('plan') && plan && plan.status !== 'paid' && plan.status !== 'paying' && T.payable(plan, PP.doneIds).length) {
+      if (flagsNow().length && !REVIEWED) throw new Error('Tick "I reviewed the flags" first.');
+      var buckets = T.swapBuckets(plan, PP.doneIds), toSwap = [];
+      var sameIds = function (s, b) { return s && s.ids.slice().sort().join() === b.parts.map(function (x) { return x.id; }).sort().join(); };
+      ['SOL', 'USDC'].forEach(function (c) { if (buckets[c].total > 0n && !PP.swaps[c]) toSwap.push(c); });
+      var m = plan.manifest;
+      if (toSwap.some(function (c) { return !m || Date.now() > m.expiresAt || !sameIds(m.swaps && m.swaps[c], buckets[c]); })) {
+        wlog('Asking the server for a fresh swap quote (it fixes what each payee gets in ORE)…');
+        V = await api({ action: 'quote', round: V.round }); plan = V.plan; m = plan.manifest;
+      }
+      for (var c of toSwap) {
+        var ms = m && m.swaps && m.swaps[c];
+        if (!ms) throw new Error('The server has no ' + c + ' quote for this round — reload and press Pay again.');
+        var s = await T.swapFromQuote({ payer: payer, quote: ms.quote });
+        parts.push({ key: 'plan-swap-' + c, kind: 'planSwap', round: plan.round, cur: c, phase: 1, label: c + ' → ORE for the payees', tx: deser(s.swapTransaction),
+          expect: { kind: 'swap', spendMint: MINTS[c], spendMax: T.B(ms.inAmount), getMint: MINTS.ORE, getMin: T.B(ms.minOut) } });
+        swapsInBatch = true;
+      }
+      var packs = T.packTransfers({ W3: w3, payer: payer, blockhash: bh, transfers: T.transfersForPlan(plan, (m && m.swapOre) || {}, PP.doneIds) });
+      var planFromSwap = swapsInBatch || Object.keys(PP.swaps).length > 0;
+      packs.forEach(function (pk, i) {
+        parts.push({ key: 'plan-pack-' + i, kind: 'planPack', round: plan.round, ids:pk.transfers.map(function (t) { return t.id; }).filter(function (v, j, a) { return a.indexOf(v) === j; }), phase: 2,
+          label: 'Winners & preachers ' + (i + 1) + '/' + packs.length, tx: pk.tx, expect: { kind: 'transfers', transfers: pk.transfers, afterSwap: planFromSwap } });
+      });
+    }
+    // 2) the Card Vault + Reserve shares → stORE (server quote per currency)
+    var convInBatch = false;
+    if (want('convert')) {
+      var un = (KP.totals && KP.totals.unconvertedRaw) || {};
+      for (var cm of Object.keys(un)) {
+        if (cm === STORE_MINT || !(T.B(un[cm]) > 0n)) continue;
+        try {
+          var q = await api({ action: 'keeper-convert-quote', inputMint: cm });
+          var sw = await T.swapFromQuoteTo({ payer: payer, quote: q.quote, outputMint: STORE_MINT });
+          parts.push({ key: 'conv-' + cm, kind: 'conv', mint: cm, phase: 1, label: kname(cm) + ' → stORE', tx: deser(sw.swapTransaction),
+            expect: { kind: 'swap', spendMint: cm, spendMax: T.B(q.amount), getMint: STORE_MINT, getMin: T.B(q.quote.otherAmountThreshold != null ? q.quote.otherAmountThreshold : q.quote.outAmount) } });
+          convInBatch = true;
+        } catch (e) { wlog('<span class="warnc">Skipped ' + esc(kname(cm)) + ' → stORE this week: ' + esc(e.message) + '</span>'); }
+      }
+    }
+    // 3) refunds (repairs paid after the Mint cap was full) — exact due per payer
+    if (want('refunds') && (KP.refundsDue || []).length) {
+      var per = {}; KP.refundsDue.forEach(function (r) { per[r.payer] = (per[r.payer] || 0n) + T.B(r.raw); });
+      T.packTransfers({ W3: w3, payer: payer, blockhash: bh, transfers: Object.keys(per).map(function (w) { return { id: w, owner: w, cur: 'ORE', mint: MINTS.ORE, decimals: 11, amount: per[w] }; }) })
+        .forEach(function (pk, i, all) { parts.push({ key: 'refund-' + i, kind: 'refund', phase: 2, label: 'Repair refunds ' + (i + 1) + '/' + all.length, tx: pk.tx, expect: { kind: 'transfers', transfers: pk.transfers } }); });
+    }
+    // 4) the operations share (12%) → OPS_WALLET (amounts from the server)
+    if (want('ops') && KP.ops && KP.ops.wallet && Object.keys(KP.ops.dueRaw || {}).length) {
+      var oq = await api({ action: 'keeper-ops-quote' });
+      var toks = Object.keys(oq.due).filter(function (mm) { return mm !== SOLM && DECS[mm] != null; });
+      if (toks.length) T.packTransfers({ W3: w3, payer: payer, blockhash: bh, transfers: toks.map(function (mm) { return { id: mm, owner: oq.opsWallet, cur: kname(mm), mint: mm, decimals: DECS[mm], amount: T.B(oq.due[mm]) }; }) })
+        .forEach(function (pk, i) { parts.push({ key: 'ops-tok-' + i, kind: 'ops', phase: 2, label: 'Operations share (tokens)', tx: pk.tx, expect: { kind: 'transfers', transfers: pk.transfers } }); });
+      if (oq.due[SOLM]) {
+        var msg = new w3.TransactionMessage({ payerKey: new w3.PublicKey(payer), recentBlockhash: bh,
+          instructions: [w3.SystemProgram.transfer({ fromPubkey: new w3.PublicKey(payer), toPubkey: new w3.PublicKey(oq.opsWallet), lamports: T.B(oq.due[SOLM]) })] }).compileToV0Message();
+        parts.push({ key: 'ops-sol', kind: 'ops', phase: 2, label: 'Operations share (SOL)', tx: new w3.VersionedTransaction(msg), expect: { kind: 'transfers', transfers: [], sol: [{ to: oq.opsWallet, lamports: T.B(oq.due[SOLM]) }] } });
+      }
+    }
+    // 5) burning (only once BURN_ENABLED): burn the cards holders sent in + pay each claim in stORE
+    if (want('claims') && KP.burnEnabled) {
+      T.packBurns({ W3: w3, payer: payer, blockhash: bh, burns: (KP.toBurn || []).map(function (b) { return { mint: b.mint, collection: KCOLL[b.coll] }; }) })
+        .forEach(function (x, i, all) { parts.push({ key: 'burn-' + i, kind: 'burn', mints: x.burns.map(function (b) { return b.mint; }), phase: 2, label: 'Burn sent-in cards ' + (i + 1) + '/' + all.length, tx: x.tx, expect: { kind: 'burns', burns: x.burns } }); });
+      var cper = {}; (KP.claimsDue || []).forEach(function (cl) { cper[cl.wallet] = (cper[cl.wallet] || 0n) + T.B(cl.storeRaw); });
+      var ctr = Object.keys(cper).map(function (w) { return { id: w, owner: w, cur: 'stORE', mint: STORE_MINT, decimals: 11, amount: cper[w] }; });
+      if (ctr.length) T.packTransfers({ W3: w3, payer: payer, blockhash: bh, transfers: ctr })
+        .forEach(function (pk, i, all) { parts.push({ key: 'claims-' + i, kind: 'claims', phase: 2, label: 'Burn claims ' + (i + 1) + '/' + all.length, tx: pk.tx, expect: { kind: 'transfers', transfers: pk.transfers, afterSwap: convInBatch } }); });
+    }
+    return parts;
+  }
+  // Does the Treasury hold enough? (what the swaps in this batch produce counts as available)
+  async function checkFunds(parts) {
+    var payer = ADAPTER.pubkey, need = {}, made = {}, nAtas = 0;
+    var add = function (o, mm, v) { o[mm] = (o[mm] || 0n) + v; };
+    parts.forEach(function (p) {
+      var e = p.expect;
+      if (e.kind === 'swap') { add(need, e.spendMint, T.B(e.spendMax)); add(made, e.getMint, T.B(e.getMin)); }
+      (e.transfers || []).forEach(function (t) { add(need, t.mint, T.B(t.amount)); nAtas++; });
+      (e.sol || []).forEach(function (s) { add(need, SOLM, T.B(s.lamports)); });
+    });
+    add(need, SOLM, BigInt(nAtas) * 2039280n + BigInt(parts.length) * 30000n + 3000000n);   // possible new token accounts + fees + swap deposits
+    var short_ = [];
+    for (var mm of Object.keys(need)) {
+      var have = mm === SOLM ? T.B(((await rpcCall('getBalance', [payer])) || {}).value) : await tokBal(payer, mm);
+      if (have + (made[mm] || 0n) < need[mm]) short_.push('the Treasury holds ' + fmtAmt(Number(have) / Math.pow(10, DECS[mm] || 0), mm) + ', this batch needs ' + fmtAmt(Number(need[mm] - (made[mm] || 0n)) / Math.pow(10, DECS[mm] || 0), mm));
+    }
+    if (short_.length) throw new Error('Not enough in the Treasury: ' + short_.join('; ') + '. Top it up, or pay one part at a time in Details.');
+  }
+  // book a landed transaction in this week's progress
+  function landed(P, sig, meta) {
+    delete P.pending[sig];
+    P.done[sig] = meta;
+    if (meta.kind === 'planSwap' || meta.kind === 'planPack') {
+      var pp = planP(P, meta.round);
+      if (meta.kind === 'planSwap') pp.swaps[meta.cur] = sig;
+      (meta.ids || []).forEach(function (id) { pp.doneIds[id] = sig; });
+      if (pp.sigs.indexOf(sig) < 0) pp.sigs.push(sig);
+    }
+  }
+  // which parts must wait: a payment of that kind landed but the store hasn't verified it yet (re-paying would double-pay)
+  var PART_OF = { planSwap: 'plan', planPack: 'plan', refund: 'refunds', ops: 'ops', conv: 'convert', burn: 'claims', claims: 'claims' };
+  function blockedParts(P) { var b = {}; Object.keys(P.done).forEach(function (s) { if (!P.recorded[s]) b[PART_OF[P.done[s].kind]] = true; }); return b; }
+  // tell the store about every landed transaction it hasn't verified yet (each check is idempotent server-side)
+  async function recordAll(P) {
+    var payer = ADAPTER.pubkey, sigs = Object.keys(P.done).filter(function (s) { return !P.recorded[s]; });
+    var of = function (k) { return sigs.filter(function (s) { return P.done[s].kind === k; }); };
+    var mark = function (list) { list.forEach(function (s) { P.recorded[s] = true; (P.receipts || []).forEach(function (r) { if (r.sig === s) r.recorded = true; }); }); saveProg(P); };
+    for (var s of of('conv')) {
+      try { var jc = await api({ action: 'keeper-converted', sig: s }); wlog('<span class="okc">stORE conversion verified: +' + esc(jc.store) + ' stORE.</span>'); }
+      catch (e) { if (!/already recorded/i.test(e.message)) { wlog('<span class="err">✖ conversion ' + esc(short(s)) + ': ' + esc(e.message) + '</span>'); continue; } }
+      mark([s]);
+    }
+    // a signature the store couldn't verify yet stays "unverified" — that part then waits instead of paying twice
+    var okOnly = function (list, bad) { var b = {}; (bad || []).forEach(function (x) { b[x.sig] = true; }); return list.filter(function (s) { return !b[s]; }); };
+    var rf = of('refund');
+    if (rf.length) { var jr = await api({ action: 'keeper-refunds-paid', sigs: rf, payer: payer }); wlog('<span class="okc">Refunds verified paid: ' + jr.paid.length + '.</span>' + (jr.bad.length ? ' <span class="err">' + esc(JSON.stringify(jr.bad)) + '</span>' : '')); mark(okOnly(rf, jr.bad)); }
+    for (var so of of('ops')) {
+      try { var jo = await api({ action: 'keeper-ops-moved', sig: so }); wlog('<span class="okc">Operations share verified: ' + amtList(jo.moved) + '.</span>'); mark([so]); }
+      catch (e) { wlog('<span class="err">✖ operations ' + esc(short(so)) + ': ' + esc(e.message) + '</span>'); }
+    }
+    var bu = of('burn');
+    if (bu.length) { var mints = []; bu.forEach(function (s) { mints = mints.concat(P.done[s].mints || []); }); var jb = await api({ action: 'keeper-burned', mints: mints }); wlog('<span class="okc">Burned on-chain: ' + jb.burned.length + ' card(s).</span>'); mark(bu); }
+    var cl = of('claims');
+    if (cl.length) { var jl = await api({ action: 'keeper-claims-paid', sigs: cl, payer: payer }); wlog('<span class="okc">Claims verified paid: ' + jl.paid.length + '.</span>' + (jl.short.length ? ' <span class="warnc">Short: ' + esc(JSON.stringify(jl.short)) + '</span>' : '')); mark(okOnly(cl, jl.bad)); }
+    // each round's payout is verified with ALL its signatures (swaps + transfers)
+    var pl = of('planSwap').concat(of('planPack')), rounds = {};
+    pl.forEach(function (s) { rounds[P.done[s].round || curRound()] = true; });
+    for (var rr of Object.keys(rounds)) {
+      var pp = planP(P, +rr), mine = pl.filter(function (s) { return String(P.done[s].round || curRound()) === rr; });
+      try {
+        var j = await api({ action: 'paid', round: +rr, sigs: pp.sigs, payer: payer, reviewed: REVIEWED });
+        if (j.status === 'paid') wlog('<span class="okc">Round ' + esc(rr) + ' winners & preachers: paid ✓ — all ' + (j.paidIds || []).length + ' payee(s) verified on-chain.</span>');
+        else wlog('<span class="warnc">Round ' + esc(rr) + ' recorded. Still missing: ' + esc((j.missing || []).join(', ')) + (j.bad && j.bad.length ? ' · ' + esc(j.bad.map(function (b) { return short(b.sig) + ' ' + b.reason; }).join('; ')) : '') + '</span>');
+        mark(okOnly(mine, j.bad));
+      } catch (e) { wlog('<span class="err">✖ round ' + esc(rr) + ': ' + esc(e.message) + '</span>'); }
+    }
+  }
+  // a transaction sent in an earlier attempt whose confirmation we never saw: settle it before anything else
+  async function settlePending(P) {
+    for (var ps of Object.keys(P.pending || {})) {
+      var pend = P.pending[ps], sv = await sigStatus(ps);
+      if (sv && !sv.err && (sv.confirmationStatus === 'confirmed' || sv.confirmationStatus === 'finalized')) { wlog('Earlier ' + txl(ps) + ' (' + esc(pend.label || pend.kind) + ') did land.'); landed(P, ps, pend); }
+      else if (sv && sv.err) { wlog('Earlier ' + txl(ps) + ' failed — it will be redone.'); delete P.pending[ps]; }
+      else if (Date.now() - pend.at < 120000) throw new Error('A transaction from a moment ago (' + short(ps) + ') may still land — wait 2 minutes, then press Pay again.');
+      else { wlog('Earlier ' + txl(ps) + ' never landed (expired) — it will be redone.'); delete P.pending[ps]; }
+      saveProg(P);
+    }
+  }
+  async function payWeek(only) {
+    if (BUSY) return;
+    BUSY = true; gate();
+    var P = null;
+    try {
+      needTreasury();
+      P = weekProg();
+      wlog('— ' + new Date().toLocaleTimeString() + ' · ' + (only ? 'paying: ' + only.join(', ') : 'paying this week') + ' —');
+      await settlePending(P);
+      if (Object.keys(P.done).some(function (s) { return !P.recorded[s]; })) { wlog('Verifying what an earlier attempt already sent…'); await recordAll(P); }
+      await reloadAll();
+      P = weekProg();
+      var parts = await buildParts(only, P);
+      if (!parts.length) { wlog('Nothing left to pay.'); return; }
+      await checkFunds(parts);
+      // check EVERY transaction before anything is signed
+      wlog('Checking ' + parts.length + ' transaction' + (parts.length === 1 ? '' : 's') + ' before you sign…');
+      for (var p of parts) { var r = await T.inspect({ W3: W3(), rpc: rpcCall, tx: p.tx, signer: ADAPTER.pubkey, expect: p.expect }); p.text = r.text.replace(/^Checked[^:]*: /, '').replace(/ ✓$/, ''); wlog('  ' + esc(p.label) + ' — <span class="okc">' + esc(r.text) + '</span>'); }
+      // a fresh blockhash on every transaction, so the time spent checking doesn't expire them (the checked
+      // instructions don't change)
+      var bh = (await rpcCall('getLatestBlockhash', [{ commitment: 'confirmed' }])).value.blockhash;
+      parts.forEach(function (p) { p.tx.message.recentBlockhash = bh; });
+      // ONE approval (when the wallet can sign a batch), swaps first
+      parts.sort(function (a, b) { return a.phase - b.phase; });
+      var signed = null;
+      if (typeof ADAPTER.signAll === 'function') {
+        wlog('Approve once in your wallet (' + parts.length + ' transaction' + (parts.length === 1 ? '' : 's') + ')…');
+        try { signed = (await ADAPTER.signAll(parts.map(function (p) { return p.tx; }))).map(function (u) { return u instanceof Uint8Array ? u : new Uint8Array(u); }); }
+        catch (e) { if (!/cannot sign multiple|not.*support|signAll/i.test(e.message || '')) throw e; wlog('<span class="warnc">This wallet can\'t sign a batch — one approval per transaction.</span>'); }
+      }
+      // send phase by phase: the swaps together, then every payment together
+      for (var ph of [1, 2]) {
+        var batch = parts.map(function (p, i) { return { p: p, i: i }; }).filter(function (x) { return x.p.phase === ph; });
+        if (!batch.length) continue;
+        var sent = [];
+        for (var x of batch) {
+          var sig = signed ? await relay(signed[x.i]).catch(function (e) { throw new Error(x.p.label + ': ' + e.message); }) : (await ADAPTER.signAndSendTransaction(x.p.tx)).signature;
+          var meta = { kind: x.p.kind, label: x.p.label, round: x.p.round, cur: x.p.cur, ids: x.p.ids, mints: x.p.mints, at: Date.now() };
+          P.pending[sig] = meta; saveProg(P);
+          P.receipts.push({ sig: sig, label: x.p.label, text: x.p.text, at: Date.now() }); saveProg(P); renderReceipts();
+          wlog('Sent ' + esc(x.p.label) + ' ' + txl(sig));
+          sent.push({ sig: sig, meta: meta });
+        }
+        await Promise.all(sent.map(function (s) { return waitConfirm(s.sig).then(function () { landed(P, s.sig, s.meta); saveProg(P); wlog('  <span class="okc">confirmed</span> ' + esc(s.meta.label)); }); }));
+      }
+      await recordAll(P);
+      var waiting = Object.keys(blockedParts(P));
+      if (waiting.length) wlog('<span class="warnc">Everything was sent and confirmed, but the store couldn\'t verify ' + esc(waiting.join(', ')) + ' yet — press Pay again in a minute (nothing is paid twice).</span>');
+      else wlog('<span class="okc">Done ✓ — every payment above is on-chain and verified by the store.</span>');
+    } catch (e) {
+      wlog('<span class="err">✖ ' + esc(e.message || e) + '</span>');
+      if (P && (Object.keys(P.done).length || Object.keys(P.pending).length)) wlog('Finished steps are remembered — press Pay again to continue from here (nothing is paid twice).');
+    } finally {
+      BUSY = false;
+      var keep = $('wlog') ? $('wlog').innerHTML : '';
+      try { await reloadAll(); } catch (e) {}
+      if ($('wlog')) $('wlog').innerHTML = keep;
+      renderReceipts(); gate();
+    }
+  }
+
+  // ================= Details: the round (draw proof, flags, payees) =================
   function flagsNow() {
-    var f = (V.openFlags || []).slice();
-    if (ADAPTER && V.plan) V.plan.payees.forEach(function (p) {
+    var f = ((V && V.openFlags) || []).slice();
+    if (ADAPTER && V && V.plan) V.plan.payees.forEach(function (p) {
       if (p.wallet === ADAPTER.pubkey && (V.plan.excluded || []).indexOf(p.id) < 0) f.push({ severity: 'block', who: p.id, reason: 'pays the connected wallet itself' });
     });
     return f;
   }
   var isPayee = function (who) { return V.plan && V.plan.payees.some(function (p) { return p.id === who; }); };
-
-  // ---------- render ----------
   function render() {
+    if (!V) return;
     var p = V.plan, d = V.draw || {}, h = '';
     $('rebuild').disabled = !(V.round && (V.canBuild || (p && p.status !== 'paid' && !(p.payment && p.payment.sigs && p.payment.sigs.length))));
     $('rebuild').textContent = p ? 'Rebuild plan' : 'Build plan';
     if (!p) {
       $('view').innerHTML = '<div class="card msg">No payout plan for round ' + esc(V.round || '—') + ' yet. ' +
-        (V.canBuild ? 'The round is drawn — press <b>Build plan</b>.' : (d.status === 'committed' ? 'The round is committed and will be drawn automatically within ~10 minutes of its target slot.' : 'The weekly cron commits on draw day.')) + '</div>';
+        (V.canBuild ? 'The round is drawn — press <b>Build plan</b> at the top.' : (d.status === 'committed' ? 'The round is committed and will be drawn automatically within ~10 minutes of its target slot.' : 'The weekly cron commits on draw day.')) + '</div>';
       return;
     }
-    var st = p.status, pill = st === 'paid' ? 'ok' : st === 'flagged' ? 'bad' : st === 'partial' ? 'warn' : '';
+    var st = p.status, pill = st === 'paid' ? 'ok' : st === 'flagged' ? 'bad' : (st === 'partial' || st === 'paying') ? 'warn' : '';
     var t = p.totals || {};
     h += '<div class="card"><div class="bar" style="margin:0;justify-content:space-between"><div><b style="font-size:17px">Round ' + p.round + '</b> <span class="pill ' + pill + '">' + esc(st) + '</span>' +
       (p.preachersMovedTo ? ' <span class="pill">preachers moved to round ' + p.preachersMovedTo + '</span>' : '') + '</div>' +
       '<div class="msg">built ' + new Date(p.builtAt).toLocaleString() + '</div></div>' +
       '<div class="bar" style="margin:10px 0 0;gap:18px">' +
       '<span>ORE <b>' + ui(t.ORE, 'ORE') + '</b></span><span>SKR <b>' + ui(t.SKR, 'SKR') + '</b></span>' +
-      (t.SOL ? '<span>SOL → ORE <b>' + ui(t.SOL, 'SOL') + '</b></span>' : '') + (t.USDC ? '<span>USDC → ORE <b>' + ui(t.USDC, 'USDC') + '</b></span>' : '') +
+      (T.B(t.SOL) > 0n ? '<span>SOL → ORE <b>' + ui(t.SOL, 'SOL') + '</b></span>' : '') + (T.B(t.USDC) > 0n ? '<span>USDC → ORE <b>' + ui(t.USDC, 'USDC') + '</b></span>' : '') +
       '<span>≈ <b>$' + (t.usd || 0).toFixed(2) + '</b></span></div></div>';
-
-    // proof + pot
     var dr = p.draw || {};
     h += '<div class="grid2"><div class="card"><h2>Provably-fair proof</h2><dl>' +
       '<dt>Commitment sha256(seed)</dt><dd>' + esc(dr.commitHash) + '</dd>' +
@@ -147,19 +540,15 @@
       '<dt>Tickets</dt><dd>' + esc(dr.totalTickets) + ' from ' + esc(dr.entrants) + ' wallet(s)' + (dr.potRolledOver ? ' — no winners, pot rolled over' : '') + '</dd>' +
       '<dt>Public record</dt><dd><a href="' + esc(dr.statusUrl || '/api/draw?action=status') + '" target="_blank" rel="noopener">draw status JSON</a> · <a href="/draw" target="_blank" rel="noopener">/draw</a></dd>' +
       '</dl></div><div class="card"><h2>Pot snapshot</h2>' + potHtml(p.pot) + '</div></div>';
-
-    // flags
     var fl = flagsNow();
     if (fl.length) {
       h += '<div class="card"><h2>Flags (' + fl.length + ')</h2>' + fl.map(function (f) {
         var ex = isPayee(f.who) && (p.excluded || []).indexOf(f.who) < 0 && p.status !== 'paid';
         return '<div class="flag ' + (f.severity === 'block' ? 'block' : 'warn') + '"><div><b>' + esc(f.severity) + '</b> · ' + esc(whoLabel(f.who)) + ' — ' + esc(f.reason) + '</div>' +
           (ex ? '<button class="small" data-ex="' + esc(f.who) + '">Exclude</button>' : '') + '</div>';
-      }).join('') + '</div>';
+      }).join('') + (p.status !== 'paid' ? '<label class="rev"><input type="checkbox" id="rev"' + (REVIEWED ? ' checked' : '') + '> I reviewed these flags</label>' : '') + '</div>';
     }
-
-    // payees
-    var W = p.payees.filter(function (x) { return x.kind === 'winner'; }), P = p.payees.filter(function (x) { return x.kind === 'preacher'; });
+    var Wn = p.payees.filter(function (x) { return x.kind === 'winner'; }), Pr = p.payees.filter(function (x) { return x.kind === 'preacher'; });
     var paid = (p.payment && p.payment.paidIds) || {};
     function row(x, cells) {
       var exd = (p.excluded || []).indexOf(x.id) >= 0, pd = paid[x.id];
@@ -167,28 +556,28 @@
         '<button class="small" data-' + (exd ? 'un' : 'ex') + '="' + esc(x.id) + '">' + (exd ? 'Restore' : 'Exclude') + '</button>';
       return '<tr class="' + (exd ? 'ex' : '') + '">' + cells + '<td>' + act + '</td></tr>';
     }
-    h += '<div class="card"><h2>Winners (' + W.length + ')</h2>' + (W.length ? '<table><tr><th>Wallet</th><th class="num">Tickets</th><th class="num">ORE</th><th class="num">SKR</th><th class="num">SOL → ORE</th><th class="num">≈ USD</th><th></th></tr>' +
-      W.map(function (x) { return row(x, '<td>' + acct(x.wallet) + (x.label && x.label !== x.wallet ? ' <span class="msg">' + esc(x.label) + '</span>' : '') + '</td><td class="num">' + x.tickets + '</td><td class="num">' + ui(x.pay.ORE, 'ORE') + '</td><td class="num">' + ui(x.pay.SKR, 'SKR') + '</td><td class="num">' + ui(x.pay.SOL, 'SOL') + '</td><td class="num">$' + (x.usd || 0).toFixed(2) + '</td>'); }).join('') + '</table>'
+    h += '<div class="card"><h2>Winners (' + Wn.length + ')</h2>' + (Wn.length ? '<table><tr><th>Wallet</th><th class="num">Tickets</th><th class="num">ORE</th><th class="num">SKR</th><th class="num">SOL → ORE</th><th class="num">≈ USD</th><th></th></tr>' +
+      Wn.map(function (x) { return row(x, '<td>' + acct(x.wallet) + (x.label && x.label !== x.wallet ? ' <span class="msg">' + esc(x.label) + '</span>' : '') + '</td><td class="num">' + x.tickets + '</td><td class="num">' + ui(x.pay.ORE, 'ORE') + '</td><td class="num">' + ui(x.pay.SKR, 'SKR') + '</td><td class="num">' + ui(x.pay.SOL, 'SOL') + '</td><td class="num">$' + (x.usd || 0).toFixed(2) + '</td>'); }).join('') + '</table>'
       : '<div class="msg">No winners this round (no tickets) — the pot carries over to next week.</div>') + '</div>';
-    h += '<div class="card"><h2>Preachers (' + P.length + ')</h2>' + (P.length ? '<table><tr><th>Code</th><th>Wallet</th><th>Tier</th><th class="num">Records</th><th class="num">ORE</th><th class="num">SKR</th><th class="num">SOL → ORE</th><th class="num">USDC → ORE</th><th class="num">Owed USD</th><th></th></tr>' +
-      P.map(function (x) { return row(x, '<td>' + esc(x.code) + '</td><td>' + acct(x.wallet) + '</td><td>' + esc(x.tier || '') + (x.share ? ' ' + Math.round(x.share * 100) + '%' : '') + '</td><td class="num">' + x.sigs.length + '</td><td class="num">' + ui(x.pay.ORE, 'ORE') + '</td><td class="num">' + ui(x.pay.SKR, 'SKR') + '</td><td class="num">' + ui(x.pay.SOL, 'SOL') + '</td><td class="num">' + ui(x.pay.USDC, 'USDC') + '</td><td class="num">$' + (x.usd || 0).toFixed(2) + '</td>'); }).join('') + '</table>'
+    h += '<div class="card"><h2>Preachers (' + Pr.length + ')</h2>' + (Pr.length ? '<table><tr><th>Code</th><th>Wallet</th><th>Tier</th><th class="num">Records</th><th class="num">ORE</th><th class="num">SKR</th><th class="num">SOL → ORE</th><th class="num">USDC → ORE</th><th class="num">Owed USD</th><th></th></tr>' +
+      Pr.map(function (x) { return row(x, '<td>' + esc(x.code) + '</td><td>' + acct(x.wallet) + '</td><td>' + esc(x.tier || '') + (x.share ? ' ' + Math.round(x.share * 100) + '%' : '') + '</td><td class="num">' + x.sigs.length + '</td><td class="num">' + ui(x.pay.ORE, 'ORE') + '</td><td class="num">' + ui(x.pay.SKR, 'SKR') + '</td><td class="num">' + ui(x.pay.SOL, 'SOL') + '</td><td class="num">' + ui(x.pay.USDC, 'USDC') + '</td><td class="num">$' + (x.usd || 0).toFixed(2) + '</td>'); }).join('') + '</table>'
       : '<div class="msg">No preacher is owed ≥ $1 right now.</div>') + '</div>';
-
-    // pay
-    h += '<div class="card"><h2>Pay</h2>';
-    if (p.status === 'paid') {
-      h += '<div class="okc">Paid ✓ ' + (p.payment && p.payment.paidAt ? new Date(p.payment.paidAt).toLocaleString() : '') + '</div><div class="msg">' + ((p.payment && p.payment.sigs) || []).map(txl).join(' · ') + '</div>' +
-        (p.payment && p.payment.rolledOver && p.payment.rolledOver.length ? '<div class="msg">Excluded winners\' shares were added back to the live pot.</div>' : '');
-    } else {
-      h += '<div class="bar"><button id="connect">' + (ADAPTER ? 'Wallet: ' + esc(short(ADAPTER.pubkey)) + ' (change)' : 'Connect the paying wallet') + '</button><span class="msg">Connect the wallet that holds the funds (coin packs land in the treasury 5w55…WMuWp; tips/royalties in ED3G…pvwJe).</span></div>' +
-        '<div id="bal">' + balHtml() + '</div>' +
-        (fl.length ? '<label class="rev"><input type="checkbox" id="rev"' + (REVIEWED ? ' checked' : '') + '> I reviewed these flags' + (fl.some(function (f) { return f.severity === 'block'; }) ? ' (including BLOCK flags)' : '') + '</label>' : '') +
-        '<div class="bar"><button class="pay" id="pay">' + (p.status === 'partial' ? 'Pay the rest' : 'Pay everything') + '</button><span id="paywhy" class="msg"></span></div>' +
-        '<div class="log" id="log"></div>';
-    }
+    h += '<div class="card"><h2>Payment</h2>';
+    if (p.status === 'paying') h += '<div class="warnc">Settling the payment that was just verified (marking preacher records, rolling over excluded shares). Reload in a moment.</div>';
+    else if (p.status === 'paid') h += '<div class="okc">Paid ✓ ' + (p.payment && p.payment.paidAt ? new Date(p.payment.paidAt).toLocaleString() : '') + '</div><div class="msg">' + ((p.payment && p.payment.sigs) || []).map(txl).join(' · ') + '</div>' +
+      (p.payment && p.payment.rolledOver && p.payment.rolledOver.length ? '<div class="msg">Excluded winners\' shares were added back to the live pot.</div>' : '');
+    else h += manifestHtml(p) + '<div class="msg">Paid together with everything else by <b>Pay this week</b> at the top — or only this round: <button class="small" data-only="plan">Pay only winners & preachers</button></div>';
     h += '</div>';
     $('view').innerHTML = h;
-    wire();
+    Array.prototype.forEach.call(document.querySelectorAll('#view [data-ex], #view [data-un]'), function (b) {
+      b.onclick = function () {
+        var who = b.getAttribute('data-ex') || b.getAttribute('data-un'), undo = b.hasAttribute('data-un');
+        b.disabled = true;
+        api({ action: 'exclude', round: V.round, who: who, undo: undo }).then(function (j) { V = j; render(); return loadStatement(); }).catch(function (e) { alert(e.message); b.disabled = false; });
+      };
+    });
+    if ($('rev')) $('rev').onchange = function () { REVIEWED = this.checked; if ($('wrev')) $('wrev').checked = REVIEWED; gate(); };
+    wireOnly();
   }
   function whoLabel(who) {
     if (who === 'plan') return 'plan';
@@ -205,191 +594,72 @@
     return '<div style="margin-bottom:6px">≈ <b>$' + (+pot.usd || 0).toFixed(2) + '</b> <span class="msg">closed ' + (pot.closedAt ? new Date(pot.closedAt).toLocaleString() : '') + '</span></div>' +
       '<table><tr><th>Route</th><th class="num">ORE</th><th class="num">SKR</th><th class="num">SOL</th></tr>' + (rows || '<tr><td colspan="4" class="msg">empty</td></tr>') + '</table>';
   }
-
-  // ---------- wallet + balances ----------
-  function balHtml() {
-    if (!V || !V.plan) return '';
-    var need = T.need(V.plan);
-    if (!ADAPTER) return '<div class="msg">Needed: ' + ui(need.ORE, 'ORE') + ' ORE · ' + ui(need.SKR, 'SKR') + ' SKR' + (need.SOL ? ' · ' + ui(need.SOL, 'SOL') + ' SOL (swapped)' : '') + (need.USDC ? ' · ' + ui(need.USDC, 'USDC') + ' USDC (swapped)' : '') + ' + a little SOL for fees.</div>';
-    if (!BAL) return '<div class="msg">Reading balances…</div>';
-    var rows = BAL.rows.map(function (r) {
-      return '<tr><td>' + r.c + '</td><td class="num">' + ui(r.need, r.c) + '</td><td class="num">' + ui(r.have, r.c) + '</td><td>' + (r.have >= r.need ? '<span class="okc">ok</span>' : '<span class="err">short ' + ui(r.need - r.have, r.c) + '</span>') + '</td><td class="msg">' + esc(r.note || '') + '</td></tr>';
-    }).join('');
-    return '<table style="max-width:640px"><tr><th>Token</th><th class="num">Needed</th><th class="num">In wallet</th><th></th><th></th></tr>' + rows + '</table>';
-  }
-  function tokBal(owner, mint) {
-    return rpcCall('getTokenAccountsByOwner', [owner, { mint: mint }, { encoding: 'jsonParsed' }]).then(function (res) {
-      return ((res && res.value) || []).reduce(function (s, a) { return s + Number(a.account.data.parsed.info.tokenAmount.amount); }, 0);
-    });
-  }
-  function missingAtas(transfers) {
-    var addrs = transfers.map(function (t) { return T.ataAddress(W3(), t.owner, t.mint).toBase58(); }), miss = 0, chunks = [];
-    for (var i = 0; i < addrs.length; i += 100) chunks.push(addrs.slice(i, i + 100));
-    return Promise.all(chunks.map(function (c) { return rpcCall('getMultipleAccounts', [c, { encoding: 'base64', dataSlice: { offset: 0, length: 0 } }]); }))
-      .then(function (rs) { rs.forEach(function (r) { (r.value || []).forEach(function (v) { if (!v) miss++; }); }); return miss; });
-  }
-  function balances() {
-    if (!ADAPTER || !V || !V.plan) return Promise.resolve();
-    BAL = null; if ($('bal')) $('bal').innerHTML = balHtml();
-    var pk = ADAPTER.pubkey, need = T.need(V.plan, prog().doneIds);
-    var transfers = T.transfersForPlan(V.plan, null, prog().doneIds);
-    // rough upper bound for the swap's ORE so the ATA count includes swap-only payees
-    T.swapBuckets(V.plan, prog().doneIds).SOL.parts.concat(T.swapBuckets(V.plan, prog().doneIds).USDC.parts).forEach(function (x) {
-      if (!transfers.some(function (t) { return t.id === x.id && t.cur === 'ORE'; })) { var pe = V.plan.payees.filter(function (p) { return p.id === x.id; })[0]; transfers.push({ id: x.id, owner: pe.wallet, cur: 'ORE', mint: MINTS.ORE, decimals: DEC.ORE, amount: 1 }); }
-    });
-    return Promise.all([rpcCall('getBalance', [pk]), tokBal(pk, MINTS.ORE), tokBal(pk, MINTS.SKR), need.USDC ? tokBal(pk, MINTS.USDC) : 0, missingAtas(transfers)]).then(function (r) {
-      var nTx = Math.ceil(transfers.length / 8) + (need.SOL ? 1 : 0) + (need.USDC ? 1 : 0);
-      var fees = r[4] * 2039280 + nTx * 15000 + ((need.SOL || need.USDC) ? 3000000 : 0) + 2000000;   // ATA rents + fees + swap temp accounts + margin
-      BAL = { rows: [
-        { c: 'ORE', need: need.ORE, have: r[1] },
-        { c: 'SKR', need: need.SKR, have: r[2] },
-        { c: 'SOL', need: need.SOL + fees, have: r[0].value != null ? r[0].value : r[0], note: (need.SOL ? ui(need.SOL, 'SOL') + ' to swap + ' : '') + '~' + ui(fees, 'SOL') + ' fees/rent (' + r[4] + ' new token accounts)' },
-      ].concat(need.USDC ? [{ c: 'USDC', need: need.USDC, have: r[3], note: 'swapped to ORE' }] : []) };
-      if ($('bal')) $('bal').innerHTML = balHtml();
-      gate();
-    }).catch(function (e) { if ($('bal')) $('bal').innerHTML = '<span class="err">Couldn\'t read balances: ' + esc(e.message) + '</span>'; gate(); });
-  }
-  function connect() {
-    var picker = window.DojoWalletPicker; if (!picker) return;
-    picker.pick().then(function (a) { ADAPTER = a; render(); balances(); }).catch(function (e) { if (!/cancel/i.test(e.message || '')) alert(e.message); });
+  // the server's swap quote: what each SOL/USDC share is paid in ORE (recorded in the plan; verified against)
+  function manifestHtml(p) {
+    var m = p.manifest; if (!m || !m.swaps || !Object.keys(m.swaps).length) return '';
+    return '<div class="msg" style="margin:6px 0">Server quote v' + esc(m.version) + ': ' + Object.keys(m.swaps).map(function (c) {
+      var s = m.swaps[c]; return ui(s.inAmount, c) + ' ' + c + ' → ≥ ' + ui(s.minOut, 'ORE') + ' ORE for ' + s.ids.length + ' payee(s)';
+    }).join(' · ') + (Date.now() > m.expiresAt ? ' <span class="warnc">(expired — a fresh quote is taken before swapping)</span>' : ' · good until ' + new Date(m.expiresAt).toLocaleTimeString()) + '</div>';
   }
 
-  // ---------- gate ----------
-  function gate() {
-    var b = $('pay'); if (!b) return;
-    var why = '';
-    var fl = flagsNow();
-    if (BUSY) why = 'Working…';
-    else if (!ADAPTER) why = 'Connect the paying wallet first.';
-    else if (fl.length && !REVIEWED) why = 'Locked: tick "I reviewed these flags" (or exclude the flagged payees).';
-    else if (!BAL) why = 'Checking balances…';
-    else if (BAL.rows.some(function (r) { return r.have < r.need; })) why = 'Not enough in this wallet — see the shortfall above.';
-    else if (!T.payable(V.plan, prog().doneIds).length) why = 'Nothing left to pay.';
-    b.disabled = !!why; $('paywhy').innerHTML = esc(why);
+  // ================= Details: the Dojo Keeper desk =================
+  function renderKeeper() {
+    if (!KP) return;
+    var t = KP.totals || {}, due = KP.claimsDue || [], burn = KP.toBurn || [], rep = KP.repairsPending || [], on = !!KP.burnEnabled;
+    var refunds = KP.refundsDue || [], ops = KP.ops || {}, mc = KP.mint || null, pools = KP.pools || {};
+    var h = '<div class="card"><h2>Dojo Keeper — the books</h2><div class="msg">Royalties and repairs split 44% collection Card Vault · 44% Reserve · 12% ops. ' +
+      'Coin buys and referred mining tips split 22% Pot · 22% Reserve · 12% ops · 44% preacher pool (what the preacher\'s tier doesn\'t take → Reserve); a mining tip with no preacher is 100% Reserve. ' +
+      (on ? 'Burning is OPEN: a burned card is paid its equal share of its collection\'s Card Vault, in stORE. ' : 'Burning is OFF (BURN_ENABLED not set): the Card Vaults fill silently and nothing about them is shown publicly. ') +
+      'Treasury reader: ' + (KP.scan.pending ? KP.scan.pending + ' transaction(s) still to read' : KP.scan.gaps ? 'older history still being read' : 'up to date') + (KP.scan.at ? ' (' + new Date(KP.scan.at).toLocaleString() + ')' : '') + ' <button class="small" id="kscan">Read now</button></div>' +
+      '<dl style="margin-top:10px"><dt>Reserve (44%)</dt><dd>' + amtList(t.reserve) + '</dd><dt>Ops (12%)</dt><dd>' + amtList(t.ops) + '</dd><dt>Direct (tips beyond repairs)</dt><dd>' + amtList(t.direct) + '</dd>' +
+      '<dt>Still to convert to stORE</dt><dd>' + amtList(t.unconverted) + '</dd></dl></div>';
+    h += '<div class="card"><h2>Card Vaults (44% of every royalty + repair, per collection)</h2><table><tr><th>Collection</th><th>Pool</th><th class="num">Eligible NFTs (shares)</th><th class="num">One share (Mint; Framed = 2)</th><th class="num">Claimed</th></tr>' +
+      Object.keys(pools).map(function (n) { var p = pools[n] || {}; return '<tr><td>' + esc(n) + '</td><td>' + amtList(p.pool) + '</td><td class="num">' + (p.eligible == null ? '?' : p.eligible + ' (' + p.shares + ')') + '</td><td class="num">' + esc((p.perShare || {}).store || '0') + ' stORE ($' + (+((p.perShare || {}).usd) || 0).toFixed(2) + ')</td><td class="num">' + (p.claimed || 0) + '</td></tr>'; }).join('') + '</table></div>';
+    h += '<div class="card"><h2>Mint cap</h2>' + (mc ? '<div class="msg">' + mc.mintCount + ' Mint cards (Mint/Framed + repairs granted) of a cap of <b>' + mc.mintCap + '</b> — <b>' + mc.mintSpotsLeft + '</b> spot(s) left. Lowering it only closes repairs for later payments; it never downgrades a Mint card.</div>' : '<div class="msg">Mint count unavailable right now.</div>') +
+      '<div class="bar"><input id="kcap" type="number" min="1" step="1" value="' + (mc ? mc.mintCap : '') + '" style="width:110px"> <button id="kcapsave">Save Mint cap</button><span class="msg" id="kcapmsg"></span></div>' +
+      ((KP.mintCapHistory || []).length ? '<div class="msg">Changes: ' + KP.mintCapHistory.slice().reverse().map(function (x) { return new Date(x.at).toLocaleString() + ' ' + x.prev + '→' + x.cap; }).join(' · ') + '</div>' : '') + '</div>';
+    h += '<div class="card"><h2>Refunds due (' + refunds.length + ') — ' + esc(KP.refundsDueOre || '0') + ' ORE</h2><div class="msg">Repairs paid after every Mint spot was taken get their 0.01 ORE per card back.</div>' + (refunds.length ? '<table><tr><th>Payer</th><th class="num">ORE</th><th class="num">Cards</th><th>Paid</th></tr>' +
+      refunds.map(function (r) { return '<tr><td>' + acct(r.payer) + '</td><td class="num">' + esc(r.ore) + '</td><td class="num">' + (r.mints || []).length + '</td><td>' + new Date(r.at).toLocaleDateString() + ' ' + txl(r.sig) + '</td></tr>'; }).join('') + '</table>' : '<div class="msg">None.</div>') + '</div>';
+    h += '<div class="card"><h2>Operations share (12%)</h2>' + (ops.wallet ? '<div class="msg">Due to the Operations wallet ' + acct(ops.wallet) + ': ' + amtList(ops.due) + (ops.moved && Object.keys(ops.moved).length ? ' · moved so far: ' + amtList(ops.moved) : '') + '</div>'
+      : '<div class="msg">Set <code>OPS_WALLET</code> in Netlify (the new Operations wallet) to move it — until then it accumulates here: ' + amtList(ops.due) + '</div>') + '</div>';
+    if (on) h += '<div class="card"><h2>Burn claims due (' + due.length + ') — ' + esc(KP.claimsDueStore) + ' stORE</h2>' + (due.length ? '<table><tr><th>Holder</th><th>Card</th><th>How</th><th class="num">stORE</th><th class="num">≈ USD</th><th>Since</th></tr>' +
+      due.map(function (c) { return '<tr><td>' + acct(c.wallet) + '</td><td>' + acct(c.mint) + ' <span class="msg">' + esc(c.coll || '') + '</span></td><td>' + (c.kind === 'sent' ? 'sent to Treasury' : 'burned by holder') + '</td><td class="num">' + esc(c.store) + '</td><td class="num">$' + (+c.usd || 0).toFixed(2) + '</td><td>' + new Date(c.at).toLocaleDateString() + '</td></tr>'; }).join('') + '</table>'
+      : '<div class="msg">No claims due.</div>') + '</div>';
+    if (on) h += '<div class="card"><h2>Cards sent in to burn (' + burn.length + ')</h2>' + (burn.length ? '<div class="msg">' + burn.map(function (b) { return acct(b.mint) + ' (' + esc(b.coll) + ', from ' + acct(b.wallet) + ')'; }).join(' · ') + '</div>' : '<div class="msg">None.</div>') + '</div>';
+    else if ((KP.held || []).length) h += '<div class="card"><h2>Cards sent to the Treasury while burning is off (' + KP.held.length + ')</h2><div class="msg">Held only — no claim. ' + KP.held.map(function (b) { return acct(b.mint) + ' (' + esc(b.coll) + ', from ' + acct(b.from) + ')'; }).join(' · ') + '</div></div>';
+    h += '<div class="card"><h2>Repairs paid, to apply (' + rep.length + ')</h2>' + (rep.length ? '<div class="msg">Run <code>node scripts/keeper-apply-repairs.mjs --apply</code> on your computer: it sets these cards to Mint (protected forever) on S3 and prepares Bulk Re-point.</div><div class="msg">' +
+      rep.map(function (r) { return acct(r.mint) + ' ' + esc(r.from) + '→Mint'; }).join(' · ') + '</div>' : '<div class="msg">None.</div>') + '</div>';
+    h += '<div class="card"><h2>One part at a time</h2><div class="msg">Same checks, receipts and resume as <b>Pay this week</b> — for when you want to pay just one part.</div><div class="bar" style="margin-top:8px">' +
+      '<button data-only="plan">Winners & preachers</button><button data-only="refunds">Refunds</button><button data-only="ops"' + (ops.wallet ? '' : ' title="OPS_WALLET is not set"') + '>Operations share</button>' +
+      '<button data-only="convert">Convert to stORE</button>' + (on ? '<button data-only="claims">Burns & claims</button>' : '') + '</div></div>';
+    $('keeper').innerHTML = h;
+    if ($('kscan')) $('kscan').onclick = function () { this.disabled = true; api({ action: 'keeper-scan' }).then(function (j) { KP = j.keeper; renderKeeper(); return loadStatement(); }).catch(function (e) { alert(e.message); }); };
+    if ($('kcapsave')) $('kcapsave').onclick = function () {
+      var v = parseInt($('kcap').value, 10), b = this;
+      if (!(v > 0)) { $('kcapmsg').textContent = 'Enter a whole number.'; return; }
+      if (mc && v < mc.mintCount && !confirm('That is below the current ' + mc.mintCount + ' Mint cards: repairs close (no Mint card is downgraded). Save?')) return;
+      b.disabled = true;
+      api({ action: 'keeper-set-mint-cap', cap: v }).then(function (j) { KP = j.keeper; renderKeeper(); $('kcapmsg').textContent = 'Saved: ' + j.prev + ' → ' + j.cap; })
+        .catch(function (e) { $('kcapmsg').textContent = '✖ ' + e.message; b.disabled = false; });
+    };
+    wireOnly();
   }
-  function wire() {
-    Array.prototype.forEach.call(document.querySelectorAll('[data-ex],[data-un]'), function (b) {
-      b.onclick = function () {
-        var who = b.getAttribute('data-ex') || b.getAttribute('data-un'), undo = b.hasAttribute('data-un');
-        b.disabled = true;
-        api({ action: 'exclude', round: V.round, who: who, undo: undo }).then(function (j) { V = j; render(); if (ADAPTER) balances(); }).catch(function (e) { alert(e.message); b.disabled = false; });
-      };
-    });
-    if ($('connect')) $('connect').onclick = connect;
-    if ($('rev')) $('rev').onchange = function () { REVIEWED = this.checked; gate(); };
-    if ($('pay')) $('pay').onclick = pay;
+  function wireOnly() {
+    Array.prototype.forEach.call(document.querySelectorAll('[data-only]'), function (b) { b.onclick = function () { $('stmt').scrollIntoView({ behavior: 'smooth' }); payWeek([b.getAttribute('data-only')]); }; });
     gate();
-  }
-
-  // ---------- paying ----------
-  var b64 = function (u8) { var s = ''; for (var i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); };
-  var unb64 = function (s) { return Uint8Array.from(atob(s), function (c) { return c.charCodeAt(0); }); };
-  function sigOfSigned(u8) { return window.DojoWalletPicker.bs58(u8.subarray(1, 65)); }
-  function waitConfirm(sig) {
-    var tries = 0;
-    return new Promise(function (resolve, reject) {
-      (function loop() {
-        rpcCall('getSignatureStatuses', [[sig], { searchTransactionHistory: false }]).then(function (st) {
-          var s = st.value && st.value[0];
-          if (s && s.err) return reject(new Error('Transaction failed on-chain: ' + sig));
-          if (s && (s.confirmationStatus === 'confirmed' || s.confirmationStatus === 'finalized')) return resolve(sig);
-          if (++tries > 60) return reject(new Error('Timed out waiting for ' + sig + ' — check Solscan, then press Pay again (finished steps are skipped).'));
-          setTimeout(loop, 1500);
-        }).catch(function () { if (++tries > 60) reject(new Error('confirm failed')); else setTimeout(loop, 1500); });
-      })();
-    });
-  }
-  function relay(u8) { return api({ action: 'send', tx: b64(u8), skipPreflight: true }).then(function (j) { return j.signature; }); }
-
-  async function pay() {
-    if (BUSY) return;
-    var plan = V.plan, payer = ADAPTER.pubkey, P = prog();
-    BUSY = true; gate();
-    try {
-      // 0) a tx sent in an earlier attempt whose confirmation we never saw: settle it first, so
-      //    a landed swap/transfer is never sent twice.
-      P.pending = P.pending || {};
-      for (var ps of Object.keys(P.pending)) {
-        var pend = P.pending[ps];
-        var st = await rpcCall('getSignatureStatuses', [[ps], { searchTransactionHistory: true }]);
-        var sv = st.value && st.value[0];
-        if (sv && !sv.err && (sv.confirmationStatus === 'confirmed' || sv.confirmationStatus === 'finalized')) { log('Earlier ' + txl(ps) + ' did land.'); markDone(P, ps, pend); }
-        else if (sv && sv.err) { log('Earlier ' + txl(ps) + ' failed — will redo.'); delete P.pending[ps]; }
-        else if (Date.now() - pend.at < 120000) throw new Error('An earlier transaction (' + short(ps) + ') may still land — wait 2 minutes, then press Pay again.');
-        else { log('Earlier ' + txl(ps) + ' never landed (expired) — will redo.'); delete P.pending[ps]; }
-        saveProg(P);
-      }
-      // 1) swaps (skipped if already done in an earlier attempt — the ORE allocation is remembered)
-      var buckets = T.swapBuckets(plan, P.doneIds), swaps = [];
-      for (var c of ['SOL', 'USDC']) {
-        if (!(buckets[c].total > 0) || P.swaps[c]) continue;
-        log('Quoting ' + ui(buckets[c].total, c) + ' ' + c + ' → ORE on Jupiter…');
-        var s = await T.jupiterSwap({ payer: payer, inputMint: MINTS[c], amount: buckets[c].total, slippageBps: 100 });
-        log('  ≥ ' + ui(s.minOut, 'ORE') + ' ORE guaranteed (quote ' + ui(s.outAmount, 'ORE') + ')');
-        swaps.push({ c: c, s: s, tx: W3().VersionedTransaction.deserialize(unb64(s.swapTransaction)), alloc: T.allocate(s.minOut, buckets[c].parts) });
-      }
-      // ORE each payee gets from the swaps = what's already remembered + this run's allocations
-      var swapOre = Object.assign({}, P.swapOre);
-      swaps.forEach(function (x) { Object.keys(x.alloc).forEach(function (id) { swapOre[id] = (swapOre[id] || 0) + x.alloc[id]; }); });
-      // 2) transfers
-      var bh = await rpcCall('getLatestBlockhash', [{ commitment: 'confirmed' }]);
-      var packs = T.packTransfers({ W3: W3(), payer: payer, blockhash: bh.value.blockhash, transfers: T.transfersForPlan(plan, swapOre, P.doneIds) });
-      var all = swaps.map(function (x) { return x.tx; }).concat(packs.map(function (x) { return x.tx; }));
-      if (!all.length) { log('Nothing to sign.'); return finish(P, swapOre); }
-      log('Built ' + swaps.length + ' swap + ' + packs.length + ' transfer transaction(s) (' + packs.map(function (x) { return x.size + 'B'; }).join(', ') + '). Approve once in your wallet…');
-      // 3) ONE approval
-      var signed = null;
-      if (typeof ADAPTER.signAll === 'function') {
-        try { signed = (await ADAPTER.signAll(all)).map(function (u) { return u instanceof Uint8Array ? u : new Uint8Array(u); }); }
-        catch (e) { if (!/cannot sign multiple|not.*support|signAll/i.test(e.message || '')) throw e; log('<span class="warnc">This wallet can\'t sign a batch — falling back to one approval per transaction.</span>'); }
-      }
-      // 4) send: swaps first (confirmed), then the transfers
-      for (var i = 0; i < all.length; i++) {
-        var isSwap = i < swaps.length, label = isSwap ? swaps[i].c + ' → ORE swap' : 'transfers ' + (i - swaps.length + 1) + '/' + packs.length;
-        log('Sending ' + label + '…');
-        var sig = signed ? await relay(signed[i]).catch(function (e) { throw new Error(label + ': ' + e.message); })
-                         : (await ADAPTER.signAndSendTransaction(all[i])).signature;
-        var pend2 = isSwap ? { at: Date.now(), swap: swaps[i].c, alloc: swaps[i].alloc } : { at: Date.now(), ids: packs[i - swaps.length].transfers.map(function (t) { return t.id; }) };
-        P.pending[sig] = pend2; saveProg(P);
-        log('  ' + txl(sig) + ' — confirming…');
-        await waitConfirm(sig);
-        log('  <span class="okc">confirmed</span>');
-        markDone(P, sig, pend2); saveProg(P);
-      }
-      await finish(P, swapOre);
-    } catch (e) {
-      log('<span class="err">✖ ' + esc(e.message || e) + '</span>');
-      if (P.sigs.length) log('Finished steps are remembered — press Pay again to continue from here (no second swap).');
-    } finally { BUSY = false; gate(); }
-  }
-  function markDone(P, sig, pend) {
-    delete P.pending[sig];
-    if (P.sigs.indexOf(sig) < 0) P.sigs.push(sig);
-    if (pend.swap) { P.swaps[pend.swap] = sig; Object.keys(pend.alloc || {}).forEach(function (id) { P.swapOre[id] = (P.swapOre[id] || 0) + pend.alloc[id]; }); }
-    (pend.ids || []).forEach(function (id) { P.doneIds[id] = sig; });
-  }
-  async function finish(P, swapOre) {
-    log('Recording the payment (the server re-checks every transaction on-chain)…');
-    var j = await api({ action: 'paid', round: V.round, sigs: P.sigs, payer: ADAPTER.pubkey, swapOre: P.swapOre, reviewed: REVIEWED });
-    V = j;
-    if (j.status === 'paid') log('<span class="okc">Paid ✓ — all ' + j.paidIds.length + ' payee(s) verified on-chain.</span>');
-    else log('<span class="warnc">Recorded. Still missing: ' + esc(j.missing.join(', ')) + (j.bad && j.bad.length ? ' · ' + esc(j.bad.map(function (b) { return short(b.sig) + ' ' + b.reason; }).join('; ')) : '') + '</span>');
-    var keep = $('log') ? $('log').innerHTML : '';
-    render(); if ($('log')) $('log').innerHTML = keep;
-    balances();
   }
 
   $('load').onclick = load;
   $('rebuild').onclick = function () {
     if (!confirm('Rebuild the plan for round ' + V.round + '? It re-reads the pot, preachers and re-runs the fraud checks.')) return;
     $('rebuild').disabled = true; $('status').textContent = 'Rebuilding… (fraud checks can take a few seconds)';
-    api({ action: 'rebuild', round: V.round }).then(function (j) { V = j; REVIEWED = false; $('status').textContent = ''; render(); if (ADAPTER) balances(); })
+    api({ action: 'rebuild', round: V.round }).then(function (j) { V = j; REVIEWED = false; $('status').textContent = ''; render(); return loadStatement(); })
       .catch(function (e) { $('status').innerHTML = '<span class="err">' + esc(e.message) + '</span>'; render(); });
   };
   $('key').addEventListener('keydown', function (e) { if (e.key === 'Enter') load(); });
   $('round').addEventListener('keydown', function (e) { if (e.key === 'Enter') load(); });
-  $('forget').onclick = function () { try { sessionStorage.removeItem(KEY_SS); } catch (e) {} $('key').value = ''; V = null; $('view').innerHTML = ''; };
-  if (window.DojoWalletPicker) window.DojoWalletPicker.autoConnect().then(function (a) { if (a) { ADAPTER = a; if (V) { render(); balances(); } } });
+  $('forget').onclick = function () { $('key').value = ''; V = null; KP = null; STMT = null; $('view').innerHTML = ''; $('keeper').innerHTML = ''; $('stmt').innerHTML = ''; };
+  if (window.DojoWalletPicker) window.DojoWalletPicker.autoConnect().then(function (a) { if (a) { ADAPTER = a; if (V) render(); if (KP) renderKeeper(); if (STMT) renderStatement(); } });
   if (key()) load();
 })();
 </script>

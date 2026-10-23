@@ -12,10 +12,12 @@
 //
 // No API key required. If ME ever gates this, drop in a keyed source here and the
 // shelf keeps working unchanged (same normalized shape).
+import { limited } from "./store-ratelimit-core.mjs";
 
 const STATS_HOST = "https://stats-mainnet.magiceden.io/collection_stats/search/solana";
 
 export default async (request) => {
+  const blocked = limited(request, "topcollections", 60); if (blocked) return blocked;   // 60 / minute / IP (DD-04)
   const url = new URL(request.url);
   const window = (url.searchParams.get("window") || "7d").match(/^(1d|7d|30d)$/) ? url.searchParams.get("window") : "7d";
   const limit = Math.min(100, Math.max(10, Number(url.searchParams.get("limit")) || 100));

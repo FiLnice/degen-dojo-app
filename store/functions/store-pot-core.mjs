@@ -9,14 +9,29 @@
 import { getStore } from "@netlify/blobs";
 import { casUpdate, readWithEtag, putIfMatch, putIfNew, pushId, CasError } from "./store-cas-core.mjs";
 
-export const POT_FRAC = 0.65;             // 65% of every coin purchase feeds the pot (20–30% preachers, rest Degen Dojo)
+// Games economics (owner, 2026-10-23) — every verified coin buy AND every mining tip splits:
+//   22% the Pot · 22% the Reserve · 12% operations · 44% preacher pool (the referring preacher's tier takes
+//   28 / 36 / 44% of the WHOLE payment; whatever the tier doesn't take, or all 44% when nobody referred, → Reserve).
+// Exception: a mining tip with NO preacher goes 100% to the Reserve (no Pot, no ops) — store-verify-core.mjs.
+// Royalties never feed the Pot any more (44% card vault / 44% Reserve / 12% ops — store-keeper-core.mjs).
+export const POT_FRAC = 0.22;             // the Pot's share of a coin buy / mining tip (what /pot shows as "potPct")
+export const LEGACY_POT_FRAC = 0.65;      // records verified before 2026-10-23 (no `split`) gave the Pot 65%
+export const GAME_SPLIT = { pot: 22n, ops: 12n, preacherPool: 44n };   // percent; the Reserve gets the rest
+// Exact split of a raw token amount (BigInt). `preacherPct` = the locked tier share (0, 28, 36 or 44).
+// The Reserve absorbs the preacher pool's unused part and all rounding dust, so the four parts always sum to `raw`.
+export function splitGame(raw, preacherPct = 0) {
+  raw = BigInt(raw);
+  const pct = BigInt(Math.max(0, Math.min(Number(GAME_SPLIT.preacherPool), Math.round(Number(preacherPct) || 0))));
+  const pot = (raw * GAME_SPLIT.pot) / 100n, ops = (raw * GAME_SPLIT.ops) / 100n, preacher = (raw * pct) / 100n;
+  return { pot, ops, preacher, reserve: raw - pot - ops - preacher };
+}
 const KEY = "current";
 // Recent contribution ids kept INSIDE the pot blob, so "add" and "already added?" are one atomic
 // write: a cron run that overlaps another, or resumes after a crash, can never add the same
 // signature twice. Carried across the weekly reset. Long-term idempotency is the callers' own
 // per-signature records; this window only has to cover minutes.
 const APPLIED_MAX = 1000;
-const ROUTES = ["coinbuy", "royalty", "tip", "cluck", "game", "shelves", "other"];
+const ROUTES = ["coinbuy", "minetip", "royalty", "tip", "cluck", "game", "shelves", "other"];   // "royalty": history only (retired 2026-10-23)
 const curKey = (c) => ({ SOL: "sol", ORE: "ore", SKR: "skr" }[c] || null);
 
 function zero() {

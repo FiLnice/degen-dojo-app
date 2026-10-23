@@ -15,16 +15,20 @@
 // royalty:<sig>:<cur>. A tx that isn't readable yet is left to the sweep (which scans the wallet itself);
 // a tx that doesn't involve the royalty wallet is refused without writing anything.
 //
-// Env: SOLANA_RPC, optionally ROYALTY_WALLET (defaults to the ED3GMC creator wallet).
+// Env: SOLANA_RPC, optionally ROYALTY_WALLET (defaults to the Degen Dojo Reserve 5w55).
+import { limited } from "./store-ratelimit-core.mjs";
 import { getStore } from "@netlify/blobs";
-import { processRoyaltySig } from "./store-royalty-core.mjs";
+import { processRoyaltySig, CURSOR_KEY } from "./store-royalty-core.mjs";
 
 const SIG_RE = /^[1-9A-HJ-NP-Za-km-z]{80,90}$/;
 const MAX_AGE_MS = 48 * 3600e3;
 const json = (o, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { "content-type": "application/json", "cache-control": "no-store" } });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// RETIRED 2026-10-23: royalties no longer feed the Pot (see store-royalty-core.mjs). Kept so the store pages'
+// best-effort report after a sale gets a clean answer instead of a 404; it never credits anything.
 export default async (request) => {
+  const blocked = limited(request, "dd-royalty", 20); if (blocked) return blocked;   // 20 / minute / IP (DD-04)
   if (request.method !== "POST") return new Response("POST only", { status: 405 });
   if (!process.env.SOLANA_RPC) return json({ error: "SOLANA_RPC not set" }, 500);
   let d; try { d = await request.json(); } catch { return json({ error: "bad json" }, 400); }
@@ -35,7 +39,7 @@ export default async (request) => {
   const prior = await store.get(sig, { type: "json" });
   if (prior && (prior.credited || prior.skip || prior.gaveUp)) return json({ ok: true, already: true, potUsd: prior.potUsd || 0 });
 
-  const cursor = await store.get("__cursor__", { type: "json" });
+  const cursor = await store.get(CURSOR_KEY, { type: "json" });
   const notBefore = Math.max(cursor?.since || 0, Date.now() - MAX_AGE_MS);
   // a just-confirmed sale may take a moment to be readable — retry a few times, then hand it to the sweep
   let out = null;

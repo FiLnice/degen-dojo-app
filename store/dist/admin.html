@@ -89,7 +89,7 @@ const ICON = {
   SOL:'https://wsrv.nl/?url=https%3A%2F%2Fraw.githubusercontent.com%2Fsolana-labs%2Ftoken-list%2Fmain%2Fassets%2Fmainnet%2FSo11111111111111111111111111111111111111112%2Flogo.png&w=32&h=32&output=png',
   SKR:'https://wsrv.nl/?url=https%3A%2F%2Fr2.solanamobiledappstore.com%2Fskr%2Fseeker.png&w=32&h=32&output=png',
 };
-const POT_PCT = 65, AFF_PCT = 25;   // 65% of every buy funds the pot; preachers get ~25% (20–30%) of referred buys
+const POT_PCT = 22, AFF_PCT = 36;   // 22% of every buy funds the pot; preachers get ~36% (28/36/44%) of referred buys
 const $ = id => document.getElementById(id);
 const usd = n => '$' + (n||0).toLocaleString('en-US',{maximumFractionDigits:0});
 const nf = (n,d=0) => (n==null?'—':n.toLocaleString('en-US',{maximumFractionDigits:d}));
@@ -144,7 +144,7 @@ async function load(){
   const key = $('keyIn').value.trim();
   if(!key){ render(sample(), true); return; }
   try{
-    const r = await fetch('/api/admin?key='+encodeURIComponent(key));
+    const r = await fetch('/api/admin', { headers: { authorization: 'Bearer ' + key }, cache: 'no-store' });   // key in the header, never the URL
     if(!r.ok) throw new Error('unauthorized');
     render(await r.json(), false);
     $('noteReal').textContent = '';

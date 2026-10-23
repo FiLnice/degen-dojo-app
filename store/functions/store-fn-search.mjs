@@ -3,7 +3,9 @@
 // Lets the browse page find ANY collection (not a bundled list) by querying Magic
 // Eden's collection search, normalised to {symbol,name,logo,floor}. Cached at the
 // edge so typing doesn't hammer ME. Add a MAGICEDEN_API_KEY env var to raise limits.
+import { limited } from "./store-ratelimit-core.mjs";
 export default async (request) => {
+  const blocked = limited(request, "search", 60); if (blocked) return blocked;   // 60 / minute / IP (DD-04)
   const q = (new URL(request.url).searchParams.get("q") || "").trim();
   if (q.length < 2) return json({ results: [] });
   try {

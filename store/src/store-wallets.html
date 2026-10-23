@@ -1,0 +1,462 @@
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Degen Dojo Reserve</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Teko:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#100c08;--pan:#1b1510;--pan2:#241d15;--line:#3a2f22;--gold:#e8b84b;--goldd:#c8962a;--ink:#ece4d6;--ink2:#f6efe2;--mut:#9c8f7d;--grn:#7bb26a;--red:#c1443a;
+  /* chart series — validated (dataviz validator, dark, surface #1b1510): SOL · ORE · GRAMS/top token · other tokens */
+  --s-wal:#9085e9;--s-sol:#3987e5;--s-ore:#d95926;--s-tok:#199e70;--s-oth:#c98500;}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(1000px 500px at 50% -10%,#20180f,#100c08 60%);color:var(--ink);font-family:Inter,system-ui,sans-serif}
+.wrap{max-width:1100px;margin:0 auto;padding:22px 16px 60px}
+.hero{text-align:center;margin-bottom:22px}
+h1{font-family:Teko;font-weight:700;font-size:38px;margin:0;background:linear-gradient(180deg,#f4e2b4,var(--gold));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.sub{color:var(--mut);font-size:13px;margin:2px auto 0;max-width:620px}
+/* headline numbers — big, centred, no boxes (ORE-reserve style) */
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;text-align:center;padding:18px 0 22px;border-top:1px solid var(--line)}
+.stat{display:flex;flex-direction:column;align-items:center;min-width:0}
+.stat .v{font-weight:700;font-size:30px;line-height:1.1;color:var(--ink2);font-variant-numeric:tabular-nums;white-space:nowrap;display:inline-flex;align-items:center;gap:7px}
+.stat .v img{width:24px;height:24px;border-radius:50%}
+.stat .k{display:inline-block;margin-top:6px;font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--mut);border-bottom:1px dashed rgba(156,143,125,.55);cursor:help}
+/* last 7 days: the same look, one size down */
+.flow{text-align:center;padding:0 0 22px;margin-top:-6px}
+.flowh{font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin-bottom:10px}
+.flowg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.flowg .stat .v{font-size:22px}
+.flown{color:var(--mut);font-size:12px;margin-top:10px;min-height:16px}
+/* Assets | Wallets toggle */
+.seg{display:flex;justify-content:center;gap:6px;margin:0 0 14px}
+.seg button{font-family:Inter;font-size:13px;font-weight:600;color:var(--mut);background:transparent;border:1px solid transparent;border-radius:999px;padding:7px 18px;cursor:pointer}
+.seg button.on{color:var(--ink2);border-color:rgba(236,228,214,.55)}
+.seg button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.card{background:var(--pan);border:1px solid var(--line);border-radius:14px;padding:18px;min-width:0}
+/* the composition chart */
+.bar{display:flex;gap:2px;height:46px;border-radius:6px;overflow:hidden;background:var(--pan)}
+/* a segment, in the Assets bar and in each Wallets row */
+.sg{min-width:3px;height:100%;position:relative;cursor:pointer;transition:filter .12s}
+.sg:hover,.sg:focus-visible{filter:brightness(1.18);outline:none}
+.sg span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.45);pointer-events:none}
+.wrow{display:grid;grid-template-columns:150px minmax(0,1fr) 90px;align-items:center;gap:12px;padding:8px 0}
+.wrow+.wrow{border-top:1px dashed rgba(58,47,34,.7)}
+.wrow .wn{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wrow .wt{text-align:right;font-size:13px;font-variant-numeric:tabular-nums;color:var(--ink2)}
+.wrow .track{height:30px;display:flex;gap:2px;border-radius:5px;overflow:hidden}
+/* The Reserve's "mountain" (ORE-reserve style): one stacked column per day, columns and layers touching, square tops */
+.hist{display:grid;grid-template-columns:auto minmax(0,1fr);gap:0 8px}
+.hy{display:flex;flex-direction:column;justify-content:space-between;height:220px;font-size:10.5px;color:var(--mut);text-align:right;font-variant-numeric:tabular-nums;transform:translateY(-6px)}
+.hplot{position:relative;height:220px}
+.hgrid{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:space-between;pointer-events:none}
+.hgrid i{display:block;border-top:1px solid rgba(58,47,34,.6)}
+.hcols{position:absolute;inset:0;display:flex;align-items:flex-end;gap:0}
+.hcol{flex:1 1 0;min-width:0;height:100%;display:flex;align-items:flex-end;cursor:pointer;outline:none}
+.hstack{width:100%;display:flex;flex-direction:column-reverse;gap:0}
+.hs{width:100%;min-height:1px;transition:filter .12s}
+.hcol:hover .hs,.hcol:focus-visible .hs{filter:brightness(1.18)}
+.hs.mine{background:#8a7a62;background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.16) 0 2px,transparent 2px 6px)}
+.hx{grid-column:2;position:relative;height:18px;margin-top:6px;font-size:10.5px;color:var(--mut)}
+.hx span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap}
+.hnote{color:var(--mut);font-size:11.5px;text-align:center;margin-top:10px}
+.legend .sw.mine{background:#8a7a62;background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.16) 0 2px,transparent 2px 5px)}
+.legend{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 22px;margin-top:16px}
+.legend .li{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink)}
+.legend .sw{width:11px;height:11px;border-radius:3px;flex:none}
+.legend .li small{color:var(--mut)}
+.tip{position:fixed;z-index:50;pointer-events:none;background:#0d0a07;border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-size:12px;color:var(--ink);box-shadow:0 10px 24px -8px rgba(0,0,0,.8);max-width:260px;display:none}
+.tip b{color:var(--ink2)}.tip .tm{color:var(--mut)}
+/* wallet detail cards */
+.h2{font-family:Teko;font-weight:600;font-size:24px;color:#f0e6d2;margin:26px 0 10px}
+.wallets{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:start}
+.wh{display:flex;align-items:flex-start;gap:10px;justify-content:space-between}
+.wl{font-family:Cinzel,serif;font-weight:900;font-size:15px;letter-spacing:.06em;color:#f2e6cc}
+.tag{flex:none;font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:999px;border:1px solid rgba(123,178,106,.45);color:var(--grn)}
+.role{color:var(--mut);font-size:12.5px;margin:4px 0 10px;line-height:1.45}
+.addr{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+.addr code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:#d8ccb4;background:var(--pan2);border:1px solid var(--line);border-radius:7px;padding:4px 8px}
+.mini{font-size:11.5px;color:var(--gold);background:transparent;border:1px solid rgba(201,151,58,.45);border-radius:7px;padding:4px 9px;cursor:pointer;text-decoration:none;font-family:Inter}
+.mini:hover{background:rgba(201,151,58,.12)}
+.row{display:flex;align-items:center;gap:9px;padding:8px 0;min-width:0;border-top:1px dashed rgba(58,47,34,.7)}
+.row .sw{width:9px;height:9px;border-radius:2px;flex:none}
+.row .nm{flex:1;min-width:0;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .nm small{color:var(--mut);margin-left:5px}
+.row .am{text-align:right;font-size:13px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.row .am small{display:block;color:var(--mut);font-size:11px}
+.muted{color:var(--mut);font-size:12.5px;padding:6px 0}
+.err{color:var(--red);font-size:12.5px;padding:6px 0}
+.foot{color:var(--mut);font-size:12px;margin-top:16px;text-align:center}
+@media(max-width:760px){.hy{height:180px}.hplot{height:180px}.hcols{gap:1px}.hstack{gap:1px}.flowg{grid-template-columns:repeat(2,minmax(0,1fr));row-gap:16px}.stats{grid-template-columns:repeat(2,minmax(0,1fr));row-gap:20px}.stat .v{font-size:26px}.wallets{grid-template-columns:1fr}.wrow{grid-template-columns:100px minmax(0,1fr) 70px;gap:8px}}
+</style>
+
+<div id="ddnav-mount"></div>
+<div class="wrap">
+  <header class="hero">
+    <h1>Degen Dojo Reserve</h1>
+    <p class="sub">What the Dojo holds, read live from the chain — nothing here is typed in by hand.</p>
+  </header>
+
+  <section class="stats" aria-label="Reserve totals">
+    <div class="stat"><div class="v" id="sUsd">…</div><div class="k" title="SOL + tokens with a live price + the mined ORE (unrefined counted after ORE's 10% claim fee).">Total value</div></div>
+    <div class="stat"><div class="v" id="sOre">…</div><div class="k" id="sOreK" title="ORE tokens plus the ORE mined into the Dojo's ORE miner accounts (refined + unrefined).">ORE</div></div>
+    <div class="stat"><div class="v" id="sSol">…</div><div class="k" title="SOL across the Reserve's wallets, including SOL working in ORE mining (auto-mine balance, this round, winnings to claim).">SOL</div></div>
+    <div class="stat"><div class="v" id="sTok">…</div><div class="k" id="sTokK" title="The largest other token the Reserve holds.">Tokens</div></div>
+  </section>
+
+  <section class="flow" aria-label="Last 7 days">
+    <div class="flowh">Last 7 days</div>
+    <div class="flowg" id="flow"></div>
+    <div class="flown" id="flowNote">Reading the last week…</div>
+  </section>
+
+  <section class="card" aria-label="What the Reserve is made of">
+    <div id="chart"><div class="muted" style="text-align:center">Reading the chain…</div></div>
+    <div class="legend" id="legend"></div>
+    <div class="hnote">Tracks 2 wallets: the Treasury wallet (shamanchef.sol · 5w55…MuWp) and the Old wallet (ED3G…vwJe).</div>
+  </section>
+
+  <h2 class="h2">Wallets</h2>
+  <div class="wallets" id="wallets"></div>
+  <div class="foot">Prices: Jupiter. Unrefined ORE (uORE) is valued after ORE's 10% claim fee. <span id="stamp"></span></div>
+  <div class="foot"><a href="/repair/" style="color:var(--gold)">Repair a card</a></div>
+</div>
+<div class="tip" id="tip" role="tooltip"></div>
+
+<script>
+const RPC = '/api/rpc';
+const SOL_MINT = 'So11111111111111111111111111111111111111112', ORE_MINT = 'oreoU2P8bN6jkk3jbaiVxYnG1dCXcYxwhwyK9jSybcp';
+const TOKEN_PROGRAMS = ['TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'];
+// names that must never fall back to an address if the token lookup hiccups
+const KNOWN = { [ORE_MINT]: 'ORE', 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': 'USDC', 'SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3': 'SKR',
+  'G1jonmoSEbMJSwEg1AmgDAJq2utmuBSZct8oqttBf9rT': 'GRAMS' };
+const ORE_ICON = 'https://wsrv.nl/?url=https%3A%2F%2Fore.com%2Fassets%2Ficon.png&w=48&h=48&output=png';
+// `miner` = the wallet's ORE v3 miner account, PDA(["miner", wallet], oreV3EG1i9BEgiAJ8b177Z2S2rMarzak4NMv1kULvWv)
+const WALLETS = [
+  { addr: '5w55F58ia3H71QjBD9bYvNQF2DcNu8K3AfJj9A4WMuWp', miner: '7SSYaNT1iAh2L5WbwmJ4vNeQ2RGnSDumn98k8naFBGDD', auto: '7u53XF8q8Axoy9gtFAqEGeZHCFnEevwRhogrM3qKsmce', label: 'Treasury wallet', tag: 'shamanchef.sol',
+    role: 'Where the Dojo’s income lands: royalties, game-coin buys, mining tips and Pot tips — and where prizes are paid from. Send to shamanchef.sol.' },
+  { addr: 'ED3GMCfoX3XNvavnWADvd6oCsohGg1ukdhv3PaUpvwJe', miner: 'Gus9HWzX9x6oKvWr1Z6GyoV4TBUAPLAhDV5X8He4K5ws', auto: '2nYhMAbfLKtNQhRtJcaWBv5SaFUm8GGjbz7DKowFPpwZ', label: 'Old wallet', tag: 'Retired',
+    role: 'The Dojo’s first wallet — retired. It only holds the ORE it mined.' },
+];
+// chart categories, fixed order + colour (colour follows the asset, never its rank)
+const CATS = [
+  { id: 'sol', name: 'SOL', color: 'var(--s-sol)' },
+  { id: 'ore', name: 'ORE', color: 'var(--s-ore)' },
+  { id: 'tok', name: 'Token', color: 'var(--s-tok)' },   // renamed to the top token's symbol (e.g. GRAMS)
+  { id: 'oth', name: 'Other tokens', color: 'var(--s-oth)' },
+];
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const short = (a) => a.slice(0, 4) + '…' + a.slice(-4);
+const fmt = (n, d) => Number(n).toLocaleString('en-US', { maximumFractionDigits: d == null ? (n >= 1000 ? 0 : n >= 1 ? 3 : 6) : d });
+const compact = (n) => n >= 1e6 ? fmt(n / 1e6, 2) + 'M' : n >= 1e4 ? fmt(n / 1e3, 1) + 'K' : fmt(n, n >= 100 ? 0 : n >= 1 ? 2 : 4);
+const usd = (n) => '$' + (n >= 1e4 ? compact(n) : Number(n).toLocaleString('en-US', { maximumFractionDigits: n >= 100 ? 0 : 2, minimumFractionDigits: n >= 100 ? 0 : 2 }));
+const pct = (x) => (x >= 0.995 ? '100' : x >= 0.1 ? fmt(x * 100, 0) : fmt(x * 100, 1)) + '%';
+
+async function rpc(method, params) {
+  const r = await fetch(RPC, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) });
+  const j = await r.json();
+  if (j.error) throw new Error(j.error.message || 'RPC error');
+  return j.result;
+}
+async function assets(ids) {   // DAS, ≤100 ids per call
+  const out = [];
+  for (let i = 0; i < ids.length; i += 100) { try { out.push(...((await rpc('getAssetBatch', { ids: ids.slice(i, i + 100) })) || [])); } catch (e) {} }
+  return out.filter(Boolean);
+}
+async function prices(mints) {   // Jupiter price v3 → { mint: usd }
+  const p = {};
+  for (let i = 0; i < mints.length; i += 50) {
+    try { const j = await (await fetch('https://lite-api.jup.ag/price/v3?ids=' + mints.slice(i, i + 50).join(','))).json();
+      for (const m of Object.keys(j || {})) if (j[m] && j[m].usdPrice) p[m] = j[m].usdPrice; } catch (e) {}
+  }
+  return p;
+}
+// ORE v3 accounts — same layouts as the /mine page (lib/ore.ts):
+//   miner (752 B): SOL placed per square this round @64 (25 × u64), claimable SOL @688, refined ORE @696, unrefined ORE @704
+//   automation:    auto-mine SOL balance @48
+const b64bytes = (b64) => { const bin = atob(b64), u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i); return u8; };
+function decodeMiner(b64) {
+  if (!b64) return null;
+  const u8 = b64bytes(b64);
+  if (u8.length < 712) return null;
+  const v = new DataView(u8.buffer);
+  let placed = 0n; for (let i = 0; i < 25; i++) placed += v.getBigUint64(64 + i * 8, true);
+  return { rOre: Number(v.getBigUint64(696, true)) / 1e11, uOre: Number(v.getBigUint64(704, true)) / 1e11,
+    solPlaced: Number(placed) / 1e9, solClaim: Number(v.getBigUint64(688, true)) / 1e9, roundId: v.getBigUint64(664, true) };
+}
+function decodeAuto(b64) {
+  if (!b64) return 0;
+  const u8 = b64bytes(b64);
+  return u8.length >= 56 ? Number(new DataView(u8.buffer).getBigUint64(48, true)) / 1e9 : 0;
+}
+
+async function load(w) {
+  const [lamports, ...tas] = await Promise.all([rpc('getBalance', [w.addr]),
+    ...TOKEN_PROGRAMS.map((programId) => rpc('getTokenAccountsByOwner', [w.addr, { programId }, { encoding: 'jsonParsed' }]))]);
+  const fung = {};
+  for (const res of tas) for (const x of ((res && res.value) || [])) {
+    const info = x.account.data.parsed.info, ta = info.tokenAmount;
+    if (!ta || ta.amount === '0') continue;
+    if (ta.decimals === 0 && ta.amount === '1') continue;   // NFTs aren't part of the Reserve view
+    fung[info.mint] = (fung[info.mint] || 0) + Number(ta.uiAmountString || ta.uiAmount || 0);
+  }
+  return { sol: (lamports && lamports.value != null ? lamports.value : lamports) / 1e9, fung, mined: null };
+}
+
+let VIEW = 'assets', MODEL = null;   // both views draw the 30-day mountain; VIEW picks its layers (assets | wallets)
+
+// ── History: the Treasury's end-of-day holdings for 30 days (from /api/reserve), each day valued at TODAY's prices,
+// stacked by asset in the fixed category order/colours; the Old wallet + SOL/ORE working in ORE mining can't be
+// rebuilt day by day, so they sit underneath as one constant layer at today's value ("Mining · today's level") ──
+const niceMax = (v) => { if (!(v > 0)) return 1; const step = v / 3, p = Math.pow(10, Math.floor(Math.log10(step))), n = step / p;
+  return 3 * ([1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10].find((s) => n <= s) || 10) * p; };
+const dayLabel = (d) => new Date(d + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+function buildHistory(daily, px) {
+  const { catOf, miningConst, oldConst } = MODEL;
+  return (daily || []).map((d) => {
+    const v = { mine: miningConst || 0, sol: 0, ore: 0, tok: 0, oth: 0 }, amt = {};
+    for (const [m, a] of Object.entries(d.holdings || {})) {
+      const c = m === SOL_MINT ? 'sol' : catOf(m);
+      v[c] += a * (px[m] || 0); amt[c] = (amt[c] || 0) + (c === 'oth' ? 0 : a);
+    }
+    const total = v.mine + v.sol + v.ore + v.tok + v.oth;
+    // Wallets layering: the Old wallet (all mined ORE, today's level) + the Treasury (its holdings that day + its own mining)
+    const w = { old: oldConst || 0, treasury: total - (oldConst || 0) };
+    return { day: d.day, v, w, amt, total };
+  });
+}
+// the layers each view stacks (bottom → top); the Old wallet / mining layer is striped: a constant at today's level
+const LAYERS = {
+  assets: () => [{ id: 'mine', name: 'Mining · today’s level', cls: 'mine', key: 'v' }, ...CATS.map((c) => ({ id: c.id, name: MODEL.cats[c.id].name, color: c.color, key: 'v' }))],
+  wallets: () => [{ id: 'old', name: 'Old wallet · today’s level', cls: 'mine', key: 'w' }, { id: 'treasury', name: 'Treasury wallet', color: 'var(--s-wal)', key: 'w' }],
+};
+function renderHistory() {
+  const H = MODEL.hist;
+  if (!H) { $('chart').innerHTML = '<div class="muted" style="text-align:center">Reading the last 30 days…</div>'; $('legend').innerHTML = ''; return; }
+  if (!H.length) { $('chart').innerHTML = '<div class="muted" style="text-align:center">Couldn’t read the chart right now — try again in a minute.</div>'; $('legend').innerHTML = ''; return; }
+  const layers = LAYERS[VIEW]().filter((l) => H.some((d) => d[l.key][l.id] > 0));
+  const yMax = niceMax(Math.max(...H.map((d) => d.total), 0));
+  const n = H.length, labelEvery = 5;
+  const cols = H.map((d, i) => `<div class="hcol" tabindex="0" data-i="${i}"><div class="hstack" style="height:${(d.total / yMax * 100).toFixed(3)}%">`
+    + layers.filter((l) => d[l.key][l.id] > 0).map((l) => `<div class="hs${l.cls ? ' ' + l.cls : ''}" style="flex:${d[l.key][l.id].toFixed(6)} 1 0px${l.color ? ';background:' + l.color : ''}"></div>`).join('')
+    + '</div></div>').join('');
+  const ticks = [yMax, yMax * 2 / 3, yMax / 3, 0].map((t) => `<span>${t ? usd(t) : '$0'}</span>`).join('');
+  const xs = H.map((d, i) => ((n - 1 - i) % labelEvery === 0 ? `<span style="left:${((i + 0.5) / n * 100).toFixed(2)}%">${esc(dayLabel(d.day))}</span>` : '')).join('');
+  const first = H[0], last = H[n - 1];
+  $('chart').innerHTML = `<div class="hist" role="img" aria-label="${esc(`Reserve value over ${n} day${n === 1 ? '' : 's'}: ${usd(first.total)} on ${dayLabel(first.day)}, ${usd(last.total)} today (at today's prices)`)}">
+      <div class="hy">${ticks}</div>
+      <div class="hplot"><div class="hgrid"><i></i><i></i><i></i><i></i></div><div class="hcols">${cols}</div></div>
+      <div class="hx">${xs}</div></div>
+    <div class="hnote">${n < 2 ? 'The mountain builds up day by day. ' : ''}One column per day for the last 30 days — the Reserve at the end of each day (UTC), valued at today’s prices. Mined ORE and SOL working in ORE mining are shown at today’s level (striped).${MODEL.histPartial ? ' Still reading older days — refresh in a minute.' : ''}</div>`;
+  $('legend').innerHTML = layers.map((l) => `<div class="li"><span class="sw${l.cls ? ' ' + l.cls : ''}"${l.color ? ` style="background:${l.color}"` : ''}></span>${esc(l.name)} <small>${usd(last[l.key][l.id] || 0)} today</small></div>`).join('');
+}
+function histTip(i) {
+  const d = MODEL.hist[i];
+  const lines = VIEW === 'wallets'
+    ? [{ id: 'treasury', name: 'Treasury wallet' }, { id: 'old', name: 'Old wallet (today’s level)' }].filter((l) => d.w[l.id] > 0).map((l) => `${esc(l.name)}: ${usd(d.w[l.id])}`)
+    : [{ id: 'oth', name: 'Other tokens' }, { id: 'tok', name: MODEL.cats.tok.name }, { id: 'ore', name: 'ORE' }, { id: 'sol', name: 'SOL' }, { id: 'mine', name: 'Mining (today’s level)' }]
+    .filter((l) => d.v[l.id] > 0).map((l) => `${esc(l.name)}: ${usd(d.v[l.id])}${l.id !== 'mine' && l.id !== 'oth' && d.amt[l.id] ? ` <span class="tm">(${fmt(d.amt[l.id], l.id === 'tok' ? 0 : 4)})</span>` : ''}`);
+  return `<b>${esc(dayLabel(d.day))}</b><br>${lines.join('<br>')}<br><b>Total ${usd(d.total)}</b> <span class="tm">at today’s prices</span>`;
+}
+
+function render() {
+  if (!MODEL) return;
+  return renderHistory();   // the mountain, layered by VIEW (the flat Assets/Wallets bars below are kept unused)
+  const { cats, perWallet, total } = MODEL;
+  const segs = (vals, scale) => CATS.filter((c) => vals[c.id] > 0).map((c) => {
+    const share = vals[c.id] / scale;
+    return `<div class="sg" tabindex="0" data-cat="${c.id}" data-w="${vals.__w ?? ''}" style="flex:0 0 ${(share * 100).toFixed(3)}%;background:${c.color}">${share >= 0.12 ? `<span>${pct(vals[c.id] / (vals.__t || scale))}</span>` : ''}</div>`;
+  }).join('');
+  if (!total) { $('chart').innerHTML = '<div class="muted" style="text-align:center">Nothing with a live price yet.</div>'; $('legend').innerHTML = ''; return; }
+  if (VIEW === 'assets') {
+    $('chart').innerHTML = `<div class="bar" role="img" aria-label="${esc(CATS.filter((c) => cats[c.id].usd > 0).map((c) => `${cats[c.id].name} ${pct(cats[c.id].usd / total)}`).join(', '))}">${segs(Object.fromEntries(CATS.map((c) => [c.id, cats[c.id].usd])), total)}</div>`;
+  } else {
+    const max = Math.max(...perWallet.map((p) => p.total), 1e-9);
+    $('chart').innerHTML = perWallet.map((p, i) => `<div class="wrow"><div class="wn">${esc(WALLETS[i].label)}</div>
+      <div class="track">${segs({ ...p.vals, __w: i, __t: p.total }, max)}</div><div class="wt">${p.total ? usd(p.total) : '—'}</div></div>`).join('');
+  }
+  $('legend').innerHTML = CATS.filter((c) => cats[c.id].usd > 0 || cats[c.id].amt > 0).map((c) =>
+    `<div class="li"><span class="sw" style="background:${c.color}"></span>${esc(cats[c.id].name)} <small>${cats[c.id].label} · ${cats[c.id].usd ? usd(cats[c.id].usd) + ' · ' + pct(cats[c.id].usd / total) : 'no price'}</small></div>`).join('');
+}
+
+function tipFor(el) {
+  const c = el.dataset.cat, w = el.dataset.w, cat = MODEL.cats[c];
+  if (w === '') return `<b>${esc(cat.name)}</b><br>${cat.label}<br><span class="tm">${usd(cat.usd)} · ${pct(cat.usd / MODEL.total)} of the Reserve</span>${cat.note ? `<br><span class="tm">${esc(cat.note)}</span>` : ''}`;
+  const p = MODEL.perWallet[+w];
+  return `<b>${esc(WALLETS[+w].label)} — ${esc(cat.name)}</b><br>${p.labels[c]}<br><span class="tm">${usd(p.vals[c])} · ${pct(p.vals[c] / (p.total || 1))} of this wallet</span>`;
+}
+function showTipHtml(html, x, y) { const t = $('tip'); t.innerHTML = html; t.style.display = 'block';
+  const r = t.getBoundingClientRect(); t.style.left = Math.min(window.innerWidth - r.width - 8, Math.max(8, x + 12)) + 'px'; t.style.top = Math.max(8, y - r.height - 12) + 'px'; }
+const tipOf = (target) => {   // the hovered/focused chart mark → its tooltip html
+  const h = target.closest && target.closest('.hcol'); if (h && MODEL && MODEL.hist) return histTip(+h.dataset.i);
+  const s = target.closest && target.closest('.sg'); if (s && MODEL) return tipFor(s);
+  return null;
+};
+document.addEventListener('mousemove', (e) => { const html = tipOf(e.target); if (html) showTipHtml(html, e.clientX, e.clientY); else $('tip').style.display = 'none'; });
+document.addEventListener('focusin', (e) => { const html = tipOf(e.target); if (html) { const r = e.target.getBoundingClientRect(); showTipHtml(html, r.left + r.width / 2, r.top); } });
+document.addEventListener('focusout', () => { $('tip').style.display = 'none'; });
+document.querySelectorAll('.seg button').forEach((b) => b.addEventListener('click', () => {
+  VIEW = b.dataset.view;
+  document.querySelectorAll('.seg button').forEach((x) => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', x === b ? 'true' : 'false'); });
+  render();
+}));
+
+function panel(w, body) {
+  return `<div class="card"><div class="wh"><div class="wl">${esc(w.label)}</div><span class="tag">${esc(w.tag)}</span></div>
+    <div class="role">${esc(w.role)}</div>
+    <div class="addr"><code title="${esc(w.addr)}">${short(w.addr)}</code>
+      <button class="mini" type="button" data-copy="${esc(w.addr)}">Copy</button>
+      <a class="mini" href="https://solscan.io/account/${esc(w.addr)}" target="_blank" rel="noopener">Solscan ↗</a></div>
+    ${body}</div>`;
+}
+const row = (color, name, amt, val, note) => `<div class="row"><span class="sw" style="background:${color}"></span><div class="nm">${name}${note ? `<small>${note}</small>` : ''}</div><div class="am">${amt}${val ? `<small>${usd(val)}</small>` : ''}</div></div>`;
+
+async function main() {
+  $('wallets').innerHTML = WALLETS.map((w) => panel(w, '<div class="muted">Loading…</div>')).join('');
+  const [results, minerAccs] = await Promise.all([
+    Promise.all(WALLETS.map((w) => load(w).catch((e) => ({ error: e.message || String(e) })))),
+    // [ORE board (current round), then miner + auto-mine per wallet]
+    rpc('getMultipleAccounts', [['BrcSxdp1nXFzou1YyDnQJcPNBNHgoypZmTsyKBSLLXzi', ...WALLETS.flatMap((w) => [w.miner, w.auto])], { encoding: 'base64' }]).catch(() => null),
+  ]);
+  results.forEach((r, i) => {
+    if (r.error) return;
+    const acc = (k) => { const a = minerAccs && minerAccs.value && minerAccs.value[k]; return a && a.data ? a.data[0] : null; };
+    r.mined = decodeMiner(acc(1 + 2 * i));
+    r.autoSol = decodeAuto(acc(2 + 2 * i));
+    // SOL "placed" only counts while the miner is in ORE's CURRENT round — after a round ends the account keeps the old numbers
+    const board = acc(0), cur = board ? new DataView(b64bytes(board).buffer).getBigUint64(8, true) : null;
+    if (r.mined && r.mined.roundId !== cur) r.mined.solPlaced = 0;
+  });
+  const ok = results.filter((r) => !r.error);
+  const fungMints = [...new Set(ok.flatMap((r) => Object.keys(r.fung)))];
+  const [meta, px] = await Promise.all([assets(fungMints), prices([SOL_MINT, ORE_MINT, ...fungMints])]);
+  const tok = {};
+  for (const a of meta) {
+    const ti = a.token_info || {}, md = (a.content && a.content.metadata) || {};
+    tok[a.id] = { sym: KNOWN[a.id] || ti.symbol || md.symbol || '', name: md.name || '', price: (ti.price_info && ti.price_info.price_per_token) || 0 };
+  }
+  const priceOf = (m) => px[m] || (tok[m] && tok[m].price) || 0;
+
+  // the "top token" = the largest-value token that isn't SOL/ORE (e.g. GRAMS) gets its own colour; the rest fold into "Other tokens"
+  const tokVal = {};
+  ok.forEach((r) => { for (const [m, amt] of Object.entries(r.fung)) if (m !== ORE_MINT) tokVal[m] = (tokVal[m] || 0) + amt * priceOf(m); });
+  const tokAmt = {}; ok.forEach((r) => { for (const [m, amt] of Object.entries(r.fung)) tokAmt[m] = (tokAmt[m] || 0) + amt; });
+  const topMint = Object.keys(tokVal).sort((a, b) => tokVal[b] - tokVal[a] || tokAmt[b] - tokAmt[a])[0] || null;
+  const topSym = topMint ? (KNOWN[topMint] || (tok[topMint] && (tok[topMint].sym || tok[topMint].name)) || short(topMint)) : 'Token';
+  const catOf = (m) => (m === ORE_MINT ? 'ore' : m === topMint ? 'tok' : 'oth');
+  const colorOf = { sol: 'var(--s-sol)', ore: 'var(--s-ore)', tok: 'var(--s-tok)', oth: 'var(--s-oth)' };
+
+  const pxSol = px[SOL_MINT] || 0, pxOre = priceOf(ORE_MINT);
+  const cats = { sol: { usd: 0, amt: 0 }, ore: { usd: 0, amt: 0, u: 0, rr: 0 }, tok: { usd: 0, amt: 0 }, oth: { usd: 0, amt: 0, n: 0 } };
+  const perWallet = [];
+  let miningConst = 0;   // History's constant base layer: the Old wallet + the Treasury's SOL/ORE working in ORE mining
+
+  $('wallets').innerHTML = WALLETS.map((w, i) => {
+    const r = results[i];
+    const pw = { vals: { sol: 0, ore: 0, tok: 0, oth: 0 }, labels: { sol: '', ore: '', tok: '', oth: '' }, total: 0 };
+    perWallet.push(pw);
+    if (r.error) return panel(w, `<div class="err">Couldn’t read this wallet right now (${esc(r.error)}). Try again in a minute.</div>`);
+    let html = '';
+    // SOL
+    const solUsd = r.sol * pxSol;
+    cats.sol.amt += r.sol; cats.sol.usd += solUsd; pw.vals.sol += solUsd; pw.labels.sol = fmt(r.sol, 4) + ' SOL';
+    html += row(colorOf.sol, 'SOL', fmt(r.sol, 4), solUsd);
+    // SOL working in ORE mining: auto-mine balance + placed in the current round + winnings not yet claimed
+    const md0 = r.mined || {}, mSol = (r.autoSol || 0) + (md0.solPlaced || 0) + (md0.solClaim || 0);
+    if (mSol > 0) {
+      const v = mSol * pxSol, parts = [];
+      if (r.autoSol) parts.push(fmt(r.autoSol, 4) + ' auto-mine');
+      if (md0.solPlaced) parts.push(fmt(md0.solPlaced, 5) + ' in this round');
+      if (md0.solClaim) parts.push(fmt(md0.solClaim, 4) + ' won, to claim');
+      cats.sol.amt += mSol; cats.sol.usd += v; pw.vals.sol += v; pw.labels.sol += ' + ' + fmt(mSol, 4) + ' SOL in ORE mining';
+      if (i === 0) miningConst += v;
+      html += row(colorOf.sol, 'SOL in ORE mining', fmt(mSol, 4), v, parts.join(' + '));
+    }
+    // tokens
+    const rows = Object.entries(r.fung).map(([m, amt]) => ({ m, amt, t: tok[m] || {}, v: amt * priceOf(m) })).sort((a, b) => b.v - a.v || b.amt - a.amt);
+    let oreTok = 0;
+    for (const x of rows) {
+      const c = catOf(x.m), label = KNOWN[x.m] || x.t.sym || x.t.name || short(x.m);
+      if (c === 'ore') oreTok += x.amt; else { cats[c].amt += x.amt; if (c === 'oth') cats.oth.n++; }
+      cats[c].usd += x.v; pw.vals[c] += x.v;
+      pw.labels[c] = (pw.labels[c] ? pw.labels[c] + ' + ' : '') + fmt(x.amt) + ' ' + label;
+      html += row(colorOf[c], esc(label), fmt(x.amt), x.v, x.t.name && x.t.sym && x.t.name !== x.t.sym ? esc(x.t.name) : '');
+    }
+    // mined ORE (miner account): refined + unrefined; value = refined + 90% of unrefined (ORE's claim fee)
+    const md = r.mined;
+    const minedClaim = md ? md.rOre + md.uOre * 0.9 : 0;
+    if (md && (md.rOre > 0 || md.uOre > 0)) {
+      const v = minedClaim * pxOre;
+      cats.ore.usd += v; pw.vals.ore += v; cats.ore.u += md.uOre; cats.ore.rr += md.rOre;
+      if (i === 0) miningConst += v;
+      pw.labels.ore = (pw.labels.ore ? pw.labels.ore + ' + ' : '') + `${fmt(md.uOre, 4)} uORE + ${fmt(md.rOre, 4)} refined (mining)`;
+      html += row(colorOf.ore, 'ORE mining', fmt(md.uOre + md.rOre, 4), v, `${fmt(md.uOre, 4)} uORE + ${fmt(md.rOre, 4)} refined`);
+    }
+    cats.ore.amt += oreTok + (md ? md.rOre + md.uOre : 0);
+    if (!rows.length && !(md && (md.rOre > 0 || md.uOre > 0))) html += '<div class="muted">No tokens.</div>';
+    pw.total = pw.vals.sol + pw.vals.ore + pw.vals.tok + pw.vals.oth;
+    if (i === 1) miningConst += pw.total;   // the Old wallet isn't in the Treasury's daily history
+    return panel(w, html);
+  }).join('');
+
+  cats.sol.name = 'SOL'; cats.sol.label = fmt(cats.sol.amt, 4) + ' SOL';
+  cats.ore.name = 'ORE'; cats.ore.label = fmt(cats.ore.amt, 4) + ' ORE';
+  cats.ore.note = cats.ore.u ? `incl. ${fmt(cats.ore.u, 4)} unrefined ORE in the mining account (valued after ORE's 10% claim fee)` : '';
+  cats.tok.name = topSym; cats.tok.label = compact(cats.tok.amt) + ' ' + topSym;
+  cats.oth.name = 'Other tokens'; cats.oth.label = cats.oth.n + ' token' + (cats.oth.n === 1 ? '' : 's');
+  const total = cats.sol.usd + cats.ore.usd + cats.tok.usd + cats.oth.usd;
+  MODEL = { cats, perWallet, total, catOf, miningConst, oldConst: (perWallet[1] && perWallet[1].total) || 0, hist: null, histPartial: false };
+
+  $('sUsd').textContent = total ? usd(total) : '—';
+  $('sOre').innerHTML = `<img src="${ORE_ICON}" alt="">${esc(fmt(cats.ore.amt, cats.ore.amt >= 100 ? 1 : 3))}`;
+  if (cats.ore.u) $('sOreK').title = `ORE tokens plus mined ORE: ${fmt(cats.ore.u, 4)} unrefined (uORE) + ${fmt(cats.ore.rr, 4)} refined in the ORE miner accounts. ORE takes 10% of uORE when it's claimed.`;
+  $('sSol').textContent = '◎ ' + fmt(cats.sol.amt, 4);
+  $('sTok').textContent = topMint ? compact(cats.tok.amt) : '—';
+  $('sTokK').textContent = topMint ? topSym : 'Tokens';
+  $('stamp').textContent = 'Updated ' + new Date().toLocaleString() + '.';
+  render();
+  loadFlow(px, tok);
+}
+
+// ── last 7 days: in by source + out (from /api/reserve; amounts per mint, priced here) ──
+const FLOW = [
+  { id: 'royalties', label: 'Royalties', keys: ['royalties'], tip: 'Creator royalties from Degen Dojo sales: our store, Magic Eden, Tensor.' },
+  { id: 'coins', label: 'Coin buys', keys: ['coins'], tip: 'Game coins bought with ORE, SKR, SOL or USDC (purchases the store verified).' },
+  { id: 'mining', label: 'Mining tips', keys: ['mining'], tip: 'Tips players add when they auto-mine ORE on the Dojo miner.' },
+  { id: 'tips', label: 'Tips & direct', keys: ['tips', 'direct'], tip: 'Dojo Pot tips plus anything anyone sends straight to the Reserve.' },
+];
+async function loadFlow(px, tok) {
+  let j;
+  try { const r = await fetch('/api/reserve'); j = await r.json(); if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status)); }
+  catch (e) {
+    $('flow').innerHTML = ''; $('flowNote').textContent = 'Couldn’t read the last week right now — try again in a minute.';
+    MODEL.hist = []; $('chart').innerHTML = '<div class="muted" style="text-align:center">Couldn’t read the history right now — try again in a minute.</div>';
+    return;
+  }
+  const src = j.sources || {};
+  const mints = [...new Set([...Object.values(src).flatMap((o) => Object.keys(o || {})), ...(j.daily || []).flatMap((d) => Object.keys(d.holdings || {}))])].filter((m) => !(m in px));
+  if (mints.length) Object.assign(px, await prices(mints));
+  // the History chart (30 daily columns); today's column always comes from the live balances above
+  MODEL.hist = buildHistory(j.daily, px); MODEL.histPartial = !!j.historyPartial;
+  render();
+  const symOf = (m) => (m === SOL_MINT ? 'SOL' : KNOWN[m] || (tok[m] && (tok[m].sym || tok[m].name)) || short(m));
+  const sum = (keys) => { const by = {}; for (const k of keys) for (const [m, v] of Object.entries(src[k] || {})) by[m] = (by[m] || 0) + v; return by; };
+  const value = (by) => Object.entries(by).reduce((a, [m, v]) => a + v * (px[m] || 0), 0);
+  const words = (by, sign) => Object.entries(by).filter(([, v]) => v * sign > 0).map(([m, v]) => fmt(v * sign) + ' ' + symOf(m)).join(' + ');
+  $('flow').innerHTML = FLOW.map((f) => {
+    const by = sum(f.keys), v = f.out ? Math.max(0, -value(by)) : value(by);
+    const detail = words(by, f.out ? -1 : 1);
+    const shown = v ? (f.out ? '−' : '') + usd(v) : '$0';
+    return '<div class="stat' + (f.out ? ' out' : '') + '"><div class="v">' + shown + '</div>'
+      + '<div class="k" title="' + esc(f.tip + (detail ? ' — ' + detail : '')) + '">' + esc(f.label) + '</div></div>';
+  }).join('');
+  const team = sum(['team']), tv = value(team);
+  $('flowNote').textContent = (tv ? 'Also in: ' + usd(tv) + ' moved over by the Dojo team (' + words(team, 1) + ') — not income. ' : '')
+    + (j.partial ? 'Still reading older transactions — refresh in a minute for the full week.' : '');
+}
+
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-copy]'); if (!b) return;
+  const done = () => { const t = b.textContent; b.textContent = 'Copied'; setTimeout(() => (b.textContent = t), 1200); };
+  (navigator.clipboard ? navigator.clipboard.writeText(b.dataset.copy) : Promise.reject()).then(done, () => {
+    const ta = document.createElement('textarea'); ta.value = b.dataset.copy; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); done(); } catch (er) {} ta.remove(); });
+});
+main().catch((e) => { $('chart').innerHTML = `<div class="err" style="text-align:center">Couldn’t read the chain right now (${esc(e.message || e)}). Try again in a minute.</div>`; });
+</script>

@@ -5,6 +5,7 @@
 // parses, it echoes the raw shape in `debug` so the field mapping can be corrected in one shot.
 //
 // Env: TENSOR_API_KEY (dev.tensor.trade). Optional: TENSOR_COLL_VOC (collection mint, defaulted).
+import { limited } from "./store-ratelimit-core.mjs";
 const TENSOR = "https://api.mainnet.tensordev.io/api/v1";
 const VOC = process.env.TENSOR_COLL_VOC || "2m9DupVeheZ5vfuXZxqV3KSQ7HnVDk2tG6ouH1ZnLwYb";
 const json = (o, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { "content-type": "application/json", "cache-control": "no-store", "access-control-allow-origin": "*" } });
@@ -30,7 +31,8 @@ function parseItem(it) {
   return (m && B58.test(m) && price > 0) ? { mint: m, price, seller, source } : null;
 }
 
-export default async () => {
+export default async (request) => {
+  const blocked = limited(request, "tensor-listings", 60); if (blocked) return blocked;   // 60 / minute / IP (DD-04)
   const key = process.env.TENSOR_API_KEY;
   if (!key) return json({ error: "Tensor API key not set", needKey: true }, 501);
   if (CACHE.items && Date.now() - CACHE.at < TTL) return json({ items: CACHE.items, cached: true, collId: CACHE.collId });

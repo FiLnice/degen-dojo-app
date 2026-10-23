@@ -5,6 +5,8 @@
 //   validateRequest(body)     → { ok: true, value } | { ok: false, error }
 //   slugify(name)             → URL-safe base slug ("Cool Apes!" → "cool-apes")
 
+import { createHash } from "node:crypto";
+
 /** The store treasury (receives coin purchases) — default receiver of the branded-miner setup fee.
  *  Override with env OPERATOR_WALLET. MUST match the address baked into the /create page
  *  (degen-dojo-ore lib/config.ts STORE_TREASURY_WALLET), or every payment fails verification. */
@@ -20,6 +22,22 @@ export const B58_SIG = /^[1-9A-HJ-NP-Za-km-z]{64,96}$/;
 export const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?$/;
 
 const clip = (v, n) => String(v == null ? "" : v).trim().slice(0, n);
+
+// Front-run guard (2026-10-23): the payer commits to the EXACT request inside the payment. The /create page adds a
+// memo "ddminer:<hash of the request>" to the fee transfer it signs; a request is accepted only when its own hash is
+// in that memo — so nobody can file a different request (their own name / tip wallet) against someone's payment.
+// The page computes the same hash: sha256 of this JSON, first 32 hex characters.
+export const MINER_MEMO_PREFIX = "ddminer:";
+export function minerRequestHash(b) {
+  const s = (v) => String(v == null ? "" : v).trim();
+  const tiles = (Array.isArray(b?.degens) ? b.degens : []).map((d) => [s(d?.mint), s(d?.image)]);
+  return createHash("sha256").update(JSON.stringify([1, s(b?.name), s(b?.tipWallet), s(b?.contact), s(b?.website), s(b?.collection), s(b?.payer), tiles])).digest("hex").slice(0, 32);
+}
+/** true when the payment transaction carries this request's "ddminer:<hash>" memo */
+export function memoBindsRequest(tx, body) {
+  const want = MINER_MEMO_PREFIX + minerRequestHash(body);
+  return (tx?.meta?.logMessages || []).some((l) => { const m = /Memo \(len \d+\): "(.*)"$/.exec(l); return !!m && m[1] === want; });
+}
 
 /** Fee in ORE base units ("grams"), allowing a 0.1% rounding tolerance. */
 export function minFeeUnits(feeOre) {

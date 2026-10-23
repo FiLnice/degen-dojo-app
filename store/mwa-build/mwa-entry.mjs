@@ -73,7 +73,9 @@ async function looksLikeSeeker() {
       if (model) return /seeker|saga|solana/i.test(model);
     }
   } catch (_) {}
-  return true; // model unknown — offer it; the option is labelled for Seeker
+  // model unknown (in-app browsers, privacy settings) → don't offer it: on a non-Solana-Mobile phone the App Link
+  // just opens solanamobile.com and the visitor leaves the store. Seekers keep the Seed Vault (MWA) option anyway.
+  return false;
 }
 
 (async () => {

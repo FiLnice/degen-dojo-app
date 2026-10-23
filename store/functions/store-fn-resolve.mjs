@@ -1,3 +1,5 @@
+import { limited } from "./store-ratelimit-core.mjs";
+import { dojoOf, isLookalike } from "./store-genuine-core.mjs";
 // Netlify Function: /api/resolve?q=<mint | Magic Eden url | Tensor url>
 //   Finds a live listing straight off the chain (personal Magic Eden M2 sell state or a Tensor
 //   list state), enriches it with DAS metadata, and returns everything the market drawer needs to
@@ -48,6 +50,7 @@ async function findTensor(mint) {
 }
 
 export default async (request) => {
+  const blocked = limited(request, "resolve", 60); if (blocked) return blocked;   // 60 / minute / IP (DD-04)
   if (!process.env.SOLANA_RPC) return json({ ok: false, error: "server RPC not configured" }, 500);
   const q = new URL(request.url).searchParams.get("q") || "";
   const mint = mintFromInput(q);
@@ -56,9 +59,10 @@ export default async (request) => {
     let L = await findM2(mint);
     if (!L) L = await findTensor(mint);
     if (!L) return json({ ok: false, mint, error: "No live listing found on-chain" });
-    let name = mint.slice(0, 4) + "…", image = "", attributes = [], royaltyBps = 1300, collectionName = "";
+    let name = mint.slice(0, 4) + "…", image = "", attributes = [], royaltyBps = 1300, collectionName = "", dojo = null, lookalike = false;
     try {
       const as = await rpc("getAsset", { id: mint });
+      dojo = dojoOf(as); lookalike = isLookalike(as);
       name = as?.content?.metadata?.name || name;
       image = (as?.content?.links?.image) || (as?.content?.files?.[0]?.cdn_uri) || (as?.content?.files?.[0]?.uri) || "";
       attributes = as?.content?.metadata?.attributes || [];
@@ -66,7 +70,7 @@ export default async (request) => {
       collectionName = (as?.grouping || []).find(g => g.group_key === "collection")?.collection_metadata?.name || "";
     } catch (e) {}
     const priceAllIn = L.price * (1 + royaltyBps / 1e4 + 0.02);
-    return json({ ok: true, listing: { mint, name, image, price: L.price, priceAllIn, royaltyBps, attributes, collectionName, marketplace: L.marketplace, model: L.model, seller: L.seller, tokenAccount: L.tokenAccount } });
+    return json({ ok: true, listing: { mint, name, image, price: L.price, priceAllIn, royaltyBps, attributes, collectionName, dojo, lookalike, marketplace: L.marketplace, model: L.model, seller: L.seller, tokenAccount: L.tokenAccount } });
   } catch (e) { return json({ ok: false, error: (e.message || String(e)).slice(0, 200) }); }
 };
 

@@ -15,7 +15,9 @@
   var ATA = 'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL';
   var META = 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s';
   var AUTH_RULES = 'auth9SigNpDKz4sJJ1DfCTuZrZNSAgh9sFD3rboVmgg';
-  var RULESET = 'AdH2Utn6Fus15ZhtenW4hZBQnvtLgM1YCW2MfVp7pYS5';           // Degen collection ruleset
+  var RULESET = 'AdH2Utn6Fus15ZhtenW4hZBQnvtLgM1YCW2MfVp7pYS5';           // Metaplex Compatibility — fallback when the NFT has none
+  // Token Metadata rejects a pNFT action unless the NFT's OWN rule set is passed (store-only Degens use
+  // dd-store-only), so every builder takes opts.ruleSet — read it with ruleSetOf(rpc, mint) / parseMetadata.
   var SYSVAR_IX = 'Sysvar1nstructions1111111111111111111111111';
   var SYSVAR_RENT = 'SysvarRent111111111111111111111111111111111';
   var SYS = '11111111111111111111111111111111';
@@ -26,11 +28,10 @@
     SKR:  { house: 'EfeSbHoNsXxKFRjMmNpFPNnUDYE2QmkQ5ugxvtQzCE6C', mint: 'SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3', decimals: 6 },
     USDC: { house: 'GnbcBGfDLe3S2QaKwSPGwiJ6SoU8qzdkYAPdzTLfn1Ft', mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', decimals: 6 },
   };
-  // The AuctionHouse authority. Starts as the treasury/update authority (ED3GMC); once you hand
-  // authority to the dedicated cosigner (set-ah-authority.mjs), the build bakes the cosigner pubkey
+  // The AuctionHouse authority = the dedicated cosigner (set-ah-authority.mjs). The build bakes its pubkey
   // here from scripts/dd-authority.json — every sell/cancel/buy must pass the CURRENT house authority.
   var AUTHORITY = '__DD_AUTHORITY__';
-  if (AUTHORITY.indexOf('__DD_') === 0) AUTHORITY = 'ED3GMCfoX3XNvavnWADvd6oCsohGg1ukdhv3PaUpvwJe';
+  if (AUTHORITY.indexOf('__DD_') === 0) AUTHORITY = '8KUWwAHMb7TL31JGbucCi8YE1ax7njWi46ajVbWnvDqr';
   // Address Lookup Table for the buy tx (constant accounts). Baked in at deploy time from
   // scripts/dd-alt.json by build-store-deploy. Empty '' → buy setup pending (run create-lookup-table.mjs).
   var ALT_TABLE = '__DD_ALT_TABLE__';
@@ -99,7 +100,7 @@
       // pNFT remaining accounts (→ TokenMetadata SaleV1 delegate; delegate_record == token_record)
       a(META, false, false), a(tokenRecord, false, true), a(tokenRecord, false, true),
       a(mint, false, false), a(editionOf(mint), false, false),
-      a(AUTH_RULES, false, false), a(RULESET, false, false), a(SYSVAR_IX, false, false),
+      a(AUTH_RULES, false, false), a(PK(opts.ruleSet || RULESET), false, false), a(SYSVAR_IX, false, false),
     ];
     return { programId: PK(AH), keys: keys, data: data, tradeState: ts[0].toBase58(), priceBaseUnits: price.toString() };
   }
@@ -120,7 +121,7 @@
       // pNFT remaining (revoke SaleV1); metadata must be WRITABLE
       a(META, false, false), a(tr, false, true), a(pas, false, false), a(metaOf(mint), false, true),
       a(editionOf(mint), false, false), a(tr, false, true), a(mint, false, false),
-      a(AUTH_RULES, false, false), a(RULESET, false, false), a(SYSVAR_IX, false, false), a(SYS, false, false),
+      a(AUTH_RULES, false, false), a(PK(opts.ruleSet || RULESET), false, false), a(SYSVAR_IX, false, false), a(SYS, false, false),
     ];
     return { programId: PK(AH), keys: keys, data: data, tradeState: ts.toBase58() };
   }
@@ -180,7 +181,7 @@
     if (opts.pnft !== false) {
       exKeys.push(a(META, false, false), a(editionOf(mint), false, false),
         a(tokenRecordOf(mint, sellerAta), false, true), a(tokenRecordOf(mint, buyerNftAta), false, true),
-        a(AUTH_RULES, false, false), a(RULESET, false, false), a(SYSVAR_IX, false, false));
+        a(AUTH_RULES, false, false), a(PK(opts.ruleSet || RULESET), false, false), a(SYSVAR_IX, false, false));
     }
 
     // Raise the compute limit — a pNFT transfer (auth-rules validation + TokenMetadata) plus the escrow
@@ -194,7 +195,7 @@
     };
   }
 
-  // Parse a Token Metadata account (base64) → { name, symbol, sellerFeeBasisPoints, creators:[{address,share}] }.
+  // Parse a Token Metadata account (base64) → { name, symbol, sellerFeeBasisPoints, creators:[{address,share}], ruleSet }.
   // The buy needs the creators IN ORDER (execute_sale asserts them positionally). Works for any collection.
   function parseMetadata(base64) {
     var b = b64ToBytes(base64);
@@ -204,7 +205,24 @@
     var sfbp = dv.getUint16(o, true); o += 2;
     var creators = []; var has = b[o]; o += 1;
     if (has) { var n = dv.getUint32(o, true); o += 4; for (var k = 0; k < n; k++) { var addr = new (W3().PublicKey)(b.slice(o, o + 32)).toBase58(); o += 32; var verified = b[o]; o += 1; var share = b[o]; o += 1; creators.push({ address: addr, verified: verified, share: share }); } }
-    return { name: name.trim(), symbol: symbol.trim(), sellerFeeBasisPoints: sfbp, creators: creators };
+    var ruleSet = null;                                        // trailing optionals → programmable config rule set
+    try {
+      o += 2;                                                  // primarySaleHappened, isMutable
+      if (b[o++]) o += 1;                                      // editionNonce
+      if (b[o++]) o += 1;                                      // tokenStandard
+      if (b[o++]) o += 33;                                     // collection
+      if (b[o++]) o += 17;                                     // uses
+      if (b[o++]) o += 9;                                      // collectionDetails
+      if (o < b.length && b[o++]) { o += 1; if (b[o++]) ruleSet = new (W3().PublicKey)(b.slice(o, o + 32)).toBase58(); }
+    } catch (e) { ruleSet = null; }
+    return { name: name.trim(), symbol: symbol.trim(), sellerFeeBasisPoints: sfbp, creators: creators, ruleSet: ruleSet };
+  }
+
+  // The NFT's own rule set (null = none). rpc = async (method, params) => result.
+  async function ruleSetOf(rpc, mint) {
+    var mi = await rpc('getAccountInfo', [metaOf(mint).toBase58(), { encoding: 'base64' }]);
+    if (!mi || !mi.value) throw new Error('No metadata for this NFT.');
+    return parseMetadata(mi.value.data[0]).ruleSet;
   }
 
   // Prefer the (lenient) Buffer polyfill the pages load; atob is picky about whitespace/padding.
@@ -217,6 +235,36 @@
     var raw = atob(s); var out = new Uint8Array(raw.length); for (var i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i); return out;
   }
   function bytesToB64(bytes) { var B = glBuf(); if (B) return B.from(bytes).toString('base64'); var s = ''; for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]); return btoa(s); }
+
+  // PRICE LOCK for our own houses. The price is written into the buy AND execute_sale instruction data and into both
+  // trade-state PDAs (buyer's + seller's), so a buy built at the price the buyer was shown can only ever pay that
+  // price — a seller who re-lists higher has a different trade state, and the old one fails. Before building, check
+  // the listing still stands at the shown price; if the seller re-listed this NFT, a higher price (or another
+  // currency) needs the buyer's explicit OK first. Resolves with the listing to buy; rejects (e.cancelled) otherwise.
+  //   opts.confirmPrice(fromText, toText, live) → bool | Promise<bool>   (default: window.confirm)
+  //   opts.listings() → the live /api/dd-listings array (default: fetch it)
+  function priceUp(x, live) {
+    if (live.currency !== x.currency) return true;
+    var d = HOUSES[x.currency].decimals;
+    return priceToBaseUnits(live.price, d) > priceToBaseUnits(x.price, d);
+  }
+  async function lockPrice(rpc, x, opts) {
+    opts = opts || {};
+    var h = HOUSES[x.currency]; if (!h) throw new Error('bad currency');
+    var ta = x.tokenAccount || ataOf(x.seller, x.mint).toBase58();
+    var ts = tradeStateOf(x.seller, h.house, ta, h.mint, x.mint, priceToBaseUnits(x.price, h.decimals), 1n)[0].toBase58();
+    var acc = await rpc('getAccountInfo', [ts, { encoding: 'base64' }]);
+    if (acc && acc.value && acc.value.owner === AH) return x;                    // still listed at the shown price
+    var feed = opts.listings ? await opts.listings() : (((await (await fetch('/api/dd-listings', { cache: 'no-store' })).json()) || {}).listings || []);
+    var live = (feed || []).filter(function (l) { return l && l.mint === x.mint && HOUSES[l.currency]; })[0];
+    if (!live) { var gone = new Error('This NFT just sold or was delisted — nothing was bought.'); gone.cancelled = true; throw gone; }
+    if (priceUp(x, live)) {
+      var from = x.price + ' ' + x.currency, to = live.price + ' ' + live.currency;
+      var ask = opts.confirmPrice || function (a, b) { return global.confirm('The price changed from ' + a + ' to ' + b + ' — buy at ' + b + '?'); };
+      if (!(await ask(from, to, live))) { var no = new Error('The price changed from ' + from + ' to ' + to + ' — nothing was bought or signed.'); no.cancelled = true; throw no; }
+    }
+    return live;
+  }
 
   // Prepare a BUY: fetch the NFT's creators, build [buy, execute_sale], compile with the lookup table,
   // and SIMULATE it. Returns { tx, err, logs, breakdown }. The page must only prompt the wallet when err==null,
@@ -231,7 +279,7 @@
     if (!md.creators.length) throw new Error('NFT has no creators — cannot pay royalty.');
     // 2) instructions
     var isPnft = opts.pnft !== false;
-    var built = buildBuyIxs({ currency: opts.currency, buyer: opts.buyer, seller: opts.seller, mint: opts.mint, price: opts.price, sellerTokenAccount: opts.sellerTokenAccount, creators: md.creators, pnft: isPnft, cosign: isPnft });
+    var built = buildBuyIxs({ currency: opts.currency, buyer: opts.buyer, seller: opts.seller, mint: opts.mint, price: opts.price, sellerTokenAccount: opts.sellerTokenAccount, creators: md.creators, ruleSet: md.ruleSet, pnft: isPnft, cosign: isPnft });
     var ixs = built.ixs.map(function (b) { return new W.TransactionInstruction({ programId: b.programId, keys: b.keys, data: W.Buffer ? W.Buffer.from(b.data) : b.data }); });
     // 3) lookup table
     var ai = await rpc('getAccountInfo', [ALT_TABLE, { encoding: 'base64' }]);
@@ -280,8 +328,8 @@
   }
 
   global.DojoAH = {
-    HOUSES: HOUSES, AUTHORITY: AUTHORITY, ALT_TABLE: ALT_TABLE, prepareBuy: prepareBuy, submitBuy: submitBuy,
-    buildSellIx: buildSellIx, buildCancelIx: buildCancelIx, buildBuyIxs: buildBuyIxs, parseMetadata: parseMetadata,
+    HOUSES: HOUSES, AUTHORITY: AUTHORITY, ALT_TABLE: ALT_TABLE, prepareBuy: prepareBuy, submitBuy: submitBuy, lockPrice: lockPrice, priceUp: priceUp,
+    buildSellIx: buildSellIx, buildCancelIx: buildCancelIx, buildBuyIxs: buildBuyIxs, parseMetadata: parseMetadata, ruleSetOf: ruleSetOf,
     ataOf: ataOf, metaOf: metaOf, editionOf: editionOf, tokenRecordOf: tokenRecordOf, feeAccountOf: feeAccountOf,
     escrowOf: escrowOf, treasuryOf: treasuryOf, priceToBaseUnits: priceToBaseUnits, tradeStateOf: tradeStateOf,
   };

@@ -9,12 +9,16 @@
 //   GET  → the live listings. Every stored record is re-checked on each GET: the PDA is re-derived
 //          from the stored fields (drops any forged/legacy record), the trade state must still exist
 //          and be AuctionHouse-owned (a sold/cancelled listing's trade state is closed), and the seller
-//          must still hold the NFT. Anything that fails is pruned and never served.
+//          must still hold the NFT. Anything that fails is pruned and never served. Feed caps: one listing
+//          per NFT (the newest), at most SELLER_CAP NFTs per seller (see capListings / admitListing).
 // Storage: Netlify Blobs ("dd-listings", keyed by tradeState). Env: SOLANA_RPC (DAS-capable).
 // Self-contained on purpose (base58 + PDA derivation + ed25519 on-curve check inline): the store's
 // function bundle ships no @solana/web3.js. The PDA code is regression-tested against web3.js.
+import { limited } from "./store-ratelimit-core.mjs";
 import { getStore } from "@netlify/blobs";
 import { createHash } from "node:crypto";
+import { minInCurrency, LIST_SLACK, BUY_SLACK, FLOOR_COLLECTION, collectionOf } from "./store-min-core.mjs";
+import { dojoOf, isLookalike } from "./store-genuine-core.mjs";
 
 // ── constants (must match dojo-ah.js) ──────────────────────────────────────────────────────────
 export const AH_PROGRAM = "hausS13jsjafwWwGqZTUQRmWyvyxn9EQpqMwV1PBBmk";
@@ -137,7 +141,8 @@ const dasImage = (a) => { const c = (a && a.content) || {}; const f = (c.files &
 // The only fields ever served, in the original response shape (+ image, tokenAccount).
 function publicView(r) {
   return { mint: r.mint, seller: r.seller, currency: r.currency, price: r.price, priceBaseUnits: r.priceBaseUnits,
-    tradeState: r.tradeState, tokenAccount: r.tokenAccount, name: cleanName(r.name), image: cleanImage(r.image || ""), listedAt: r.listedAt };
+    tradeState: r.tradeState, tokenAccount: r.tokenAccount, name: cleanName(r.name), image: cleanImage(r.image || ""), listedAt: r.listedAt,
+    dojo: r.dojo || null };   // "Degen Dojo" | "Demon Dojo" | "TETO" for our verified collections, else null
 }
 
 // Pure structural re-check of a stored record (no RPC): the PDA must re-derive from its own fields.
@@ -163,7 +168,7 @@ const tradeStateLive = (acc) => !!(acc && acc.owner === AH_PROGRAM && acc.lampor
 export class ListingError extends Error { constructor(msg, status = 400) { super(msg); this.status = status; } }
 
 /** Validate a client listing claim against chain state. Returns the record to store, or throws ListingError. */
-export async function verifyListing(d, rpcFn = rpc) {
+export async function verifyListing(d, rpcFn = rpc, minFn = minInCurrency) {
   const { mint, seller, currency, tradeState } = d || {};
   const h = HOUSES[currency];
   if (!h) throw new ListingError("bad currency");
@@ -192,12 +197,48 @@ export async function verifyListing(d, rpcFn = rpc) {
   if (!tradeStateLive(tsAcc)) throw new ListingError("trade state is not an AuctionHouse account");
   if (!holds(taAcc, seller, mint)) throw new ListingError("seller does not hold this NFT");
 
-  let name = "", image = "";
-  try { const a = await rpcFn("getAsset", { id: mint }); name = dasName(a); image = dasImage(a); } catch {}
-  return { v: 2, mint, seller, currency, price, priceBaseUnits: bu.toString(), tradeState, tokenAccount, name, image,
+  let name = "", image = "", collection = "", dojo = null, asset = null;
+  try { asset = await rpcFn("getAsset", { id: mint }); name = dasName(asset); image = dasImage(asset); collection = collectionOf(asset); dojo = dojoOf(asset); } catch {}
+  // A look-alike (copies our name, collection name, creator wallets or art without being ours) is never listed here.
+  if (isLookalike(asset)) throw new ListingError("this NFT copies Degen Dojo but isn't one of ours — it can't be listed here");
+  // The Degen Dojo floor: 1.5 SOL in this currency at today's price (Degens only). If the price feed is down,
+  // the List page's own check already ran — record it rather than hide a real on-chain listing.
+  if (collection === FLOOR_COLLECTION) {
+    const min = await minFn(currency);
+    if (min && price < min * LIST_SLACK) throw new ListingError(`below the Degen Dojo minimum (${min.toFixed(currency === "USDC" ? 2 : 3)} ${currency} ≈ 1.5 SOL)`);
+  }
+  return { v: 2, mint, seller, currency, price, priceBaseUnits: bu.toString(), tradeState, tokenAccount, name, image, collection, dojo,
     listedAt: (res && res.context && res.context.slot) || null };
 }
 function priceToBaseUnitsSafe(p, dec) { try { return priceToBaseUnits(String(p), dec); } catch { return -1n; } }
+
+// ── FEED CAPS (anti-spam) ──────────────────────────────────────────────────────────────────────
+// Every listing already needs a real on-chain trade state (rent) and the NFT in the seller's wallet, but one wallet
+// could still flood the feed by re-listing the same NFT at many prices, or by listing a pile of cheap NFTs. So:
+//   · the feed shows ONE listing per NFT — the newest (highest listedAt slot) of its live listings; a POST that
+//     re-lists an NFT also drops the seller's older stored records for it (their trade states may still be open
+//     on-chain, but the seller's latest price is the one shown);
+//   · a seller shows at most SELLER_CAP NFTs — their newest; a POST that would add a NEW NFT beyond SELLER_CAP
+//     stored ones is refused (429). Re-listing an NFT they already list is always allowed.
+export const SELLER_CAP = 100;
+const newer = (a, b) => (a.listedAt || 0) - (b.listedAt || 0) || (a.tradeState < b.tradeState ? -1 : a.tradeState > b.tradeState ? 1 : 0);
+export function capListings(recs, { perSeller = SELLER_CAP } = {}) {
+  const byMint = new Map();
+  for (const r of recs) { const p = byMint.get(r.mint); if (!p || newer(r, p) > 0) byMint.set(r.mint, r); }
+  const bySeller = new Map();
+  for (const r of byMint.values()) { if (!bySeller.has(r.seller)) bySeller.set(r.seller, []); bySeller.get(r.seller).push(r); }
+  const out = [];
+  for (const list of bySeller.values()) out.push(...list.sort((a, b) => newer(b, a)).slice(0, perSeller));
+  return out;
+}
+/** POST gate: may `rec` be stored next to these stored records? → { ok, replace: [tradeState…] } (older records of
+ *  the same seller + NFT, to delete) or { ok:false } when it would be the seller's (SELLER_CAP+1)th NFT. */
+export function admitListing(rec, stored, { perSeller = SELLER_CAP } = {}) {
+  const mine = stored.filter((r) => r && r.seller === rec.seller && r.tradeState !== rec.tradeState);
+  const replace = mine.filter((r) => r.mint === rec.mint).map((r) => r.tradeState);
+  if (replace.length) return { ok: true, replace };
+  return new Set(mine.map((r) => r.mint)).size >= perSeller ? { ok: false, replace: [] } : { ok: true, replace: [] };
+}
 
 /** Filter stored records down to the ones still live on-chain. Returns { live, dead }. */
 export async function liveListings(recs, rpcFn = rpc) {
@@ -229,12 +270,19 @@ export async function liveListings(recs, rpcFn = rpc) {
 }
 
 export default async (request) => {
+  const blocked = limited(request, "dd-listings", 60); if (blocked) return blocked;   // 60 / minute / IP (DD-04)
   if (request.method === "POST") {
     let d; try { d = await request.json(); } catch { return json({ error: "bad json" }, 400); }
     let rec;
     try { rec = await verifyListing(d); }
     catch (e) { return json({ error: e instanceof ListingError ? e.message : "could not verify the listing right now" }, e instanceof ListingError ? e.status : 502); }
-    await store().setJSON(rec.tradeState, rec);
+    const s = store();
+    const stored = [];
+    for (const b of (await s.list()).blobs) { const r = await s.get(b.key, { type: "json" }); if (r) stored.push(r); }
+    const gate = admitListing(rec, stored);
+    if (!gate.ok) return json({ error: `you already have ${SELLER_CAP} NFTs listed here — delist one first` }, 429);
+    await s.setJSON(rec.tradeState, rec);
+    for (const ts of gate.replace) s.delete(ts).catch(() => {});   // the seller's older price for this NFT
     return json({ ok: true, listing: publicView(rec) });
   }
 
@@ -249,7 +297,19 @@ export default async (request) => {
   catch { return json({ listings: [], error: "chain unavailable" }, 502); }   // fail closed: never serve unverified
   for (const r of out.dead) if (r && r.tradeState) s.delete(r.tradeState).catch(() => {});   // sold/cancelled/forged → prune
   for (const r of out.live) if (r._dirty) { delete r._dirty; s.setJSON(r.tradeState, r).catch(() => {}); }
-  const listings = out.live.map(publicView).sort((a, b) => a.price - b.price);
+  // Hide Degen Dojo listings now under the floor (the currency fell against SOL): the co-signer won't sign them,
+  // so a buyer would only hit a refusal. Kept in the store — they come back if the price recovers.
+  // records made before the collection was stored: look it up once (and drop look-alikes)
+  const unknown = out.live.filter((r) => r.collection === undefined);
+  if (unknown.length) {
+    let assets = []; try { assets = (await rpc("getAssetBatch", { ids: unknown.map((r) => r.mint) })) || []; } catch {}
+    const byId = new Map(assets.filter((a) => a && a.id).map((a) => [a.id, a]));
+    for (const r of unknown) { const a = byId.get(r.mint); if (!a) continue; r.collection = collectionOf(a); r.dojo = dojoOf(a); r.lookalike = isLookalike(a); s.setJSON(r.tradeState, r).catch(() => {}); }   // remember it
+  }
+  out.live = capListings(out.live.filter((r) => !r.lookalike));   // one listing per NFT (newest), ≤ SELLER_CAP per seller
+  const mins = {}; for (const c of new Set(out.live.map((r) => r.currency))) mins[c] = await minInCurrency(c);
+  const buyable = out.live.filter((r) => r.collection !== FLOOR_COLLECTION || !mins[r.currency] || r.price >= mins[r.currency] * BUY_SLACK);
+  const listings = buyable.map(publicView).sort((a, b) => a.price - b.price);
   return json({ listings });
 };
 

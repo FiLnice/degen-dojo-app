@@ -2,8 +2,9 @@
 //
 //   POST {name, tipWallet, contact, website?, collection?, degens[25]{name,image,mint?}, paymentSig, payer}
 //        → verifies the ORE setup fee ON-CHAIN (getTransaction jsonParsed: tx ok, payer signed it,
-//          < ~1h old, operator's ORE balance up by ≥ fee×0.999), replay-guards the signature,
-//          stores req:<id> as "pending". Returns {id, status}.
+//          < ~1h old, operator's ORE balance up by ≥ fee×0.999), checks the payment's memo commits to THIS
+//          request ("ddminer:<hash>", store-miner-core minerRequestHash — front-run guard), replay-guards the
+//          signature, stores req:<id> as "pending". Returns {id, status}.
 //   GET  ?id=<id>        → {status, slug?, url?} (slug/url only once approved)
 //   GET  ?admin=<KEY>    → {requests:[…]} newest first (operator review)
 //   POST {action:'decide', id, key, decision:'approve'|'reject', slug?}
@@ -14,12 +15,13 @@
 // Env: ADMIN_KEY (admin list/decide), SOLANA_RPC (fallback HELIUS_RPC) for getTransaction,
 //      OPERATOR_WALLET (default = STORE_TREASURY_WALLET in store-miner-core.mjs), SETUP_FEE_ORE (default 5).
 // Storage: Netlify Blobs "miner-requests" (req:<id>, sig:<paymentSig>, miner:<slug>).
+import { limited } from "./store-ratelimit-core.mjs";
 import { getStore } from "@netlify/blobs";
 import {
   STORE_TREASURY_WALLET, DEFAULT_FEE_ORE, B58_ADDR, SLUG_RE,
-  checkOrePayment, validateRequest, uniqueSlug, slugify,
+  checkOrePayment, validateRequest, uniqueSlug, slugify, memoBindsRequest,
 } from "./store-miner-core.mjs";
-import { adminKeyOk } from "./store-session-core.mjs";
+import { adminRequestOk } from "./store-session-core.mjs";
 
 const json = (o, s = 200) =>
   new Response(JSON.stringify(o), { status: s, headers: { "content-type": "application/json", "cache-control": "no-store" } });
@@ -33,7 +35,7 @@ const RPC = () => {
   const pick = (v) => (typeof v === "string" && /^https?:\/\//i.test(v.trim()) ? v.trim() : "");
   return pick(process.env.SOLANA_RPC) || pick(process.env.HELIUS_RPC);
 };
-const isAdmin = (k) => adminKeyOk(k, "ADMIN_KEY");   // constant-time; an unset ADMIN_KEY matches nothing
+const isAdmin = (request) => adminRequestOk(request, "ADMIN_KEY");   // Authorization header, constant-time; unset ADMIN_KEY matches nothing
 const liveUrl = (request, slug) => `${new URL(request.url).origin}/m/${slug}`;
 
 async function getTransaction(sig) {
@@ -69,7 +71,7 @@ async function listRequests(s) {
 }
 
 async function decide(request, d) {
-  if (!isAdmin(d.key)) return json({ error: "unauthorized" }, 401);
+  if (!isAdmin(request)) return json({ error: "unauthorized" }, 401);
   const s = store();
   const id = String(d.id || "");
   const r = await s.get(`req:${id}`, { type: "json" });
@@ -121,12 +123,12 @@ async function decide(request, d) {
 }
 
 export default async (request) => {
+  const blocked = limited(request, "miner-requests", 20); if (blocked) return blocked;   // 20 / minute / IP (DD-04)
   const url = new URL(request.url);
 
   if (request.method === "GET") {
-    const admin = url.searchParams.get("admin");
-    if (admin != null) {
-      if (!isAdmin(admin)) return json({ error: "unauthorized" }, 401);
+    if (url.searchParams.has("admin")) {   // ?admin=1 asks for the admin list; the key itself is in the Authorization header
+      if (!isAdmin(request)) return json({ error: "unauthorized" }, 401);
       return json({ requests: await listRequests(store()), operator: OPERATOR(), feeOre: FEE_ORE() });
     }
     const id = url.searchParams.get("id");
@@ -165,6 +167,10 @@ export default async (request) => {
     const tx = await getTransaction(b.paymentSig);
     const chk = checkOrePayment(tx, { operator, payer: b.payer, feeOre });
     if (!chk.ok) return json({ error: chk.error }, 402);
+    // the payer signed THIS request into the payment (memo "ddminer:<hash>") — a request with any other details
+    // (someone else's name or tip wallet against a payment they saw on-chain) is refused
+    if (!memoBindsRequest(tx, d))
+      return json({ error: "That payment isn't tied to these details — submit exactly what you paid for from the Create page (or contact us)." }, 402);
 
     const id = crypto.randomUUID().replace(/-/g, "").slice(0, 10);
     const rec = {

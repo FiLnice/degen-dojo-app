@@ -3,12 +3,14 @@
 // universal path: ME builds the correct transaction for every asset type, so the store's inline
 // checkout works for the whole shelf once a key is configured.
 //
-//   GET /api/mebuy?mint=<asset>&buyer=<wallet>[&price=<sol>]
+//   GET /api/mebuy?mint=<asset>&buyer=<wallet>[&price=<sol>][&maxPrice=<sol>]
 //     → { txBase64, versioned, price, seller }   (client simulates, signs, sends)
+//     → 409 { priceChanged:true, price } when the live price is above maxPrice (the price the buyer confirmed)
 //     → 501 { needKey:true } when MAGICEDEN_API_KEY isn't set (client falls back to the inline
 //       engine for regular NFTs, or opens the ME listing)
 //
 // Env: MAGICEDEN_API_KEY (from magiceden.dev), SOLANA_RPC (Helius URL, already used by /api/rpc).
+import { limited } from "./store-ratelimit-core.mjs";
 const ME = "https://api-mainnet.magiceden.dev/v2";
 const M2 = "M2mx93ekt1fmXSVkTrUL9xVFHkmME8HTUi5Cyc5aF7K";
 const AH = "E8cU1WiRWjanGxmn96ewBgk9vPTcL6AEZ1t6F6fkgUWe";
@@ -31,6 +33,7 @@ async function rpc(rpcUrl, method, params) {
 }
 
 export default async (request) => {
+  const blocked = limited(request, "mebuy", 20); if (blocked) return blocked;   // 20 / minute / IP (DD-04)
   const url = new URL(request.url);
   const mint = url.searchParams.get("mint") || "";
   const buyer = url.searchParams.get("buyer") || "";
@@ -62,6 +65,10 @@ export default async (request) => {
     if (B58ok(qSeller) && qPrice) { seller = qSeller; priceSol = qPrice; if (B58ok(qAta)) tokenAccount = qAta; }
   }
   if (!seller || priceSol == null) return json({ error: "No live Magic Eden listing for that asset." }, 404);
+  // PRICE LOCK: the buyer confirmed a price (&maxPrice, SOL). If the live listing is now higher, don't build it —
+  // the page asks the buyer about the new price first (dojo-buy.js confirmLivePrice).
+  const maxPrice = Number(url.searchParams.get("maxPrice"));
+  if (maxPrice > 0 && priceSol > maxPrice * 1.0005 + 1e-9) return json({ error: "price changed", priceChanged: true, price: priceSol, maxPrice }, 409);
 
   // Ask Magic Eden to build the buy. tokenATA is the seller's token account (standard NFTs);
   // ME resolves the rest per asset type (pNFT rules, Core, etc.).

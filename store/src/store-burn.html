@@ -1,0 +1,190 @@
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Burn a Card — Degen Dojo</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Teko:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#100c08;--pan:#1b1510;--pan2:#241d15;--line:#3a2f22;--gold:#e8b84b;--goldd:#c8962a;--ink:#ece4d6;--ink2:#f6efe2;--mut:#9c8f7d;--grn:#7bb26a;--red:#c1443a;}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(1000px 500px at 50% -10%,#20180f,#100c08 60%);color:var(--ink);font-family:Inter,system-ui,sans-serif}
+.wrap{max-width:1100px;margin:0 auto;padding:22px 16px 60px}
+h1{font-family:Teko;font-weight:700;font-size:38px;margin:0;background:linear-gradient(180deg,#f4e2b4,var(--gold));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.sub{color:var(--mut);font-size:13.5px;margin:2px 0 16px;max-width:760px;line-height:1.5}
+.card{background:var(--pan);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px;min-width:0}
+.warn{border:1px solid rgba(193,68,58,.7);background:rgba(193,68,58,.12);border-radius:12px;padding:12px 14px;margin-bottom:14px;color:#f1c7c1;font-size:13.5px;line-height:1.5}
+.warn b{color:#ffd9d3}
+label{font-size:12px;color:var(--mut);letter-spacing:.04em}
+.in{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap}
+.in input{flex:1;min-width:0;background:#0d0a06;border:1px solid #4a3c26;border-radius:9px;color:var(--ink);font-size:14px;padding:10px 12px;font-family:ui-monospace,Menlo,Consolas,monospace}
+.btn{background:linear-gradient(135deg,var(--goldd),#8b6018);border:none;color:#0a0814;font-family:Cinzel,serif;font-weight:700;font-size:12px;letter-spacing:.05em;padding:10px 16px;border-radius:9px;cursor:pointer;white-space:nowrap}
+.btn:disabled{opacity:.45;cursor:default}
+.btn.ghost{background:transparent;color:var(--gold);border:1px solid rgba(201,151,58,.5);font-family:Inter;font-weight:600}
+.btn.fire{background:linear-gradient(135deg,#d9483b,#8f231a);color:#fff}
+.mini{font-size:11.5px;color:var(--gold);background:transparent;border:1px solid rgba(201,151,58,.45);border-radius:7px;padding:4px 9px;cursor:pointer;text-decoration:none;font-family:Inter}
+.total{text-align:center;padding:18px 0 6px}
+.total .v{font-weight:700;font-size:34px;color:var(--ink2);font-variant-numeric:tabular-nums}
+.total .k{font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--mut);margin-top:4px}
+.how{font-size:13.5px;line-height:1.6}
+.how ol{margin:6px 0 0;padding-left:20px}
+.kv{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap}
+.kv code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;color:#d8ccb4;background:var(--pan2);border:1px solid var(--line);border-radius:7px;padding:4px 8px;word-break:break-all}
+.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;align-items:start}
+.c{display:flex;flex-direction:column;gap:6px;min-width:0}
+.c img{width:100%;aspect-ratio:1/1;object-fit:contain;display:block}
+.c.iscard img{aspect-ratio:664/1080}
+.c .box{border:1px solid var(--line);border-radius:11px;background:var(--pan);padding:9px 10px;text-align:center}
+.c .nm{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.c .bv{font-family:Teko;font-size:24px;line-height:1.05;color:var(--ink2);margin-top:4px}
+.c .bu{font-size:12px;color:var(--mut)}
+.c .bk{font-size:10.5px;color:var(--mut);margin-top:3px;word-break:break-word}
+.muted{color:var(--mut);font-size:13px}.ok{color:var(--grn)}.err{color:#e58b80}
+/* confirm dialog */
+.back{position:fixed;inset:0;background:rgba(0,0,0,.72);display:none;align-items:center;justify-content:center;z-index:60;padding:16px}
+.back.on{display:flex}
+.dlg{background:#16110c;border:1px solid rgba(193,68,58,.7);border-radius:16px;max-width:440px;width:100%;padding:20px}
+.dlg h3{margin:0 0 8px;font-family:Teko;font-size:28px;color:#ffd9d3;font-weight:600}
+.dlg input{width:100%;margin-top:8px;background:#0d0a06;border:1px solid #4a3c26;border-radius:9px;color:var(--ink);font-size:14px;padding:10px 12px}
+@media(max-width:860px){.grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:560px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.total .v{font-size:28px}}
+</style>
+
+<div id="ddnav-mount"></div>
+<div class="wrap">
+  <h1>Burn a card</h1>
+  <div class="sub">Every Mint card's burn value is an equal share of its collection's <b>Card Vault</b> (44% of every royalty and repair across the collection) — a <b>Framed</b> card counts as two shares — paid in <b>stORE</b>. Cracked or Mono cards must be <a href="/repair/" style="color:var(--gold)">repaired to Mint</a> first. Burn the card and that share is yours — paid in the next weekly payout.</div>
+
+  <div class="warn"><b>⚠ Burning is permanent.</b> The card is destroyed forever — it can’t be restored, sold or played again. Only burn a card you’re sure about.</div>
+
+  <div class="card">
+    <label for="wallet">YOUR WALLET</label>
+    <div class="in"><input id="wallet" placeholder="Paste your Solana wallet address" autocomplete="off" spellcheck="false">
+      <button class="btn" id="look">Show burn values</button>
+      <button class="btn ghost" id="useConnected" hidden>Use connected wallet</button></div>
+    <div id="msg" class="muted" style="margin-top:10px"></div>
+  </div>
+
+  <div id="results"></div>
+
+  <div class="card how">
+    <b>How to burn a card (no wallet connection needed)</b>
+    <ol>
+      <li>Open the card in Phantom (or your wallet) → <b>Send</b>.</li>
+      <li>Send it to <b>shamanchef.sol</b> — the Degen Dojo Treasury: <span class="kv"><code id="tAddr"></code><button class="mini" id="copyT">Copy</button></span></li>
+      <li>Send. Its share of the Card Vault is <b>locked the moment it arrives</b> and paid to the wallet that sent it in the <b>next weekly payout</b>, in stORE. The Dojo then burns the card.</li>
+    </ol>
+    <div class="muted" style="margin-top:8px">Prefer to burn it yourself? Connect your wallet (top right) and use “Burn it myself” on a card — one signature, the card is burned on-chain straight away.</div>
+  </div>
+</div>
+
+<div class="back" id="dlgBack"><div class="dlg" role="dialog" aria-modal="true" aria-labelledby="dlgT">
+  <h3 id="dlgT">Burn this card forever?</h3>
+  <div id="dlgBody" style="font-size:13.5px;line-height:1.55"></div>
+  <label for="dlgIn" style="display:block;margin-top:12px">TYPE THE CARD’S NAME TO CONFIRM</label>
+  <input id="dlgIn" autocomplete="off" spellcheck="false">
+  <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end"><button class="btn ghost" id="dlgNo">Keep it</button><button class="btn fire" id="dlgYes" disabled>Burn it forever</button></div>
+  <div id="dlgMsg" class="muted" style="margin-top:10px"></div>
+</div></div>
+
+<script src="/buffer.js"></script>
+<script>window.Buffer=window.Buffer||(window.buffer&&window.buffer.Buffer);</script>
+<script src="/web3.js"></script>
+<script src="/dojo-card-tx.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"'`]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '`': '&#96;' }[c]));
+const isB58 = (m) => /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(String(m || ''));
+const short = (a) => a.slice(0, 4) + '…' + a.slice(-4);
+const safeImg = (u) => { try { const x = new URL(String(u || '')); return x.protocol === 'https:' ? x.href : ''; } catch (e) { return ''; } };
+const TREASURY = '5w55F58ia3H71QjBD9bYvNQF2DcNu8K3AfJj9A4WMuWp', SOL = 'So11111111111111111111111111111111111111112';
+const SYM = { So11111111111111111111111111111111111111112: 'SOL', oreoU2P8bN6jkk3jbaiVxYnG1dCXcYxwhwyK9jSybcp: 'ORE', SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3: 'SKR', EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v: 'USDC' };
+const CARD = (m) => 'https://degendojo.s3.us-west-1.amazonaws.com/degen/card/' + m + '.png?v=7';
+const fmt = (n, d) => Number(n).toLocaleString('en-US', { maximumFractionDigits: d == null ? (n >= 100 ? 2 : n >= 1 ? 4 : 6) : d });
+const usd = (n) => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+async function rpc(method, params) { const r = await fetch('/api/rpc', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) }); const j = await r.json(); if (j.error) throw new Error(j.error.message || 'RPC error'); return j.result; }
+async function api(path, opts) { const r = await fetch(path, opts); const j = await r.json().catch(() => ({})); if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status)); return j; }
+async function prices(mints) { const p = {}; if (!mints.length) return p; try { const j = await (await fetch('https://lite-api.jup.ag/price/v3?ids=' + mints.slice(0, 50).join(','))).json(); for (const m of Object.keys(j || {})) if (j[m] && j[m].usdPrice) p[m] = j[m].usdPrice; } catch (e) {} return p; }
+
+$('tAddr').textContent = TREASURY;
+let OWNER = null, ITEMS = [], PX = {}, STORE_MINT = null;
+const connected = () => (window.DOJO_WALLET && window.DOJO_WALLET.pubkey) || null;
+function syncConnected() { const c = connected(); $('useConnected').hidden = !c; if (c && !$('wallet').value) { $('wallet').value = c; lookup(c); } else if (OWNER) render(); }
+window.addEventListener('dojo-wallet-change', syncConnected);
+window.addEventListener('load', syncConnected);
+$('useConnected').onclick = () => { const c = connected(); if (c) { $('wallet').value = c; lookup(c); } };
+$('look').onclick = () => lookup($('wallet').value.trim());
+$('wallet').addEventListener('keydown', (e) => { if (e.key === 'Enter') lookup($('wallet').value.trim()); });
+
+// burn value of one item: the backend's own figure when it gives one, else vault amounts priced live (→ stORE)
+function burnValue(i) {
+  if (i.burnValue && i.burnValue.store != null) {
+    const st = Number(i.burnValue.store), u = i.burnValue.usd != null ? Number(i.burnValue.usd) : (PX[STORE_MINT] ? st * PX[STORE_MINT] : null);
+    return { store: st, usd: u };
+  }
+  const u = Object.entries(i.vault || {}).reduce((s, [m, v]) => s + Number(v) * (PX[m] || 0), 0);
+  const sm = i.storeMint || STORE_MINT;
+  return { store: sm && PX[sm] ? u / PX[sm] : null, usd: u };
+}
+const bvText = (b) => (b.store != null ? fmt(b.store) + ' stORE' : '') + (b.usd != null ? (b.store != null ? ' (≈ ' + usd(b.usd) + ')' : '≈ ' + usd(b.usd) + ' in stORE') : '');
+
+async function lookup(addr) {
+  if (!isB58(addr)) { $('msg').textContent = 'That doesn’t look like a Solana wallet address.'; return; }
+  $('msg').textContent = 'Reading your cards…'; $('results').innerHTML = '';
+  try {
+    const j = await api('/api/vault?owner=' + encodeURIComponent(addr));
+    OWNER = addr; ITEMS = (j.items || []).filter((i) => !i.burned); STORE_MINT = j.storeMint || (ITEMS.find((i) => i.storeMint) || {}).storeMint || null;
+    const mints = [...new Set(ITEMS.flatMap((i) => Object.keys(i.vault || {})).concat(STORE_MINT ? [STORE_MINT] : []))];
+    PX = await prices(mints);
+    $('msg').textContent = ''; render();
+  } catch (e) { $('msg').textContent = 'Couldn’t read that wallet right now (' + e.message + '). Try again in a minute.'; }
+}
+
+function render() {
+  if (!ITEMS.length) { $('results').innerHTML = '<div class="card muted">This wallet holds no Degen Dojo, Demon Dojo or TETO cards.</div>'; return; }
+  const me = connected() === OWNER;
+  let tS = 0, tU = 0, sOk = true;
+  const rows = ITEMS.map((i) => { const b = burnValue(i); if (b.store == null) sOk = false; else tS += b.store; tU += b.usd || 0; return { i, b }; })
+    .sort((x, y) => (y.b.usd || 0) - (x.b.usd || 0));
+  let html = '<div class="card"><div class="total"><div class="v">' + (sOk ? fmt(tS) + ' stORE' : usd(tU)) + '</div><div class="k">Total burn value · ' + ITEMS.length + ' card' + (ITEMS.length === 1 ? '' : 's') + (sOk ? ' · ≈ ' + usd(tU) : ' · paid in stORE') + '</div></div></div>';
+  html += '<div class="grid">' + rows.map(({ i, b }) => {
+    const isCard = i.collection === 'Degen Dojo', img = isCard ? CARD(i.mint) : (safeImg(i.image) || CARD(i.mint));
+    const parts = Object.entries(i.vault || {}).filter(([, v]) => Number(v) > 0).map(([m, v]) => fmt(Number(v)) + ' ' + (SYM[m] || (m === STORE_MINT ? 'stORE' : short(m)))).join(' + ');
+    return '<div class="c' + (isCard ? ' iscard' : '') + '"><img loading="lazy" src="' + esc(img) + '" alt="">'
+      + '<div class="box"><div class="nm" title="' + esc(i.name) + '">' + esc(i.name) + '</div>'
+      + '<div class="bu">' + esc(i.collection) + ' · ' + esc(i.condition || '') + '</div>'
+      + '<div class="bv">Burn value: ' + esc(b.store != null ? fmt(b.store) + ' stORE' : (b.usd ? usd(b.usd) : '0')) + '</div>'
+      + '<div class="bu">' + (b.store != null && b.usd != null ? '≈ ' + usd(b.usd) : (b.store == null ? 'paid in stORE' : '')) + '</div>'
+      + (i.burnNote ? '<div class="bk">' + esc(i.burnNote) + '</div>' : parts ? '<div class="bk">Card Vault share: ' + esc(parts) + '</div>' : '')
+      + (me && i.eligible !== false ? '<button class="btn fire" style="margin-top:8px;width:100%" data-burn="' + esc(i.mint) + '">Burn it myself</button>' : '')
+      + '</div></div>';
+  }).join('') + '</div>';
+  $('results').innerHTML = html;
+}
+
+// ── optional: burn it yourself (connected wallet, one signature) — two-step confirm ──
+let PENDING = null;
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-burn]'); if (!b) return;
+  const i = ITEMS.find((x) => x.mint === b.dataset.burn); if (!i) return;
+  PENDING = i; const v = burnValue(i);
+  $('dlgBody').innerHTML = '<b>' + esc(i.name) + '</b> (' + esc(i.collection) + ') will be destroyed on-chain — permanently.<br>You will receive <b>' + esc(bvText(v) || 'its burn value') + '</b> in the next weekly payout, to this wallet.';
+  $('dlgIn').value = ''; $('dlgYes').disabled = true; $('dlgMsg').textContent = ''; $('dlgBack').classList.add('on'); $('dlgIn').focus();
+});
+$('dlgIn').addEventListener('input', () => { $('dlgYes').disabled = !PENDING || $('dlgIn').value.trim().toLowerCase() !== String(PENDING.name).trim().toLowerCase(); });
+$('dlgNo').onclick = () => { $('dlgBack').classList.remove('on'); PENDING = null; };
+$('dlgBack').addEventListener('click', (e) => { if (e.target === $('dlgBack')) { $('dlgBack').classList.remove('on'); PENDING = null; } });
+async function waitForConfirm(sig) { for (let k = 0; k < 40; k++) { const st = await rpc('getSignatureStatuses', [[sig]]); const s = st && st.value && st.value[0]; if (s && (s.confirmationStatus === 'confirmed' || s.confirmationStatus === 'finalized')) { if (s.err) throw new Error('Transaction failed on chain.'); return; } await new Promise((r) => setTimeout(r, 1500)); } throw new Error('Not confirmed yet — check your wallet’s activity.'); }
+$('dlgYes').onclick = async () => {
+  const i = PENDING, a = window.DOJO_WALLET; if (!i || !a || a.pubkey !== OWNER) { $('dlgMsg').textContent = 'Connect the wallet that holds this card.'; return; }
+  $('dlgYes').disabled = true; $('dlgNo').disabled = true;
+  try {
+    $('dlgMsg').textContent = 'Checking…';
+    const prep = await DojoCardTx.prepare(rpc, OWNER, [await DojoCardTx.burnIx(rpc, OWNER, i.mint)]);
+    if (prep.err) throw new Error('The network refused this burn in a test run (' + JSON.stringify(prep.err) + ').');
+    $('dlgMsg').textContent = 'Approve in your wallet…';
+    const res = await a.signAndSendTransaction(prep.tx); const sig = res.signature || res;
+    $('dlgMsg').textContent = 'Confirming…'; await waitForConfirm(sig);
+    let claim = null; try { claim = await api('/api/burnclaim', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ sig }) }); } catch (e) { /* the weekly payout reads the chain anyway */ }
+    $('dlgMsg').innerHTML = '<span class="ok">🔥 Burned.</span> Its burn value is locked in for you' + (claim && claim.ok ? '' : ' (we’ll pick it up from the chain)') + ' and paid in the next weekly payout. <a href="https://solscan.io/tx/' + esc(encodeURIComponent(sig)) + '" target="_blank" rel="noopener" style="color:var(--gold)">Solscan ↗</a>';
+    ITEMS = ITEMS.filter((x) => x.mint !== i.mint); render();
+  } catch (e) { $('dlgMsg').innerHTML = '<span class="err">' + esc(e.message || 'Failed.') + '</span>'; $('dlgYes').disabled = false; }
+  $('dlgNo').disabled = false;
+};
+$('copyT').onclick = () => { const b = $('copyT'); (navigator.clipboard ? navigator.clipboard.writeText(TREASURY) : Promise.reject()).then(() => { b.textContent = 'Copied'; setTimeout(() => (b.textContent = 'Copy'), 1200); }, () => {}); };
+</script>

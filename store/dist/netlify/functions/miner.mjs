@@ -2,6 +2,7 @@
 //   → {slug, name, tipWallet, degens[25]{name,image,mint?}}   (404 if unknown / not approved)
 // Written by /api/miner-requests on approve (Netlify Blobs "miner-requests", key miner:<slug>).
 // Public data only (a tip wallet is a public address). Cached briefly at the edge.
+import { limited } from "./store-ratelimit-core.mjs";
 import { getStore } from "@netlify/blobs";
 
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?$/;
@@ -9,6 +10,7 @@ const json = (o, s = 200, cache = "no-store") =>
   new Response(JSON.stringify(o), { status: s, headers: { "content-type": "application/json", "cache-control": cache } });
 
 export default async (request) => {
+  const blocked = limited(request, "miner", 60); if (blocked) return blocked;   // 60 / minute / IP (DD-04)
   if (request.method !== "GET") return new Response("GET only", { status: 405 });
   const slug = (new URL(request.url).searchParams.get("slug") || "").toLowerCase();
   if (!SLUG_RE.test(slug)) return json({ error: "bad slug" }, 400);

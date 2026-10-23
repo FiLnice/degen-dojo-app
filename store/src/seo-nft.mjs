@@ -1,3 +1,4 @@
+import { dojoOf, isLookalike } from "./store-genuine-core.mjs";
 // ============================================================================
 //  Per-mint SEO pages — the PURE renderer + gatherer (no fs, no deps).
 //
@@ -131,7 +132,9 @@ export async function gatherNft(mint, { resolveMagicEden, getAsset, ddCreators =
   const image = das?.content?.links?.image || das?.content?.files?.[0]?.uri || "";
   const collectionName = (das?.grouping || []).find((g) => g.group_key === "collection")?.collection_metadata?.name || "";
   const creators = (das?.creators || []).map((c) => c.address);
-  const isDD = creators.some((c) => ddCreators.includes(c)) || /degen dojo/i.test(collectionName);
+  // a Degen = in our VERIFIED collection only (a listed-but-unverified creator or a collection merely NAMED
+  // "Degen Dojo" can be faked); look-alikes get no page at all
+  const isDD = dojoOf(das) === "Degen Dojo", lookalike = isLookalike(das);
 
   let listing = null;
   try { listing = await resolveMagicEden(mint); } catch {}
@@ -143,7 +146,7 @@ export async function gatherNft(mint, { resolveMagicEden, getAsset, ddCreators =
   }).sort((a, b) => (a.pct ?? 999) - (b.pct ?? 999));
 
   return {
-    mint, name, image, collectionName, isDD,
+    mint, name, image, collectionName, isDD, lookalike,
     price: listing ? listing.price : null,
     priceOre: null,
     royaltyBps: (listing && listing.royaltyBps) || das?.royalty?.basis_points || 0,

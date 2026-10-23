@@ -8,6 +8,7 @@
 // under ME's rate limit when many visitors browse the same case.
 //
 // Env: MAGICEDEN_API_KEY (magiceden.dev).
+import { limited } from "./store-ratelimit-core.mjs";
 const ME = "https://api-mainnet.magiceden.dev/v2";
 const json = (o, s = 200, extra = {}) => new Response(JSON.stringify(o), { status: s, headers: { "content-type": "application/json", "cache-control": "no-store", "access-control-allow-origin": "*", ...extra } });
 const SYM = /^[A-Za-z0-9_]{1,64}$/;
@@ -20,6 +21,7 @@ const CACHE = new Map();          // symbol → { at, items }  (per warm instanc
 const TTL = 30_000;               // 30s freshness
 
 export default async (request) => {
+  const blocked = limited(request, "listings", 60); if (blocked) return blocked;   // 60 / minute / IP (DD-04)
   const url = new URL(request.url);
   const symbol = url.searchParams.get("symbol") || "";
   const limit = Math.min(40, Math.max(1, Number(url.searchParams.get("limit")) || 24));

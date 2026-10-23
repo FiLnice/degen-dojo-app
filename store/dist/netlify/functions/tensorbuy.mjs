@@ -9,6 +9,7 @@
 //
 // Env: TENSOR_API_KEY (apply at dev.tensor.trade), SOLANA_RPC (Helius; used to resolve the current
 // holder + a recent blockhash).
+import { limited } from "./store-ratelimit-core.mjs";
 const TENSOR = "https://api.mainnet.tensordev.io/api/v1/tx/buy";
 // Solana's public RPC: a fallback for plain methods when Helius is rate-limiting (no DAS / no gPA there).
 const PUBLIC_RPC = "https://api.mainnet-beta.solana.com";
@@ -52,6 +53,7 @@ async function resolveOwner(rpcUrl, mint) {
 }
 
 export default async (request) => {
+  const blocked = limited(request, "tensorbuy", 20); if (blocked) return blocked;   // 20 / minute / IP (DD-04)
   const url = new URL(request.url);
   const mint = url.searchParams.get("mint") || "";
   const buyer = url.searchParams.get("buyer") || "";

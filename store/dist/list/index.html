@@ -1,10 +1,10 @@
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<script src="/dd-states.js"></script><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>List an NFT — Degen Dojo</title>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Teko:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#100c08;--pan:#1b1510;--pan2:#241d15;--line:#3a2f22;--gold:#e8b84b;--goldd:#c8962a;--ink:#ece4d6;--mut:#9c8f7d;--grn:#7bb26a;}
 *{box-sizing:border-box}body{margin:0;background:radial-gradient(1000px 500px at 50% -10%,#20180f,#100c08 60%);color:var(--ink);font-family:Inter,system-ui,sans-serif}
-.wrap{max-width:760px;margin:0 auto;padding:20px 14px 60px}
+.wrap{max-width:1240px;margin:0 auto;padding:20px 16px 60px}
 .top{display:flex;align-items:center;gap:10px;margin-bottom:18px}
 .brand{font-family:Cinzel,serif;font-weight:900;letter-spacing:.14em;color:var(--gold);font-size:15px}
 .btn{background:linear-gradient(135deg,var(--goldd),#8b6018);border:none;color:#0a0814;font-family:Cinzel,serif;font-weight:700;font-size:12px;letter-spacing:.05em;padding:9px 15px;border-radius:9px;cursor:pointer}
@@ -12,11 +12,28 @@
 h1{font-family:Teko;font-weight:700;font-size:34px;margin:0 0 2px;background:linear-gradient(180deg,#f4e2b4,var(--gold));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
 .sub{color:var(--mut);font-size:13px;margin-bottom:16px}
 .card{background:var(--pan);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}
-.deg{border:1px solid var(--line);border-radius:11px;overflow:hidden;background:var(--pan);cursor:pointer;transition:border-color .15s}
-.deg:hover{border-color:var(--goldd)}.deg.sel{border:2px solid var(--gold)}
-.deg img{width:100%;height:118px;object-fit:cover;background:#0d0a06;display:block}
-.deg .nm{font-size:11px;color:#d8ccb4;padding:6px 8px}
+.grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}
+@media(max-width:860px){.grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:560px){.grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:380px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* every tile: the picture stands on its own, exactly as it is (cards keep their own rounded corners, other NFTs
+   their square edges); only the name box below gets a border + gold hover — same as the market */
+.grid{align-items:start}
+.deg{display:flex;flex-direction:column;gap:6px;cursor:pointer}
+.deg img{width:100%;aspect-ratio:1/1;height:auto;object-fit:contain;display:block}   /* whole image, never cropped */
+.deg.iscard img{aspect-ratio:664/1080;transition:transform .15s}                     /* the card PNG (664×1080), its own shape */
+.deg.iscard:hover img{transform:translateY(-3px)}
+.deg.iscard.sel img{filter:drop-shadow(0 0 4px var(--gold))}
+.deg img.noimg{object-fit:none;opacity:.5}
+.deg .nm{font-size:12px;color:#d8ccb4;padding:7px 8px;text-align:center;border:1px solid var(--line);border-radius:11px;background:var(--pan);transition:border-color .15s;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.deg:hover .nm{border-color:var(--goldd)}.deg.sel .nm{border-color:var(--gold)}
+/* collection filter (same look as the market's chips) */
+.chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;margin-bottom:12px;scrollbar-width:thin}
+.chip{flex:none;cursor:pointer;font-family:Teko,sans-serif;font-size:15px;letter-spacing:.06em;display:flex;align-items:center;gap:6px;padding:6px 13px;border-radius:999px;border:1px solid var(--line);background:var(--pan2);color:#c9bda6}
+.chip:hover{border-color:rgba(201,151,58,.5);color:var(--ink)}
+.chip.on{background:linear-gradient(135deg,var(--goldd),#8b6018);color:#0a0814;border-color:transparent;font-weight:600}
+.chip img{width:18px;height:18px;border-radius:50%;object-fit:cover}
+.chip .n{opacity:.7;font-size:12px}
 input{width:100%;background:#0d0a06;border:1px solid #4a3c26;border-radius:8px;color:var(--ink);font-size:20px;font-family:Teko;padding:9px 11px}
 input.mint{font-size:12px;font-family:Inter}
 .cur{display:flex;gap:6px;margin-bottom:10px}
@@ -25,21 +42,44 @@ input.mint{font-size:12px;font-family:Inter}
 .row{display:flex;justify-content:space-between;font-size:13px;padding:3px 0}
 .note{font-size:12px;color:var(--mut);display:flex;gap:7px;align-items:center;margin:10px 0}
 a{color:var(--gold)}
+/* item window (opens on click, like a marketplace item page) */
+.lm-back{position:fixed;inset:0;z-index:200;background:rgba(6,4,2,.78);display:none;align-items:center;justify-content:center;padding:16px}
+.lm-back.on{display:flex}
+.lm{width:100%;max-width:980px;max-height:calc(100vh - 32px);overflow:auto;background:var(--pan);border:1px solid var(--line);border-radius:16px;position:relative;box-shadow:0 24px 70px rgba(0,0,0,.6)}
+.lm-x{position:absolute;top:10px;right:12px;background:none;border:0;color:var(--mut);font-size:26px;cursor:pointer;line-height:1;z-index:2}
+.lm-in{display:grid;grid-template-columns:minmax(0,360px) minmax(0,1fr);gap:22px;padding:22px}
+.lm-art{background:#0d0a06;border:1px solid var(--line);border-radius:12px;padding:10px;align-self:start}
+.lm-art img{width:100%;aspect-ratio:664/1080;object-fit:contain;display:block}
+.lm-name{font-family:Teko;font-size:34px;line-height:1;color:#f4e6c8;margin:2px 30px 6px 0}
+.lm-coll{font-size:13px;margin-bottom:12px}.lm-coll .ok{color:#7fd17a}.lm-coll span{color:var(--mut)}
+.lm-traits{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:16px}
+.tr{background:var(--pan2);border:1px solid var(--line);border-radius:9px;padding:7px 10px;min-width:0}
+.tr .tt{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut)}
+.tr .tv{font-size:14px;color:#efe4cf;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lm-sec{font-family:Teko;font-size:22px;color:#f0e6d2;margin:4px 0 6px;border-top:1px solid var(--line);padding-top:12px}
+@media(max-width:760px){.lm-in{grid-template-columns:1fr;padding:16px}.lm-art{max-width:300px;margin:0 auto}}
 </style>
 
 <style>.dn-ham{display:none}.dn-connect{display:none}.dn-extra{margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}@media(max-width:640px){.dn-bar{gap:10px!important;padding:10px 14px!important;}.dn-extra{display:none!important;}.dn-connect{display:block!important;}.dn-ham{display:flex!important;align-items:center;justify-content:center;width:44px;height:44px;border-radius:10px;cursor:pointer;background:rgba(201,151,58,.12);border:1px solid rgba(201,151,58,.45);color:#e8b84b;font-size:22px;line-height:1;margin-left:auto;flex:0 0 auto;}.dn-links{position:absolute!important;top:calc(100% - 2px);right:10px;min-width:214px;flex-direction:column!important;align-items:stretch;gap:5px!important;background:rgba(12,10,18,.98);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(201,151,58,.4);border-radius:12px;padding:9px;box-shadow:0 16px 36px rgba(0,0,0,.6);display:none!important;z-index:80;}.dn-links.dn-open{display:flex!important;}.dn-links a{text-align:left;font-size:13px!important;padding:11px 13px!important;}}</style><div class="dn-bar" style="position:sticky;top:0;z-index:72;background:rgba(10,10,15,.94);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-bottom:1px solid rgba(201,151,58,.18);display:flex;align-items:center;gap:16px;padding:11px 20px;flex-wrap:wrap;font-family:'Cinzel',serif;"><a href="/" style="display:flex;align-items:center;gap:11px;text-decoration:none;color:#efe6d2;"><img src="/dd-mark.jpg" alt="Degen Dojo" style="width:40px;height:40px;border-radius:9px;object-fit:cover;display:block;box-shadow:0 0 0 1px rgba(201,151,58,.35);" onerror="this.style.display='none'"/><div style="text-align:left;"><b style="font-family:'Cinzel',serif;font-size:15px;letter-spacing:.16em;display:block;color:#efe6d2;">DEGEN DOJO</b><small style="font-family:'Cinzel',serif;font-size:9px;letter-spacing:.26em;color:#a99a7e;">LIST</small></div></a><nav class="dn-links" style="display:flex;gap:8px;flex-wrap:wrap;"><a href="#" class="dn-connect" onclick="var b=this.closest('.dn-bar').querySelector('.dn-extra button');if(b)b.click();return false;" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#e8b84b;border:1px solid rgba(201,151,58,.5);background:rgba(201,151,58,.12);">🔑 Connect</a><a href="/" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">⌂ Store</a><a href="/market" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">🛒 Market</a><a href="/launch" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">🚀 Launch</a><a href="/list" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#e8b84b;border:1px solid rgba(201,151,58,.6);background:rgba(201,151,58,.14);">🏷 List</a><a href="/play" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">▶ Play</a><a href="/mine" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">⛏ Mine</a><a href="/pot" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">🏆 Pot</a><a href="/become-a-preacher" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">📣 Preacher</a></nav><span class="dn-extra"><button id="dojoNavWallet" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#0a0814;background:linear-gradient(135deg,#c8962a,#8b6018);border:none;padding:9px 16px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;">Connect wallet</button></span><button class="dn-ham" type="button" aria-label="Menu" onclick="var n=this.closest('.dn-bar').querySelector('.dn-links');if(n)n.classList.toggle('dn-open');">☰</button></div>
 <div class="wrap">
   <h1>List an NFT</h1>
-  <div class="sub">List any NFT in your wallet — priced in ORE. Non-custodial: it stays in your wallet. One signature. Cancel anytime.</div>
+  <div class="sub">List any programmable NFT (pNFT) in your wallet — priced in ORE. Non-custodial: it stays in your wallet. One signature. Cancel anytime.</div>
 
   <div class="card">
     <div style="font-size:13px;color:var(--mut);margin-bottom:8px">Your NFTs <span id="degcount"></span></div>
+    <div class="chips" id="chips"></div>
     <div id="degs" class="grid"><div style="color:var(--mut);font-size:13px">Connect your wallet to load your NFTs…</div></div>
-    <div style="margin-top:10px;font-size:12px;color:var(--mut)">…or paste a mint: <input class="mint" id="mint" placeholder="any NFT mint address" style="margin-top:6px"></div>
   </div>
 
-  <div class="card">
-    <div id="selname" style="font-family:Teko;font-size:22px;color:#f0e6d2;margin-bottom:2px">Select an NFT above</div>
+  <div class="lm-back" id="lmBack"><div class="lm" role="dialog" aria-modal="true" aria-labelledby="lmName">
+   <button class="lm-x" id="lmX" aria-label="Close">×</button>
+   <div class="lm-in">
+    <div class="lm-art"><img id="lmImg" alt=""></div>
+    <div>
+    <div class="lm-name" id="lmName"></div>
+    <div class="lm-coll" id="lmColl"></div>
+    <div class="lm-traits" id="lmTraits"></div>
+    <div class="lm-sec" id="selname">List it</div>
     <div class="cur" id="cur"><b class="on" data-c="ORE">◎ ORE</b></div>
     <input id="price" type="number" min="0" step="0.01" placeholder="Price" value="12.5">
     <div id="approx" class="sub" style="margin-top:6px"></div>
@@ -51,11 +91,15 @@ a{color:var(--gold)}
     <div class="note"><span>🔒</span><span>Listed here only (not ME/Tensor) while active — one sale delegate per pNFT.</span></div>
     <button class="btn" id="listbtn" style="width:100%;padding:12px;font-size:14px" onclick="mainAction()">Connect wallet first</button>
     <div id="msg" class="sub" style="margin-top:10px"></div>
-  </div>
+    </div>
+   </div>
+  </div></div>
 
   <div class="card">
+    <div style="font-size:12.5px;color:var(--mut);margin-bottom:10px">Card cracked? <a href="/repair/" style="color:var(--gold)">Repair it</a></div>
     <div style="font-size:13px;color:var(--mut);margin-bottom:8px">Live listings</div>
     <div id="listings" style="font-size:13px;color:var(--mut)">—</div>
+    <div id="pmsg" class="sub" style="margin-top:8px"></div>
   </div>
 </div>
 
@@ -64,6 +108,7 @@ a{color:var(--gold)}
 <script src="/web3.js"></script>
 <script src="/wallet-picker.js"></script>
 <script src="/dojo-ah.js"></script>
+<script src="/dojo-swap.js"></script>
 <script>
 const RPC='/api/rpc';
 let WALLET=null, SEL=null, CUR='ORE', PRICES={ORE:0,SKR:0,USDC:1,SOL:0};
@@ -87,31 +132,53 @@ function syncWallet(){
 // Fallback connect used by the "List for ORE" button when nobody's connected yet.
 function conn(){ if(window.DojoWalletPicker) DojoWalletPicker.pick().then(a=>{ window.DOJO_WALLET=a; window.dispatchEvent(new Event('dojo-wallet-change')); }).catch(()=>{}); }
 window.addEventListener('dojo-wallet-change', syncWallet);
-window.addEventListener('load',function(){ loadPrices(); loadListings(); if(window.DOJO_WALLET) syncWallet(); });
+window.addEventListener('load',function(){ loadPrices(); setInterval(loadPrices,60000); loadListings(); if(window.DOJO_WALLET) syncWallet(); });   // the ORE minimum tracks SOL live
 
 async function loadPrices(){ try{const j=await(await fetch('https://lite-api.jup.ag/price/v3?ids=oreoU2P8bN6jkk3jbaiVxYnG1dCXcYxwhwyK9jSybcp,SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3,So11111111111111111111111111111111111111112')).json();
   PRICES.ORE=j['oreoU2P8bN6jkk3jbaiVxYnG1dCXcYxwhwyK9jSybcp']?.usdPrice||0;PRICES.SKR=j['SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3']?.usdPrice||0;PRICES.SOL=j['So11111111111111111111111111111111111111112']?.usdPrice||0;paint();}catch(e){} }
 
 document.querySelectorAll('#cur b').forEach(b=>b.onclick=()=>{CUR=b.dataset.c;document.querySelectorAll('#cur b').forEach(x=>x.classList.toggle('on',x===b));if(WALLET&&SELMODE!=='delist')$('listbtn').textContent='List for '+CUR;paint();});
-$('price').oninput=paint; $('mint').oninput=()=>{SEL={mint:$('mint').value.trim(),name:'Pasted mint'};$('selname').textContent='Listing '+SEL.mint.slice(0,6)+'…';paint();};
+$('price').oninput=paint;
+// an NFT whose collection is not known yet: look it up (the Degen Dojo minimum depends on it)
+async function resolvePasted(s){ if(!isB58(s.mint))return; try{ const a=await rpc('getAsset',{id:s.mint}); const g=a&&(a.grouping||[]).find(x=>x.group_key==='collection'); s.coll=(g&&g.group_value)||''; if(SEL===s)paint(); }catch(e){} }
 
-const MIN_SOL=1.5;   // minimum listing = 1.5 SOL equivalent at list time
+const MIN_SOL=1.5;   // Degen Dojo minimum listing = 1.5 SOL equivalent at list time (other collections: no minimum)
+const DD_COLL='2m9DupVeheZ5vfuXZxqV3KSQ7HnVDk2tG6ouH1ZnLwYb';
+const needsMin=()=>!!(SEL&&SEL.coll===DD_COLL);
 function minInCur(){ const perUnitUsd=CUR==='USDC'?1:(PRICES[CUR]||0); if(!perUnitUsd||!PRICES.SOL)return 0; return (MIN_SOL*PRICES.SOL)/perUnitUsd; }
 function paint(){const p=parseFloat($('price').value)||0;const usd=CUR==='USDC'?p:p*(PRICES[CUR]||0);
-  const sol=PRICES.SOL?usd/PRICES.SOL:0; const min=minInCur();
+  const sol=PRICES.SOL?usd/PRICES.SOL:0; const min=needsMin()?minInCur():0;
   const belowMin=min&&p&&p<min;
-  $('approx').innerHTML=(p?('≈ $'+usd.toFixed(2)+(sol?(' · ≈ '+sol.toFixed(3)+' SOL'):'')):'')+(min?(' <span style="color:'+(belowMin?'#c1443a':'var(--mut)')+'"> · min '+min.toFixed(CUR==='USDC'?2:3)+' '+CUR+' (1.5 SOL)</span>'):'');
+  $('approx').innerHTML=(p?('≈ $'+usd.toFixed(2)+(sol?(' · ≈ '+sol.toFixed(3)+' SOL'):'')):'')+(min?(' <span style="color:'+(belowMin?'#c1443a':'var(--mut)')+'">'+(p?' · ':'')+'min '+min.toFixed(CUR==='USDC'?2:3)+' '+CUR+' (1.5 SOL)</span>'):'');   // no leading "·" while the price is empty
   // royalty = the SELECTED NFT's own on-chain rate (Degens are 13%); where it goes depends on the collection
   const rbps=(SEL&&typeof SEL.roybps==='number')?SEL.roybps:1300, royRate=rbps/10000;
-  const roy=p*royRate, net=p-roy; const dest=(SEL&&SEL.isDegen===false)?' → to the creators':' → rebate + pot';
+  // our 3 collections: the royalty builds that NFT's own card vault (burn to claim) + the Reserve
+  const ours=!!(SEL&&typeof COLL_NAME!=='undefined'&&COLL_NAME[SEL.coll]);
+  const roy=p*royRate, net=p-roy; const dest=ours?' → card vault + Reserve':' → to the creators';
   const rl=document.getElementById('roylbl'); if(rl) rl.textContent='Royalty '+(rbps/100).toFixed(rbps%100?1:0)+'% (seller-side)';
   $('royline').textContent=p?('−'+roy.toFixed(CUR==='USDC'?2:3)+' '+CUR+dest):'—'; $('net').textContent=p?(net.toFixed(CUR==='USDC'?2:3)+' '+CUR):'—';
-  const b=$('listbtn'); if(WALLET&&!b.disabled&&SELMODE!=='delist') b.textContent='List for '+CUR; }
+  // no price, or below the Degen Dojo minimum → the List button can't be pressed (a busy "Building…" button is left alone)
+  const b=$('listbtn');
+  if(WALLET&&SELMODE!=='delist'&&(!b.disabled||b.dataset.minblock)){
+    const block=!!(belowMin||!p);
+    b.disabled=block; b.dataset.minblock=block?'1':''; b.style.opacity=block?'.45':''; b.style.cursor=block?'not-allowed':'';
+    b.textContent=belowMin?('Minimum '+min.toFixed(CUR==='USDC'?2:3)+' '+CUR):'List for '+CUR;
+  } }
 
 // DAS helpers — pull a real name + image for ANY collection (not just Degens).
 const _assetName=a=>(a&&a.content&&a.content.metadata&&a.content.metadata.name)||'';
 const _assetImg=a=>{ if(!a)return''; const c=a.content||{}; return (c.links&&c.links.image)||(c.files&&c.files[0]&&(c.files[0].cdn_uri||c.files[0].uri))||''; };
 const _ddImg=m=>'https://degendojo.s3.us-west-1.amazonaws.com/degen/img/'+m+'.png';
+const _ddCard=m=>'https://degendojo.s3.us-west-1.amazonaws.com/degen/card/'+m+'.png?v=7';   // the collectible card (Degen Dojo collection); ?v = card cache key, same as the store's
+const COLL_NAME={'2m9DupVeheZ5vfuXZxqV3KSQ7HnVDk2tG6ouH1ZnLwYb':'Degen Dojo','WyUy9qjJekjqTAYGanANjhtviwgu1uhCkXx1uas8fWb':'Demon Dojo','dgd6We3oS4M5LSVzT6Ep39wwVpjLC336tCpyPZkLAHx':'TETO'};
+const artOf=d=>d.coll==='2m9DupVeheZ5vfuXZxqV3KSQ7HnVDk2tG6ouH1ZnLwYb'?_ddCard(d.mint):(safeImg(d.img)||_ddImg(d.mint));
+const nftOf=(a,ta)=>{ const _g=(a.grouping||[]).find(x=>x.group_key==='collection'), _coll=(_g&&_g.group_value)||'';
+  const _dd=_coll==='2m9DupVeheZ5vfuXZxqV3KSQ7HnVDk2tG6ouH1ZnLwYb'||_coll==='WyUy9qjJekjqTAYGanANjhtviwgu1uhCkXx1uas8fWb';
+  const _rb=(a.royalty&&typeof a.royalty.basis_points==='number')?a.royalty.basis_points:(_dd?1300:0);
+  return {mint:a.id,ta:ta,name:_assetName(a)||a.id.slice(0,6),img:_assetImg(a),roybps:_rb,isDegen:_dd,coll:_coll,
+    collName:COLL_NAME[_coll]||((_g&&_g.collection_metadata&&_g.collection_metadata.name)||''),
+    attrs:((a.content&&a.content.metadata&&a.content.metadata.attributes)||[]).filter(t=>t&&t.trait_type!=null)}; };
+const NOIMG='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="20"><text x="32" y="14" fill="#8a7a5c" font-family="sans-serif" font-size="11" text-anchor="middle">no image</text></svg>');
 async function loadDegens(){ if(!WALLET)return; $('degs').innerHTML='<div style="color:var(--mut);font-size:13px">Loading…</div>';
   try{ const res=await rpc('getTokenAccountsByOwner',[WALLET.pubkey,{programId:'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'},{encoding:'jsonParsed'}]);
     const mints=((res&&res.value)||[]).filter(x=>x.account.data.parsed.info.tokenAmount.amount==='1'&&x.account.data.parsed.info.tokenAmount.decimals===0).map(x=>({mint:x.account.data.parsed.info.mint,ta:x.pubkey}));
@@ -120,18 +187,32 @@ async function loadDegens(){ if(!WALLET)return; $('degs').innerHTML='<div style=
     // Resolve name + art for EVERY owned NFT via DAS (batched) — any collection, not just Degens.
     const nfts=[];
     for(let i=0;i<mints.length;i+=100){ const ids=mints.slice(i,i+100).map(m=>m.mint);
-      let assets=[]; try{ assets=await rpc('getAssetBatch',{ids})||[]; }catch(e){}
-      assets.forEach(a=>{ if(!a||!isB58(a.id))return; if(a.interface&&/Fungible/i.test(a.interface))return; const nm=_assetName(a),im=_assetImg(a); if(!nm&&!im)return;
-        const _g=(a.grouping||[]).find(x=>x.group_key==='collection'), _coll=_g&&_g.group_value;
-        const _dd=_coll==='2m9DupVeheZ5vfuXZxqV3KSQ7HnVDk2tG6ouH1ZnLwYb'||_coll==='WyUy9qjJekjqTAYGanANjhtviwgu1uhCkXx1uas8fWb';
-        const _rb=(a.royalty&&typeof a.royalty.basis_points==='number')?a.royalty.basis_points:(_dd?1300:0);
-        nfts.push({mint:a.id,ta:taByMint[a.id],name:nm||a.id.slice(0,6),img:im,roybps:_rb,isDegen:_dd}); }); }
-    if(!nfts.length){$('degs').innerHTML='<div style="color:var(--mut);font-size:13px">No NFTs found in this wallet.</div>';return;}
+      let assets=[]; try{ assets=await rpc('getAssetBatch',{ids,options:{showCollectionMetadata:true}})||[]; }catch(e){}   // collection names for the filter
+      // only programmable NFTs (pNFTs) can be listed on the Dojo houses (dojo-ah.js sells via the TokenMetadata SaleV1
+      // delegate) — older non-programmable NFTs, compressed (cNFT) and Core NFTs are left out rather than failing on List
+      assets.forEach(a=>{ if(!a||!isB58(a.id))return; if(a.interface!=='ProgrammableNFT'||(a.compression&&a.compression.compressed))return; if(!_assetName(a)&&!_assetImg(a))return;
+        nfts.push(nftOf(a,taByMint[a.id])); }); }
+    if(!nfts.length){$('degs').innerHTML='<div style="color:var(--mut);font-size:13px">No programmable NFTs (pNFTs) found in this wallet — only pNFTs can be listed here.</div>';return;}
+    nfts.sort((a,b)=>String(a.name).localeCompare(String(b.name),undefined,{sensitivity:'base',numeric:true})||a.mint.localeCompare(b.mint));   // A→Z
     $('degcount').textContent='· '+nfts.length;
-    $('degs').innerHTML=nfts.map((d,i)=>`<div class="deg" data-i="${i}" onclick="selDeg(${i})"><img src="${esc(safeImg(d.img)||_ddImg(d.mint))}" data-fb="${esc(_ddImg(d.mint))}" onerror="this.onerror=null;this.src=this.dataset.fb;this.style.opacity=.9"><div class="nm">${esc(d.name||d.mint.slice(0,6))}</div></div>`).join('');
-    window._DEGS=nfts; markGrid();
+    window._DEGS=nfts; renderChips(); renderGrid();
   }catch(e){$('degs').innerHTML='<div style="color:#c1443a;font-size:13px">Could not load: '+esc(e.message||e)+'</div>';}
 }
+
+// collection filter + grid (indexes stay into window._DEGS, so selDeg / markGrid keep working when filtered)
+let FILT='all';
+const collLabel=d=>COLL_NAME[d.coll]||d.collName||'Other';
+const COLL_LOGO={'Degen Dojo':'/dd-mark.jpg','Demon Dojo':'/demon-mark.png','TETO':'/teto-mark.png'};
+function renderChips(){ const N=window._DEGS||[], cnt={}; N.forEach(d=>{const k=collLabel(d);cnt[k]=(cnt[k]||0)+1;});
+  const order=Object.keys(cnt).sort((a,b)=>(COLL_LOGO[b]?1:0)-(COLL_LOGO[a]?1:0)||cnt[b]-cnt[a]||a.localeCompare(b));   // our collections first
+  if(FILT!=='all'&&!cnt[FILT]) FILT='all';
+  $('chips').innerHTML=['<button class="chip'+(FILT==='all'?' on':'')+'" data-f="all">⛩ All <span class="n">'+N.length+'</span></button>']
+    .concat(order.map(k=>'<button class="chip'+(FILT===k?' on':'')+'" data-f="'+esc(k)+'">'+(COLL_LOGO[k]?'<img src="'+COLL_LOGO[k]+'" alt="">':'')+esc(k)+' <span class="n">'+cnt[k]+'</span></button>')).join('');
+  $('chips').querySelectorAll('.chip').forEach(b=>b.onclick=()=>{FILT=b.dataset.f;renderChips();renderGrid();}); }
+function renderGrid(){ const N=window._DEGS||[];
+  $('degs').innerHTML=N.map((d,i)=>[d,i]).filter(([d])=>FILT==='all'||collLabel(d)===FILT).map(([d,i])=>{ const card=d.coll===DD_COLL;
+    return `<div class="deg${card?' iscard':''}" data-i="${i}" onclick="selDeg(${i})"><img loading="lazy" src="${esc(artOf(d))}" data-fb="${esc(safeImg(d.img)||_ddImg(d.mint))}" onerror="if(this.dataset.fb&&this.src!==this.dataset.fb){this.src=this.dataset.fb}else{this.onerror=null;this.className='noimg';this.src=NOIMG}">${card?'':`<div class="nm">${esc(d.name||d.mint.slice(0,6))}</div>`}</div>`; }).join('');
+  markGrid(); }
 
 // which of the loaded Degens are already listed by THIS wallet → mint → listing object
 let LISTED={}, SELMODE='list';
@@ -139,24 +220,41 @@ function markGrid(){ document.querySelectorAll('.deg').forEach(d=>{ const deg=(w
   d.classList.toggle('listed',!!on); let b=d.querySelector('.lbadge');
   if(on&&!b){b=document.createElement('div');b.className='lbadge';b.textContent='LISTED';d.appendChild(b);} else if(!on&&b){b.remove();} }); }
 
-function selDeg(i){ SEL=window._DEGS[i]; document.querySelectorAll('.deg').forEach(d=>d.classList.toggle('sel',+d.dataset.i===i)); $('mint').value=SEL.mint; applyMode(); }
+function selDeg(i){ SEL=window._DEGS[i]; document.querySelectorAll('.deg').forEach(d=>d.classList.toggle('sel',+d.dataset.i===i)); openItem(SEL); }
+
+// item window: card · name · collection · traits, then the listing form
+function openItem(d){ if(!d) return;
+  const im=$('lmImg'); im.onerror=function(){ if(this.src!==(safeImg(d.img)||_ddImg(d.mint))) this.src=safeImg(d.img)||_ddImg(d.mint); else { this.onerror=null; this.src=NOIMG; } };
+  im.src=artOf(d); im.alt=d.name||'';
+  $('lmName').textContent=d.name||d.mint.slice(0,6);
+  $('lmColl').innerHTML=COLL_NAME[d.coll]?'<span class="ok">✓ '+esc(COLL_NAME[d.coll])+'</span>':'<span>'+esc(d.collName||'Other collection')+'</span>';
+  const at=d.attrs||[]; $('lmTraits').innerHTML=at.length?at.map(t=>'<div class="tr"><div class="tt">'+esc(t.trait_type)+'</div><div class="tv" title="'+esc(t.value)+'">'+esc(t.value)+'</div></div>').join(''):'<div class="sub">No traits on this NFT.</div>';
+  $('msg').textContent=''; $('lmBack').classList.add('on'); document.body.style.overflow='hidden'; applyMode(); }
+function closeItem(){ $('lmBack').classList.remove('on'); document.body.style.overflow=''; }
+$('lmX').onclick=closeItem;
+$('lmBack').addEventListener('click',e=>{ if(e.target===$('lmBack')) closeItem(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeItem(); });
 
 // flip the panel between "list this" and "delist this" based on whether SEL is already listed
-function applyMode(){ const lx=SEL&&LISTED[SEL.mint]; const b=$('listbtn'); b.disabled=false;
-  if(lx){ SELMODE='delist'; $('selname').textContent=(SEL.name||SEL.mint.slice(0,6))+' — listed';
+function applyMode(){ const lx=SEL&&LISTED[SEL.mint]; const b=$('listbtn'); b.disabled=false; b.dataset.minblock=''; b.style.opacity=''; b.style.cursor='';
+  if(lx){ SELMODE='delist'; $('selname').textContent='Listed for '+lx.price+' '+lx.currency;
     CUR=lx.currency; document.querySelectorAll('#cur b').forEach(x=>x.classList.toggle('on',x.dataset.c===CUR));
     $('price').value=lx.price; b.textContent='Delist '+(SEL.name||'this NFT'); paint();
-  } else { SELMODE='list'; if(SEL)$('selname').textContent='Listing '+(SEL.name||SEL.mint.slice(0,6));
+  } else { SELMODE='list'; if(SEL)$('selname').textContent='List it';
     if(WALLET)b.textContent='List for '+CUR; paint(); } }
 
 function mainAction(){ if(SELMODE==='delist'&&SEL&&LISTED[SEL.mint]) return doDelistListing(LISTED[SEL.mint]); return doList(); }
 
-async function doList(){ if(!WALLET){conn();return;} if(!SEL||!SEL.mint){$('msg').textContent='Pick an NFT (or paste a mint) first.';return;}
+async function doList(){ if(!WALLET){conn();return;} if(!SEL||!SEL.mint){$('msg').textContent='Pick an NFT first.';return;}
   const price=parseFloat($('price').value); if(!price||price<=0){$('msg').textContent='Enter a price.';return;}
-  const min=minInCur(); if(false&&min&&price<min){$('msg').textContent='Minimum listing is '+min.toFixed(CUR==='USDC'?2:3)+' '+CUR+' (≈ 1.5 SOL).';return;}   // min TEMPORARILY advisory for testing — re-enable (remove `false&&`) before launch
+  if(SEL.coll===undefined) await resolvePasted(SEL);
+  if(needsMin()){ await loadPrices();   // fresh SOL/ORE price → the ORE minimum is always today's 1.5 SOL
+    const min=minInCur(); if(!min){$('msg').textContent='Prices are still loading — try again in a moment.';return;}
+    if(price<min){$('msg').textContent='Degen Dojo minimum is '+min.toFixed(CUR==='USDC'?2:3)+' '+CUR+' (≈ 1.5 SOL).';return;} }
   const btn=$('listbtn'),orig=btn.textContent;btn.disabled=true;btn.textContent='Building…';
   try{ const W=window.solanaWeb3||window.web3;
-    const built=DojoAH.buildSellIx({currency:CUR,seller:WALLET.pubkey,mint:SEL.mint,tokenAccount:SEL.ta,price:price});
+    const ruleSet=await DojoAH.ruleSetOf(rpc,SEL.mint);   // the NFT's own rule set (store-only Degens differ)
+    const built=DojoAH.buildSellIx({currency:CUR,seller:WALLET.pubkey,mint:SEL.mint,tokenAccount:SEL.ta,price:price,ruleSet:ruleSet});
     const ix=new W.TransactionInstruction({programId:built.programId,keys:built.keys,data:W.Buffer?W.Buffer.from(built.data):built.data});
     const bh=(await rpc('getLatestBlockhash',[{commitment:'confirmed'}])).value.blockhash;
     const msg=new W.TransactionMessage({payerKey:new W.PublicKey(WALLET.pubkey),recentBlockhash:bh,instructions:[ix]}).compileToV0Message();
@@ -181,12 +279,15 @@ async function loadListings(){ try{const j=await(await fetch('/api/dd-listings')
   markGrid(); applyMode();
 }catch(e){$('listings').textContent='—';} }
 
-function doDelist(i){ return doDelistListing(window._LISTINGS&&window._LISTINGS[i]); }
+function doDelist(i){ const x=window._LISTINGS&&window._LISTINGS[i]; if(!x) return; const k=(window._DEGS||[]).findIndex(d=>d.mint===x.mint);
+  if(k>=0) return selDeg(k);   // opens the item window in delist mode
+  return doDelistListing(x); }
 async function doDelistListing(x){ if(!WALLET||!x)return;
   const btn=$('listbtn'); btn.disabled=true; btn.textContent='Delisting…';
   $('msg').textContent='Delisting '+(x.name||x.mint.slice(0,6))+'…';
   try{ const W=window.solanaWeb3||window.web3;
-    const built=DojoAH.buildCancelIx({currency:x.currency,seller:WALLET.pubkey,mint:x.mint,price:x.price});
+    const ruleSet=await DojoAH.ruleSetOf(rpc,x.mint);
+    const built=DojoAH.buildCancelIx({currency:x.currency,seller:WALLET.pubkey,mint:x.mint,price:x.price,ruleSet:ruleSet});
     const ix=new W.TransactionInstruction({programId:built.programId,keys:built.keys,data:W.Buffer?W.Buffer.from(built.data):built.data});
     const bh=(await rpc('getLatestBlockhash',[{commitment:'confirmed'}])).value.blockhash;
     const msg=new W.TransactionMessage({payerKey:new W.PublicKey(WALLET.pubkey),recentBlockhash:bh,instructions:[ix]}).compileToV0Message();
@@ -201,22 +302,27 @@ async function doDelistListing(x){ if(!WALLET||!x)return;
 // BUY someone else's listing. Simulates the exact tx first — only prompts the wallet if it will succeed,
 // so you can never spend ORE/SKR on a failing buy (no more "swapped but got nothing").
 let _buying=false;
-async function doBuy(i){ if(_buying)return; const x=window._LISTINGS&&window._LISTINGS[i]; if(!WALLET||!x)return;
-  if(WALLET.pubkey===x.seller){$('msg').textContent='That is your own listing.';return;}
-  _buying=true; $('msg').textContent='Checking the purchase (no charge yet)…';
+async function doBuy(i){ if(_buying)return; let x=window._LISTINGS&&window._LISTINGS[i]; if(!WALLET||!x)return;
+  const say=$('pmsg');   // buys happen from the Live listings list, so their messages show there
+  if(WALLET.pubkey===x.seller){say.textContent='That is your own listing.';return;}
+  _buying=true; say.textContent='Checking the purchase (no charge yet)…';
   try{
-    const r=await DojoAH.prepareBuy(rpc,{currency:x.currency,buyer:WALLET.pubkey,seller:x.seller,mint:x.mint,price:x.price});
-    if(r.err){ console.log('buy sim failed',JSON.stringify(r.err),r.logs); $('msg').innerHTML='<span style="color:#c1443a">This purchase would fail — you were NOT charged.</span> It may have just sold, or you lack enough '+esc(x.currency)+'. <span style="color:var(--mut)">('+esc(JSON.stringify(r.err).slice(0,80))+')</span>'; return; }
-    $('msg').textContent='Approve in your wallet — you pay '+r.breakdown.price+' '+x.currency+' (seller nets '+r.breakdown.sellerNet.toFixed(x.currency==='USDC'?2:3)+' after royalty)…';
+    // price lock: buy exactly the listing shown, or — if the seller re-listed it higher — only after an explicit OK
+    x=await DojoAH.lockPrice(rpc,x);
+    if(WALLET.pubkey===x.seller){say.textContent='That is your own listing.';return;}
+    if(x.currency==='ORE'&&window.DojoSwap){ const short=await DojoSwap.oreShortfall(WALLET.pubkey,+x.price); if(short>0){ say.textContent='You need '+short+' more ORE — swap it in, then buy.'; DojoSwap.open({needOre:short}); return; } }
+    const r=await DojoAH.prepareBuy(rpc,{currency:x.currency,buyer:WALLET.pubkey,seller:x.seller,mint:x.mint,price:x.price,sellerTokenAccount:x.tokenAccount});
+    if(r.err){ console.log('buy sim failed',JSON.stringify(r.err),r.logs); say.innerHTML='<span style="color:#c1443a">This purchase would fail — you were NOT charged.</span> It may have just sold, or you lack enough '+esc(x.currency)+'. <span style="color:var(--mut)">('+esc(JSON.stringify(r.err).slice(0,80))+')</span>'; return; }
+    say.textContent='Approve in your wallet — you pay '+r.breakdown.price+' '+x.currency+' (seller nets '+r.breakdown.sellerNet.toFixed(x.currency==='USDC'?2:3)+' after royalty)…';
     const s=await DojoAH.submitBuy(rpc, WALLET.adapter, r);
-    $('msg').textContent='Confirming…'; await waitForConfirm(s);
+    say.textContent='Confirming…'; await waitForConfirm(s);
     try{ fetch('/api/dd-royalty',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({sig:s,currency:x.currency})}); }catch(e){}   // 50% of the royalty → weekly pot
     try{ const m=document.cookie.match(/(?:^|;\s*)dd_ref=([^;]+)/); const ref=m?decodeURIComponent(m[1]):'';   // referring preacher → /api/attr (verified on-chain server-side)
       if(/^[a-zA-Z0-9_-]{2,32}$/.test(ref)) fetch('/api/attr',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({sig:s,ref:ref.toLowerCase(),buyer:WALLET.pubkey,mint:x.mint,currency:x.currency,price:+x.price||null,priceLamports:0,external:false,ts:Date.now()})}).catch(()=>{}); }catch(e){}
-    $('msg').innerHTML='✓ Bought '+esc(x.name||x.mint.slice(0,6))+' — <a href="https://solscan.io/tx/'+esc(encodeURIComponent(s))+'" target="_blank" rel="noopener">view tx ↗</a>';
+    say.innerHTML='✓ Bought '+esc(x.name||x.mint.slice(0,6))+' — <a href="https://solscan.io/tx/'+esc(encodeURIComponent(s))+'" target="_blank" rel="noopener">view tx ↗</a>';
     if(window._LISTINGS) window._LISTINGS=window._LISTINGS.filter(l=>l.tradeState!==x.tradeState);
     setTimeout(()=>{loadListings(); loadDegens();}, 9000);
-  }catch(e){ $('msg').textContent='Buy failed: '+((e&&e.message)||e); }
+  }catch(e){ say.textContent=e&&e.cancelled?e.message:'Buy failed: '+((e&&e.message)||e); if(e&&e.cancelled) loadListings(); }
   finally{ _buying=false; } }
 </script>
-<script src="/dojo-credits.js"></script><script src="/dojo-wallet.js"></script><script src="/dojo-profile.js"></script><script src="/mwa.js"></script><script src="/wallet-picker.js"></script><script>/*navwallet-wire*/(function(){var b=document.getElementById('dojoNavWallet');if(!b)return;var A=null,sh=function(p){return p.slice(0,4)+'\u2026'+p.slice(-4);};var G="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#0a0814;background:linear-gradient(135deg,#c8962a,#8b6018);border:none;padding:9px 16px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;",C="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#e8b84b;background:rgba(201,151,58,.12);border:1px solid rgba(201,151,58,.5);padding:9px 14px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;";function set(a){A=a;window.DOJO_WALLET=a||null;window.dispatchEvent(new Event('dojo-wallet-change'));if(a){b.textContent='\u25ce '+sh(a.pubkey);b.setAttribute('style',C);}else{b.textContent='Connect wallet';b.setAttribute('style',G);}}window.dojoNavSetWallet=set;b.onclick=function(){if(A){var dc=function(){try{A.disconnect&&A.disconnect();}catch(e){}set(null);};if(window.DojoProfile)DojoProfile.menu(b,A.pubkey,dc);else dc();return;}if(window.DojoWalletPicker)DojoWalletPicker.pick().then(set).catch(function(){});};if(window.DojoWalletPicker&&DojoWalletPicker.autoConnect)DojoWalletPicker.autoConnect().then(function(a){if(a&&!A)set(a);});})();</script>
+<script src="/dojo-credits.js"></script><script src="/dojo-wallet.js"></script><script src="/dojo-profile.js"></script><script src="/mwa.js"></script><script src="/wallet-picker.js"></script><script>/*navwallet-wire*/(function(){var b=document.getElementById('dojoNavWallet');if(!b)return;var A=null,sh=function(p){return p.slice(0,4)+'\u2026'+p.slice(-4);};var G="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#0a0814;background:linear-gradient(135deg,#c8962a,#8b6018);border:none;padding:9px 16px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;",C="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#e8b84b;background:rgba(201,151,58,.12);border:1px solid rgba(201,151,58,.5);padding:9px 14px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;";function set(a){A=a;window.DOJO_WALLET=a||null;window.dispatchEvent(new Event('dojo-wallet-change'));if(a){b.textContent='\u25ce '+sh(a.pubkey);b.setAttribute('style',C);}else{b.textContent='Connect wallet';b.setAttribute('style',G);}document.querySelectorAll('.dn-connect').forEach(function(x){x.textContent=a?'\u25ce '+sh(a.pubkey):'\ud83d\udd11 Connect';});}window.dojoNavSetWallet=set;b.onclick=function(){if(A){var dc=function(){try{A.disconnect&&A.disconnect();}catch(e){}set(null);};if(window.DojoProfile)DojoProfile.menu(b,A.pubkey,dc);else dc();return;}if(window.DojoWalletPicker)DojoWalletPicker.pick().then(set).catch(function(){});};if(window.DojoWalletPicker&&DojoWalletPicker.autoConnect)DojoWalletPicker.autoConnect().then(function(a){if(a&&!A)set(a);});})();</script>

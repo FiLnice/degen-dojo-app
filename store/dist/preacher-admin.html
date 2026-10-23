@@ -59,17 +59,16 @@
   var usd = function (n) { return '$' + (n || 0).toFixed(2); };
   var amt = function (n, d) { return (n || 0).toLocaleString('en-US', { maximumFractionDigits: d }); };
   var short = function (w) { return w ? w.slice(0, 4) + '…' + w.slice(-4) : '—'; };
-  var KEY_SS = 'dd_attr_admin_key';
   var ROWS = [];
-  try { $('key').value = sessionStorage.getItem(KEY_SS) || ''; } catch (e) {}
+  // the admin key lives only in the field above for this tab's life (never URL / sessionStorage) — sent as a header
+  try { sessionStorage.removeItem('dd_attr_admin_key'); } catch (e) {}   // clear any key an older version stored
 
   function key() { return $('key').value.trim(); }
 
   function load() {
     var k = key(); if (!k) { $('status').textContent = 'Enter the key first.'; return; }
-    try { sessionStorage.setItem(KEY_SS, k); } catch (e) {}
     $('status').textContent = 'Loading… (reads each preacher\'s live holdings, can take a few seconds)';
-    fetch('/api/preacher?key=' + encodeURIComponent(k) + '&export=owed', { cache: 'no-store' })
+    fetch('/api/preacher?export=owed', { cache: 'no-store', headers: { authorization: 'Bearer ' + k } })
       .then(function (r) { if (r.status === 403) throw new Error('Wrong key.'); if (!r.ok) throw new Error('Error ' + r.status); return r.json(); })
       .then(function (rows) { ROWS = rows || []; render(); $('status').textContent = ''; })
       .catch(function (e) { $('status').innerHTML = '<span class="err">' + esc(e.message) + '</span>'; });
@@ -109,8 +108,8 @@
     if (!sig) return;
     if (!/^[1-9A-HJ-NP-Za-km-z]{64,96}$/.test(sig)) { $('m' + i).innerHTML = '<span class="err">That doesn\'t look like a transaction signature.</span>'; return; }
     btn.disabled = true; $('m' + i).textContent = 'Saving…';
-    fetch('/api/preacher', { method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ action: 'markPaid', adminKey: key(), oreSig: sig, ref: r.code, wallet: r.wallet, payoutUsd: +r.owedUsd.toFixed(4), sigs: r.unpaidSigs.map(function (s) { return s.sig; }) }) })
+    fetch('/api/preacher', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + key() },
+      body: JSON.stringify({ action: 'markPaid', oreSig: sig, ref: r.code, wallet: r.wallet, payoutUsd: +r.owedUsd.toFixed(4), sigs: r.unpaidSigs.map(function (s) { return s.sig; }) }) })
       .then(function (x) { return x.json(); })
       .then(function (j) { if (!j.ok) throw new Error(j.error || 'failed'); $('m' + i).textContent = 'Marked paid ✓'; setTimeout(load, 600); })
       .catch(function (e) { btn.disabled = false; $('m' + i).innerHTML = '<span class="err">' + esc(e.message) + '</span>'; });
@@ -118,7 +117,7 @@
 
   $('load').onclick = load;
   $('key').addEventListener('keydown', function (e) { if (e.key === 'Enter') load(); });
-  $('forget').onclick = function () { try { sessionStorage.removeItem(KEY_SS); } catch (e) {} $('key').value = ''; ROWS = []; $('list').innerHTML = ''; $('sum').innerHTML = ''; };
+  $('forget').onclick = function () { $('key').value = ''; ROWS = []; $('list').innerHTML = ''; $('sum').innerHTML = ''; };
   if (key()) load();
 })();
 </script>

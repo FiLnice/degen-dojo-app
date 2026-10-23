@@ -1,0 +1,205 @@
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Repair a Card — Degen Dojo</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Teko:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#100c08;--pan:#1b1510;--pan2:#241d15;--line:#3a2f22;--gold:#e8b84b;--goldd:#c8962a;--ink:#ece4d6;--ink2:#f6efe2;--mut:#9c8f7d;--grn:#7bb26a;--red:#c1443a;--amber:#d9a441;}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(1000px 500px at 50% -10%,#20180f,#100c08 60%);color:var(--ink);font-family:Inter,system-ui,sans-serif}
+.wrap{max-width:1100px;margin:0 auto;padding:22px 16px 60px}
+h1{font-family:Teko;font-weight:700;font-size:38px;margin:0;background:linear-gradient(180deg,#f4e2b4,var(--gold));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.sub{color:var(--mut);font-size:13.5px;margin:2px 0 16px;max-width:720px;line-height:1.5}
+.card{background:var(--pan);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px;min-width:0}
+.rules{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.rule{background:var(--pan);border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center}
+.rule b{display:block;font-family:Teko;font-size:24px;line-height:1.05;color:var(--ink2)}
+.rule span{font-size:12px;color:var(--mut)}
+label{font-size:12px;color:var(--mut);letter-spacing:.04em}
+.in{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap}
+.in input{flex:1;min-width:0;background:#0d0a06;border:1px solid #4a3c26;border-radius:9px;color:var(--ink);font-size:14px;padding:10px 12px;font-family:ui-monospace,Menlo,Consolas,monospace}
+.btn{background:linear-gradient(135deg,var(--goldd),#8b6018);border:none;color:#0a0814;font-family:Cinzel,serif;font-weight:700;font-size:12px;letter-spacing:.05em;padding:10px 16px;border-radius:9px;cursor:pointer;white-space:nowrap}
+.btn:disabled{opacity:.5;cursor:default}
+.btn.ghost{background:transparent;color:var(--gold);border:1px solid rgba(201,151,58,.5);font-family:Inter;font-weight:600}
+.mini{font-size:11.5px;color:var(--gold);background:transparent;border:1px solid rgba(201,151,58,.45);border-radius:7px;padding:4px 9px;cursor:pointer;text-decoration:none;font-family:Inter}
+.grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;align-items:start}
+.c{display:flex;flex-direction:column;gap:6px;min-width:0}
+.c img{width:100%;aspect-ratio:1/1;object-fit:contain;display:block}
+.c.iscard img{aspect-ratio:664/1080}
+.c .box{border:1px solid var(--line);border-radius:11px;background:var(--pan);padding:7px 9px;text-align:center}
+.c .nm{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.badge{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:999px;margin-top:4px}
+.b-Cracked{color:#1a1206;background:var(--amber)}.b-Mono{color:#fff;background:#6b6b6b}.b-Mint{color:#0d1a0b;background:var(--grn)}.b-Framed{color:#1a0d10;background:#e6a3a9}
+.pay{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:18px;align-items:center}
+.big{font-family:Teko;font-size:34px;line-height:1;color:var(--ink2)}
+.kv{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0}
+.kv code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;color:#d8ccb4;background:var(--pan2);border:1px solid var(--line);border-radius:7px;padding:5px 8px;word-break:break-all}
+.qr{background:#fff;border-radius:10px;padding:6px;line-height:0}
+.qr svg{width:180px;height:180px}
+.fine{color:var(--mut);font-size:12.5px;line-height:1.55}
+.ok{color:var(--grn)}.err{color:#e58b80}
+.muted{color:var(--mut);font-size:13px}
+@media(max-width:860px){.grid{grid-template-columns:repeat(3,minmax(0,1fr))}.rules{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.pay{grid-template-columns:1fr}.qr{justify-self:center}}
+</style>
+
+<div id="ddnav-mount"></div>
+<div class="wrap">
+  <h1>Repair your cards</h1>
+  <div class="sub">A Cracked or Mono card goes back to <b>Mint</b> for 0.01 ORE — and Mint cards never crack again. No wallet connection needed: paste your wallet, send the ORE, done.</div>
+
+  <div class="rules">
+    <div class="rule"><b>0.01 ORE</b><span>per card · Cracked or Mono → Mint</span></div>
+    <div class="rule"><b>Never again</b><span>Mint cards never crack again</span></div>
+    <div class="rule"><b>Weekly</b><span>restored at the next weekly update</span></div>
+    <div class="rule"><b id="spotsN">—</b><span>Mint spots left of <span id="spotsCap">—</span> — first come, first served</span></div>
+  </div>
+
+  <div class="card">
+    <label for="wallet">YOUR WALLET (the one that holds the cards)</label>
+    <div class="in"><input id="wallet" placeholder="Paste your Solana wallet address" autocomplete="off" spellcheck="false">
+      <button class="btn" id="look">Check my cards</button>
+      <button class="btn ghost" id="useConnected" hidden>Use connected wallet</button></div>
+    <div style="margin-top:12px"><label for="mint">…OR ONE CARD (its mint address)</label>
+    <div class="in"><input id="mint" placeholder="Paste a card’s mint address" autocomplete="off" spellcheck="false"><button class="btn ghost" id="lookMint">Check this card</button></div></div>
+    <div id="msg" class="muted" style="margin-top:10px"></div>
+  </div>
+
+  <div id="results"></div>
+  <div class="fine" style="margin-top:6px">Every repair splits <b>44%</b> into the collection’s Card Vault · <b>44%</b> to the Degen Dojo Reserve · <b>12%</b> to running the Dojo. There is a hard cap on Mint cards: once every spot is taken, a payment can’t be granted and is refunded in full at the weekly payout. See the <a href="/reserve/" style="color:var(--gold)">Reserve</a>.</div>
+</div>
+
+<script src="/buffer.js"></script>
+<script>window.Buffer=window.Buffer||(window.buffer&&window.buffer.Buffer);</script>
+<script src="/web3.js"></script>
+<script src="/dojo-swap.js"></script>
+<script src="/dojo-card-tx.js"></script>
+<script src="/dojo-qr.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"'`]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '`': '&#96;' }[c]));
+const isB58 = (m) => /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(String(m || ''));
+const short = (a) => a.slice(0, 4) + '…' + a.slice(-4);
+const safeImg = (u) => { try { const x = new URL(String(u || '')); return x.protocol === 'https:' ? x.href : ''; } catch (e) { return ''; } };
+const TREASURY = '5w55F58ia3H71QjBD9bYvNQF2DcNu8K3AfJj9A4WMuWp', ORE = 'oreoU2P8bN6jkk3jbaiVxYnG1dCXcYxwhwyK9jSybcp';
+const CARD = (m) => 'https://degendojo.s3.us-west-1.amazonaws.com/degen/card/' + m + '.png?v=7';
+async function rpc(method, params) { const r = await fetch('/api/rpc', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) }); const j = await r.json(); if (j.error) throw new Error(j.error.message || 'RPC error'); return j.result; }
+async function api(path, opts) { const r = await fetch(path, opts); const j = await r.json().catch(() => ({})); if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status)); return j; }
+// 0.01 × n as an exact decimal string (no float drift)
+const times = (dec, n) => { const p = String(dec).split('.'), d = (p[1] || '').length, raw = BigInt(p[0] + (p[1] || '')) * BigInt(n), s = raw.toString().padStart(d + 1, '0'); return d ? (s.slice(0, -d) + '.' + s.slice(-d)).replace(/\.?0+$/, '') : s; };
+
+let OWNER = null, ITEMS = [], SPOTS = null;   // SPOTS = { mintCount, mintCap, mintSpotsLeft }
+const DEST = 'shamanchef.sol';   // the .sol name of the Treasury (resolves to 5w55…MuWp)
+function showSpots(j) {
+  if (j && j.mintCap != null) SPOTS = { mintCount: j.mintCount, mintCap: j.mintCap, mintSpotsLeft: j.mintSpotsLeft };
+  if (!SPOTS) return;
+  $('spotsN').textContent = String(SPOTS.mintSpotsLeft); $('spotsCap').textContent = String(SPOTS.mintCap);
+}
+api('/api/vault?spots=1').then(showSpots).catch(() => {});
+const connected = () => (window.DOJO_WALLET && window.DOJO_WALLET.pubkey) || null;
+function syncConnected() { const c = connected(); $('useConnected').hidden = !c; if (c && !$('wallet').value) { $('wallet').value = c; lookup(c); } else if (OWNER) render(); }
+window.addEventListener('dojo-wallet-change', syncConnected);
+window.addEventListener('load', () => { syncConnected(); const q = new URLSearchParams(location.search); if (q.get('wallet') && isB58(q.get('wallet'))) { $('wallet').value = q.get('wallet'); lookup(q.get('wallet')); } });
+$('useConnected').onclick = () => { const c = connected(); if (c) { $('wallet').value = c; lookup(c); } };
+$('look').onclick = () => lookup($('wallet').value.trim());
+$('wallet').addEventListener('keydown', (e) => { if (e.key === 'Enter') lookup($('wallet').value.trim()); });
+$('lookMint').onclick = () => lookupMint($('mint').value.trim());
+$('mint').addEventListener('keydown', (e) => { if (e.key === 'Enter') lookupMint($('mint').value.trim()); });
+
+async function lookup(addr, highlight) {
+  if (!isB58(addr)) { $('msg').textContent = 'That doesn’t look like a Solana wallet address.'; return; }
+  $('msg').textContent = 'Reading your cards…'; $('results').innerHTML = '';
+  try { const j = await api('/api/vault?owner=' + encodeURIComponent(addr)); OWNER = addr; ITEMS = (j.items || []).filter((i) => !i.burned); showSpots(j); $('msg').textContent = ''; render(highlight); }
+  catch (e) { $('msg').textContent = 'Couldn’t read that wallet right now (' + e.message + '). Try again in a minute.'; }
+}
+async function lookupMint(mint) {
+  if (!isB58(mint)) { $('msg').textContent = 'That doesn’t look like a mint address.'; return; }
+  $('msg').textContent = 'Finding that card…';
+  try {
+    const a = await rpc('getAsset', { id: mint }); const owner = a && a.ownership && a.ownership.owner;
+    if (!owner) throw new Error('card not found');
+    $('wallet').value = owner; await lookup(owner, mint);
+  } catch (e) { $('msg').textContent = 'Couldn’t find that card (' + e.message + ').'; }
+}
+
+function tile(i, hl) {
+  const isCard = i.collection === 'Degen Dojo';
+  const img = isCard ? CARD(i.mint) : (safeImg(i.image) || CARD(i.mint));
+  return '<div class="c' + (isCard ? ' iscard' : '') + '"' + (hl === i.mint ? ' style="outline:2px solid var(--gold);outline-offset:4px;border-radius:10px"' : '') + '>'
+    + '<img loading="lazy" src="' + esc(img) + '" alt="">'
+    + '<div class="box"><div class="nm" title="' + esc(i.name) + '">' + esc(i.name) + '</div><span class="badge b-' + esc(i.condition) + '">' + esc(i.condition) + '</span></div></div>';
+}
+
+function render(hl) {
+  const need = ITEMS.filter((i) => i.repair), mint = ITEMS.filter((i) => i.condition === 'Mint' || i.condition === 'Framed');
+  let html = '';
+  if (!ITEMS.length) { $('results').innerHTML = '<div class="card muted">This wallet holds no Degen Dojo, Demon Dojo or TETO cards.</div>'; return; }
+  if (!need.length) {
+    html += '<div class="card"><div class="big ok">✓ None of your cards need repair</div><div class="fine" style="margin-top:6px">' + mint.length + ' card' + (mint.length === 1 ? ' is' : 's are') + ' Mint — Mint cards never crack again.</div></div>';
+  } else if (SPOTS && SPOTS.mintSpotsLeft <= 0) {
+    // every Mint spot is taken: no payment instructions at all
+    html += '<div class="card"><div class="big">All Mint spots are taken</div><div class="fine" style="margin-top:6px">All ' + SPOTS.mintCap + ' Mint spots are filled, so no more cards can be repaired right now. Please don’t send ORE — a repair can’t be granted. If spots open up again, this page will show it.</div></div>';
+    html += '<div class="card"><div class="fine" style="margin-bottom:10px">Cracked / Mono (' + need.length + ')</div><div class="grid">' + need.map((i) => tile(i, hl)).join('') + '</div></div>';
+  } else {
+    const left = SPOTS ? SPOTS.mintSpotsLeft : need.length, n = Math.min(need.length, left);
+    const per = (need[0].repair && need[0].repair.price) || '0.01', total = times(per, n);
+    const url = 'solana:' + TREASURY + '?amount=' + total + '&spl-token=' + ORE + '&label=' + encodeURIComponent('Degen Dojo') + '&message=' + encodeURIComponent('Repair ' + n + ' card' + (n === 1 ? '' : 's'));
+    const me = connected() === OWNER;
+    html += '<div class="card"><div class="pay"><div>'
+      + '<div class="fine">To repair ' + n + ' card' + (n === 1 ? '' : 's') + ' (' + n + ' × ' + esc(per) + ' ORE), send</div>'
+      + '<div class="big">' + esc(total) + ' ORE</div>'
+      + '<div class="kv"><span class="fine">to <b>' + DEST + '</b> (the Degen Dojo Treasury)</span><code>' + TREASURY + '</code><button class="mini" data-copy="' + DEST + '">Copy ' + DEST + '</button><button class="mini" data-copy="' + TREASURY + '">Copy address</button><button class="mini" data-copy="' + esc(total) + '">Copy amount</button></div>'
+      + (need.length > left ? '<div class="fine warn" style="margin:8px 0;color:#e8b84b"><b>Only ' + left + ' Mint spot' + (left === 1 ? ' is' : 's are') + ' left</b> (of ' + (SPOTS ? SPOTS.mintCap : '') + ', first come, first served). You have ' + need.length + ' cards to repair: only the first ' + left + ' paid for — across everyone — can become Mint; anything paid after the spots run out is refunded in full at the weekly payout.</div>' : '')
+      + '<div class="fine"><b>Send it from this wallet (' + short(OWNER) + ')</b> — the one that holds the cards. 0.01 ORE per card; if you send less, the rarest cards are repaired first; anything extra goes to the Reserve as a tip. Restored at the next weekly update.</div>'
+      + '<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap"><a class="btn ghost" href="' + esc(url) + '">Open in wallet app</a>'
+      + (me ? '<button class="btn" id="repairAll">Repair ' + (n < need.length ? n + ' of ' + need.length : 'all (' + n + ')') + ' — ' + esc(total) + ' ORE · one click</button>' : '')
+      + '</div><div id="payMsg" class="fine" style="margin-top:10px"></div>'
+      + (!me && window.DojoWalletPicker ? '<div class="fine" style="margin-top:8px">Holding these cards in a browser wallet? Connect it (top right) for a one-click repair.</div>' : '')
+      + '</div><div class="qr" title="Scan with Phantom or Solflare">' + (window.DojoQR ? DojoQR.svg(url, { scale: 4, border: 3 }) : '') + '</div></div></div>';
+    html += '<div class="card"><div class="fine" style="margin-bottom:10px">Needs repair (' + need.length + ')</div><div class="grid">' + need.map((i) => tile(i, hl)).join('') + '</div></div>';
+  }
+  if (mint.length) html += '<div class="card"><div class="fine" style="margin-bottom:10px">Mint (' + mint.length + ') — never crack again</div><div class="grid">' + mint.map((i) => tile(i, hl)).join('') + '</div></div>';
+  $('results').innerHTML = html;
+  const ra = $('repairAll'); if (ra) ra.onclick = () => repairAll(need.slice(0, SPOTS ? Math.max(0, SPOTS.mintSpotsLeft) : need.length));
+}
+
+async function waitForConfirm(sig) { for (let k = 0; k < 40; k++) { const st = await rpc('getSignatureStatuses', [[sig]]); const s = st && st.value && st.value[0]; if (s && (s.confirmationStatus === 'confirmed' || s.confirmationStatus === 'finalized')) { if (s.err) throw new Error('Transaction failed on chain.'); return; } await new Promise((r) => setTimeout(r, 1500)); } throw new Error('Not confirmed yet — check your wallet’s activity.'); }
+
+// Optional one-click: batches of up to 8 cards — one ORE transfer + one "ddfix:<mint>" memo per card each
+async function repairAll(need) {
+  const a = window.DOJO_WALLET, btn = $('repairAll'), out = $('payMsg');
+  if (!a || a.pubkey !== OWNER) { out.textContent = 'Connect the wallet that holds these cards first.'; return; }
+  const per = (need[0].repair && need[0].repair.price) || '0.01';
+  btn.disabled = true;
+  try {
+    const bal = await rpc('getTokenAccountsByOwner', [OWNER, { mint: ORE }, { encoding: 'jsonParsed' }]);
+    const have = ((bal && bal.value) || []).reduce((s, v) => s + Number(v.account.data.parsed.info.tokenAmount.uiAmountString || 0), 0);
+    const want = Number(times(per, need.length));
+    if (have + 1e-12 < want) {
+      out.innerHTML = 'You have ' + have.toFixed(4) + ' ORE — you need ' + want + ' ORE. ' + (window.DojoSwap ? '<button class="mini" id="getOre">Get ORE</button>' : '');
+      const g = $('getOre'); if (g) g.onclick = () => DojoSwap.open({ needOre: want - have });
+      btn.disabled = false; return;
+    }
+    const groups = DojoCardTx.batches(need.map((i) => i.mint));
+    for (let gi = 0; gi < groups.length; gi++) {
+      out.textContent = 'Batch ' + (gi + 1) + ' of ' + groups.length + ': checking…';
+      const built = DojoCardTx.repairIxs(OWNER, groups[gi], per);
+      const prep = await DojoCardTx.prepare(rpc, OWNER, built.ixs);
+      if (prep.err) throw new Error('The network refused this payment in a test run (' + JSON.stringify(prep.err) + ').');
+      out.textContent = 'Batch ' + (gi + 1) + ' of ' + groups.length + ': approve in your wallet…';
+      const res = await a.signAndSendTransaction(prep.tx); const sig = res.signature || res;
+      out.textContent = 'Batch ' + (gi + 1) + ' of ' + groups.length + ': confirming…';
+      await waitForConfirm(sig);
+      try { await api('/api/repair', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ sig }) }); } catch (e) { /* the weekly update reads the chain anyway */ }
+      out.innerHTML = '<span class="ok">✓ Paid for ' + groups.slice(0, gi + 1).flat().length + ' of ' + need.length + ' cards</span> — <a href="https://solscan.io/tx/' + esc(encodeURIComponent(sig)) + '" target="_blank" rel="noopener" style="color:var(--gold)">Solscan ↗</a>';
+    }
+    out.innerHTML += '<br>All paid — your cards are restored to Mint at the next weekly update.';
+    btn.textContent = '✓ Paid';
+  } catch (e) { out.innerHTML = '<span class="err">' + esc(e.message || 'Failed.') + '</span>'; btn.disabled = false; }
+}
+
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-copy]'); if (!b) return;
+  const done = () => { const t = b.textContent; b.textContent = 'Copied'; setTimeout(() => (b.textContent = t), 1200); };
+  (navigator.clipboard ? navigator.clipboard.writeText(b.dataset.copy) : Promise.reject()).then(done, () => {
+    const ta = document.createElement('textarea'); ta.value = b.dataset.copy; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); done(); } catch (er) {} ta.remove(); });
+});
+</script>

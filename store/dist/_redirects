@@ -1,3 +1,8 @@
+/netlify/*  /404.html  404!
+/node_modules/*  /404.html  404!
+/package.json  /404.html  404!
+/package-lock.json  /404.html  404!
+/netlify.toml  /404.html  404!
 /api/rpc  /.netlify/functions/rpc  200
 /api/attr  /.netlify/functions/attr  200
 /api/preacher  /.netlify/functions/preacher  200
@@ -12,6 +17,9 @@
 /api/draw  /.netlify/functions/draw  200
 /api/payouts  /.netlify/functions/payouts  200
 /api/auth  /.netlify/functions/auth  200
+/api/vault  /.netlify/functions/vault  200
+/api/repair  /.netlify/functions/repair  200
+/api/burnclaim  /.netlify/functions/burnclaim  200
 /api/play  /.netlify/functions/play  200
 /api/mebuy  /.netlify/functions/mebuy  200
 /api/tensorbuy  /.netlify/functions/tensorbuy  200
@@ -25,6 +33,8 @@
 /api/miner  /.netlify/functions/miner  200
 /nft/*  /.netlify/functions/nft  200
 /m/*  /mine.html  200
+/wallets  /reserve/  301
+/wallets/*  /reserve/  301
 /shelves  /  301
 /shelves-100  /  301
 /shelves-100.html  /  301

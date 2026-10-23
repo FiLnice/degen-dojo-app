@@ -1,5 +1,10 @@
-// Shared royalty→pot sweep. ALL Degen royalties (13% creator share) land in the creator wallet
-// ED3GMC — from the DD store, Magic Eden, Tensor, anywhere — so one watcher on that wallet captures
+// RETIRED 2026-10-23 — royalties no longer feed the Pot. store-keeper-core.mjs is now the ONLY thing that handles
+// royalties (44% the collection's Card Vault / 44% Reserve / 12% operations). sweepRoyalties() and processRoyaltySig()
+// below refuse to credit anything; this module stays only for MARKETPLACES (shared with the Keeper + /api/reserve)
+// and so the old "dd-royalties" records remain readable.
+//
+// (Former behaviour:) Shared royalty→pot sweep. ALL Degen royalties (13% creator share) land in the royalty wallet
+// (the Degen Dojo Reserve 5w55 since the 2026-10-22 hand-over) — from the DD store, Magic Eden, Tensor, anywhere — so one watcher on that wallet captures
 // EVERY marketplace. Each run: read the wallet's new signatures, and for any tx that touches a known
 // marketplace program, credit HALF of what the wallet gained (in every currency) to the weekly pot's
 // "royalty" route. Verified against the ACTUAL on-chain gain, idempotent per signature (shared with the
@@ -18,18 +23,21 @@
 // Sanity: the tx must touch a known marketplace program, must NOT be signed by the royalty wallet itself
 // (that is our own trade, e.g. sale proceeds), and only what the wallet actually gained is counted.
 //
-// Blobs "dd-royalties": <sig> (final record), claim:<sig> (one-time credit marker), retry:<sig> (queue), __cursor__.
+// Blobs "dd-royalties": <sig> (final record), claim:<sig> (one-time credit marker), retry:<sig> (queue),
+// __cursor__:<wallet> — one per royalty wallet, so a new wallet starts its own "from now on" baseline (an old
+// wallet's cursor would make the first run walk the new wallet's whole history and credit it retroactively).
 import { getStore } from "@netlify/blobs";
 import { addToPot } from "./store-pot-core.mjs";
 import { livePrice } from "./store-verify-core.mjs";
 import { putIfNew, readWithEtag } from "./store-cas-core.mjs";
 
-const CREATOR = process.env.ROYALTY_WALLET || "ED3GMCfoX3XNvavnWADvd6oCsohGg1ukdhv3PaUpvwJe";
+const CREATOR = process.env.ROYALTY_WALLET || "5w55F58ia3H71QjBD9bYvNQF2DcNu8K3AfJj9A4WMuWp";
+export const CURSOR_KEY = "__cursor__:" + CREATOR;
 const ROYALTY_TO_POT = 0.5;
 const MINTS = { ORE: "oreoU2P8bN6jkk3jbaiVxYnG1dCXcYxwhwyK9jSybcp", SKR: "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3", USDC: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" };
 // Marketplace programs whose sales pay this wallet a royalty. Conservative allow-list — an inflow that
 // doesn't come through one of these (e.g. you funding the wallet) is NEVER counted as royalty.
-const MARKETPLACES = new Set([
+export const MARKETPLACES = new Set([
   "hausS13jsjafwWwGqZTUQRmWyvyxn9EQpqMwV1PBBmk",   // Metaplex / DD AuctionHouse
   "M2mx93ekt1fmXSVkTrUL9xVFHkmME8HTUi5Cyc5aF7K",   // Magic Eden v2
   "mmm3XBJg5gk8XJxEKBvdgptZz6SgK4tXvn36sodowMc",   // Magic Eden MMM (AMM pools)
@@ -85,7 +93,9 @@ const isFinal = (rec) => !!(rec && (rec.credited || rec.skip || rec.gaveUp));
 // Process ONE signature. → { final: record } (write it; never revisit), { retry: reason }, or
 // { refuse: reason } (not ours / outside the caller's window — write nothing).
 // `tx` may be passed in when the caller already has it; `notBefore` (ms) refuses older sales.
+export const ROYALTY_TO_POT_RETIRED = true;
 export async function processRoyaltySig(sig, { tx, notBefore = 0 } = {}) {
+  if (ROYALTY_TO_POT_RETIRED) return { refuse: "retired — royalties now go to the collection Card Vault (44%), the Reserve (44%) and operations (12%), not the Pot" };
   if (tx === undefined) {
     try { tx = await rpc("getTransaction", [sig, { maxSupportedTransactionVersion: 0, encoding: "json" }]); }
     catch (e) { return { retry: "rpc: " + (e.message || e) }; }
@@ -97,7 +107,7 @@ export async function processRoyaltySig(sig, { tx, notBefore = 0 } = {}) {
   if (notBefore && tx.blockTime && tx.blockTime * 1000 < notBefore) return { refuse: "sale is older than the report window" };   // left to the sweep
   if (tx.meta?.err) return { final: { credited: false, skip: "failed-tx", at: Date.now() } };
   if (!touchesMarket(tx)) return { final: { credited: false, skip: "not-marketplace", at: Date.now() } };
-  // the royalty wallet SIGNED → our own trade (e.g. selling an NFT held in ED3GMC = sale proceeds), not a royalty
+  // the royalty wallet SIGNED → our own trade (e.g. selling an NFT it holds = sale proceeds), not a royalty
   if (signersOf(tx).includes(CREATOR)) return { final: { credited: false, skip: "creator-signed", at: Date.now() } };
   const due = Object.entries(gains(tx)).filter(([, amt]) => amt > 0);
   const px = {};
@@ -163,15 +173,16 @@ async function newSignatures(until) {
 }
 
 export async function sweepRoyalties() {
+  if (ROYALTY_TO_POT_RETIRED) return { retired: true };
   if (!process.env.SOLANA_RPC) return { skipped: "no rpc" };
   const store = getStore("dd-royalties");
-  const cur = await store.get("__cursor__", { type: "json" });
+  const cur = await store.get(CURSOR_KEY, { type: "json" });
 
   // First ever run → set a baseline and credit nothing (means "from now on").
   if (!cur?.lastSig) {
     const first = await rpc("getSignaturesForAddress", [CREATOR, { limit: 1 }]);
     if (!first?.length) return { checked: 0, credited: 0 };
-    await store.setJSON("__cursor__", { lastSig: first[0].signature, since: Date.now() });
+    await store.setJSON(CURSOR_KEY, { lastSig: first[0].signature, since: Date.now() });
     return { baseline: first[0].signature };
   }
 
@@ -190,7 +201,7 @@ export async function sweepRoyalties() {
   }
   // Advance only across handled signatures, and only when the scan reached the old cursor (complete):
   // otherwise there is an unscanned gap between the cursor and the oldest page we read.
-  if (complete && lastHandled) await store.setJSON("__cursor__", { ...cur, lastSig: lastHandled, at: Date.now() });
+  if (complete && lastHandled) await store.setJSON(CURSOR_KEY, { ...cur, lastSig: lastHandled, at: Date.now() });
 
   // Retry queue: least-recently-tried first, bounded per run (skips what was just queued above).
   const { blobs } = await store.list({ prefix: "retry:" });

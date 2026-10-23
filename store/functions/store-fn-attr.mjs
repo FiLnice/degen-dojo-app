@@ -8,13 +8,15 @@
 //     signature on-chain (DD collection, royalty actually received, no self-referral)
 //     before it earns anything, so a forged record that names no real sale pays nothing.
 //
-// GET   ?key=<ATTR_ADMIN_KEY>   → dump the whole ledger for the payout script.
+// GET   (Authorization: Bearer <ATTR_ADMIN_KEY>) → dump the whole ledger for the payout script.
 //   Gated by a secret env var so the ledger isn't world-readable.
 //
 // Requires env: ATTR_ADMIN_KEY (any long random string). Netlify Blobs needs no
 // extra config on Netlify — it's available to functions automatically.
+import { limited } from "./store-ratelimit-core.mjs";
 import { getStore } from "@netlify/blobs";
-import { adminKeyOk } from "./store-session-core.mjs";
+import { adminRequestOk } from "./store-session-core.mjs";
+import { putIfNew } from "./store-cas-core.mjs";
 
 const REF_RE  = /^[a-zA-Z0-9_-]{2,32}$/;
 const SIG_RE  = /^[1-9A-HJ-NP-Za-km-z]{64,96}$/;   // base58 tx signature
@@ -22,14 +24,15 @@ const MINT_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 const CURRENCIES = new Set(["SOL", "ORE", "SKR", "USDC"]);
 
 export default async (request) => {
+  const blocked = limited(request, "attr", 20); if (blocked) return blocked;   // 20 / minute / IP (DD-04)
   const store = getStore("preacher-ledger");
   const url = new URL(request.url);
 
   if (request.method === "GET") {
-    if (!adminKeyOk(url.searchParams.get("key"), "ATTR_ADMIN_KEY")) {
+    if (!adminRequestOk(request, "ATTR_ADMIN_KEY")) {
       return new Response("forbidden", { status: 403 });
     }
-    const { blobs } = await store.list();
+    const { blobs } = await store.list({ prefix: "sale:" });   // the ledger (lost:<sig>:<ref> audit copies stay out)
     const out = [];
     for (const b of blobs) { const v = await store.get(b.key, { type: "json" }); if (v) out.push(v); }
     return new Response(JSON.stringify(out), { headers: { "content-type": "application/json", "cache-control": "no-store" } });
@@ -56,11 +59,15 @@ export default async (request) => {
     recordedAt: Date.now(),
   };
   // key by signature → idempotent, FIRST write wins: a later POST naming another ref can't hijack a sale
-  // that's already attributed (or wipe its cached on-chain verification).
-  if (await store.get("sale:" + rec.sig, { type: "json" })) {
+  // that's already attributed (or wipe its cached on-chain verification). A create-only write (DD-14): two racing
+  // POSTs can't both pass a check and let the later one overwrite. The losing claim is kept once per (sig, ref) for audit.
+  let created;
+  try { created = await putIfNew(store, "sale:" + rec.sig, rec); }
+  catch { return new Response(JSON.stringify({ error: "busy — retry" }), { status: 503, headers: { "content-type": "application/json" } }); }
+  if (!created) {
+    await putIfNew(store, `lost:${rec.sig}:${rec.ref}`, rec).catch(() => {});
     return new Response(JSON.stringify({ ok: true, dup: true }), { headers: { "content-type": "application/json" } });
   }
-  await store.setJSON("sale:" + rec.sig, rec);
   return new Response(JSON.stringify({ ok: true }), { headers: { "content-type": "application/json" } });
 };
 

@@ -154,6 +154,17 @@ body{background:var(--ink);color:var(--text);font-family:'Inter',sans-serif;min-
 .card:hover{transform:translateY(-5px);border-color:rgba(201,151,58,.55);box-shadow:0 14px 24px -10px rgba(0,0,0,.8);}
 .card .art{aspect-ratio:1;background:#000;overflow:hidden;position:relative;}
 .card .art img{width:100%;height:100%;object-fit:cover;display:block;}
+.card .art.cardart{aspect-ratio:664/1080;}                       /* Degen Dojo: the collectible card, whole */
+.card .art.cardart img{object-fit:contain;}
+.dshow{position:relative;background:#000;user-select:none;}
+.dshow img{width:100%;height:min(68vh,560px);object-fit:contain;display:block;background:#000;}
+.dshow img[hidden]{display:none;}                                   /* only the current slide shows */
+.dshow .dsl{position:absolute;top:50%;transform:translateY(-50%);width:34px;height:34px;border-radius:50%;border:1px solid rgba(201,151,58,.5);background:rgba(10,8,15,.75);color:#e8b84b;font-size:20px;line-height:1;cursor:pointer;z-index:2;}
+.dshow .dsl.l{left:10px;}.dshow .dsl.r{right:10px;}
+.dshow .ddots{position:absolute;bottom:10px;left:0;right:0;display:flex;gap:6px;justify-content:center;}
+.dshow .ddots i{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.35);}
+.dshow .ddots i.on{background:#e8b84b;}
+.dshow .dlab{position:absolute;top:10px;left:12px;font:600 11px Inter,sans-serif;letter-spacing:.06em;color:#e8b84b;background:rgba(10,8,15,.7);padding:3px 8px;border-radius:6px;}
 .card .art .noart{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:12px;text-align:center;
   font-family:'Cinzel',serif;font-size:12px;color:var(--muted);background:radial-gradient(circle at 50% 40%,#2a1a14,#0b0a0c);}
 .card.more{display:flex;align-items:center;justify-content:center;border-radius:11px;min-height:200px;text-align:center;
@@ -162,9 +173,20 @@ body{background:var(--ink);color:var(--text);font-family:'Inter',sans-serif;min-
 .card .rank{position:absolute;top:7px;left:7px;font-family:'Teko',sans-serif;font-size:11px;letter-spacing:.04em;
   background:rgba(10,8,14,.8);color:var(--gold-l);border-radius:5px;padding:2px 7px;backdrop-filter:blur(3px);}
 .card .body{padding:9px 10px 11px;}
+/* every tile: the picture stands on its own (rounded); only the name/price box gets the border + gold hover —
+   the box isn't part of what someone buys. ("See all" keeps its whole-tile look.) */
+.card:not(.more){border-color:transparent;background:transparent;box-shadow:none;overflow:visible;border-radius:0;}
+.card:not(.more):hover{border-color:transparent;box-shadow:none;}
+.card:not(.more) .art{border-radius:0;}                            /* the image as it is: NFTs square-edged */
+.card.iscard .art{background:transparent;}                        /* a Degen card has its own frame and rounded corners */
+.card:not(.more) .body{margin-top:6px;border:1px solid var(--border);border-radius:11px;background:var(--panel);box-shadow:0 8px 16px -8px rgba(0,0,0,.7);transition:border-color .16s,box-shadow .16s;}
+.card:not(.more):hover .body{border-color:rgba(201,151,58,.55);box-shadow:0 14px 24px -10px rgba(0,0,0,.8);}
 .card .nm{font-family:'Cinzel',serif;font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .card .p-ore{font-family:'Cinzel',serif;font-weight:900;font-size:15px;color:var(--gold-l);display:flex;align-items:center;gap:4px;margin-top:4px;}
 .card .p-alt{font-family:'Teko',sans-serif;font-size:11.5px;color:var(--muted);margin-top:1px;}
+.card .p-row{display:flex;align-items:center;gap:8px;margin-top:4px;min-width:0;}   /* ORE, then SOL · USD — one line */
+.card .p-row .p-ore{margin-top:0;flex:none;}
+.card .p-row .p-alt{margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 
 /* ── detail drawer (click a card) ───────────────────────────────── */
 .drawer{position:fixed;inset:0;z-index:90;background:rgba(6,5,10,.72);backdrop-filter:blur(6px);display:none;}
@@ -226,6 +248,7 @@ body{background:var(--ink);color:var(--text);font-family:'Inter',sans-serif;min-
   <div class="eyebrow">陳列棚 · The Cases</div>
   <h1>Browse the cases. Pay in ORE.</h1>
   <p>Each glass case is a collection — the week's <b>top 100 by volume</b>, ranked live. Slide through the <span class="jp">暖簾</span> shelf to see what's for sale, then own it in <b>ORE</b>.</p>
+  <button onclick="window.DojoSwap&&DojoSwap.open()" style="margin-top:6px;padding:9px 18px;border-radius:10px;border:1px solid #c9973a;background:rgba(201,151,58,.12);color:#e8b84b;font:700 13px Cinzel,serif;letter-spacing:.05em;cursor:pointer">⇄ Get ORE — swap SOL or USDC</button>
 </div>
 
 <div class="filters">
@@ -257,46 +280,76 @@ const oreOf = sol => (PRICES.SOL && PRICES.ORE) ? (sol*PRICES.SOL/PRICES.ORE) : 
 const usdOf = sol => PRICES.SOL ? '$'+(sol*PRICES.SOL).toLocaleString('en-US',{maximumFractionDigits:0}) : '';
 // The resizer (wsrv.nl) rejects IPFS gateways and redirects, which left whole cases black. If the
 // resized image fails, load the original URL directly once; only then dim it.
-function artFallback(el){ const raw=el.dataset.raw; if(raw && /^https?:\/\//i.test(raw) && !el.dataset.tried){ el.dataset.tried='1'; el.src=raw; } else el.style.opacity=.15; }
+function artFallback(el){ const raw=el.dataset.raw; if(raw && /^https?:\/\//i.test(raw) && !el.dataset.tried){ el.dataset.tried='1'; el.src=raw; } else { el.style.opacity=.15; artFailed(el); } }
+// A card whose art failed even from the original URL: count it against its collection. Two dead cards in a case
+// (or every card, if it shows fewer) → the whole collection is hidden — the market never shows a case of broken art
+// (one lucky probe load used to let a collection through while its cards then failed, e.g. rate-limited IPFS).
+const ART_FAILS = {};
+function artFailed(el){
+  const sh = el.closest && el.closest('.shelf'); if(!sh || !sh.id) return;
+  const i = +sh.id.slice(5), c = COLLECTIONS[i]; if(!c || c.coll) return;        // our own Dojo cases are never hidden
+  ART_FAILS[i] = (ART_FAILS[i]||0) + 1;
+  const shown = sh.querySelectorAll('.card:not(.more) img').length;
+  if(ART_FAILS[i] < Math.min(2, shown) || BROKEN.has(c.symbol)) return;
+  BROKEN.add(c.symbol);
+  const box = sh.closest('.case') || sh.parentElement;
+  if(FILTER==='all'){ if(box) box.style.display='none'; } else sh.innerHTML = shelfMsg('This collection’s images are offline at the source, so it isn’t shown in the market.');
+  renderFilters();
+}
+// IPFS gateways that have shut down or rate-limit everything: art served from them is treated as dead up front
+const DEAD_ART_HOST = /(^|\.)(w3s\.link|nftstorage\.link|cf-ipfs\.com|cloudflare-ipfs\.com)$/i;
+const deadArt = (u) => { try { return DEAD_ART_HOST.test(new URL(u).hostname); } catch { return false; } };
 const img = (u,s=300) => { u = u==null ? '' : String(u); if(!u) return '';
   if(u.startsWith('/') && !u.startsWith('//')) return esc(u);          // our own same-origin asset
   return esc(`https://wsrv.nl/?url=${encodeURIComponent(u)}&w=${s}&h=${s}&fit=cover&output=webp`); };
-const nf = (n,d=2) => (n==null || n==='' || !isFinite(+n)) ? '—' : (+n).toLocaleString('en-US',{maximumFractionDigits:d});
+// Degen Dojo: the collectible card (S3) is what we show; the original art is the second drawer slide.
+const DD_COLL = '2m9DupVeheZ5vfuXZxqV3KSQ7HnVDk2tG6ouH1ZnLwYb', S3 = 'https://degendojo.s3.us-west-1.amazonaws.com/degen/';
+const ddCard = m => S3 + 'card/' + m + '.png?v=7', ddArt = m => S3 + 'img/' + m + '.png';
+// resized but NOT cropped (the card is portrait), served as small webp
+const cardImg = (u, w=320) => esc(`https://wsrv.nl/?url=${encodeURIComponent(u)}&w=${w}&output=webp`);
+// amounts under 1 keep 3 significant digits (0.0264, not "0.03"), so a cheap NFT's card shows what the buyer really pays
+const nf = (n,d=2) => (n==null || n==='' || !isFinite(+n)) ? '—'
+  : (Math.abs(+n) < 1 && +n !== 0 ? (+n).toLocaleString('en-US',{maximumSignificantDigits:3}) : (+n).toLocaleString('en-US',{maximumFractionDigits:d}));
 
 // REAL listings only — fetched live per collection. Nothing is ever fabricated;
 // every card is an actual on-chain listing (real mint, price, image), and the buy
 // re-resolves that exact mint before showing a price, so you never pay for
 // something that isn't listed or get a different NFT than the one you clicked.
-const CASE_CACHE = {};   // symbol → items[]
+const CASE_CACHE = {};   // symbol|collection → items[]
 
 // Some old collections' art is gone at the source (e.g. Tomorrowland's metadata points at FTX's
 // dead servers; Magic Eden has no image either), so a missing image shows the name, not a black box.
 function cardHtml(it){
-  const ore = oreOf(it.price);
-  const art = it.image ? `<img src="${img(it.image)}" data-raw="${esc(it.image)}" loading="lazy" onerror="artFallback(this)"/>`
+  // the ALL-IN price (incl. royalty + marketplace fee) — what the buyer pays, not the seller's list price
+  const all = it.priceAllIn || it.price, ore = oreOf(all);
+  const incl = it.priceAllIn ? `incl. ${nf((it.royaltyBps||0)/100,1)}% royalty + 2% fee` : '';
+  const isCard = it.coll === DD_COLL;
+  const art = isCard ? `<img src="${cardImg(ddCard(it.mint))}" data-raw="${esc(ddCard(it.mint))}" loading="lazy" onerror="artFallback(this)"/>`
+            : it.image ? `<img src="${img(it.image)}" data-raw="${esc(it.image)}" loading="lazy" onerror="artFallback(this)"/>`
                        : `<div class="noart">${esc(it.name||'No artwork')}</div>`;
-  return `<div class="card" onclick="openMint(${jsArg(it.mint)})">
-    <div class="art">${art}</div>
+  return `<div class="card${isCard ? ' iscard' : ''}" onclick="openMint(${jsArg(it.mint)})">
+    <div class="art${isCard ? ' cardart' : ''}">${art}</div>
     <div class="body">
       <div class="nm">${esc(it.name || (String(it.mint).slice(0,4)+'…'+String(it.mint).slice(-4)))}</div>
-      <div class="p-ore">${nf(ore)} ${oreIcon}</div>
-      <div class="p-alt">${nf(it.price)} SOL · ${usdOf(it.price)}</div>
+      <div class="p-row"><div class="p-ore">${nf(ore)} ${oreIcon}</div><div class="p-alt" title="${esc(incl)}">${nf(all)} SOL · ${usdOf(all)}</div></div>
     </div>
   </div>`;
 }
 const shelfMsg = m => `<div class="shelfmsg">${m}</div>`;
 
-async function loadCase(symbol, shelfId, countId){
+async function loadCase(symbol, shelfId, countId, coll){
   const shelf = document.getElementById(shelfId); if(!shelf) return;
-  if(CASE_CACHE[symbol]){ paintCase(CASE_CACHE[symbol], shelf, countId); return; }
+  const key = symbol + '|' + (coll||'');
+  if(CASE_CACHE[key]){ paintCase(CASE_CACHE[key], shelf, countId); return; }
   shelf.innerHTML = shelfMsg('Loading live listings…');
   // Magic Eden rate-limits bursts (many cases load at once): an empty answer then is not "nothing
   // for sale". Retry a few times, and only cache a real answer so one bad moment can't stick.
   for(let attempt=0; attempt<4; attempt++){
     try{
-      const j = await (await fetch('/api/collection?symbol='+encodeURIComponent(symbol))).json();
-      const items = (j.items||[]).filter(x=>x.mint && x.price).sort((a,b)=>a.price-b.price);
-      if(items.length || !j.error){ if(items.length) CASE_CACHE[symbol] = items; paintCase(items, shelf, countId); return; }
+      const j = await (await fetch('/api/collection?symbol='+encodeURIComponent(symbol)+(coll?'&collection='+encodeURIComponent(coll):''))).json();
+      const items = (j.items||[]).filter(x=>x.mint && x.price).sort((a,b)=>(a.priceAllIn||a.price)-(b.priceAllIn||b.price));
+      if(coll) items.forEach(x=>{ x.coll = x.coll || coll; });   // a collection case: every listing in it is of that collection
+      if(items.length || !j.error){ if(items.length) CASE_CACHE[key] = items; paintCase(items, shelf, countId); return; }
     }catch(e){}
     await new Promise(r=>setTimeout(r, 2500*(attempt+1)));
   }
@@ -320,11 +373,38 @@ function paintCase(items, shelf, countId){
   const more = FILTER==='all' && items.length > SHELF_N ? `<div class="card more" onclick="setFilter(${i})">See all ${items.length} →</div>` : '';
   shelf.innerHTML = show.map(cardHtml).join('') + more;
   if(countId){ const el=document.getElementById(countId); if(el) el.textContent = items.length+'+ live'; }
+  // the floor shown = the cheapest listing's ALL-IN price from the real listings (ME's stats are list prices and
+  // mix Degens + Demons)
+  const fl = document.getElementById('fl'+i), fs = document.getElementById('fs'+i), f0 = items[0].priceAllIn || items[0].price;
+  if(fl && fs){ fl.innerHTML = nf(oreOf(f0))+' '+oreIcon; fs.textContent = 'floor · '+nf(f0)+' SOL'; }
+  probeArt(items, box, i);
+}
+
+// Dead-art rule: some collections' images are gone at the source (dead servers / shut-down IPFS gateways — Magic
+// Eden still shows its own old copies). Before a case is left on screen, load its first 3 images the way the cards
+// do (proxy, then the original URL); if 2 or more fail, the collection is hidden from the market for this visit.
+const BROKEN = new Set(), PROBED = new Set();
+function probeOne(u){ return new Promise(res=>{ if(!u || deadArt(u)) return res(false); const a=new Image(); let raw=false;
+  const t=setTimeout(()=>res(false),12000);
+  a.onload=()=>{ clearTimeout(t); res(a.naturalWidth>1); };
+  a.onerror=()=>{ if(!raw && /^https?:\/\//i.test(u)){ raw=true; a.src=u; } else { clearTimeout(t); res(false); } };
+  a.src=String(img(u)).replace(/&amp;/g,'&'); }); }
+async function probeArt(items, box, i){
+  const c = COLLECTIONS[i]; if(!c || c.coll || PROBED.has(c.symbol)) return;   // our own Dojo cases are never hidden
+  PROBED.add(c.symbol);
+  // probe 3 DIFFERENT images (a collection that reuses one picture must not pass on a single lucky load)
+  const urls = [...new Set(items.map(x=>x.image).filter(Boolean))].slice(0,3);
+  const ok = urls.length ? await Promise.all(urls.map(probeOne)) : [false];
+  if(ok.filter(Boolean).length >= Math.min(2, ok.length)) return;
+  BROKEN.add(c.symbol);
+  if(box){ if(FILTER==='all') box.style.display='none';
+    else { const sh=box.querySelector('.shelf'); if(sh) sh.innerHTML = shelfMsg('This collection’s images are offline at the source, so it isn’t shown in the market.'); } }
+  renderFilters();
 }
 
 function renderFilters(){
   const chips = [`<div class="chip ${FILTER==='all'?'on':''}" onclick="setFilter('all')">⛩ All cases</div>`]
-    .concat(COLLECTIONS.map((c,i)=>
+    .concat(COLLECTIONS.map((c,i)=> BROKEN.has(c.symbol) && FILTER!==i ? '' :
       `<div class="chip ${FILTER===i?'on':''}" onclick="setFilter(${i})">
          <img src="${c.logo?img(c.logo,40):img(c.imgs&&c.imgs[0],40)}" onerror="this.style.opacity=.2"/>${esc(c.name)}${c.listed?` <span class="n">${nf(c.listed,0)}</span>`:''}
        </div>`));
@@ -347,7 +427,7 @@ function caseShell(c,i){
       <img class="casecrest" src="${c.logo?img(c.logo,90):img(c.imgs&&c.imgs[0],90)}" onerror="this.style.opacity=.2"/>
       <div class="casetitle"><b>${esc(c.name)}</b>
         <div class="m"><span id="cnt${i}">${c.listed?(nf(c.listed,0)+' for sale'):'live from Magic Eden'}</span>${c.listed&&c.vol7?' · 7d vol <b>'+nf(c.vol7,0)+'</b> SOL':''}</div></div>
-      <div class="casefloor"><div class="fl">${nf(oreFloor)} ${oreIcon}</div><div class="fs">floor · ${nf(c.floor)} SOL</div></div>
+      <div class="casefloor"><div class="fl" id="fl${i}"${c.coll?' data-live="1"':''}>${nf(oreFloor)} ${oreIcon}</div><div class="fs" id="fs${i}">floor · ${nf(c.floor)} SOL</div></div>
       <button class="viewall" onclick="${adhoc?"setFilter('all')":'setFilter('+i+')'}">${adhoc?'← all cases':'View all →'}</button>
     </div>
     <div class="shelfwrap">
@@ -363,7 +443,7 @@ function caseShell(c,i){
 const SHELF_N = 5, HALL_BATCH = 10;
 let HALL_LIST = [], HALL_SHOWN = 0, HALL_OBS = null;
 function renderHall(){
-  HALL_LIST = FILTER==='all' ? COLLECTIONS.map((c,i)=>[c,i]) : [[COLLECTIONS[FILTER],FILTER]];
+  HALL_LIST = FILTER==='all' ? COLLECTIONS.map((c,i)=>[c,i]).filter(([c])=>!BROKEN.has(c.symbol)) : [[COLLECTIONS[FILTER],FILTER]];
   HALL_SHOWN = 0;
   $('hall').innerHTML = '<div class="hallmore" id="hallMore"></div>';
   if(HALL_OBS) HALL_OBS.disconnect();
@@ -378,7 +458,7 @@ function moreCases(){
   const batch = HALL_LIST.slice(HALL_SHOWN, HALL_SHOWN + HALL_BATCH); if(!batch.length) return;
   HALL_SHOWN += batch.length;
   $('hallMore').insertAdjacentHTML('beforebegin', batch.map(([c,i])=>caseShell(c,i)).join(''));
-  batch.forEach(([c,i])=>loadCase(c.symbol,'shelf'+i,'cnt'+i));   // fill each case with REAL listings
+  batch.forEach(([c,i])=>loadCase(c.symbol,'shelf'+i,'cnt'+i,c.coll));   // fill each case with REAL listings
   // Hidden (empty) cases take no height, so the sentinel may still be in view: re-arm it.
   if(HALL_OBS){ const m=$('hallMore'); HALL_OBS.unobserve(m); HALL_OBS.observe(m); }
 }
@@ -469,20 +549,24 @@ async function notePaste(){
   }catch(e){ p.innerHTML = 'Resolver error: '+esc(e.message); }
 }
 
+// The listing the drawer is showing — its price is the most the buy may charge (dojo-buy.js price lock).
+let SHOWN = null;
 function showResolved(L){
+  SHOWN = L && !L.lookalike ? { mint: L.mint, price: +L.price } : null;
+  if(L.lookalike){ $('panel').innerHTML = '<div class="dclose" onclick="closeDrawer()">×</div><div class="dbody"><div class="dsec">Not a genuine Degen Dojo NFT</div><div class="seo">This NFT copies Degen Dojo’s name or art but isn’t from our verified collections, so it isn’t sold here.</div></div>'; return; }
   const ore = oreOf(L.priceAllIn ?? L.price);
   const rows = (L.attributes||[]).map(a=>[a.trait_type, a.value, null, '']);
   const traits = rows.length ? traitRows(rows)
     : '<div class="trait"><div class="ti">No traits on this asset.</div></div>';
   $('panel').innerHTML = `
     <div class="dclose" onclick="closeDrawer()">×</div>
-    <img class="dart" src="${img(L.image,600)}" onerror="this.style.opacity=.15"/>
+    ${L.dojo === 'Degen Dojo' ? slideshow([[ddCard(L.mint),'Card'],[ddArt(L.mint),'Original art']]) : `<img class="dart" src="${img(L.image,600)}" onerror="this.style.opacity=.15"/>`}
     <div class="dbody">
-      <div class="dcol">${esc(L.collectionName||L.marketplace)} · ${esc(L.model)} listing</div>
+      <div class="dcol">${L.dojo ? '✓ '+esc(L.dojo) : esc(L.collectionName||L.marketplace)} · ${esc(L.model)} listing</div>
       <div class="dname">${esc(L.name)}</div>
       <div class="dprice">
         <span class="o">${nf(ore)} ${oreIcon}</span>
-        <span class="a">${usdOf(L.price)} · royalty ${nf((+L.royaltyBps||0)/100)}%</span>
+        <span class="a">${usdOf(L.priceAllIn ?? L.price)} · royalty ${nf((+L.royaltyBps||0)/100)}%</span>
       </div>
       <button class="dbuy" id="dbuyBtn" onclick="shelfBuy(${jsArg(L.mint)})">⚔ Own it · pay in ORE</button>
       <div class="dnote">Resolved live off-chain. This exact listing buys through the same ORE→SOL swap + purchase the store already uses.</div>
@@ -492,6 +576,22 @@ function showResolved(L){
     </div>`;
   $('drawer').classList.add('open');
 }
+// drawer slideshow: arrows, dots, swipe; a slide whose image fails to load is dropped
+function slideshow(slides){
+  return '<div class="dshow" id="dshow">' + slides.map(([u,lab],k)=>'<img src="'+cardImg(u,700)+'" data-k="'+k+'" alt="'+esc(lab)+'"'+(k?' hidden':'')+' onerror="dropSlide(this)"/>').join('')
+    + '<span class="dlab" id="dlab">'+esc(slides[0][1])+'</span>'
+    + '<button class="dsl l" onclick="slide(-1)" aria-label="Previous">‹</button><button class="dsl r" onclick="slide(1)" aria-label="Next">›</button>'
+    + '<div class="ddots">' + slides.map((_,k)=>'<i'+(k?'':' class="on"')+'></i>').join('') + '</div></div>';
+}
+function slide(dir){ const box=$('dshow'); if(!box) return; const ims=[...box.querySelectorAll('img')]; if(ims.length<2) return;
+  let i=ims.findIndex(x=>!x.hidden); ims[i].hidden=true; i=(i+dir+ims.length)%ims.length; ims[i].hidden=false;
+  box.querySelectorAll('.ddots i').forEach((d,k)=>d.classList.toggle('on',k===i)); $('dlab').textContent=ims[i].alt; }
+function dropSlide(im){ const box=im.closest('.dshow'); const wasOn=!im.hidden; const k=[...box.querySelectorAll('img')].indexOf(im); im.remove();
+  const dots=box.querySelectorAll('.ddots i'); if(dots[k]) dots[k].remove(); const ims=box.querySelectorAll('img');
+  if(ims.length<2) box.querySelectorAll('.dsl,.ddots').forEach(e=>e.style.display='none');
+  if(wasOn && ims[0]){ ims[0].hidden=false; const d=box.querySelectorAll('.ddots i'); if(d[0]) d[0].classList.add('on'); $('dlab').textContent=ims[0].alt; } }
+document.addEventListener('touchstart',e=>{ if(e.target.closest&&e.target.closest('#dshow')) window._sx=e.touches[0].clientX; },{passive:true});
+document.addEventListener('touchend',e=>{ if(window._sx==null) return; const dx=e.changedTouches[0].clientX-window._sx; window._sx=null; if(Math.abs(dx)>40) slide(dx<0?1:-1); },{passive:true});
 function closeDrawer(){ $('drawer').classList.remove('open'); }
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDrawer();});
 // Buy a resolved external listing in ORE, through the same proven engine the tower uses
@@ -501,8 +601,13 @@ async function shelfBuy(mint){
   if(!w){ if(btn) btn.textContent='Connect wallet (top right) first'; return; }
   if(!window.DojoBuy){ if(btn) btn.textContent='Buying is still loading — try again'; return; }
   if(btn) btn.disabled = true;
+  // price lock: if the live price is above what this drawer showed, ask before anything is swapped or signed
+  const shown = SHOWN && SHOWN.mint === mint ? SHOWN.price : null;
+  const oreTxt = (sol) => { const o = oreOf(sol); return o == null ? (+sol).toFixed(4) + ' SOL' : nf(o) + ' ORE'; };
   try{
-    await DojoBuy.buy({ mint, currency:'ORE', adapter:w, rpcUrl:'/api/rpc', onState:s=>{ if(btn) btn.textContent=s; } });
+    await DojoBuy.buy({ mint, currency:'ORE', adapter:w, rpcUrl:'/api/rpc', onState:s=>{ if(btn) btn.textContent=s; },
+      shownPrice: shown, formatPrice: oreTxt,
+      confirmPrice: (from, to) => confirm(`The price changed from ${oreTxt(from)} to ${oreTxt(to)} — buy at ${oreTxt(to)}?`) });
     if(btn) btn.textContent='✓ Owned — it is in your wallet';
   }catch(e){
     if(btn){ btn.disabled=false; btn.textContent='⚔ Own it · pay in ORE'; }
@@ -529,14 +634,21 @@ async function loadPrices(){
 // The cases shown ARE the week's top collections by volume — the same ranking
 // Magic Eden's Popular page uses, pulled live (and cached) via /api/topcollections.
 // Falls back to whatever __DATA__ was bundled if the feed is unreachable.
-// Degen Dojo is always the first case, whatever the week's volume ranking says (it is often not in
-// the top 100 at all, and the live list used to replace the bundled one and drop it).
+// Our three collections are always the first cases — Degen Dojo, Demon Dojo, TETO — whatever the week's volume
+// ranking says (they are often not in the top 100). Each case is filtered to its ON-CHAIN collection: Magic Eden
+// still lists the Demons under the Degen Dojo symbol. Their floors come from their own live listings.
 const DD_SYMBOL = 'degendojonft';
+const DOJO_CASES = [
+  { symbol:DD_SYMBOL, coll:'2m9DupVeheZ5vfuXZxqV3KSQ7HnVDk2tG6ouH1ZnLwYb', name:'Degen Dojo', logo:'/dd-mark.jpg' },
+  { symbol:DD_SYMBOL, coll:'WyUy9qjJekjqTAYGanANjhtviwgu1uhCkXx1uas8fWb', name:'Demon Dojo', logo:'/demon-mark.png', floor:0, listed:0 },
+  { symbol:'teto',    coll:'dgd6We3oS4M5LSVzT6Ep39wwVpjLC336tCpyPZkLAHx', name:'TETO',       logo:'/teto-mark.png',  floor:0, listed:0 },
+];
 function pinDegenDojo(cols){
-  const bundled = (window.__DATA__||[]).find(c=>c.symbol===DD_SYMBOL) || {symbol:DD_SYMBOL,name:'Degen Dojo'};
+  const bundled = (window.__DATA__||[]).find(c=>c.symbol===DD_SYMBOL) || {};
   const live = cols.find(c=>c.symbol===DD_SYMBOL) || {};
-  const dd = { ...bundled, ...live, logo:'/dd-mark.jpg', floor:live.floor ?? bundled.floor ?? 0, listed:live.listed ?? bundled.listed ?? 0, vol7:live.vol7 ?? bundled.vol7 ?? 0 };
-  return [dd, ...cols.filter(c=>c.symbol!==DD_SYMBOL)];
+  const dd = { ...bundled, ...live, ...DOJO_CASES[0], floor:live.floor ?? bundled.floor ?? 0, listed:live.listed ?? bundled.listed ?? 0, vol7:live.vol7 ?? bundled.vol7 ?? 0 };
+  const ours = new Set(DOJO_CASES.map(c=>c.symbol));
+  return [dd, DOJO_CASES[1], DOJO_CASES[2], ...cols.filter(c=>!ours.has(c.symbol))];
 }
 COLLECTIONS = pinDegenDojo(COLLECTIONS);
 async function loadTopCollections(){

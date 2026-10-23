@@ -8,6 +8,11 @@
 //        → auth the wallet, DEBIT 1 coin, commit a secret seed, return a playId
 //          and sha256(seed). For chance games the seed stays secret so the player
 //          can't see the outcome before they choose.
+//   POST {action:"move",   token, playId, round, pick}            (Degen Duel only)
+//        → the Duel is played ONE server-locked round at a time: the seed and the future
+//          battle stats never leave the server until the duel is over (audit DD-02 — a
+//          revealed seed let players try all 40,320 card orders offline). Each round takes
+//          exactly one card; the server resolves it and only then reveals the next stat.
 //   POST {action:"finish", token, playId, pick?, inputLog?}
 //        → recompute the outcome server-side (per-game verifier), mint tickets to
 //          the wallet (play = 1, verified win = 3, +5 grand slam per round; ×2 for 5+ Degen holders), reveal
@@ -23,6 +28,7 @@
 //          moved between wallets) and the wallet is marked too (no second SGT, same wallet).
 //
 // Env: SESSION_SECRET (≥ 32 chars; no fallback — fails closed, see store-session-core.mjs). SOLANA_RPC for the Seeker check.
+import { limited } from "./store-ratelimit-core.mjs";
 import { getStore } from "@netlify/blobs";
 import { getStrong } from "./store-verify-core.mjs";
 import { casUpdate, readWithEtag, putIfNew, putIfMatch, pushId, CasError } from "./store-cas-core.mjs";
@@ -30,8 +36,9 @@ import { checkToken, sessionReady, sessionUnavailable } from "./store-session-co
 import { createHash, createHmac, randomBytes } from "node:crypto";
 import { simulate as flipSimulate } from "./dojo-flip-engine.mjs";
 import { POOL as FLIP_POOL } from "./flip-pool.mjs";
-import { simulate as duelSimulate } from "./dojo-duel-engine.mjs";
+import { dealHands, statsFromDigest, playRound, freshState, winnerOf, simulateV2, DUEL_V2, STATS_TAG } from "./dojo-duel-engine.mjs";
 import { DUEL_POOL } from "./duel-pool.mjs";
+import { ticketRound, ticketKey } from "./store-draw-core.mjs";
 
 const GAMES = new Set(["duel", "flip", "teto", "cluck", "brawl"]);
 // Grand slam (+5, once per draw round): PLAY all five games in the same round, win or lose — it
@@ -45,6 +52,9 @@ const DD_COLLECTION = "2m9DupVeheZ5vfuXZxqV3KSQ7HnVDk2tG6ouH1ZnLwYb";
 const HOLDER_MIN = 5, HOLDER_MULT = 2, HOLDER_TTL_MS = 60 * 60 * 1000;
 const SEEKER_FREE_COINS = 1;   // free coins for a Seeker owner — once per Seeker device (SGT mint)
 const sha256 = (b) => createHash("sha256").update(b).digest("hex");
+// Degen Duel v2: the 8 battle stats = SHA-256(seed + STATS_TAG) (same as the engine's roundStats)
+const duelStats = (seedHex) => statsFromDigest(createHash("sha256").update(String(seedHex) + STATS_TAG).digest());
+const DUEL_ROUNDS = 8, DUEL_TTL_MS = 30 * 60 * 1000;   // an unfinished duel can't be played on after 30 min
 
 // ── per-game outcome verifiers ──────────────────────────────────────────────
 // Each returns { won:boolean } or { error } (fail-closed) or { unverified:true }.
@@ -70,15 +80,18 @@ const VERIFIERS = {
     let winner; try { winner = flipSimulate(FLIP_POOL, play.seed, stat, mode); } catch { return { error: "sim failed" }; }
     return { won: winner === "me", winner };   // 'me' is the human; 'ai'/'draw' → no win bonus
   },
-  // Degen Duel — best-of-4 card game. The only input is the ORDER you played your 4
-  // cards (a permutation of 0..3); everything else is seeded. We replay the shared
-  // engine with those picks and check who actually won. Fully verifiable.
-  duel(play, sub) {
-    const picks = sub.picks;
-    if (!Array.isArray(picks) || picks.length !== 8) return { error: "bad picks" };
-    const seen = new Set();
-    for (const p of picks) { if (!Number.isInteger(p) || p < 0 || p > 7 || seen.has(p)) return { error: "bad picks" }; seen.add(p); }
-    let winner; try { winner = duelSimulate(DUEL_POOL, play.seed, picks); } catch { return { error: "illegal picks" }; }
+  // Degen Duel — best-of-8 card game, played round by round through action "move" (v2). The
+  // cards were locked one round at a time on the server, so the winner is a replay of the
+  // STORED moves from the secret seed — nothing the client sends at finish is used.
+  // A duel started before v2 (its seed was revealed at start → its order could be optimised
+  // offline, audit DD-02) earns only the participation entry.
+  duel(play) {
+    if (play.duel?.v !== DUEL_V2) return { unverified: true };
+    const d = play.duel;
+    if (d.round !== DUEL_ROUNDS || !Array.isArray(d.moves) || d.moves.length !== DUEL_ROUNDS) return { error: "play all 8 rounds first" };
+    let winner;
+    try { winner = simulateV2(DUEL_POOL, play.seed, duelStats(play.seed), d.moves.map((m) => m.yi)); } catch { return { error: "illegal duel" }; }
+    if (winner !== winnerOf(d.state)) return { error: "duel replay mismatch" };   // stored rounds must agree with a full replay
     return { won: winner === "me", winner };   // 'me' is the human; 'dojo'/'draw' → no win bonus
   },
   // Cock Brawl — pure chance, 8-rooster ring royale. Surviving rooster =
@@ -94,6 +107,16 @@ const VERIFIERS = {
   // here means a Teto win earns the same 1 entry as a play, which is intended.
   teto() { return { unverified: true }; },
 };
+
+// What the player learns after Duel round `round` (0-based) is resolved: that round's cards and
+// result, the score so far, and — unless the duel is over — the NEXT round's battle stat only.
+function duelMoveReply(rec, round) {
+  const m = rec.duel.moves[round], done = rec.duel.moves.slice(0, round + 1);
+  const sY = done.filter((x) => x.r === "w").length, sD = done.filter((x) => x.r === "l").length;
+  const complete = round + 1 >= DUEL_ROUNDS;
+  return { round: round + 1, k: m.k, yi: m.yi, di: m.di, r: m.r, sY, sD, complete,
+    ...(complete ? { winner: sY > sD ? "me" : sY < sD ? "dojo" : "draw" } : { nextStat: duelStats(rec.seed)[round + 1] }) };
+}
 
 // ── server coin ledger (credited only by verified on-chain purchases + the one Seeker coin) ──
 // Every balance / play / ticket mutation is a compare-and-swap (store-cas-core.mjs): two
@@ -173,6 +196,7 @@ export async function findSeekerGenesisMints(wallet, rpc = solanaRpc) {
 const CORS = { "access-control-allow-origin": "*", "access-control-allow-methods": "POST, OPTIONS", "access-control-allow-headers": "content-type" };
 
 export default async (request) => {
+  const blocked = limited(request, "play", 60); if (blocked) return blocked;   // 60 / minute / IP (DD-04)
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
   if (request.method !== "POST") return new Response("POST only", { status: 405, headers: CORS });
   let r; try { r = await request.json(); } catch { return new Response("bad json", { status: 400, headers: CORS }); }
@@ -188,7 +212,7 @@ export default async (request) => {
 
   if (r.action === "me") {
     const coins = await getCoins(balances, wallet);
-    const t = await getStrong(getStore("tickets"), "player:" + wallet);
+    const t = await getStrong(getStore("tickets"), ticketKey(await ticketRound(), wallet));   // this round's chances
     return json({ ok: true, wallet, coins, tickets: t?.tickets || 0, wins: t?.wins || 0, plays: t?.plays || 0, grandSlam: !!t?.grandSlam });
   }
 
@@ -201,6 +225,10 @@ export default async (request) => {
       if (!["a", "d", "h", "s"].includes(r.stat)) return json({ error: "pick a stat first" }, 400);
       choice.stat = r.stat; choice.mode = r.mode === "comp" ? "comp" : "casual";
     }
+    // Duel: the page deals from its baked pool by INDEX — refuse (before any coin is spent) a page
+    // whose pool doesn't match ours, or an old page that still expects the seed up front.
+    if (r.game === "duel" && Number(r.poolLen) !== DUEL_POOL.length)
+      return json({ error: "This page is out of date — refresh to play.", stale: true }, 409);
     // debit first (a failed play still costs the coin, like an arcade token) — atomically: the
     // write only lands if the balance is unchanged since we read it, else re-read and re-check.
     let coins;
@@ -213,13 +241,45 @@ export default async (request) => {
     } catch (e) { if (e instanceof NoCoins) return json({ error: "no coins — buy some to play", coins: e.coins }, 402); throw e; }
     const playId = randomBytes(12).toString("hex");
     const seed = randomBytes(32).toString("hex");
-    // Flip & Duel are interactive → the client needs the deck/hands up front, so we
-    // reveal the seed. (Flip's choice is already locked; Duel's only input is the
-    // card order, sent at finish.) Cluck hides the seed until the pick lands.
-    const revealSeed = r.game === "flip" || r.game === "duel";
+    // Flip is interactive and its only choice is already locked → the client needs the deck, so
+    // we reveal its seed. The Duel keeps its seed SECRET: the player gets both hands (pool
+    // indices) and round 1's battle stat only; later stats come one round at a time ("move").
+    // Cluck / Brawl hide the seed until the pick lands.
+    const revealSeed = r.game === "flip";
     const rec = { playId, wallet, game: r.game, seed, commitHash: sha256(Buffer.from(seed, "hex")), status: "open", createdAt: Date.now(), ...choice };
+    let duelView = null;
+    if (r.game === "duel") {
+      const hands = dealHands(DUEL_POOL, seed);
+      rec.duel = { v: DUEL_V2, hands, round: 0, state: freshState(), moves: [] };
+      duelView = { v: DUEL_V2, poolLen: DUEL_POOL.length, you: hands.you, dojo: hands.dojo, round: 0, stat: duelStats(seed)[0], rounds: DUEL_ROUNDS, expiresAt: rec.createdAt + DUEL_TTL_MS };
+    }
     await plays.setJSON("play:" + playId, rec);
-    return json({ ok: true, playId, commitHash: rec.commitHash, coins: coins - 1, ...(revealSeed ? { seed } : {}) });
+    return json({ ok: true, playId, commitHash: rec.commitHash, coins: coins - 1, ...(revealSeed ? { seed } : {}), ...(duelView ? { duel: duelView } : {}) });
+  }
+
+  // Degen Duel v2 — ONE server-locked round. Each round accepts exactly one card, in order; the
+  // reply carries that round's result and only then the NEXT round's battle stat.
+  if (r.action === "move") {
+    const pkey = "play:" + String(r.playId || "");
+    const { value: rec, etag } = await readWithEtag(plays, pkey);   // strong read + etag for the conditional write
+    if (!rec) return json({ error: "unknown play" }, 404);
+    if (rec.wallet !== wallet) return json({ error: "not your play" }, 403);
+    if (rec.game !== "duel" || rec.duel?.v !== DUEL_V2) return json({ error: "not a round-by-round duel" }, 400);
+    const d = rec.duel, round = Number(r.round), pick = Number(r.pick);
+    if (!Number.isInteger(round) || !Number.isInteger(pick)) return json({ error: "bad move" }, 400);
+    // an exact retry of the last played round (its reply got lost) gets the same answer back;
+    // a different card for an already-played round is refused — every round's choice is final
+    if (round === d.round - 1 && d.moves[round]?.yi === pick) return json({ ok: true, replay: true, ...duelMoveReply(rec, round) });
+    if (rec.status !== "open") return json({ error: "this duel is already settled" }, 409);
+    if (round !== d.round) return json({ error: round < d.round ? "that round is already played" : `out of order — round ${d.round + 1} is next`, round: d.round }, 409);
+    if (Date.now() - rec.createdAt > DUEL_TTL_MS) return json({ error: "this duel expired — start a new one" }, 410);
+    let mv;
+    try { mv = playRound(DUEL_POOL, d.hands, duelStats(rec.seed), d.state, pick); }
+    catch (e) { return json({ error: e.message || "illegal pick" }, 400); }
+    const next = { ...rec, duel: { ...d, round: d.round + 1, state: mv.state, moves: [...d.moves, { k: mv.k, yi: mv.yi, di: mv.di, r: mv.r }] } };
+    // only one request can move this round: a concurrent move changed the etag → refused
+    if (!(await putIfMatch(plays, pkey, next, etag))) return json({ error: "that round is already played", round: d.round + 1 }, 409);
+    return json({ ok: true, ...duelMoveReply(next, round) });
   }
 
   if (r.action === "finish") {
@@ -251,10 +311,24 @@ export default async (request) => {
     // 2) mint tickets exactly once per playId: 1 for the paid play; 3 for a verified win; ×2 for
     //    5+ Degen holders; +5 grand slam once per round. Idempotent, so a concurrent or resumed
     //    finish of the same play adds nothing.
+    //    Tickets go into the round being filled NOW (store-draw-core ticketRound — the next one once a draw has
+    //    started, audit DD-07). The play remembers that round (mintRound) so a retried finish lands in the same
+    //    ledger; if it never landed there and that round has since been frozen for its draw, it moves on.
     const { won, mult } = rec;
     const base = (won ? WIN : PLAY) * mult;
     const tstore = getStore("tickets");
-    const { value: cur } = await casUpdate(tstore, "player:" + wallet, (t) => {
+    const has = async (key) => ((await getStrong(tstore, key))?.playIds || []).includes(rec.playId);
+    const tr = await ticketRound();
+    let mintRound = rec.mintRound;
+    if (mintRound == null && (await has("player:" + wallet))) mintRound = "legacy";   // minted before per-round ledgers
+    if (mintRound != null && mintRound !== "legacy" && mintRound !== tr && !(await has(ticketKey(mintRound, wallet)))) mintRound = null;
+    if (mintRound == null) {
+      const seen = rec.mintRound ?? null;
+      const { value: p } = await casUpdate(plays, pkey, (cur) => (cur && cur.status === "finishing" && (cur.mintRound ?? null) === seen ? { ...cur, mintRound: tr } : undefined));
+      mintRound = p?.mintRound ?? tr;   // a concurrent finisher may have aimed it already — follow it
+    }
+    const tkey = mintRound === "legacy" ? "player:" + wallet : ticketKey(mintRound, wallet);
+    const { value: cur } = await casUpdate(tstore, tkey, (t) => {
       const c = t || { name: rec.displayName || wallet, wallet, tickets: 0, plays: 0, wins: 0, games: {}, grandSlam: false };
       if ((c.playIds || []).includes(rec.playId)) return undefined;   // already minted for this play
       c.games ||= {};
@@ -274,7 +348,7 @@ export default async (request) => {
     const awarded = base + (grandSlam ? GRAND_SLAM * mult : 0);
 
     // 3) close the play (same content from any concurrent finisher)
-    const done = { ...rec, status: "done", awarded, finishedAt: rec.finishedAt || Date.now() };
+    const done = { ...rec, mintRound, status: "done", awarded, finishedAt: rec.finishedAt || Date.now() };
     await plays.setJSON(pkey, done);
 
     return json({ ok: true, won, awarded, grandSlam, holder2x: mult > 1, tickets: cur.tickets, seed: rec.seed, winUnverified: !!rec.unverified, ...(rec.winner != null ? { winner: rec.winner } : {}) });

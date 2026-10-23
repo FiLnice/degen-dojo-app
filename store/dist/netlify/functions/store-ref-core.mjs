@@ -12,6 +12,15 @@ export const REF_PREFIX = "ddref:";
 export const REF_RE = /^[a-z0-9_-]{2,32}$/;
 
 // The referral code carried in a transaction's memo (lowercase), or null if it has none.
+// A Dojo Pot tip carries this memo (the store's tip button adds it). Only a plain transfer WITH it counts as a
+// tip — so a marketplace royalty or any other deposit into the pot wallet can't be claimed as prize money.
+export const TIP_MEMO = "ddtip";
+export function memosOf(tx) {
+  const out = [];
+  for (const line of tx?.meta?.logMessages || []) { const m = /Memo \(len \d+\): "(.*)"$/.exec(line); if (m) out.push(m[1]); }
+  return out;
+}
+
 export function refFromTx(tx) {
   for (const line of tx?.meta?.logMessages || []) {
     const m = /Memo \(len \d+\): "(.*)"$/.exec(line);

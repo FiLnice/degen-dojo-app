@@ -1,4 +1,4 @@
-// Netlify Function: admin stats at /api/admin?key=<ADMIN_KEY>
+// Netlify Function: admin stats at /api/admin (header Authorization: Bearer <ADMIN_KEY>)
 //
 // Aggregates the coin-purchase ledger (and referral ledger) into the numbers the
 // admin dashboard shows: coins sold, buyers, revenue by currency, pot funded,
@@ -8,15 +8,17 @@
 //
 // NOTE these come from POSTed hints (untrusted). For payouts, verify on-chain
 // first — this endpoint is for at-a-glance monitoring, not settlement.
+import { limited } from "./store-ratelimit-core.mjs";
 import { getStore } from "@netlify/blobs";
-import { adminKeyOk } from "./store-session-core.mjs";
+import { adminRequestOk } from "./store-session-core.mjs";
 
-const POT_PCT = 65;          // share of every purchase that funds the weekly pot
-const AFFILIATE_RATE = 0.25; // preachers earn 20–30% of a referred coin pack (25% ≈ the middle tier)
+const POT_PCT = 22;          // share of every coin buy / mining tip that funds the weekly pot (since 2026-10-23)
+const AFFILIATE_RATE = 0.36; // preachers earn 28/36/44% of a referred coin pack (36% = the middle tier)
 
 export default async (request) => {
+  const blocked = limited(request, "admin", 10); if (blocked) return blocked;   // 10 / minute / IP (DD-04)
   const url = new URL(request.url);
-  if (!adminKeyOk(url.searchParams.get("key"), "ADMIN_KEY")) {
+  if (!adminRequestOk(request, "ADMIN_KEY")) {
     return new Response("forbidden", { status: 403 });
   }
 
@@ -43,7 +45,7 @@ export default async (request) => {
   }
 
   const pot = revenueUsd * POT_PCT / 100;
-  // DD keeps what's left after the pot (65%) and the preachers' cut of referred packs
+  // DD keeps what's left after the pot (22%) and the preachers' cut: Reserve 22% + ops 12% + the unused preacher pool
   const affVolume = Object.values(affMap).reduce((t, a) => t + a.volume, 0);
   const profit = revenueUsd * (1 - POT_PCT / 100) - affVolume * AFFILIATE_RATE;
 

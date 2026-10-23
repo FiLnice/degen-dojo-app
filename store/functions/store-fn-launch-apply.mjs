@@ -1,10 +1,11 @@
 // Netlify Function: /api/launch-apply — launchpad application intake.
 //   POST { name, supply, price, art, site, x, discord, wallet, milestones, notes }
 //        → validates + stores the application in Netlify Blobs. No funds, no auth needed.
-//   GET  ?key=<ADMIN_KEY>            → list all applications (for you to review).
+//   GET  (Bearer <ADMIN_KEY>)          → list all applications (for you to review).
 // Env: ADMIN_KEY (to read the list). Storage: Netlify Blobs (provided by the runtime).
+import { limited } from "./store-ratelimit-core.mjs";
 import { getStore } from "@netlify/blobs";
-import { adminKeyOk } from "./store-session-core.mjs";
+import { adminRequestOk } from "./store-session-core.mjs";
 
 const B58 = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 const json = (o, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { "content-type": "application/json", "cache-control": "no-store", "access-control-allow-origin": "*" } });
@@ -12,10 +13,11 @@ const store = () => getStore({ name: "launch-apps", consistency: "strong" });
 const clip = (v, n) => String(v == null ? "" : v).slice(0, n);
 
 export default async (request) => {
+  const blocked = limited(request, "launch-apply", 10); if (blocked) return blocked;   // 10 / minute / IP (DD-04)
   const url = new URL(request.url);
 
   if (request.method === "GET") {
-    if (!adminKeyOk(url.searchParams.get("key"), "ADMIN_KEY")) return json({ error: "unauthorized" }, 401);
+    if (!adminRequestOk(request, "ADMIN_KEY")) return json({ error: "unauthorized" }, 401);
     const s = store();
     const { blobs } = await s.list();
     const apps = [];
