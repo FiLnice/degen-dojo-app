@@ -130,7 +130,7 @@ export default function WhitelabelPage() {
           <h2 className="mb-4 text-center text-2xl font-semibold text-slate-100">Questions</h2>
           <Faq
             q="What exactly do my holders mine?"
-            a="Real $ORE, via the on-chain ORE protocol. It's a 5×5 grid game: each round the protocol picks a winning tile and mints ORE. It stakes real SOL — 24 of 25 tiles lose each round — so your community owns that risk. This is not financial advice."
+            a="Real $ORE, via the on-chain ORE protocol. It's a 5×5 grid game: each round the protocol picks a winning tile and mints ORE. It stakes real SOL: each round ORE keeps about a tenth of what is staked as fees, and only the winning tile mines ORE — so your community owns that risk. This is not financial advice."
           />
           <Faq
             q="How do I know you won't redirect my tips?"

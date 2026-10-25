@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Become a Preacher — Degen Dojo</title>
-<meta name="description" content="Spread the Degen Dojo and earn 28%, 36% or 44% (by fighters held) of every game-coin pack and ORE mining tip you refer. Hold a fighter to enter the SOL pot." />
+<meta name="description" content="Spread the Degen Dojo and earn 28%, 36% or 44% (by fighters held) of every game-coin pack and ORE mining tip you refer. Hold a fighter to enter the ORE pot." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Inter:wght@300;400;500;600&family=Noto+Serif+JP:wght@400;700;900&family=Teko:wght@500;600;700&display=swap" rel="stylesheet" />
@@ -141,17 +141,17 @@ h1{text-align:center;font-family:'Cinzel',serif;font-size:clamp(28px,5vw,44px);f
   <h1>Spread the word. Earn the cut.</h1>
   <p class="lede">Anyone can preach the dojo — share your link, and every <b>game-coin</b> pack and <b>ORE mining tip</b> that comes through it earns you a
      cut. The buyer pays nothing extra. <span class="jp">布教者</span>
-     Hold more fighters, earn a bigger cut — up to <b>44%</b> — and unlock the <b>SOL pot</b> that only holders can win.</p>
+     Hold more fighters, earn a bigger cut — up to <b>44%</b> — and unlock the <b>ORE pot</b> that only holders can win.</p>
 
   <div class="sect">The cut you earn</div>
-  <div class="sectsub">Hold more fighters, earn a bigger cut — and unlock the SOL pot. Verified against your live holdings.</div>
+  <div class="sectsub">Hold more fighters, earn a bigger cut — and unlock the ORE pot. Verified against your live holdings.</div>
   <div class="tiers">
     <div class="tier g0"><div class="tlabel">Wanderer</div><div class="tpct">28%</div><div class="tof">of what you refer</div>
-      <div class="thold">0–1 fighters 🚶</div><div class="pot no">✕ not in the SOL pot</div></div>
+      <div class="thold">0–1 fighters 🚶</div><div class="pot no">✕ not in the ORE pot</div></div>
     <div class="tier g1"><div class="tlabel">Disciple</div><div class="tpct">36%</div><div class="tof">of what you refer</div>
-      <div class="thold">Hold <b>2–4</b> fighters ⚔️</div><div class="pot yes">✓ SOL pot · 1× entries</div></div>
+      <div class="thold">Hold <b>2–4</b> fighters ⚔️</div><div class="pot yes">✓ ORE pot · 1× entries</div></div>
     <div class="tier g5"><div class="tlabel">Sensei</div><div class="tpct">44%</div><div class="tof">of what you refer</div>
-      <div class="thold">Hold <b>5+</b> or a <b>Mythic</b> 🥋</div><div class="pot yes">✓ SOL pot · <b>2×</b> entries</div></div>
+      <div class="thold">Hold <b>5+</b> or a <b>Mythic</b> 🥋</div><div class="pot yes">✓ ORE pot · <b>2×</b> entries</div></div>
   </div>
   <div class="egg">Example — someone mines through your link and tips <b>0.25 SOL</b>.
      A <b>Sensei</b> keeps <b>0.11</b> (44%), a <b>Disciple</b> <b>0.09</b> (36%), a <b>Wanderer</b> <b>0.07</b> (28%).<br>
@@ -216,7 +216,7 @@ h1{text-align:center;font-family:'Cinzel',serif;font-size:clamp(28px,5vw,44px);f
 
   <div class="fine">
     You earn on the coin packs and mining tips <b>you refer</b> — a referral program, not passive income for holding. Your cut is set by the fighters
-    you have held for at least 7 days when each payment is verified (and locked in for that payment). The <b>SOL pot</b> is a prize you win by opting in and staying active, never a dividend you're owed;
+    you have held for at least 7 days when each payment is verified (and locked in for that payment). The <b>ORE pot</b> is a prize you win by opting in and staying active, never a dividend you're owed;
     entries come from real activity (your coin buys &amp; what you refer), with a 2× multiplier for holding 5+, so it can't be farmed by splitting a wallet.
     Fees never add a charge to the buyer. <span id="demoNote"></span>
   </div>
@@ -326,7 +326,8 @@ function renderDash(st){
   $('entN').textContent = st.potMult ? (st.entries ?? 0) : 'hold a fighter to enter';
   if(st.optedIn){ const b=$('optBtn'); b.textContent="You're in for this cycle ✓"; b.classList.add('in');
     $('potLine').innerHTML="You're entered. Entries grow with your coin buys and everything you refer."; }
-  $('potAmt').textContent = (st && st.potSol!=null ? st.potSol : 0) + ' SOL';
+  // the live Dojo Pot, held and paid in ORE (whatever comes in is swapped to ORE at payout)
+  fetch('/api/draw?action=status').then(function(r){return r.json();}).then(function(p){ var v=p&&p.potOre; $('potAmt').textContent = (v!=null ? (v===0?'0':(Math.round(v*1000)/1000).toLocaleString(undefined,{maximumFractionDigits:3})) : '—') + ' ORE'; }).catch(function(){});
   // feed
   $('feed').innerHTML = (st.recent&&st.recent.length)
     ? st.recent.map(s=>`<div class="frow">

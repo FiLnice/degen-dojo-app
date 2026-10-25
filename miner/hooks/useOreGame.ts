@@ -13,6 +13,8 @@ import {
   decodeRound,
   decodeMiner,
   decodeAutomation,
+  treasuryRewardsFactor,
+  withPendingRefined,
   SLOT_MS,
   type OreBoard,
   type OreRound,
@@ -33,6 +35,9 @@ export type OreGameState = {
   motherlode: bigint | null; // accumulated Motherlode jackpot (ORE grams)
   balance: number | null; // connected wallet SOL balance (lamports)
   secondsLeft: number; // approx seconds until the current round ends
+  // "mining" = the round is open; "starting" = Reset opened a new round that waits for its first deploy (end_slot
+  // is u64::MAX until then); "resolving" = the round's mining window closed (intermission, then Reset).
+  phase: "mining" | "starting" | "resolving" | null;
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
@@ -79,6 +84,7 @@ export function useOreGame(pollMs = 12000): OreGameState {
   const [motherlode, setMotherlode] = useState<bigint | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(0);
+  const [phase, setPhase] = useState<OreGameState["phase"]>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -109,11 +115,14 @@ export function useOreGame(pollMs = 12000): OreGameState {
           : null;
       setBoard(b);
       setMotherlode(ml);
-      // end_slot briefly reads as u64::MAX during round transitions — clamp so the
-      // countdown can't blow up. A round is ~150 slots; out of range = "resolving".
-      const slotsLeft = Number(b.endSlot) - slot;
+      // end_slot reads as u64::MAX after Reset until the new round's first deploy starts its clock — clamp so the
+      // countdown can't blow up. A round is Config.round_slots (300 today) + a 60-slot intermission.
+      const starting = b.endSlot === 0xffff_ffff_ffff_ffffn;
+      const slotsLeft = starting ? 0 : Number(b.endSlot) - slot;
       endAtRef.current =
-        slotsLeft > 0 && slotsLeft < 1000 ? Date.now() + slotsLeft * slotMsRef.current : Date.now();
+        slotsLeft > 0 && slotsLeft < 5000 ? Date.now() + slotsLeft * slotMsRef.current : Date.now();
+      setPhase(starting ? "starting" : slotsLeft > 0 ? "mining" : "resolving");
+      const tFactor = treasuryAcc ? treasuryRewardsFactor(treasuryAcc.data) : null;
 
       // Wave 2 — current round, previous round, and (if connected) miner + automation, all in
       // ONE getMultipleAccounts; balance alongside.
@@ -128,7 +137,8 @@ export function useOreGame(pollMs = 12000): OreGameState {
       setLastWinner(prevAcc ? decodeRound(prevAcc.data).winningSquare : null);
       if (publicKey) {
         const minerAcc = accs[2], autoAcc = accs[3];
-        setMiner(minerAcc && minerAcc.data.length > 8 ? decodeMiner(minerAcc.data) : null);
+        // + refining rewards accrued since the miner was last touched, so the vault shows what a claim really pays
+        setMiner(minerAcc && minerAcc.data.length > 8 ? withPendingRefined(decodeMiner(minerAcc.data), tFactor) : null);
         setAutomation(autoAcc && autoAcc.data.length > 8 ? decodeAutomation(autoAcc.data) : null);
       } else {
         setMiner(null);
@@ -199,6 +209,7 @@ export function useOreGame(pollMs = 12000): OreGameState {
     motherlode,
     balance,
     secondsLeft,
+    phase,
     loading,
     error,
     refresh,

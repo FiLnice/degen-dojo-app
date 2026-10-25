@@ -51,6 +51,10 @@ const GAMES = new Set(["duel", "flip", "teto", "cluck", "brawl"]);
 const SLAM_WIN_GAMES = [];
 const SLAM_PLAY_GAMES = ["duel", "flip", "cluck", "brawl", "teto"];
 const WIN = 3, PLAY = 1, GRAND_SLAM = 5;
+// Degen Duel is skill: a sensible player takes the Dojo ~70% of the time (security review INFO-3), so a 3-chance win made
+// it pay ~2.4 chances per coin against ~2.0 for Flip and 1.25 for Cluck/Brawl. A Duel win is worth 2 (owner
+// 2026-10-25: "the same as other games") → ~1.7 per coin for a strong player.
+const WIN_BY_GAME = { duel: 2 };
 // Holders of 5+ Degen Dojo fighters earn 2× chances on everything they play (0 plays → 0 chances).
 // A wallet's count is re-checked every 10 min, and each Degen backs ONE wallet's 2× for an hour — the same five
 // NFTs passed from wallet to wallet can't make every wallet a holder (security review LOW-2).
@@ -340,7 +344,7 @@ export default async (request) => {
     }
     if (rec.status !== "finishing") return json({ error: "bad play state" }, 409);
 
-    // 2) mint tickets exactly once per playId: 1 for the paid play; 3 for a verified win; ×2 for
+    // 2) mint tickets exactly once per playId: 1 for the paid play; 3 for a verified win (a Duel win 2); ×2 for
     //    5+ Degen holders; +5 grand slam once per round. Idempotent, so a concurrent or resumed
     //    finish of the same play adds nothing.
     //    Tickets go into the round being filled NOW (store-draw-core ticketRound — the next one once a draw has
@@ -349,7 +353,7 @@ export default async (request) => {
     //    A "late" play (see the lock) counts as a played game only: 1 ticket (× holder), no win, no grand slam.
     const { won, mult, late } = rec;
     const winCounts = won && !late;
-    const base = (winCounts ? WIN : PLAY) * mult;
+    const base = (winCounts ? (WIN_BY_GAME[rec.game] ?? WIN) : PLAY) * mult;
     const tstore = getStore("tickets");
     const has = async (key) => ((await getStrong(tstore, key))?.playIds || []).includes(rec.playId);
     const tr = await ticketRound();

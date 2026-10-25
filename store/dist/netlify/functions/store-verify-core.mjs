@@ -45,7 +45,7 @@
 // Dojo Keeper books those; an ORE payment without a "ddq:" quote memo isn't a coin buy (the repair QR pays that way).
 //
 // Priced when the buyer PAYS (DD-11): the /credits page first asks /api/coinbuy for a QUOTE — the live price, the
-// exact token amount for the pack, valid 10 minutes, stored server-side (Blobs "coin-quotes") and bound to the wallet
+// exact token amount for the pack, valid 5 minutes, stored server-side (Blobs "coin-quotes") and bound to the wallet
 // and currency. The payment carries a "ddq:<quoteId>" memo the buyer signs, so the quote is read from the CHAIN, not
 // from the POST. A payment that names a valid quote (its wallet paid, it landed inside the quote's window, the quote
 // not yet used by another payment, and no NEWER quote was issued to that wallet + currency before it landed — one live
@@ -110,8 +110,8 @@ export function coinsForUsd(usd) {
 // ---------- price quotes (DD-11) ----------
 export const QUOTE_MEMO = "ddq:";                 // the payment's memo: "ddq:<quoteId>"
 export const QUOTE_ID_RE = /^[0-9a-f]{24}$/;
-export const QUOTE_TTL_MS = 10 * 60e3;            // a quote holds its price for 10 minutes
-const QUOTE_GRACE_MS = 2 * 60e3;                  // a payment signed just before expiry may land a little after it
+export const QUOTE_TTL_MS = 5 * 60e3;             // a quote holds its price for 5 minutes (owner 2026-10-25, was 10)
+const QUOTE_GRACE_MS = 60e3;                      // a payment signed just before expiry may land a little after it
 const QUOTE_EARLY_MS = 60e3;                      // clock skew: a payment can't predate its own quote by more than this
 const QUOTE_NEWER_SKEW_MS = 5_000;                // a newer quote requested while this payment was landing doesn't count
 const QUOTES_PER_HOUR = 20;                       // per wallet (a quote is a stored record — no unbounded writes)

@@ -19,6 +19,7 @@ import {
   minerNeedsCheckpoint,
   estimateRounds,
   SQUARES,
+  EXECUTOR_FEE_LAMPORTS,
   refMemoIx,
   oreTransferIx,
   ataFor,
@@ -29,7 +30,8 @@ import { COLLECTION_NAME, TIP_WALLET, TIP_ENABLED, DEGENS_URL, DEGENS_INLINE_JSO
 type GridDegen = { name: string; image: string; mint?: string };
 
 const ALL_SQUARES = Array.from({ length: SQUARES }, () => true);
-const EXECUTOR_FEE = 0.00001; // SOL/round paid to the bot that auto-deploys for you
+// SOL/round paid to the permissionless bot that auto-deploys for you (lib/ore.ts — the fee live automations pay)
+const EXECUTOR_FEE = Number(EXECUTOR_FEE_LAMPORTS) / LAMPORTS_PER_SOL;
 const sol = (lamports: bigint | number) => Number(lamports) / LAMPORTS_PER_SOL;
 const ore = (grams: bigint) => Number(grams) / 1e11;
 const fmtPct = (p: number) => (p >= 0.1 ? p.toFixed(2) : p.toFixed(4)) + "%";
@@ -117,7 +119,7 @@ async function recordTip(sig: string, buyer: string, tipAmount: number, currency
 
 export default function MinePage() {
   const { publicKey, connected, disconnect, embedded } = useWallet();
-  const { board, round, lastWinner, miner, automation, motherlode, balance, secondsLeft, error, connection, refresh } =
+  const { board, round, lastWinner, miner, automation, motherlode, balance, secondsLeft, phase, error, connection, refresh } =
     useOreGame();
   const { busy, submit } = useOreSubmit(connection, refresh);
 
@@ -253,7 +255,9 @@ export default function MinePage() {
     };
   }, [connection, publicKey, busy]);
   const oreTipShort = TIP_ENABLED && tipCur === "ORE" && tip > 0 && tip > oreBal;
-  const canStartAuto = connected && amount > 0 && deposit >= amount * SQUARES && !busy && hostedReady && !oreTipShort;
+  // The bot needs one full round (25 tiles) PLUS its fee in the balance — less and ORE's first deploy just closes it.
+  const minDeposit = amount * SQUARES + EXECUTOR_FEE;
+  const canStartAuto = connected && amount > 0 && deposit >= minDeposit && !busy && hostedReady && !oreTipShort;
 
   const pending = degens.length < SQUARES;
 
@@ -264,7 +268,7 @@ export default function MinePage() {
         signer: publicKey,
         amountLamports: BigInt(Math.floor(amount * LAMPORTS_PER_SOL)),
         depositLamports: BigInt(Math.floor(deposit * LAMPORTS_PER_SOL)),
-        feeLamports: BigInt(Math.floor(EXECUTOR_FEE * LAMPORTS_PER_SOL)),
+        feeLamports: EXECUTOR_FEE_LAMPORTS,
         squares: ALL_SQUARES,
         reload: true,
       }),
@@ -373,7 +377,7 @@ export default function MinePage() {
             />
             <Stat
               label="Mining Round Time"
-              value={secondsLeft > 0 ? `${secondsLeft}s` : board ? "resolving…" : "—"}
+              value={secondsLeft > 0 ? `${secondsLeft}s` : phase === "starting" ? "starting…" : board ? "resolving…" : "—"}
               accent="amber"
             />
           </div>
@@ -552,8 +556,8 @@ export default function MinePage() {
                       <Pickaxe className="size-4" />
                       {amount <= 0
                         ? "Enter SOL per tile"
-                        : deposit < amount * SQUARES
-                          ? "Deposit must cover ≥ 1 round"
+                        : deposit < minDeposit
+                          ? `Deposit ≥ ${(Math.ceil(minDeposit * 1e6) / 1e6).toFixed(6)} SOL (1 round + bot fee)`
                           : (
                               tipCur === "ORE" && oreTipOk && tip > 0 ? (
                                 <>
@@ -652,11 +656,11 @@ function HowItWorksModal({ open, onClose }: { open: boolean; onClose: () => void
         </div>
         <HowStep n={1} t="It's a 25-tile grid" d="ORE mining is a fixed 5×5 board — always 25 tiles. Each one here is a Degen." />
         <HowStep n={2} t="You deploy SOL on every tile" d="Pick an amount per tile; it stakes that on all 25. e.g. 0.0001 × 25 = 0.0025 SOL." />
-        <HowStep n={3} t="Every ~60s, one tile wins" d="The 24 losing tiles' SOL is split among whoever staked the winning tile — and fresh uORE is minted." />
+        <HowStep n={3} t="Every ~2 min, one tile wins" d="Whoever staked the winning tile mines the round's fresh uORE (one miner takes it, or it's split) — plus the Motherlode when it hits. Your SOL comes back, minus ORE's fees: 1% on every tile, and 10% on the tiles that lost." />
         <HowStep n={4} t="Your uORE stacks in the Vault" d="Claim it to your wallet whenever you like." />
         <HowStep n={5} t="Auto-mine plays for you" d="Fund a balance and it enters every round until it runs low. Stop & withdraw pulls the rest back out." />
         <p className="rounded bg-slate-950/60 px-3 py-2 text-xs text-slate-500">
-          Only 1 of 25 tiles wins each round, so you can lose what you stake — that&apos;s the game.
+          Each round costs roughly a tenth of what you stake, and only 1 of 25 tiles mines ORE — so you can lose SOL. That&apos;s the game.
         </p>
       </div>
     </div>

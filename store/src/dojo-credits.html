@@ -137,7 +137,7 @@ h1{font-family:"Teko",sans-serif;font-weight:700;font-size:clamp(38px,8vw,66px);
   <div class="how">
     <div class="c"><h3>Buy once, play anywhere</h3><p>Coins work across <b>Degen Duel</b>, <b>Dojo Flip</b>, <b>Teto Wars</b>, <b>Cluck-Fu</b> and <b>Cock Brawl</b>. No per-game top-ups, no juggling tokens mid-game.</p></div>
     <div class="c"><h3>Pay in what you hold</h3><p>Buy with <b>ORE</b>, <b>SKR</b> or <b>SOL</b> — priced live and swapped to settle. Same rails the store already uses.</p></div>
-    <div class="c"><h3>Play to earn raffle chances</h3><p>You never win money directly — a <b>win</b> = 3 raffle chances, a <b>play</b> = 1, and playing all 5 games in the same week = <b>+5 bonus</b>. Hold <b>5+ Degen Dojo fighters</b> and every chance counts <b>2×</b>. Every week the Dojo Pot is drawn among chance-holders, provably fair, and chances start fresh. <b>22%</b> of every coin pack goes into the pot.</p></div>
+    <div class="c"><h3>Play to earn raffle chances</h3><p>You never win money directly — a <b>win</b> = 3 raffle chances (a Degen Duel win 2), a <b>play</b> = 1, and playing all 5 games in the same week = <b>+5 bonus</b>. Hold <b>5+ Degen Dojo fighters</b> and every chance counts <b>2×</b>. Every week the Dojo Pot is drawn among chance-holders, provably fair, and chances start fresh. <b>22%</b> of every coin pack goes into the pot.</p></div>
   </div>
 
   <div class="games">
@@ -288,7 +288,7 @@ function setPay(c){
 
 // ---- Real ORE / SKR / SOL purchase ----------------------------------------
 // Priced when you pay: Buy first asks the server for a QUOTE (/api/coinbuy action "quote") — the live price locked
-// for 10 minutes and the exact token amount for the pack. The buyer signs a plain SOL or SPL transfer of exactly that
+// for 5 minutes and the exact token amount for the pack. The buyer signs a plain SOL or SPL transfer of exactly that
 // amount to the treasury, plus a "ddq:<quoteId>" memo that ties the payment to its quote — no custody. The backend
 // verifies the on-chain payment (verify-cron, every minute) and credits SERVER coins at the quote's price; this page
 // only watches for that (no local grant). The pack prices shown before Buy are live estimates.
@@ -312,7 +312,7 @@ async function buy(i){
   try{
     if(WALLET.pubkey === TREASURY){ toast('That’s the treasury wallet — a self-payment isn’t a real purchase. Connect a different wallet.'); return; }
     await loadWeb3();
-    // lock the price NOW: the server's quote fixes the exact token amount for this pack (valid 10 minutes)
+    // lock the price NOW: the server's quote fixes the exact token amount for this pack (valid 5 minutes)
     const cur = CUR;
     let q;
     try{
@@ -321,7 +321,7 @@ async function buy(i){
       if(!qr.ok || !q.quoteId || !/^\d+$/.test(q.tokenRaw||'') || q.currency !== cur || q.treasury !== TREASURY) throw new Error(q.error || 'Could not lock a price — try again');
     }catch(e){ toast(String(e.message||e).slice(0,70)); return; }
     const st=$('buyStatus'); st.style.display='';
-    st.innerHTML = '🔒 Price locked: <b>'+esc(q.tokenAmount)+' '+esc(cur)+'</b> ≈ $'+(+q.usd||0)+' → <b>'+(+q.coins||0)+' coin'+(q.coins===1?'':'s')+'</b> · pay within 10 minutes';
+    st.innerHTML = '🔒 Price locked: <b>'+esc(q.tokenAmount)+' '+esc(cur)+'</b> ≈ $'+(+q.usd||0)+' → <b>'+(+q.coins||0)+' coin'+(q.coins===1?'':'s')+'</b> · pay within 5 minutes';
     const { Connection, PublicKey, VersionedTransaction, TransactionMessage, SystemProgram, TransactionInstruction } = web3;
     const conn = new Connection(RPC, 'confirmed');
     const buyer = new PublicKey(WALLET.pubkey), dest = new PublicKey(TREASURY);

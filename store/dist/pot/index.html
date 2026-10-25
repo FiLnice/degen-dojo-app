@@ -93,7 +93,7 @@
       </tr></tfoot>
     </table>
   </div>
-  <p class="fine">Everything is converted to the SOL pot at draw time (SKR &amp; ORE are swapped to SOL via Jupiter). The pot is funded by <b>activity, not by minting new promises</b> — it only ever pays out what the arena actually took in. <a href="/draw" style="color:var(--gold-l)">Verify the draw ↗</a></p>
+  <p class="fine">The Pot is held and paid out in <b>ORE</b>: whatever comes in as SOL or SKR is swapped to ORE via Jupiter when the week is paid. The pot is funded by <b>activity, not by minting new promises</b> — it only ever pays out what the arena actually took in. <a href="/draw" style="color:var(--gold-l)">Verify the draw ↗</a></p>
   <style>
     #ledgerBody td{border-bottom:1px solid var(--border);vertical-align:top}
     #ledgerBody .rv{text-align:right;padding:11px 8px;font-family:'Teko',sans-serif;font-size:17px;color:var(--text);white-space:nowrap}
@@ -116,10 +116,10 @@
   <div class="card">
     <ul class="steps">
       <li>Connect your wallet and <b>play any game</b> — every play mints you <b>1 chance</b> 🎟 in this week's pot.</li>
-      <li><b>Win</b> and you earn more: a Cluck-Fu winning bird is worth <b>3 chances</b>, a lost race still gives 1.</li>
+      <li><b>Win</b> and you earn more: a win in Cluck-Fu, Cock Brawl or Dojo Flip is worth <b>3 chances</b>, a Degen Duel win <b>2</b> (it's a skill game), and a loss still gives 1.</li>
       <li>Chances stack all week. The more you play, the bigger your slice of the draw.</li>
     </ul>
-    <div style="margin-top:12px"><span class="chip">1 play = 1 chance</span><span class="chip">win = 3 chances</span><span class="chip">chances stack</span></div>
+    <div style="margin-top:12px"><span class="chip">1 play = 1 chance</span><span class="chip">win = up to 3 chances</span><span class="chip">chances stack</span></div>
   </div>
 
   <h2>How winners are picked</h2>
@@ -149,8 +149,10 @@
   var fmt=function(n){ if(n==null||!isFinite(n)) return null; n=Math.round(n*1000)/1000; return n===0?'0':n.toLocaleString(undefined,{maximumFractionDigits:3}); };
   fetch('/api/draw?action=status').then(function(r){return r.json();}).then(function(s){
     if(!s) return;
-    var pot = (s.potSol!=null? s.potSol : (s.pot!=null? s.pot : null));
-    if(pot!=null){ document.getElementById('potAmt').textContent = (Math.round(pot*1000)/1000)+' SOL'; }
+    // the Pot is held and paid in ORE: whatever comes in (SOL / SKR / ORE) is swapped to ORE at payout
+    var pot = (s.potOre!=null? s.potOre : null);
+    if(pot!=null){ document.getElementById('potAmt').textContent = (pot===0?'0':(Math.round(pot*1000)/1000).toLocaleString(undefined,{maximumFractionDigits:3}))+' ORE'; }
+    if(s.potUsd!=null && s.potUsd>0) document.getElementById('potSub').textContent = '≈ $'+Number(s.potUsd).toLocaleString(undefined,{maximumFractionDigits:2})+' · fed live by games & store activity';
     var t = (s.tickets!=null? s.tickets : (s.ticketsTotal!=null? s.ticketsTotal : null));
     if(t!=null) document.getElementById('ticketN').textContent = Number(t).toLocaleString();
     if(s.winners!=null) document.getElementById('winnerN').textContent = s.winners;

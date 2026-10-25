@@ -530,7 +530,7 @@ function RequestForm({ onSubmitted }: { onSubmitted: (id: string) => void }) {
       </section>
 
       <p className="text-center text-[11px] text-slate-600">
-        Grid mining stakes real SOL — 24 of 25 tiles lose each round. Your community owns that risk. Not
+        Grid mining stakes real SOL — each round ORE keeps about a tenth of it as fees, and only 1 of 25 tiles mines ORE. Your community owns that risk. Not
         financial advice.
       </p>
     </div>

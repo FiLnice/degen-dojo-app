@@ -16,7 +16,7 @@
  */
 (function () {
   var NAME_KEY = 'dojo_name', DATA_KEY = 'dojo_scores';
-  // 1 coin per play. A win = 3 raffle chances; a loss still earns 1 for playing.
+  // 1 coin per play. A win = 3 raffle chances (a Degen Duel win 2 — it's skill); a loss still earns 1 for playing.
   // Winning at least once on ALL FOUR games grants a one-time +3 "grand slam" bonus.
   var WIN_TICKETS = 3, PLAY_TICKETS = 1, GRAND_SLAM = 3;
   var ALL_GAMES = ['duel', 'flip', 'teto', 'cluck', 'brawl'];
@@ -36,7 +36,7 @@
       var p = o[name] || (o[name] = { tickets: 0, games: {}, grandSlam: false });
       var g = p.games[game] || (p.games[game] = { plays: 0, wins: 0 });
       g.plays++; if (won) g.wins++;
-      var awarded = won ? WIN_TICKETS : PLAY_TICKETS;
+      var awarded = won ? (game === 'duel' ? 2 : WIN_TICKETS) : PLAY_TICKETS;
       p.tickets += awarded;
       // one-time grand-slam bonus: a win in every one of the four games
       if (!p.grandSlam && ALL_GAMES.every(function (k) { return p.games[k] && p.games[k].wins > 0; })) {

@@ -54,6 +54,11 @@ export const sha256 = (buf) => createHash("sha256").update(buf).digest("hex");
 // an error the HTTP wrapper turns into a status code (409 = wrong state)
 export class DrawError extends Error { constructor(msg, status = 409) { super(msg); this.status = status; } }
 
+// ORE spot (the Pot is shown and paid in ORE — whatever comes in is swapped to ORE at payout)
+export async function oreUsd() {
+  const ORE = "oreoU2P8bN6jkk3jbaiVxYnG1dCXcYxwhwyK9jSybcp";
+  try { const j = await (await fetch("https://lite-api.jup.ag/price/v3?ids=" + ORE)).json(); const p = j?.[ORE]?.usdPrice; return p > 0 ? p : null; } catch { return null; }
+}
 export async function solUsd() {
   try { const j = await (await fetch("https://lite-api.jup.ag/price/v3?ids=" + SOL_MINT)).json(); const p = j?.[SOL_MINT]?.usdPrice; return p > 0 ? p : null; } catch { return null; }
 }

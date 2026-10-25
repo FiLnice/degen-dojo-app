@@ -28,6 +28,8 @@ const ALLOWED = new Set([
   // through this same proxy — both read-only.
   "getSlot",
   "getTransaction",
+  "getRecentPerformanceSamples",   // the miner measures live ms-per-slot for its round countdown
+  "getTokenAccountBalance",        // the miner's ORE balance (ORE tips)
   "sendTransaction",      // pre-signed by the user's wallet — see sendOk below
 ]);
 
@@ -37,7 +39,7 @@ const ALLOWED = new Set([
 const M2_PROGRAM = "M2mx93ekt1fmXSVkTrUL9xVFHkmME8HTUi5Cyc5aF7K";
 // Solana's public RPC: a fallback for plain methods when Helius is rate-limiting (no DAS / no gPA there).
 const PUBLIC_RPC = "https://api.mainnet-beta.solana.com";
-const PUBLIC_OK = new Set(["getLatestBlockhash", "getSignatureStatuses", "getAccountInfo", "getMultipleAccounts", "getBalance", "simulateTransaction", "getSlot", "getTransaction", "getTokenAccountsByOwner", "sendTransaction"]);
+const PUBLIC_OK = new Set(["getLatestBlockhash", "getSignatureStatuses", "getAccountInfo", "getMultipleAccounts", "getBalance", "simulateTransaction", "getSlot", "getTransaction", "getTokenAccountsByOwner", "getRecentPerformanceSamples", "getTokenAccountBalance", "sendTransaction"]);
 // ── abuse limits (every call in a request must pass) ──
 export const MAX_BODY_BYTES = 64 * 1024;   // largest real call is ~5 KB (100-key getMultipleAccounts)
 export const MAX_BATCH = 10;               // the store/miner never batch; 10 leaves headroom
@@ -79,6 +81,8 @@ const PARAM_OK = {
   getTransaction: (p) => isSig(p?.[0]),
   getAccountInfo: (p) => isKey(p?.[0]),
   getBalance: (p) => isKey(p?.[0]),
+  getTokenAccountBalance: (p) => isKey(p?.[0]),
+  getRecentPerformanceSamples: (p) => p == null || (Array.isArray(p) && (p.length === 0 || (Number.isInteger(p[0]) && p[0] >= 1 && p[0] <= 10))),
   getTokenAccountsByOwner: (p) => isKey(p?.[0]) && !!p?.[1] && (isKey(p[1].mint) || isKey(p[1].programId)),
   simulateTransaction: (p) => typeof p?.[0] === "string" && p[0].length <= 2000 &&
     (p?.[1]?.accounts == null || keyList(p[1].accounts.addresses, 64)),

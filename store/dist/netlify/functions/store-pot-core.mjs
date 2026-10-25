@@ -48,8 +48,35 @@ function normalize(p) {
   return { ...z, ...p, routes };
 }
 export async function getPot() {
-  const { applied, ...p } = normalize(await getStore("pot").get(KEY, { type: "json" }));
+  let raw = await getStore("pot").get(KEY, { type: "json" });
+  if (hasRoyalty(raw)) raw = await retireRoyalty();
+  const { applied, ...p } = normalize(raw);
   return p;
+}
+
+// Royalties stopped feeding the Pot on 2026-10-23, but royalty money booked before that sat in the live pot and rolled
+// over (round 1 had no entrants) — the Pot showed ~0.25 SOL that is really Treasury money. Owner 2026-10-25: the Pot
+// holds only what the arena brings in. Once: zero the royalty route and take its value out of the pot's USD (all of it
+// when nothing else came in; otherwise its value at today's prices, never below 0). Marked, so it never runs twice.
+const hasRoyalty = (p) => !!p && !p.royaltyRetiredAt && Object.values((p.routes || {}).royalty || {}).some((v) => +v > 0);
+const PRICE_IDS = { sol: "So11111111111111111111111111111111111111112", ore: "oreoU2P8bN6jkk3jbaiVxYnG1dCXcYxwhwyK9jSybcp", skr: "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3" };
+async function retireRoyalty() {
+  let px = {};
+  try { const j = await (await fetch("https://lite-api.jup.ag/price/v3?ids=" + Object.values(PRICE_IDS).join(","))).json();
+    for (const [k, m] of Object.entries(PRICE_IDS)) px[k] = +j?.[m]?.usdPrice || 0; } catch {}
+  const { value } = await casUpdate(getStore("pot"), KEY, (cur) => {
+    if (!hasRoyalty(cur)) return undefined;
+    const p = normalize(cur), roy = p.routes.royalty;
+    const othersEmpty = Object.entries(p.routes).every(([r, v]) => r === "royalty" || Object.values(v).every((x) => !(+x > 0)));
+    const royUsd = (+roy.sol || 0) * (px.sol || 0) + (+roy.ore || 0) * (px.ore || 0) + (+roy.skr || 0) * (px.skr || 0);
+    if (!othersEmpty && !(royUsd > 0)) throw new CasError("no prices to take the old royalties out of the pot — try again in a minute");
+    p.retiredRoyalty = { ...roy, usd: othersEmpty ? p.usd : Math.min(p.usd, royUsd) };
+    p.usd = othersEmpty ? 0 : Math.max(0, p.usd - royUsd);
+    p.routes.royalty = { sol: 0, skr: 0, ore: 0 };
+    p.royaltyRetiredAt = Date.now();
+    return p;
+  });
+  return value;
 }
 
 // Add a verified contribution. `usd` is authoritative for the prize; `currency`+`native`

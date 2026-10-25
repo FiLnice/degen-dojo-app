@@ -472,7 +472,7 @@ if (DD_NEWLBL) document.addEventListener('DOMContentLoaded', function(){ var b=d
   if(bInfoBtn&&bInfoModal){ bInfoBtn.onclick=function(){ bInfoModal.classList.add('show'); }; if(bInfoClose)bInfoClose.onclick=function(){ bInfoModal.classList.remove('show'); }; bInfoModal.onclick=function(e){ if(e.target===bInfoModal) bInfoModal.classList.remove('show'); }; }
 
   // ---- Duel Scoreboard: shared raffle-ticket ledger (per-game + overall) ----
-  window.recordDuel=function(res){ if(window.DojoScores) DojoScores.record('duel', res==='me'); };   // you take the Dojo → 5 tickets, else 1
+  window.recordDuel=function(res){ if(window.DojoScores) DojoScores.record('duel', res==='me'); };   // you take the Dojo → 2 chances, else 1
   var bSbBtn=document.getElementById('bSbBtn'), bSbModal=document.getElementById('bSbModal');
   if(bSbBtn&&bSbModal){
     bSbBtn.onclick=function(){ if(window.DojoScores) DojoScores.renderBoard(document.getElementById('duelSbBoard'),'duel'); bSbModal.classList.add('show'); };

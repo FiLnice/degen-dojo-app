@@ -331,9 +331,10 @@ const GEMFARM_FEE='2xhBxVVuXkdq2MRKerE9mr2s1szfHSedy21MVqf8gPoM';   // GemFarm's
 const UNSTAKE_DISC='5a5f6b2acd7c32e1';
 const WITHDRAW_DISC='e719270d6cd16213';
 const RENT='SysvarRent111111111111111111111111111111111';
-// Where the tool fee goes (the Dojo pot wallet) + how much. Flat, no discounts.
-const RESCUE_FEE_WALLET='ED3GMCfoX3XNvavnWADvd6oCsohGg1ukdhv3PaUpvwJe';
-const RESCUE_FEE_SOL=0.01;
+// No tool fee (owner 2026-10-25: not launched as a paid service). To charge one later, set a wallet + amount here —
+// the fee is then bundled into the same rescue transaction, so it's only paid if the rescue lands.
+const RESCUE_FEE_WALLET='';
+const RESCUE_FEE_SOL=0;
 // Known GemFarm farms → their bank. Add a new {name,farm,bank} to support more.
 const FARMS=[
   {name:'Atadia', farm:'1G72FGcqtc3ZbC8guy87rMB7MSeEpce7FDgW3es8RdY', bank:'2o8DnjzW8WZSLNMo8DEbaAoScx7i7w1bAsL5h8tq6dJe'},
@@ -651,9 +652,9 @@ async function rescueGemFarm(row,btn){
     const withdrawIx=new W.TransactionInstruction({programId:pk(BANK_PROG),keys:withdrawKeys,data:withdrawData});
 
     // Tool fee — bundled in the SAME tx, so if the rescue reverts, no fee is taken.
-    const feeIx=W.SystemProgram.transfer({fromPubkey:owner,toPubkey:pk(RESCUE_FEE_WALLET),lamports:Math.round(RESCUE_FEE_SOL*1e9)});
+    const feeIx=RESCUE_FEE_WALLET&&RESCUE_FEE_SOL>0?W.SystemProgram.transfer({fromPubkey:owner,toPubkey:pk(RESCUE_FEE_WALLET),lamports:Math.round(RESCUE_FEE_SOL*1e9)}):null;
 
-    const ixs=[unstakeIx(),unstakeIx(),withdrawIx,feeIx];
+    const ixs=[unstakeIx(),unstakeIx(),withdrawIx,...(feeIx?[feeIx]:[])];
     const {blockhash,lastValidBlockHeight}=await conn.getLatestBlockhash();
     const msg=new W.TransactionMessage({payerKey:owner,recentBlockhash:blockhash,instructions:ixs}).compileToV0Message();
     const vtx=new W.VersionedTransaction(msg);
@@ -828,7 +829,7 @@ function stakeCard(r,meta,kind){
     const dis=(!WALLET||WALLET!==el.wallet.value.trim());
     action='<div class="act"><button class="usk"'+(dis?' disabled':'')+' onclick="rescueByMint(\''+esc(r.mint)+'\',this)">🛟 Rescue now</button>'+
       '<span class="anote">'+(dis?'connect this wallet to rescue'
-        :'unstake + withdraw in one signed transaction · '+RESCUE_FEE_SOL+' SOL tool fee (only if it lands)')+'</span></div>';
+        :'unstake + withdraw in one signed transaction'+(RESCUE_FEE_SOL>0?' · '+RESCUE_FEE_SOL+' SOL tool fee (only if it lands)':' · free'))+'</span></div>';
   } else {
     action='<div class="act"><button class="usk off" disabled>In a vault</button><span class="anote">Held in a program-owned account — needs that program&#39;s withdraw.</span></div>';
   }

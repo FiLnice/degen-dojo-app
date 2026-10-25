@@ -31,7 +31,7 @@
 // Tickets come from the "tickets" Blobs store, written ONLY by /api/play (store-fn-play.mjs).
 import { limited } from "./store-ratelimit-core.mjs";
 import { getPot, POT_FRAC } from "./store-pot-core.mjs";
-import { commitRound, drawRound, latestRound, getPublic, publicEntries, solUsd, DrawError } from "./store-draw-core.mjs";
+import { commitRound, drawRound, latestRound, getPublic, publicEntries, solUsd, oreUsd, DrawError } from "./store-draw-core.mjs";
 import { adminRequestOk } from "./store-session-core.mjs";
 
 export default async (request) => {
@@ -58,11 +58,11 @@ export default async (request) => {
     // the LIVE pot (accumulated from verified purchases + tips) — real, not a manual number.
     // Shape matches what the /pot ledger page renders: potSol, potPct, routes{route:{sol,skr,ore}}.
     const pot = await getPot();
-    const sp = await solUsd();
+    const [sp, op] = await Promise.all([solUsd(), oreUsd()]);
     return json({
       round, latestRound: latest, draw: pub,
-      potSol: sp ? +(pot.usd / sp).toFixed(4) : null, potUsd: +pot.usd.toFixed(2),
-      potPct: Math.round(POT_FRAC * 100), routes: pot.routes, solPrice: sp,
+      potSol: sp ? +(pot.usd / sp).toFixed(4) : null, potOre: op ? +(pot.usd / op).toFixed(4) : null, potUsd: +pot.usd.toFixed(2),
+      potPct: Math.round(POT_FRAC * 100), routes: pot.routes, solPrice: sp, orePrice: op,
     });
   }
 

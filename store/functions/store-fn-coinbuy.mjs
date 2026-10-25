@@ -24,7 +24,7 @@
 // "coins landed" without a sign-in. Public by design: the signature is already public on-chain.
 //
 // POST {action:"quote", wallet, currency, usd} → a server price quote for one coin pack (DD-11): the exact token
-// amount at the live price, valid 10 minutes, bound to that wallet + currency. The page pays exactly that amount with
+// amount at the live price, valid 5 minutes, bound to that wallet + currency. The page pays exactly that amount with
 // the memo "ddq:<quoteId>", so the coins are priced when the buyer PAYS (store-verify-core createQuote / verifyOne).
 // A purchase record also keeps the live price at the moment it was first POSTed (postPrice) for payments without a
 // usable quote — they are valued at the lower of that and the price at verification.
