@@ -3,7 +3,7 @@
 // burns once a week from /payouts with the Treasury wallet; this only RECORDS and VERIFIES.
 //
 // Owner rules (2026-10-23):
-//   • every royalty and every repair payment splits 44% to that NFT's COLLECTION Card Vault / 44% Reserve / 12% ops
+//   • every royalty and every repair payment splits 88% to that NFT's COLLECTION Card Vault / 12% ops (no Reserve share)
 //     (three pools: Degen Dojo, Demon Dojo, TETO). Only income after the 2026-10-22 hand-over counts.
 //   • an eligible NFT's burn value = its collection's Card Vault ÷ the number of eligible NFTs in that collection now.
 //     Eligible: Degen Dojo cards whose Condition is Mint or Framed (Cracked / Mono → 0: repair first); every live
@@ -11,9 +11,13 @@
 //     burner's share stays fair: (P − P/N) / (N − 1) = P/N.
 //   • repair = 0.01 ORE per card, Cracked or Mono → Mint. Mint (and Framed) cards are protected forever.
 //     A repair payment is ANY ORE transfer into the Treasury's ORE account by a wallet that holds Cracked/Mono
-//     cards — not a store coin buy / tip record, no ddtip memo, not a mining tx. `ddfix:<mint>` memos (the
-//     page's one-click flow) pick the cards first, then the rarest. N = floor(ORE / 0.01), capped at the
-//     wallet's repairable cards; ORE beyond the repaired cards goes to the Reserve as a direct tip.
+//     cards — not a credited store coin buy / tip, no ddtip memo, not a mining tx. The paying wallet = the owner of the
+//     ORE account the money left (not the fee payer). `ddfix:<mint>` memos (the page's one-click flow) make it a repair
+//     whatever anyone POSTs to /api/coinbuy, and pick the cards first, then the rarest. N = floor(ORE / 0.01), capped at
+//     the wallet's repairable cards; ORE beyond the repaired cards goes to the Reserve as a direct tip.
+//   • a "marketplace transaction" = one that RUNS a marketplace program (top level or inner), never one that merely
+//     lists its id; a DAS / RPC failure is never read as "not ours" (retry, then a skip the desk lists for re-decision).
+//     (Security review 2026-10-23, lane 7: M-1, M-2, M-3, L-1..L-4, I-2, I-4.)
 //   • a burn value is paid only when the NFT is burned — by its holder (a burn tx) or by SENDING it to the
 //     Treasury (the weekly batch burns it). The claim is fixed in stORE at that moment and paid weekly in stORE.
 //   • BURNING IS NOT LAUNCHED (BURN_ENABLED env, default off): the pools keep filling silently, but no burn value or
@@ -38,7 +42,8 @@
 //   totals           { reserve, ops, direct, unconverted: {currencyMint: raw}, ids }
 //   scan             { newest: {address: sig}, pending: [{ s, t }] }   Treasury history not yet decided
 //   paidsig:<sig>:<owner>   a claim-payment transfer counted once
-//   held:<mint>      an NFT sent to the Treasury while burning is off { mint, coll, from, sig, at }
+//   held:<mint>      an NFT sent to the Treasury while burning is off { mint, coll, from, sig, at, convertedAt? }
+//   skips            { items: [{ sig, why, at, payer, ore, refused, redecided? }] }   skipped payments the desk lists
 //   mintcap          { granted: [mint] }   every repair ever granted (the cap's ledger, compare-and-swap)
 //   settings         { history: [{ at, cap, prev, ip }] }   the Mint cap over time (latest wins) = its audit log
 //   refund:<sig>     { sig, payer, raw, mints, at, status: "due"|"paid", paid? }   repairs refused by the cap
@@ -74,7 +79,7 @@ export const REPAIR_PRICE_RAW = 1_000_000_000n;   // 0.01 ORE (11 decimals)
 export const REPAIRABLE = new Set(["Cracked", "Mono"]);
 export const PROTECTED = new Set(["Mint", "Framed"]);
 export const SINCE = Date.UTC(2026, 9, 22);       // the hand-over: vaults accrue from here on
-export const SPLIT = { vault: 44n, reserve: 44n };   // ops = the rest (12%) — rounding dust goes to ops
+export const SPLIT = { vault: 88n, reserve: 0n };   // owner 2026-10-24: 88% Card Vault (was 44 vault / 44 Reserve)   // ops = the rest (12%) — rounding dust goes to ops
 // our own wallets (+ the owner's personal wallet): their transfers into the Treasury are not income / claims
 const OWN = new Set([TREASURY, "ED3GMCfoX3XNvavnWADvd6oCsohGg1ukdhv3PaUpvwJe", "DfaGo3Qht6MC2bqgFCBHgUWjaeXDNmsbE7XjyRKWM3qS",
   process.env.COSIGNER_PUBKEY || "8KUWwAHMb7TL31JGbucCi8YE1ax7njWi46ajVbWnvDqr",
@@ -127,19 +132,32 @@ export function fromUi(ui, mint) {   // decimal string/number → raw BigInt (fl
 }
 
 // ---------- prices (Jupiter, 60s cache) ----------
-let PX = { at: 0, p: {} };
+let PX = { at: 0, p: {}, t: {} };   // t: when each mint's price was last fetched
 export async function prices(mints = [SOL_MINT, ORE_MINT, STORE_MINT, ...Object.keys(DECIMALS)]) {
   if (Date.now() - PX.at < 60e3 && mints.every((m) => m in PX.p)) return PX.p;
   const want = [...new Set([...mints, STORE_MINT])];
   try {
     const base = String(process.env.JUPITER_BASE || "https://lite-api.jup.ag").replace(/\/+$/, "");
     const j = await (await fetch(base + "/price/v3?ids=" + want.join(","))).json();
-    const p = {}; for (const m of want) if (j?.[m]?.usdPrice > 0) p[m] = j[m].usdPrice;
-    PX = { at: Date.now(), p: { ...PX.p, ...p } };
+    const p = {}, t = {}; for (const m of want) if (j?.[m]?.usdPrice > 0) { p[m] = j[m].usdPrice; t[m] = Date.now(); }
+    PX = { at: Date.now(), p: { ...PX.p, ...p }, t: { ...PX.t, ...t } };
   } catch {}
   return PX.p;
 }
-export const _setPrices = (p) => { PX = { at: Date.now(), p }; };   // test hook
+export const _setPrices = (p, at = Date.now()) => { PX = { at, p, t: Object.fromEntries(Object.keys(p).map((m) => [m, at])) }; };   // test hook
+// Prices a burn CLAIM may be fixed at (review L-3): only ones fetched in the last few minutes (a Jupiter outage never
+// fixes a claim at an hours-old price), and stORE — liquid-staked ORE, worth at least one ORE — valued at no less than
+// ORE, so a momentary dip in its thin pool can't inflate every claim fixed that minute. null → try again later.
+export const CLAIM_PRICE_MAX_AGE_MS = 5 * 60e3;
+export async function claimPrices() {
+  const p = await prices(), now = Date.now(), out = {};
+  for (const [m, v] of Object.entries(p)) if (v > 0 && now - (PX.t[m] || 0) <= CLAIM_PRICE_MAX_AGE_MS) out[m] = v;
+  const sp = out[STORE_MINT], op = out[ORE_MINT];
+  if (!(sp > 0) || !(op > 0)) return null;
+  if (sp > op * 3) return null;   // far off its ORE backing either way = a broken quote, not a price
+  out[STORE_MINT] = Math.max(sp, op);
+  return out;
+}
 
 // What a vault (currencyMint → raw) is worth in stORE at live prices (stORE itself counts 1:1).
 // → { storeRaw: BigInt, store: "decimal", usd: number } — null when a needed price is missing.
@@ -179,9 +197,11 @@ export function rarityScore(a) {
   }
   return s;
 }
-export async function holdings(owner) {   // our NFTs the wallet holds now (DAS), ≤ 1000
+export async function holdings(owner) {   // our NFTs the wallet holds now (DAS), ≤ 1000 — .rawCount = every NFT on the page
   const r = await rpc("getAssetsByOwner", { ownerAddress: owner, page: 1, limit: 1000, displayOptions: { showFungible: false } });
-  return (r?.items || []).filter((a) => !a.burnt && collOf(a));
+  const items = r?.items || [], out = items.filter((a) => !a.burnt && collOf(a));
+  out.rawCount = items.length;
+  return out;
 }
 
 // ---------- records ----------
@@ -191,7 +211,7 @@ export async function getRepair(mint) { return await ks().get("repair:" + mint, 
 export async function getClaim(mint) { return await ks().get("claim:" + mint, { type: "json" }); }
 export async function getTotals() { return (await ks().get("totals", { type: "json" })) || { reserve: {}, ops: {}, direct: {}, unconverted: {}, ids: [] }; }
 
-// the 44% card share of a royalty / repair → that collection's shared Card Vault (idempotent by id)
+// the 88% card share of a royalty / repair → that collection's shared Card Vault (idempotent by id)
 async function creditPool(collMint, bal, id) {
   if (!COLLS[collMint]) return;
   await casUpdate(ks(), "pool:" + collMint, (p) => {
@@ -263,9 +283,9 @@ export function shareOf(bal, n, w = 1) {   // per currency floor(bal × w / n) �
   return out;
 }
 // one NFT's burn value right now: { eligible, share: {mint: raw}, w: its shares, n: total eligible shares, pool }
-export async function burnShare(a, { fresh = false } = {}) {
+export async function burnShare(a, { fresh = false, pool = null } = {}) {
   const collMint = collMintOf(a);
-  const pool = await getPool(collMint);
+  pool ||= await getPool(collMint);
   const w = sharesOf(a);
   if (!w) return { eligible: false, share: {}, w: 0, n: 0, pool };
   const { shares: n } = await eligibleCount(collMint, { includeMint: a.id, includeShares: w, pool, fresh });
@@ -303,54 +323,113 @@ function nftMoves(tx) {
   return m;
 }
 const txTime = (tx) => (tx.blockTime || 0) * 1000;
+// The programs a transaction actually RAN (top level + inner instructions) — never its plain account list: a System
+// transfer accepts unused extra accounts, so a marketplace id merely LISTED in a payment proves nothing (security review
+// 2026-10-23, M-1: a coin buy listing Tensor as a decoy was booked a second time as a royalty). json or jsonParsed.
+export function invokedPrograms(tx) {
+  const keys = keysOf(tx);
+  const ixs = [...(tx?.transaction?.message?.instructions || []), ...(tx?.meta?.innerInstructions || []).flatMap((x) => x?.instructions || [])];
+  return new Set(ixs.map((ix) => (ix?.programId != null ? keyStr(ix.programId) : keys[ix?.programIdIndex])).filter(Boolean));
+}
+// Who paid ORE: the owner of the ORE account the money left (the largest drop) — not the fee payer, so a sponsored-fee
+// or multisig payment is still judged (and refunded) as the holder's own (review L-1). null if no one's ORE dropped.
+function orePayer(tx) {
+  let who = null, drop = 0n;
+  for (const [owner, byMint] of Object.entries(tokenDeltas([tx]))) {
+    if (owner === TREASURY) continue;
+    const v = -(byMint[ORE_MINT] || 0n);
+    if (v > drop) { drop = v; who = owner; }
+  }
+  return who;
+}
+// A DAS / RPC answer we couldn't get is NOT a fact about the NFT or its holder (review M-3): decide() then answers
+// "retry" (nothing stored) instead of a permanent skip. Only DAS's own "not found" means "not one of ours".
+class Transient extends Error {}
+const notFound = (e) => /not\s*found|could ?not find|no asset/i.test(String(e?.message || e));
+async function assetSafe(mint, opts) {
+  try { return await assetOf(mint, opts); }
+  catch (e) { if (notFound(e)) return null; throw new Transient("couldn't read an NFT from DAS (" + String(e?.message || e).slice(0, 80) + ")"); }
+}
+// What the store's coin ledger holds for this signature (strong reads — the verify cron runs in another function):
+// "credited" (a coin buy / tip verified or being credited), "pending" (a record nobody has judged yet), "rejected", or null.
+// One inflow is booked once: a credited coin buy is never also a repair or a royalty; a rejected record blocks nothing.
+async function coinStatus(sig) {
+  try {
+    if (await getStore("coin-credits").get("credited:" + sig, { type: "json", consistency: "strong" })) return "credited";
+    const rec = await getStore("coin-purchases").get("buy:" + sig, { type: "json", consistency: "strong" });
+    return !rec ? null : rec.verified ? "credited" : rec.rejected ? "rejected" : "pending";
+  } catch (e) { throw new Transient("couldn't read the coin-purchase ledger"); }
+}
+const EMPTY_RETRY_MS = 30 * 60e3;   // an empty NFT list for a wallet that just paid ORE is re-read for this long
+export const GIVE_UP_MS = 24 * 3600e3;   // a transient failure is retried for a day, then decided as a skip the desk lists
 
 // ---------- deciding what a Treasury transaction means (ONCE per signature) ----------
-// → { kind: "skip"|"royalty"|"repair"|"sent", … } — pure data, stored as dec:<sig>; apply() acts on it.
+// → { kind: "skip"|"royalty"|"repair"|"sent"|"held"|"retry", … } — pure data, stored as dec:<sig>; apply() acts on it.
+// "retry" is never stored: the signature is decided again on the next read.
 export async function decide(sig, tx, { now = Date.now() } = {}) {
-  if (!tx) return { kind: "skip", why: "not readable" };
+  if (!tx) return { kind: "retry", why: "the transaction isn't readable yet", transient: true };
   if (tx.meta?.err) return { kind: "skip", why: "failed tx" };
   const t = txTime(tx);
   if (t && t < SINCE) return { kind: "skip", why: "before the hand-over" };
-  const keys = keysOf(tx), signers = signersOf(tx), payer = signers[0];
+  try { return await decideTx(sig, tx, t, now); }
+  catch (e) { if (e instanceof Transient) return { kind: "retry", why: e.message, transient: true, at: t || null }; throw e; }
+}
+async function decideTx(sig, tx, t, now) {
+  const signers = signersOf(tx);
   if (signers.includes(TREASURY)) return { kind: "skip", why: "the Treasury's own transaction" };
-  const market = keys.some((k) => MARKETPLACES.has(k));
+  const progs = invokedPrograms(tx);
+  const market = [...progs].some((p) => MARKETPLACES.has(p));
   const deltas = tokenDeltas([tx])[TREASURY] || {};
+  const moves = nftMoves(tx);
 
-  // 1) NFTs of ours arriving in the Treasury from their holder → burn claims (the weekly batch burns them)
-  const moves = nftMoves(tx), arrived = [];
+  // 1) NFTs of ours arriving in the Treasury from their holder → burn claims (the weekly batch burns them). Decided
+  //    BEFORE the marketplace check (review L-4): a wallet that routes a plain send through a marketplace program still
+  //    sent the card in. Only a marketplace SALE to the Treasury (the sender got paid in that tx) isn't a send-in.
+  const arrived = [];
   for (const [mint, mv] of Object.entries(moves)) if (mv.post === TREASURY && mv.pre && mv.pre !== TREASURY) arrived.push({ mint, from: mv.pre });
-  if (arrived.length && !market) {
+  if (arrived.length) {
     const sent = [];
     for (const x of arrived) {
       if (OWN.has(x.from)) continue;
-      const a = await assetOf(x.mint).catch(() => null); const coll = collOf(a);
+      const a = await assetSafe(x.mint); const coll = collOf(a);
       if (coll) sent.push({ mint: x.mint, coll, from: x.from });
     }
+    const gotPaid = (w) => solGain(tx, w) > 0n || Object.entries(tokenDeltas([tx])[w] || {}).some(([m, d]) => d > 0n && DECIMALS[m] != null);
+    if (sent.length && market && sent.some((x) => gotPaid(x.from))) return { kind: "skip", why: "the Treasury bought this NFT on a marketplace (not a card sent in)", cards: sent.map((x) => x.mint) };
     if (sent.length && !burnEnabled()) return { kind: "held", at: t || now, cards: sent };   // recorded only — no claim while burning is off
     if (sent.length) {
-      const px = await prices();
+      const px = await claimPrices();
+      if (!px) return { kind: "retry", why: "no fresh stORE / ORE price to fix the claim at" };
       const snaps = [];
       for (const x of sent) {
-        const a = await assetOf(x.mint, { fresh: true }).catch(() => null);
+        const a = await assetSafe(x.mint, { fresh: true });
+        if (!a) return { kind: "retry", why: "couldn't re-read the card sent in", transient: true, at: t || null };
         const b = await burnShare(a, { fresh: true }).catch(() => null);
-        if (!b) return { kind: "retry", why: "couldn't count the collection's eligible NFTs" };
+        if (!b) return { kind: "retry", why: "couldn't count the collection's eligible NFTs", transient: true, at: t || null };
         const val = vaultInStore(b.share, px);
-        if (!val) return { kind: "retry", why: "no live price for the stORE snapshot" };
+        if (!val) return { kind: "retry", why: "no fresh price for the stORE snapshot" };
         snaps.push({ ...x, collMint: collMintOf(a), vault: b.share, eligible: b.eligible, w: b.w, n: b.n, storeRaw: S(val.storeRaw), store: val.store, usd: val.usd });
       }
       return { kind: "sent", at: t || now, cards: snaps };
     }
   }
 
-  // 2) a marketplace sale paid the Treasury its royalty → 44% to the sold NFT's vault
+  // 2) a marketplace sale paid the Treasury its royalty → 88% to the sold NFT's collection vault
   if (market) {
+    // the Treasury SOLD one of its own NFTs (a listed card the buyer bought): the proceeds are the Treasury's, not a
+    // royalty for a Card Vault (review I-4)
+    if (Object.values(moves).some((mv) => mv.pre === TREASURY && mv.post && mv.post !== TREASURY)) return { kind: "skip", why: "the Treasury's own sale (proceeds, not a royalty)" };
     const gains = {};
     const sg = solGain(tx, TREASURY); if (sg > 0n) gains[SOL_MINT] = S(sg);
-    for (const [m, d] of Object.entries(deltas)) if (d > 0n && m !== SOL_MINT) gains[m] = S(d);
+    // currencies only — an NFT (decimals 0) landing in the Treasury is never "money" owed to ops (review L-4)
+    for (const [m, d] of Object.entries(deltas)) if (d > 0n && m !== SOL_MINT && DECIMALS[m] != null) gains[m] = S(d);
     if (!Object.keys(gains).length) return { kind: "skip", why: "marketplace tx, nothing received" };
+    const cs = await coinStatus(sig);
+    if (cs === "credited") return { kind: "skip", why: "already a store coin purchase / tip" };
+    if (cs === "pending") return { kind: "retry", why: "a coin-purchase record for this signature is still being checked" };
     const sold = [];
     for (const [mint, mv] of Object.entries(moves)) if (mv.pre && mv.post && mv.pre !== mv.post) {
-      const a = await assetOf(mint).catch(() => null); const coll = collOf(a);
+      const a = await assetSafe(mint); const coll = collOf(a);
       if (coll) sold.push({ mint, coll, collMint: collMintOf(a) });
     }
     return { kind: "royalty", at: t || now, gains, sold };
@@ -359,22 +438,37 @@ export async function decide(sig, tx, { now = Date.now() } = {}) {
   // 3) ORE into the Treasury's ORE account → a repair payment if the payer holds Cracked/Mono cards
   const ore = deltas[ORE_MINT] || 0n;
   if (ore > 0n) {
-    const memos = memosOf(tx);
+    const memos = memosOf(tx), feePayer = signers[0], payer = orePayer(tx) || feePayer;
+    const fix = memos.some((m) => m.startsWith("ddfix:"));
     // our own wallets' ORE into the Treasury is a top-up — unless it names cards to repair (ddfix memos: the owner
     // repairing cards he holds, e.g. the pre-Nov 2 test)
-    if (OWN.has(payer) && !memos.some((m) => m.startsWith("ddfix:"))) return { kind: "skip", why: "from our own wallet" };
-    if (keys.includes(ORE_PROGRAM)) return { kind: "skip", why: "mining tip" };
-    if (memos.some((m) => m.startsWith("ddq:"))) return { kind: "skip", why: "store coin purchase (price-locked quote)" };
-    // A plain ORE transfer with no ddfix memo may be a game-coin purchase whose /api/coinbuy record lands a few
-    // seconds after it confirms — decide it only once it is ORE_SETTLE_MS old, so it is never read as a repair first.
-    if (!memos.some((m) => m.startsWith("ddfix:")) && t && now - t < ORE_SETTLE_MS) return { kind: "retry", why: "waiting for a possible coin-purchase record" };
+    if (OWN.has(payer) && !fix) return { kind: "skip", why: "from our own wallet" };
+    if (progs.has(ORE_PROGRAM)) return { kind: "skip", why: "mining tip" };
     if (memos.some((m) => m === TIP_MEMO || m.startsWith(TIP_MEMO))) return { kind: "skip", why: "Pot tip" };
-    const rec = await getStore("coin-purchases").get("buy:" + sig, { type: "json" }).catch(() => null);
-    if (rec) return { kind: "skip", why: "store coin purchase / tip record" };
+    if (!fix) {
+      if (memos.some((m) => m.startsWith("ddq:"))) return { kind: "skip", why: "store coin purchase (price-locked quote)" };
+      // A plain ORE transfer with no ddfix memo may be a game-coin purchase whose /api/coinbuy record lands a few
+      // seconds after it confirms — decide it only once it is ORE_SETTLE_MS old, so it is never read as a repair first.
+      if (t && now - t < ORE_SETTLE_MS) return { kind: "retry", why: "waiting for a possible coin-purchase record" };
+    }
+    // The coin ledger (review M-2). A ddfix: payment is a repair whatever anyone POSTed to /api/coinbuy — only coins
+    // actually credited for it stop it (never both). A memo-less payment waits while a record is unjudged; a REJECTED
+    // record (e.g. a stranger's junk POST) no longer blocks the holder's repair.
+    const cs = await coinStatus(sig);
+    if (cs === "credited") return { kind: "skip", why: "store coin purchase / tip record", ...(fix ? { payer, ddfix: true } : {}) };
+    if (cs === "pending" && !fix) return { kind: "retry", why: "waiting for a possible coin-purchase record to be checked" };
     const asked = [...new Set(memos.map((m) => /^ddfix:([1-9A-HJ-NP-Za-km-z]{32,44})$/.exec(m)?.[1]).filter(Boolean))];
-    const held = await holdings(payer).catch(() => null);
-    if (!held) return { kind: "retry", why: "couldn't read the payer's cards" };
+    let held;
+    try { held = await holdings(payer); } catch { return { kind: "retry", why: "couldn't read the payer's cards", transient: true, at: t || null }; }
     const byMint = new Map(held.map((a) => [a.id, a]));
+    // DAS's owner index can lag or come back empty — a card the payment names is re-checked on its own (getAsset)
+    for (const mint of asked) if (!byMint.has(mint)) {
+      const a = await assetSafe(mint, { fresh: true });
+      if (a && !a.burnt && collOf(a) && a.ownership?.owner === payer) { byMint.set(mint, a); held.push(a); }
+    }
+    // an EMPTY NFT list for a wallet that just paid ORE is more likely a DAS hiccup than a holder of nothing: read it
+    // again for a while (then it is decided as read, and the skip is listed on the desk for the owner to re-decide)
+    if (!held.length && !held.rawCount && !asked.length && t && now - t < EMPTY_RETRY_MS) return { kind: "retry", why: "the payer's NFT list came back empty — reading it again shortly", transient: true, at: t };
     const refused = [], candidates = [];
     const repairable = async (a) => {
       const c = conditionOf(a);
@@ -392,12 +486,13 @@ export async function decide(sig, tx, { now = Date.now() } = {}) {
     for (const a of held) if (!asked.includes(a.id) && !(await repairable(a))) rest.push(a);
     rest.sort((x, y) => rarityScore(y) - rarityScore(x) || (x.id < y.id ? -1 : 1));   // rarest first
     const queue = [...candidates, ...rest];
-    if (!queue.length) return asked.length ? { kind: "skip", why: "no repairable card in this payment", refused, payer } : { kind: "skip", why: "payer holds no Cracked/Mono cards" };
+    const who = { payer, ...(feePayer !== payer ? { feePayer } : {}), ore: S(ore) };
+    if (!queue.length) return asked.length ? { kind: "skip", why: "no repairable card in this payment", refused, ...who } : { kind: "skip", why: "payer holds no Cracked/Mono cards", ...who };
     const n = Number(ore / REPAIR_PRICE_RAW < BigInt(queue.length) ? ore / REPAIR_PRICE_RAW : BigInt(queue.length));
     const cards = queue.slice(0, n).map((a) => ({ mint: a.id, coll: collOf(a), from: conditionOf(a) }));
     for (const a of candidates.slice(n)) refused.push({ mint: a.id, reason: "the payment didn't cover this card (0.01 ORE each)" });
-    if (!cards.length) return { kind: "skip", why: "payment below 0.01 ORE", refused, payer };
-    return { kind: "repair", at: t || now, payer, ore: S(ore), cards, refused, leftover: S(ore - REPAIR_PRICE_RAW * BigInt(cards.length)) };
+    if (!cards.length) return { kind: "skip", why: "payment below 0.01 ORE", refused, ...who };
+    return { kind: "repair", at: t || now, ...who, cards, refused, leftover: S(ore - REPAIR_PRICE_RAW * BigInt(cards.length)) };
   }
   return { kind: "skip", why: "not a royalty, repair or card arrival" };
 }
@@ -448,14 +543,16 @@ export async function apply(sig, d) {
 // ---------- the Mint cap ----------
 // Grant one Mint spot to a card being repaired (atomic). Count = |live Mint/Framed Degens ∪ every repair ever granted|
 // — the union never double-counts a repaired card once the index shows it as Mint, and never dips while it doesn't.
+// A repaired card that was later burned for its claim is no Mint card any more — its granted spot is free again.
+const goneMints = async () => new Set((await getPool(DD_COLL)).claimed || []);
 export async function grantMintSpot(mint, paidAt = Date.now()) {
   const live = [...(await eligibleMints(DD_COLL, { fresh: true })).keys()];
-  const cap = await mintCapAt(paidAt);
+  const cap = await mintCapAt(paidAt), gone = await goneMints();
   let granted = false;
   await casUpdate(ks(), "mintcap", (c) => {
     c ||= { granted: [] };
     if (c.granted.includes(mint)) { granted = true; return undefined; }   // a re-run: already granted
-    const all = new Set([...live, ...c.granted]);
+    const all = new Set([...live, ...c.granted.filter((m) => !gone.has(m))]);
     if (all.size >= cap) { granted = false; return undefined; }
     c.granted = [...c.granted, mint]; granted = true; c.updatedAt = Date.now();
     return c;
@@ -463,8 +560,8 @@ export async function grantMintSpot(mint, paidAt = Date.now()) {
   return granted;
 }
 export async function mintSpots({ fresh = false } = {}) {
-  const [live, c] = await Promise.all([eligibleMints(DD_COLL, { fresh }), ks().get("mintcap", { type: "json" })]);
-  const count = new Set([...live.keys(), ...((c && c.granted) || [])]).size, cap = await mintCapAt();
+  const [live, c, gone] = await Promise.all([eligibleMints(DD_COLL, { fresh }), ks().get("mintcap", { type: "json" }), goneMints()]);
+  const count = new Set([...live.keys(), ...((c && c.granted) || []).filter((m) => !gone.has(m))]).size, cap = await mintCapAt();
   return { mintCount: count, mintCap: cap, mintSpotsLeft: Math.max(0, cap - count) };
 }
 // Weekly refunds: verify the Treasury's ORE transfers, then mark the covered refunds paid (oldest first per payer,
@@ -516,16 +613,18 @@ export async function createClaim(c) {
 }
 
 // Decide (once) + apply one Treasury signature. → the stored decision (with .applied).
-export async function processSig(sig, { tx = null, now = Date.now() } = {}) {
+export async function processSig(sig, { tx = null, now = Date.now(), giveUp = true } = {}) {
   const store = ks();
   let d = await store.get("dec:" + sig, { type: "json" });
   if (!d) {
-    tx ||= await getTx(sig, "jsonParsed").catch(() => null);
-    const fresh = await decide(sig, tx, { now });
+    if (!tx) { try { tx = await getTx(sig, "jsonParsed"); } catch { return { kind: "retry", why: "couldn't read the transaction (RPC) — trying again later" }; } }
+    let fresh = await decide(sig, tx, { now });
+    // a transient failure (DAS / RPC) is retried for a day — then decided as a skip that the desk lists (re-decide there)
+    if (giveUp && fresh.kind === "retry" && fresh.transient && fresh.at && now - fresh.at > GIVE_UP_MS) fresh = { kind: "skip", why: "gave up after 24 h: " + fresh.why };
     if (fresh.kind === "retry") return fresh;   // decide again later (nothing stored)
     fresh.decidedAt = now;
     if (!(await putIfNew(store, "dec:" + sig, fresh))) d = await store.get("dec:" + sig, { type: "json" });   // another call decided first
-    else d = fresh;
+    else { d = fresh; if (d.kind === "skip") await noteSkip(sig, d); }
   }
   if (d && !d.applied && d.kind !== "skip") {
     const res = await apply(sig, d);
@@ -533,6 +632,69 @@ export async function processSig(sig, { tx = null, now = Date.now() } = {}) {
     d = value || d;
   }
   return d;
+}
+
+// ---------- skipped payments: listed on the desk, re-decided by the owner (review M-3) ----------
+// A skip is final — so every skip that may hide someone's money (anything but our own / failed / mining / tip / quoted
+// coin-buy transactions) goes on the desk's list ("skips", newest 300) with its reason, payer and refused cards.
+const ROUTINE_SKIPS = new Set(["failed tx", "before the hand-over", "the Treasury's own transaction", "from our own wallet", "mining tip", "Pot tip", "store coin purchase (price-locked quote)"]);
+async function noteSkip(sig, d) {
+  if (ROUTINE_SKIPS.has(d.why) || (d.why === "store coin purchase / tip record" && !d.ddfix)) return;
+  await casUpdate(ks(), "skips", (x) => {
+    x ||= { items: [] };
+    if (x.items.some((i) => i.sig === sig)) return undefined;
+    x.items = [...x.items, { sig, why: d.why, at: d.decidedAt || Date.now(), payer: d.payer || null, ore: d.ore || null, refused: (d.refused || []).slice(0, 10) }].slice(-300);
+    return x;
+  }).catch((e) => console.log("keeper: couldn't list skip", sig, e?.message));
+}
+export async function listSkips() { return ((await ks().get("skips", { type: "json" }))?.items || []).slice().sort((a, b) => (b.at || 0) - (a.at || 0)); }
+// The owner re-decides ONE signature with today's rules and data (e.g. after a DAS outage, or a payment skipped before
+// the 2026-10-24 fixes). Only a skip can be re-decided — a royalty / repair / claim already booked never is. If it
+// still can't be decided right now, the old decision is put back untouched.
+export async function redecide(sig) {
+  if (!SIG_RE.test(sig || "")) throw new KeeperError("bad signature");
+  const store = ks(), prev = await store.get("dec:" + sig, { type: "json" });
+  if (prev && prev.kind !== "skip") throw new KeeperError(`only a skipped payment can be re-decided — this one is "${prev.kind}"`);
+  if (prev) await store.delete("dec:" + sig);
+  let d;
+  try { d = await processSig(sig, { giveUp: false }); }   // a manual re-decision never "gives up" — it keeps the old one
+  catch (e) { if (prev) await putIfNew(store, "dec:" + sig, prev); throw e; }
+  if (d.kind === "retry") {
+    if (prev) await putIfNew(store, "dec:" + sig, prev);
+    throw new KeeperError("couldn't decide it right now (" + (d.why || "try again") + ") — the old decision is kept", 503);
+  }
+  await casUpdate(store, "skips", (x) => {
+    const it = x?.items?.find((i) => i.sig === sig); if (!it) return undefined;
+    it.redecided = { at: Date.now(), kind: d.kind, why: d.why || null };
+    return x;
+  }).catch(() => {});
+  console.log("keeper: re-decided", sig, prev ? prev.why : "(no decision)", "→", d.kind, d.why || "");
+  return { sig, before: prev ? { kind: prev.kind, why: prev.why } : null, after: { kind: d.kind, why: d.why || null, cards: (d.cards || []).map((c) => c.mint), result: d.result || null } };
+}
+
+// ---------- cards held while burning was off → claims (review I-2; the owner's choice, card by card) ----------
+// Once burning is open, a card sent in earlier (held:<mint>) can be turned into a claim at TODAY's value for the wallet
+// that sent it — only while the card is still in the Treasury (or already burned) and has no claim yet.
+export async function convertHeld(mints) {
+  if (!burnEnabled()) throw new KeeperError("Burning isn't open yet — held cards can become claims only once it is", 409);
+  const px = await claimPrices();
+  if (!px) throw new KeeperError("no fresh stORE / ORE price right now — try again in a minute", 503);
+  const done = [], refused = [];
+  for (const mint of [...new Set(mints || [])].slice(0, 50)) {
+    if (!isAddr(mint)) continue;
+    const h = await ks().get("held:" + mint, { type: "json" });
+    if (!h) { refused.push({ mint, reason: "not a held card" }); continue; }
+    if (h.convertedAt || (await getClaim(mint))) { refused.push({ mint, reason: "already a claim" }); continue; }
+    const a = await assetOf(mint, { fresh: true }).catch(() => null);
+    if (!a || !collOf(a)) { refused.push({ mint, reason: "couldn't read the card" }); continue; }
+    if (!a.burnt && a.ownership?.owner !== TREASURY) { refused.push({ mint, reason: "no longer in the Treasury" }); continue; }
+    const b = await burnShare(a, { fresh: true }).catch(() => null), val = b && vaultInStore(b.share, px);
+    if (!val) { refused.push({ mint, reason: "couldn't value it right now" }); continue; }
+    const c = await createClaim({ mint, coll: collOf(a), collMint: collMintOf(a), wallet: h.from, kind: "sent", storeRaw: S(val.storeRaw), store: val.store, usd: val.usd, vault: b.share, eligible: b.eligible, w: b.w, n: b.n, sig: h.sig, at: Date.now(), heldSince: h.at, inTreasury: !a.burnt });
+    await casUpdate(ks(), "held:" + mint, (x) => { if (!x || x.convertedAt) return undefined; x.convertedAt = Date.now(); return x; });
+    done.push({ mint, wallet: h.from, store: c.store, usd: c.usd, status: c.status });
+  }
+  return { converted: done, refused };
 }
 
 // ---------- reading the Treasury's history (bounded per call) ----------
@@ -627,10 +789,14 @@ export async function scanTreasury({ max = 25, budgetMs = 8000, maxPages = 8 } =
 }
 
 // ---------- what a page sees ----------
-export async function vaultItem(a, px) {
+// `ctx` (from recordsFor) = the repair / claim records already read for a batch of cards + one pool read per
+// collection, so a big holder's /api/vault costs a couple of reads instead of 2–3 per card (review L-2).
+export async function vaultItem(a, px, ctx = null) {
   const mint = a.id, coll = collOf(a), condition = conditionOf(a);
   const on = burnEnabled();
-  const [b, rep, claim] = await Promise.all([on ? burnShare(a) : { eligible: false, share: {}, w: 0, n: 0 }, getRepair(mint), getClaim(mint)]);
+  const poolOf = async () => { const cm = collMintOf(a); if (!ctx) return null; if (!ctx.pools.has(cm)) ctx.pools.set(cm, getPool(cm)); return ctx.pools.get(cm); };
+  const [b, rep, claim] = await Promise.all([on ? poolOf().then((pool) => burnShare(a, { pool })) : { eligible: false, share: {}, w: 0, n: 0 },
+    ctx ? ctx.repairs.get(mint) ?? null : getRepair(mint), ctx ? ctx.claims.get(mint) ?? null : getClaim(mint)]);
   const val = claim ? null : b.eligible ? vaultInStore(b.share, px) : { store: "0", usd: 0 };
   const repairPending = !!rep && rep.status !== "applied";
   const note = claim ? null : burnNoteOf(a);
@@ -648,6 +814,17 @@ export async function vaultItem(a, px) {
     burned: !!a.burnt || !!claim,
     ...(claim && on ? { claim: { status: claim.status, store: claim.store, usd: claim.usd, kind: claim.kind, wallet: claim.wallet, at: claim.at, paid: claim.paid || null } } : {}),
   };
+}
+// The repair / claim records of a batch of cards → a vaultItem ctx. ≤ 10 cards: read each (as before); more: list the
+// record keys once and read only the cards that have one (a 271-card holder was ~550 reads per call before).
+export async function recordsFor(mints) {
+  const ctx = { repairs: new Map(), claims: new Map(), pools: new Map() }, want = new Set(mints);
+  const read = async (prefix, map, list) => { for (let i = 0; i < list.length; i += 25) await Promise.all(list.slice(i, i + 25).map(async (m) => { const v = await ks().get(prefix + m, { type: "json" }); if (v) map.set(m, v); })); };
+  if (want.size <= 10) { await Promise.all([read("repair:", ctx.repairs, [...want]), read("claim:", ctx.claims, [...want])]); return ctx; }
+  const [r, c] = await Promise.all([ks().list({ prefix: "repair:" }), ks().list({ prefix: "claim:" })]);
+  const hits = (blobs, p) => blobs.map((b) => b.key.slice(p.length)).filter((m) => want.has(m));
+  await Promise.all([read("repair:", ctx.repairs, hits(r.blobs, "repair:")), read("claim:", ctx.claims, hits(c.blobs, "claim:"))]);
+  return ctx;
 }
 export const pagePublic = () => ({ storeMint: STORE_MINT, treasury: TREASURY, treasuryOreAccount: TREASURY_ORE_ATA, oreMint: ORE_MINT, repairPrice: "0.01" });
 // the three Card Vault pools: what each holds, how many NFTs / shares split it now, and what ONE share is worth in
@@ -679,8 +856,10 @@ export async function claimFromBurn(sig, tx) {
     if (String(supply?.value?.amount ?? "x") !== "0") continue;       // not actually burned
     const a = await assetOf(mint, { fresh: true }).catch(() => null); const coll = collOf(a);
     if (!coll) continue;
-    const px = await prices(), b = await burnShare(a, { fresh: true }), val = vaultInStore(b.share, px);
-    if (!val) throw new KeeperError("no live stORE price right now — try again in a minute", 503);
+    const px = await claimPrices();
+    if (!px) throw new KeeperError("no fresh stORE price right now — try again in a minute", 503);
+    const b = await burnShare(a, { fresh: true }), val = vaultInStore(b.share, px);
+    if (!val) throw new KeeperError("no fresh stORE price right now — try again in a minute", 503);
     out.push(await createClaim({ mint, coll, collMint: collMintOf(a), wallet: mv.pre, kind: "burn", storeRaw: S(val.storeRaw), store: val.store, usd: val.usd, vault: b.share, eligible: b.eligible, w: b.w, n: b.n, sig, at: txTime(tx) || Date.now(), inTreasury: false }));
   }
   if (!out.length) throw new KeeperError("no Dojo NFT was burned by its holder in that transaction");
@@ -695,7 +874,8 @@ async function listJson(prefix) {
   return out;
 }
 export async function keeperSummary() {
-  const [claims, repairs, totals, px, scan, refunds, held] = await Promise.all([listJson("claim:"), listJson("repair:"), getTotals(), prices(), ks().get("scan", { type: "json" }), listJson("refund:"), listJson("held:")]);
+  const [claims, repairs, totals, px, scan, refunds, heldAll, skips] = await Promise.all([listJson("claim:"), listJson("repair:"), getTotals(), prices(), ks().get("scan", { type: "json" }), listJson("refund:"), listJson("held:"), listSkips().catch(() => [])]);
+  const held = heldAll.filter((h) => !h.convertedAt);
   const refundsDue = refunds.filter((r) => r.status === "due").sort((a, b) => a.at - b.at);
   const due = claims.filter((c) => c.status === "due"), toBurn = claims.filter((c) => c.inTreasury && !c.burnedAt);
   const dueRaw = due.reduce((s, c) => s + big(c.storeRaw), 0n);
@@ -714,6 +894,8 @@ export async function keeperSummary() {
     refundsDue: refundsDue.map((r) => ({ ...r, ore: toUi(r.raw, ORE_MINT) })), refundsDueOre: toUi(refundsDue.reduce((t, r) => t + big(r.raw), 0n), ORE_MINT),
     mint: await mintSpots().catch(() => null), mintCapHistory: ((await getSettings().catch(() => null))?.history || []).slice(-10),
     scan: { pending: scan?.pending?.length || 0, gaps: Object.values(scan?.gaps || {}).reduce((n, g) => n + g.length, 0), at: scan?.at || null },
+    // payments the reader skipped that may hide someone's money (newest first) — the owner can re-decide each
+    skips: skips.slice(0, 60).map((s) => ({ ...s, oreUi: s.ore ? toUi(s.ore, ORE_MINT) : null })),
   };
 }
 
@@ -796,21 +978,40 @@ export async function conversionQuote(inputMint) {
   const base = String(process.env.JUPITER_BASE || "https://lite-api.jup.ag").replace(/\/+$/, "");
   const q = await (await fetch(`${base}/swap/v1/quote?inputMint=${inputMint}&outputMint=${STORE_MINT}&amount=${amount}&swapMode=ExactIn&slippageBps=100`)).json().catch(() => null);
   if (!q || q.error || q.outAmount == null || q.outputMint !== STORE_MINT || String(q.inAmount) !== amount.toString()) throw new KeeperError("no swap route to stORE right now" + (q?.error ? " (" + q.error + ")" : ""), 502);
+  if ((q.inputMint && q.inputMint !== inputMint) || (q.swapMode && q.swapMode !== "ExactIn") || Number(q.slippageBps) > 100 || (q.platformFee && big(q.platformFee.amount) > 0n))
+    throw new KeeperError("the swap quote doesn't match what was asked — not using it", 502);
+  // The quote's minimum is what the Treasury accepts on-chain (payout-tx.js checks the signed swap against it), so a
+  // garbled or hostile quote must not pass as fair: compare with the spot feed, and fail closed without prices (review L4).
+  const px = await prices([inputMint, STORE_MINT]), pin = px[inputMint], pst = px[STORE_MINT];
+  if (!(pin > 0 && pst > 0)) throw new KeeperError("can't check the swap price against the market right now — try again in a minute", 502);
+  const fair = (Number(amount) / 10 ** (DECIMALS[inputMint] ?? 9)) * pin / pst * 10 ** DECIMALS[STORE_MINT];
+  if (!(Number(q.otherAmountThreshold ?? q.outAmount) >= fair * 0.9)) throw new KeeperError("the swap quote is more than 10% under the market price — not using it; try again in a minute", 502);
   return { inputMint, amount: amount.toString(), quote: q };
 }
-// The owner's conversion swap landed: verify (Treasury signed, spent the input, received stORE), then book it.
-export async function recordConversion(sig) {
-  if (!SIG_RE.test(sig || "")) throw new KeeperError("bad signature");
-  if (!(await putIfNew(ks(), "convsig:" + sig, { at: Date.now() }))) throw new KeeperError("that conversion was already recorded");
-  const tx = await getTx(sig, "jsonParsed").catch(() => null);
-  if (!tx || tx.meta?.err) throw new KeeperError("that transaction failed or isn't on-chain yet");
-  if (!signersOf(tx).includes(TREASURY)) throw new KeeperError("not signed by the Treasury");
-  const d = tokenDeltas([tx])[TREASURY] || {};
+// The owner's conversion landed: verify (Treasury signed, spent the input, received stORE), then book it.
+// `sigs` = one swap, or the steps of a conversion done by hand (e.g. SOL→ORE on Jupiter, then ORE→stORE on the ORE site):
+// the Treasury's balance changes are added up across all of them, so the in-between token (ORE) nets out and what
+// counts is what was finally spent and the stORE that arrived. Each signature can be booked once, ever.
+export async function recordConversion(sigs) {
+  const list = [...new Set((Array.isArray(sigs) ? sigs : [sigs]).map((s) => String(s || "").trim()).filter(Boolean))];
+  if (!list.length || list.length > 4 || !list.every((s) => SIG_RE.test(s))) throw new KeeperError("give 1 to 4 transaction signatures");
+  for (const s of list) if (await ks().get("convsig:" + s)) throw new KeeperError("that conversion was already recorded");
+  const txs = [];
+  for (const s of list) {
+    const tx = await getTx(s, "jsonParsed").catch(() => null);
+    if (!tx || tx.meta?.err) throw new KeeperError("a transaction failed or isn't on-chain yet");
+    if (!signersOf(tx).includes(TREASURY)) throw new KeeperError("not signed by the Treasury");
+    txs.push(tx);
+  }
+  for (const s of list) if (!(await putIfNew(ks(), "convsig:" + s, { at: Date.now(), with: list }))) throw new KeeperError("that conversion was already recorded");
+  const sig = list.join("+");
+  const d = tokenDeltas(txs)[TREASURY] || {};
   const gotStore = d[STORE_MINT] || 0n;
-  if (!(gotStore > 0n)) throw new KeeperError("the Treasury received no stORE in that transaction");
+  if (!(gotStore > 0n)) throw new KeeperError("the Treasury received no stORE in " + (list.length > 1 ? "those transactions" : "that transaction"));
   const spent = {};
   for (const [m, v] of Object.entries(d)) if (v < 0n && m !== STORE_MINT) spent[m] = -v;
-  const sol = -solGain(tx, TREASURY) - BigInt(tx.meta?.fee || 0); if (sol > 0n) spent[SOL_MINT] = (spent[SOL_MINT] || 0n) + sol;
+  let sol = 0n; for (const tx of txs) sol += -solGain(tx, TREASURY) - BigInt(tx.meta?.fee || 0);
+  if (sol > 0n) spent[SOL_MINT] = (spent[SOL_MINT] || 0n) + sol;
   const { value } = await casUpdate(ks(), "totals", (t) => {
     t ||= { reserve: {}, ops: {}, direct: {}, unconverted: {}, ids: [] };
     if ((t.ids || []).includes("conv:" + sig)) return undefined;

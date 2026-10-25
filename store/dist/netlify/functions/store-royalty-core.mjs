@@ -1,5 +1,5 @@
 // RETIRED 2026-10-23 — royalties no longer feed the Pot. store-keeper-core.mjs is now the ONLY thing that handles
-// royalties (44% the collection's Card Vault / 44% Reserve / 12% operations). sweepRoyalties() and processRoyaltySig()
+// royalties (88% the collection's Card Vault / 12% operations). sweepRoyalties() and processRoyaltySig()
 // below refuse to credit anything; this module stays only for MARKETPLACES (shared with the Keeper + /api/reserve)
 // and so the old "dd-royalties" records remain readable.
 //
@@ -95,7 +95,7 @@ const isFinal = (rec) => !!(rec && (rec.credited || rec.skip || rec.gaveUp));
 // `tx` may be passed in when the caller already has it; `notBefore` (ms) refuses older sales.
 export const ROYALTY_TO_POT_RETIRED = true;
 export async function processRoyaltySig(sig, { tx, notBefore = 0 } = {}) {
-  if (ROYALTY_TO_POT_RETIRED) return { refuse: "retired — royalties now go to the collection Card Vault (44%), the Reserve (44%) and operations (12%), not the Pot" };
+  if (ROYALTY_TO_POT_RETIRED) return { refuse: "retired — royalties now go to the collection Card Vault (88%) and operations (12%), not the Pot" };
   if (tx === undefined) {
     try { tx = await rpc("getTransaction", [sig, { maxSupportedTransactionVersion: 0, encoding: "json" }]); }
     catch (e) { return { retry: "rpc: " + (e.message || e) }; }

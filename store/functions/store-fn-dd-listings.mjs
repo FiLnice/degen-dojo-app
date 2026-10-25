@@ -17,7 +17,7 @@
 import { limited } from "./store-ratelimit-core.mjs";
 import { getStore } from "@netlify/blobs";
 import { createHash } from "node:crypto";
-import { minInCurrency, LIST_SLACK, BUY_SLACK, FLOOR_COLLECTION, collectionOf } from "./store-min-core.mjs";
+import { minInCurrency, LIST_SLACK, BUY_SLACK, FLOOR_COLLECTION, collectionOf, MIN_SALE_BU } from "./store-min-core.mjs";
 import { dojoOf, isLookalike } from "./store-genuine-core.mjs";
 
 // ── constants (must match dojo-ah.js) ──────────────────────────────────────────────────────────
@@ -29,6 +29,9 @@ export const HOUSES = {
   SKR:  { house: "EfeSbHoNsXxKFRjMmNpFPNnUDYE2QmkQ5ugxvtQzCE6C", mint: "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3", decimals: 6 },
   USDC: { house: "GnbcBGfDLe3S2QaKwSPGwiJ6SoU8qzdkYAPdzTLfn1Ft", mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", decimals: 6 },
 };
+// The store is ORE-only (owner decision): new listings and the served feed are ORE. SKR / USDC stay in HOUSES only so
+// old records still re-derive (recordConsistent) instead of being mistaken for forgeries.
+export const ACTIVE = new Set(["ORE"]);
 const SIZE = 1n;                         // dojo-ah.js always lists size 1
 const U64_MAX = (1n << 64n) - 1n;
 const B58 = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
@@ -172,6 +175,7 @@ export async function verifyListing(d, rpcFn = rpc, minFn = minInCurrency) {
   const { mint, seller, currency, tradeState } = d || {};
   const h = HOUSES[currency];
   if (!h) throw new ListingError("bad currency");
+  if (!ACTIVE.has(currency)) throw new ListingError("the marketplace is ORE-only — list in ORE");
   try { pk(mint); pk(seller); pk(tradeState); } catch { throw new ListingError("bad fields"); }
   // price → base units, then the canonical human price every client re-derives the same PDA from.
   let bu;
@@ -182,14 +186,16 @@ export async function verifyListing(d, rpcFn = rpc, minFn = minInCurrency) {
     bu = claimed;
   } catch { throw new ListingError("bad price"); }
   if (bu <= 0n || bu > U64_MAX) throw new ListingError("bad price");
+  if (MIN_SALE_BU[currency] && bu < MIN_SALE_BU[currency]) throw new ListingError(`the lowest price on this market is ${formatUnits(MIN_SALE_BU[currency], h.decimals)} ${currency}`);
   const price = Number(formatUnits(bu, h.decimals));
   if (!(price > 0) || priceToBaseUnitsSafe(price, h.decimals) !== bu) throw new ListingError("price not representable");
 
-  // token account: the seller's ATA (what every client buys/cancels against) or an explicit one.
-  const candidates = [ataOf(seller, mint)];
-  if (d.tokenAccount != null && d.tokenAccount !== "") { try { pk(d.tokenAccount); } catch { throw new ListingError("bad tokenAccount"); } if (d.tokenAccount !== candidates[0]) candidates.push(d.tokenAccount); }
-  const tokenAccount = candidates.find((ta) => tradeStateOf(seller, h.house, ta, h.mint, mint, bu) === tradeState);
-  if (!tokenAccount) throw new ListingError("trade state does not match this seller/house/mint/price");
+  // token account: ONLY the seller's ATA. execute_sale asserts the seller's token account is their ATA
+  // (assert_is_ata), so a listing from any other token account could never be bought — a dead row in the feed.
+  const tokenAccount = ataOf(seller, mint);
+  if (d.tokenAccount != null && d.tokenAccount !== "") { try { pk(d.tokenAccount); } catch { throw new ListingError("bad tokenAccount"); }
+    if (d.tokenAccount !== tokenAccount) throw new ListingError("this NFT isn't in your main (associated) token account, so it could never be bought — move it to your wallet's main account and list again"); }
+  if (tradeStateOf(seller, h.house, tokenAccount, h.mint, mint, bu) !== tradeState) throw new ListingError("trade state does not match this seller/house/mint/price");
 
   const res = await rpcFn("getMultipleAccounts", [[tradeState, tokenAccount], { encoding: "jsonParsed", commitment: "confirmed" }]);
   const [tsAcc, taAcc] = (res && res.value) || [];
@@ -197,17 +203,21 @@ export async function verifyListing(d, rpcFn = rpc, minFn = minInCurrency) {
   if (!tradeStateLive(tsAcc)) throw new ListingError("trade state is not an AuctionHouse account");
   if (!holds(taAcc, seller, mint)) throw new ListingError("seller does not hold this NFT");
 
-  let name = "", image = "", collection = "", dojo = null, asset = null;
-  try { asset = await rpcFn("getAsset", { id: mint }); name = dasName(asset); image = dasImage(asset); collection = collectionOf(asset); dojo = dojoOf(asset); } catch {}
+  // FAIL CLOSED: without the DAS record we can't tell a Degen (floor) or a look-alike (refused) from anything else, so
+  // a DAS error is "try again", never "record it as some other collection" (that record would be served forever).
+  let asset = null;
+  for (let i = 0; i < 2 && !asset; i++) { try { const a = await rpcFn("getAsset", { id: mint }); if (a && a.id) asset = a; } catch {} }
+  if (!asset) throw new ListingError("couldn't confirm this NFT right now — try again in a minute", 409);
+  const name = dasName(asset), image = dasImage(asset), collection = collectionOf(asset), dojo = dojoOf(asset);
   // A look-alike (copies our name, collection name, creator wallets or art without being ours) is never listed here.
   if (isLookalike(asset)) throw new ListingError("this NFT copies Degen Dojo but isn't one of ours — it can't be listed here");
-  // The Degen Dojo floor: 1.5 SOL in this currency at today's price (Degens only). If the price feed is down,
-  // the List page's own check already ran — record it rather than hide a real on-chain listing.
+  // The Degen Dojo floor: 1.5 SOL in this currency at today's price (Degens only). No price at all → try again.
   if (collection === FLOOR_COLLECTION) {
     const min = await minFn(currency);
-    if (min && price < min * LIST_SLACK) throw new ListingError(`below the Degen Dojo minimum (${min.toFixed(currency === "USDC" ? 2 : 3)} ${currency} ≈ 1.5 SOL)`);
+    if (!min) throw new ListingError("the price feed is unavailable, so the Degen Dojo minimum can't be checked — try again in a minute", 503);
+    if (price < min * LIST_SLACK) throw new ListingError(`below the Degen Dojo minimum (${min.toFixed(3)} ${currency} ≈ 1.5 SOL)`);
   }
-  return { v: 2, mint, seller, currency, price, priceBaseUnits: bu.toString(), tradeState, tokenAccount, name, image, collection, dojo,
+  return { v: 2, mint, seller, currency, price, priceBaseUnits: bu.toString(), tradeState, tokenAccount, name, image, collection, collChecked: true, dojo,
     listedAt: (res && res.context && res.context.slot) || null };
 }
 function priceToBaseUnitsSafe(p, dec) { try { return priceToBaseUnits(String(p), dec); } catch { return -1n; } }
@@ -299,16 +309,22 @@ export default async (request) => {
   for (const r of out.live) if (r._dirty) { delete r._dirty; s.setJSON(r.tradeState, r).catch(() => {}); }
   // Hide Degen Dojo listings now under the floor (the currency fell against SOL): the co-signer won't sign them,
   // so a buyer would only hit a refusal. Kept in the store — they come back if the price recovers.
-  // records made before the collection was stored: look it up once (and drop look-alikes)
-  const unknown = out.live.filter((r) => r.collection === undefined);
+  // records whose collection was never confirmed by DAS (made before the collection was stored, or stored as "" by the
+  // old fail-open POST during a DAS error): look it up once; until it's known the listing is NOT served (it could be a
+  // below-floor Degen or a look-alike).
+  const unknown = out.live.filter((r) => r.collection === undefined || (r.collection === "" && !r.collChecked));
+  const unresolved = new Set();
   if (unknown.length) {
     let assets = []; try { assets = (await rpc("getAssetBatch", { ids: unknown.map((r) => r.mint) })) || []; } catch {}
     const byId = new Map(assets.filter((a) => a && a.id).map((a) => [a.id, a]));
-    for (const r of unknown) { const a = byId.get(r.mint); if (!a) continue; r.collection = collectionOf(a); r.dojo = dojoOf(a); r.lookalike = isLookalike(a); s.setJSON(r.tradeState, r).catch(() => {}); }   // remember it
+    for (const r of unknown) { const a = byId.get(r.mint); if (!a) { unresolved.add(r.tradeState); continue; }
+      r.collection = collectionOf(a); r.collChecked = true; r.dojo = dojoOf(a); r.lookalike = isLookalike(a); s.setJSON(r.tradeState, r).catch(() => {}); }   // remember it
   }
-  out.live = capListings(out.live.filter((r) => !r.lookalike));   // one listing per NFT (newest), ≤ SELLER_CAP per seller
+  // only ORE listings from the seller's ATA are buyable (execute_sale asserts the ATA); the rest stay stored, not served
+  out.live = capListings(out.live.filter((r) => !r.lookalike && !unresolved.has(r.tradeState) && ACTIVE.has(r.currency) && r.tokenAccount === ataOf(r.seller, r.mint)));
   const mins = {}; for (const c of new Set(out.live.map((r) => r.currency))) mins[c] = await minInCurrency(c);
-  const buyable = out.live.filter((r) => r.collection !== FLOOR_COLLECTION || !mins[r.currency] || r.price >= mins[r.currency] * BUY_SLACK);
+  // a Degen is served only while its price is above the floor (with the buy slack) — and not at all while there is no price
+  const buyable = out.live.filter((r) => r.collection !== FLOOR_COLLECTION || (mins[r.currency] && r.price >= mins[r.currency] * BUY_SLACK));
   const listings = buyable.map(publicView).sort((a, b) => a.price - b.price);
   return json({ listings });
 };

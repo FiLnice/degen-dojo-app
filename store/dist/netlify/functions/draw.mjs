@@ -15,7 +15,10 @@
 //      pick. Same inputs → same winners. Fairness is checkable, not trusted.
 //
 //   GET  ?action=status            → latest round (public: commitment, seed if
-//                                     drawn, blockhash, winners, tickets total)
+//                                     drawn, blockhash, winners, tickets total); &round=N → that round
+//   GET  ?action=entries&round=N   → the [wallet, tickets] list round N is drawn from (published when the
+//                                     round's entries freeze, BEFORE its target slot is chosen) — with the
+//                                     revealed seed + blockhash anyone can re-run the pick
 //   GET  ?action=commit  (Bearer ADMIN_KEY) → open a new round (admin)
 //   GET  ?action=draw    (Bearer ADMIN_KEY) → run the draw for the open round (admin)
 //
@@ -28,7 +31,7 @@
 // Tickets come from the "tickets" Blobs store, written ONLY by /api/play (store-fn-play.mjs).
 import { limited } from "./store-ratelimit-core.mjs";
 import { getPot, POT_FRAC } from "./store-pot-core.mjs";
-import { commitRound, drawRound, latestRound, getPublic, solUsd, DrawError } from "./store-draw-core.mjs";
+import { commitRound, drawRound, latestRound, getPublic, publicEntries, solUsd, DrawError } from "./store-draw-core.mjs";
 import { adminRequestOk } from "./store-session-core.mjs";
 
 export default async (request) => {
@@ -38,15 +41,26 @@ export default async (request) => {
   const admin = () => adminRequestOk(request, "ADMIN_KEY");   // unset ADMIN_KEY never matches (no "\0" sentinel)
   const json = (o, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { "content-type": "application/json", "cache-control": "no-store" } });
 
+  // a past round's public record / its published entries (round numbers only; nothing private is reachable)
+  const asked = url.searchParams.get("round");
+  const askedRound = asked == null ? null : /^\d{1,6}$/.test(asked) ? Number(asked) : NaN;
+  if (Number.isNaN(askedRound)) return json({ error: "bad round" }, 400);
+  if (action === "entries") {
+    const round = askedRound || (await latestRound());
+    const e = round ? await publicEntries(round) : null;
+    return e ? json(e) : json({ error: "no published entries for round " + round }, 404);
+  }
+
   if (action === "status") {
-    const round = await latestRound();
+    const latest = await latestRound();
+    const round = askedRound && askedRound <= latest ? askedRound : latest;
     const pub = await getPublic(round);
     // the LIVE pot (accumulated from verified purchases + tips) — real, not a manual number.
     // Shape matches what the /pot ledger page renders: potSol, potPct, routes{route:{sol,skr,ore}}.
     const pot = await getPot();
     const sp = await solUsd();
     return json({
-      round, draw: pub,
+      round, latestRound: latest, draw: pub,
       potSol: sp ? +(pot.usd / sp).toFixed(4) : null, potUsd: +pot.usd.toFixed(2),
       potPct: Math.round(POT_FRAC * 100), routes: pot.routes, solPrice: sp,
     });

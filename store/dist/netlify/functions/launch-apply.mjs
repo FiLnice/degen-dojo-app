@@ -6,7 +6,9 @@
 import { limited } from "./store-ratelimit-core.mjs";
 import { getStore } from "@netlify/blobs";
 import { adminRequestOk } from "./store-session-core.mjs";
+import { casUpdate } from "./store-cas-core.mjs";
 
+const DAILY_CAP = 50;
 const B58 = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 const json = (o, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { "content-type": "application/json", "cache-control": "no-store", "access-control-allow-origin": "*" } });
 const store = () => getStore({ name: "launch-apps", consistency: "strong" });
@@ -21,7 +23,7 @@ export default async (request) => {
     const s = store();
     const { blobs } = await s.list();
     const apps = [];
-    for (const b of blobs) { const r = await s.get(b.key, { type: "json" }); if (r) apps.push(r); }
+    for (const b of blobs) { if (b.key.startsWith("count:")) continue; const r = await s.get(b.key, { type: "json" }); if (r) apps.push(r); }
     apps.sort((a, b) => (b.at || 0) - (a.at || 0));
     return json({ count: apps.length, apps });
   }
@@ -47,8 +49,15 @@ export default async (request) => {
     notes: clip(d.notes, 2000),
     ua: clip(request.headers.get("user-agent"), 200),
   };
-  const key = rec.at + "-" + wallet.slice(0, 8);
-  await store().setJSON(key, rec);
+  // The intake is unauthenticated, so its store must not grow without bound (review: Blobs stores grow forever): at most
+  // DAILY_CAP applications a day in total (a CAS counter, no list() in the request path) and one per team wallet a day
+  // (a second one that day replaces the first).
+  const day = new Date(rec.at).toISOString().slice(0, 10);
+  try {
+    const { changed } = await casUpdate(store(), "count:" + day, (c) => ((c?.n || 0) >= DAILY_CAP ? undefined : { n: (c?.n || 0) + 1 }));
+    if (!changed) return json({ error: "we've had a lot of applications today — please try again tomorrow, or reach us on X" }, 429);
+  } catch { return json({ error: "busy — try again in a minute" }, 503); }
+  await store().setJSON("app:" + day + "-" + wallet, rec);
   return json({ ok: true });
 };
 

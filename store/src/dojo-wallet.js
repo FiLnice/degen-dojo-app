@@ -38,6 +38,8 @@
     return out;
   }
 
+  function b64(bytes) { var u = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes), s = ''; for (var i = 0; i < u.length; i++) s += String.fromCharCode(u[i]); return btoa(s); }
+
   async function api(path, body) {
     var res = await fetch(API + path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
     var j = {}; try { j = await res.json(); } catch (e) {}
@@ -89,12 +91,24 @@
         if (!a) { var p = provider(); var resp = await p.connect(); a = { pubkey: (p.publicKey || resp.publicKey).toString(), signMessage: function (b) { return p.signMessage(b, 'utf8').then(function (s) { return { signature: s.signature || s }; }); } }; }
         W._adapter = a;
         var pubkey = a.pubkey;
-        var n = await api('/api/auth', { action: 'nonce', wallet: pubkey });
-        var msgBytes = new TextEncoder().encode(n.message);
-        var signed = await a.signMessage(msgBytes);
-        var sig = signed.signature;                 // Uint8Array
-        var sigB58 = b58encode(sig instanceof Uint8Array ? sig : new Uint8Array(sig));
-        var v = await api('/api/auth', { action: 'verify', wallet: pubkey, signature: sigB58 });
+        // Wallets with Sign-In With Solana (solana:signIn) sign the server's fields themselves and check the domain;
+        // the others sign the same text with signMessage. If the wallet built a text the server can't match, sign
+        // once more the plain way (fresh nonce). The nonce travels with verify (the server keys it by nonce).
+        var v = null;
+        for (var attempt = 0; attempt < 2 && !v; attempt++) {
+          var n = await api('/api/auth', { action: 'nonce', wallet: pubkey });
+          var body = { action: 'verify', wallet: pubkey, nonce: n.nonce };
+          var siws = null;
+          if (attempt === 0 && a.signIn && n.siws) {
+            try { siws = await a.signIn(n.siws); } catch (e) { if (cancelled(e)) throw e; siws = null; }
+          }
+          var sig;
+          if (siws) { sig = siws.signature; body.signedMessage = b64(siws.signedMessage); }
+          else sig = (await a.signMessage(new TextEncoder().encode(n.message))).signature;   // Uint8Array
+          body.signature = b58encode(sig instanceof Uint8Array ? sig : new Uint8Array(sig));
+          try { v = await api('/api/auth', body); }
+          catch (e) { if (!(siws && e.body && e.body.siwsMismatch)) throw e; }
+        }
         W.token = v.token; W.wallet = v.wallet; W.exp = v.exp || 0;
         try { localStorage.setItem(SES_KEY, JSON.stringify({ token: v.token, wallet: v.wallet, exp: v.exp })); } catch (e) {}
         await W.refresh();

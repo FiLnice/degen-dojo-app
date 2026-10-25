@@ -5,21 +5,31 @@
 // hold. In return we issue a short-lived HMAC session token that /api/play trusts
 // to move that wallet's server-side coins and mint its raffle tickets.
 //
-//   POST {action:"nonce",  wallet}                 → { nonce, message }  (sign `message`)
-//   POST {action:"verify", wallet, signature}      → { token, exp }      (signature = base58 of the 64-byte sig)
+//   POST {action:"nonce",  wallet}                 → { nonce, message, siws }  (sign `message`, or pass `siws` to the
+//                                                    wallet's solana:signIn — same text, the wallet then checks the domain)
+//   POST {action:"verify", wallet, nonce, signature, signedMessage?}  → { token, exp }
+//        signature = base58 of the 64-byte sig; signedMessage = base64 of the text solana:signIn returned (optional)
+//
+// Nonces are stored by the NONCE (n:<nonce>), never by wallet (review 2026-10-23, M7): asking for a nonce for
+// someone else's wallet used to overwrite theirs and lock them out of sign-in. Every pending nonce now stays valid
+// until it is used or expires (5 min); one use only (used:<nonce>, create-only).
 //
 // Env: SESSION_SECRET (≥ 32 chars) signs the session token. FAIL-CLOSED: if it is missing or too
 // short every action answers 503 — there is NO fallback to ADMIN_KEY or a built-in dev secret
 // (see store-session-core.mjs, shared with /api/play which accepts the tokens).
 import { getStore } from "@netlify/blobs";
 import { createPublicKey, verify as edVerify, randomBytes } from "node:crypto";
-import { issueToken, checkToken as checkSessionToken, sessionReady, sessionUnavailable } from "./store-session-core.mjs";
+import { issueToken, checkToken as checkSessionToken, sessionReady, sessionUnavailable, siwsText, siwsMatches, signedMessageText, fetchSiteOk } from "./store-session-core.mjs";
 import { putIfNew } from "./store-cas-core.mjs";
 import { limited } from "./store-ratelimit-core.mjs";
 
 const ADDR_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 const NONCE_TTL = 5 * 60 * 1000;        // a nonce is good for 5 minutes
 const SESSION_TTL = 12 * 60 * 60 * 1000; // a session lasts 12 hours
+const NONCE_RE = /^[0-9a-f]{32}$/;
+// A page loaded before this deploy still verifies without `nonce`: it is found through the wallet's LAST nonce
+// (w:<wallet>, overwritable — the old behaviour) until this date, after which `nonce` is required.
+const LEGACY_VERIFY_UNTIL = Date.UTC(2026, 10, 9);
 
 // ── base58 decode (Bitcoin alphabet), for Solana pubkeys & signatures ──
 const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
@@ -51,9 +61,9 @@ export const checkToken = checkSessionToken;
 // Sign-In With Solana (SIWS) format: the first line names the site, so wallets that understand SIWS
 // (Phantom, Solflare…) warn when a DIFFERENT site asks the player to sign it — a phishing page can't
 // pass off our sign-in as its own. Domain, URI, chain, nonce and expiry are all bound into the text.
-function msg(domain, wallet, nonce, iso, expIso) {
-  return `${domain} wants you to sign in with your Solana account:\n${wallet}\n\nSign in to Degen Dojo. This is free and never a transaction.\n\nURI: https://${domain}\nVersion: 1\nChain ID: mainnet\nNonce: ${nonce}\nIssued At: ${iso}\nExpiration Time: ${expIso}`;
-}
+const siwsFields = (domain, wallet, nonce, iso, expIso) => ({ domain, address: wallet, statement: "Sign in to Degen Dojo. This is free and never a transaction.",
+  uri: `https://${domain}`, version: "1", chainId: "mainnet", nonce, issuedAt: iso, expirationTime: expIso });
+function msg(domain, wallet, nonce, iso, expIso) { return siwsText(siwsFields(domain, wallet, nonce, iso, expIso)); }
 
 // Same-origin only: the browser's Origin (or, from an in-app wallet browser that omits it, the Referer) must
 // be this site's own host (no "*" CORS any more). Sign-in is always done from our pages — no header → refused.
@@ -78,26 +88,40 @@ export default async (request) => {
   const json = (o, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { "content-type": "application/json", "cache-control": "no-store", ...CORS } });
   if (!ADDR_RE.test(r.wallet || "")) return json({ error: "bad wallet" }, 400);
   const domain = ownOrigin(request);
-  if (!domain) return json({ error: "sign in from the Degen Dojo store" }, 403);
+  if (!domain || !fetchSiteOk(request)) return json({ error: "sign in from the Degen Dojo store" }, 403);
   const store = getStore("auth-nonces");
 
   if (r.action === "nonce") {
     const nonce = randomBytes(16).toString("hex");
     const now = Date.now(), iso = new Date(now).toISOString(), exp = now + NONCE_TTL, expIso = new Date(exp).toISOString();
-    await store.setJSON("n:" + r.wallet, { nonce, iso, exp, expIso, domain });
-    return json({ nonce, message: msg(domain, r.wallet, nonce, iso, expIso) });
+    // keyed by the random nonce: a request for someone else's wallet can't replace THEIR pending nonce
+    await store.setJSON("n:" + nonce, { wallet: r.wallet, nonce, iso, exp, expIso, domain });
+    if (now < LEGACY_VERIFY_UNTIL) await store.setJSON("w:" + r.wallet, { nonce, exp }).catch(() => {});   // old pages only (see above)
+    return json({ nonce, message: msg(domain, r.wallet, nonce, iso, expIso), siws: siwsFields(domain, r.wallet, nonce, iso, expIso) });
   }
 
   if (r.action === "verify") {
-    const rec = await store.get("n:" + r.wallet, { type: "json" });
+    let nonce = r.nonce;
+    if (nonce == null && Date.now() < LEGACY_VERIFY_UNTIL) nonce = ((await store.get("w:" + r.wallet, { type: "json" })) || {}).nonce;
+    if (!NONCE_RE.test(String(nonce || ""))) return json({ error: "nonce expired — request a new one" }, 401);
+    const rec = await store.get("n:" + nonce, { type: "json" });
     if (!rec || !rec.domain || Date.now() > rec.exp) return json({ error: "nonce expired — request a new one" }, 401);
+    if (rec.wallet !== r.wallet) return json({ error: "that sign-in request is for another wallet — request a new one" }, 401);
     if (rec.domain !== domain) return json({ error: "sign in from the site that asked for it" }, 403);   // nonce is bound to its site
+    // what was signed: our exact text, or the text the wallet built itself through solana:signIn (same fields)
+    const fields = siwsFields(rec.domain, r.wallet, rec.nonce, rec.iso, rec.expIso);
+    let text = siwsText(fields);
+    if (r.signedMessage != null) {
+      const t = signedMessageText(r.signedMessage);
+      if (t == null || !siwsMatches(t, fields)) return json({ error: "the wallet signed a different sign-in text", siwsMismatch: true }, 401);
+      text = t;
+    }
     let ok = false;
-    try { ok = typeof r.signature === "string" && r.signature.length <= 100 && verifyWalletSig(r.wallet, msg(rec.domain, r.wallet, rec.nonce, rec.iso, rec.expIso), r.signature); } catch { ok = false; }
+    try { ok = typeof r.signature === "string" && r.signature.length <= 100 && verifyWalletSig(r.wallet, text, r.signature); } catch { ok = false; }
     if (!ok) return json({ error: "signature did not verify" }, 401);
     // one-time use, atomically: a create-only marker — two racing verifies can't both get a session
     if (!(await putIfNew(store, "used:" + rec.nonce, { wallet: r.wallet, at: Date.now() }))) return json({ error: "nonce already used — request a new one" }, 401);
-    await store.delete("n:" + r.wallet);
+    await store.delete("n:" + rec.nonce);
     const exp = Date.now() + SESSION_TTL;
     const token = issueToken(r.wallet, exp);
     if (!token) return sessionUnavailable(CORS);

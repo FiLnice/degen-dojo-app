@@ -7,13 +7,33 @@
   var CHAIN = 'solana:mainnet';
 
   // Preacher links: every page that loads this script (store, miner, games, coins) keeps a ?ref=code
-  // in the shared dd_ref cookie — same 30-day last-touch rule as the store home.
+  // in the dd_ref cookie — same 30-day last-touch rule as the store home.
+  // Security review 2026-10-23 (H1): the cookie is HOST-ONLY. On https it is "__Host-dd_ref" (Secure, path=/, no
+  // Domain), which a sibling sub-domain can neither read nor overwrite — the old domain-wide dd_ref could be tossed
+  // from any *.degendojo.xyz host. Links from degendojo.xyz reach the store through /preacher/<code> → /?ref=<code>.
+  // A legacy domain-wide dd_ref is migrated once (until 23 Nov 2026, when every legit one has expired), then ignored.
+  var REF_RE = /^[a-zA-Z0-9_-]{2,32}$/;
+  var SECURE = location.protocol === 'https:';
+  var REF_COOKIE = SECURE ? '__Host-dd_ref' : 'dd_ref';
+  function readCookie(name) {
+    var m = document.cookie.match(new RegExp('(?:^|;\\s*)' + name.replace(/[-]/g, '\\-') + '=([^;]+)'));
+    return m ? decodeURIComponent(m[1]) : null;
+  }
+  function writeRef(code) {
+    document.cookie = REF_COOKIE + '=' + encodeURIComponent(code) + '; max-age=' + (30 * 86400) + '; path=/; SameSite=Lax' + (SECURE ? '; Secure' : '');
+  }
+  function dropLegacy() {
+    if (!SECURE) return;
+    document.cookie = 'dd_ref=; max-age=0; path=/';
+    if (/(^|\.)degendojo\.xyz$/.test(location.hostname)) document.cookie = 'dd_ref=; max-age=0; path=/; domain=.degendojo.xyz';
+  }
   (function captureRef() {
     try {
       var r = new URLSearchParams(location.search).get('ref');
-      if (!r || !/^[a-zA-Z0-9_-]{2,32}$/.test(r)) return;
-      var dom = /(^|\.)degendojo\.xyz$/.test(location.hostname) ? '; domain=.degendojo.xyz' : '';
-      document.cookie = 'dd_ref=' + encodeURIComponent(r.toLowerCase()) + dom + '; max-age=' + (30 * 86400) + '; path=/; SameSite=Lax';
+      if (r && REF_RE.test(r)) { writeRef(r.toLowerCase()); dropLegacy(); return; }
+      var legacy = SECURE && !readCookie(REF_COOKIE) && Date.now() < Date.UTC(2026, 10, 23) ? readCookie('dd_ref') : null;
+      if (legacy && REF_RE.test(legacy)) writeRef(legacy.toLowerCase());
+      if (SECURE && readCookie('dd_ref') != null) dropLegacy();
     } catch (_) {}
   })();
 
@@ -23,10 +43,13 @@
   // DojoRef.instruction(web3) → a Memo TransactionInstruction for the current referral, or null if none.
   global.DojoRef = {
     MEMO_PROGRAM: 'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr',
+    // the one reader every page uses (host-only cookie, see captureRef above)
     code: function () {
-      try { var m = document.cookie.match(/(?:^|;\s*)dd_ref=([^;]+)/); var c = m ? decodeURIComponent(m[1]).toLowerCase() : '';
+      try { var c = (readCookie(REF_COOKIE) || '').toLowerCase();
         return /^[a-z0-9_-]{2,32}$/.test(c) ? c : null; } catch (_) { return null; }
     },
+    // remember a referral code (the store home's own ?ref handling uses this too)
+    set: function (code) { try { if (REF_RE.test(code || '')) { writeRef(String(code).toLowerCase()); dropLegacy(); } } catch (_) {} },
     memoText: function () { var c = this.code(); return c ? 'ddref:' + c : null; },
     instruction: function (web3) {
       var t = this.memoText(); if (!t || !web3) return null;
@@ -115,6 +138,17 @@
         return F['solana:signMessage'].signMessage({ account: account, message: message })
           .then(function (o) { return { signature: o[0].signature }; });
       },
+      // Sign-In With Solana (Wallet Standard solana:signIn), when the wallet has it: the wallet builds the text from the
+      // server's fields and checks `domain` against this page itself, so a phishing site can't relay our sign-in
+      // (security review 2026-10-23, L5). Not over the Mobile Wallet Adapter / Seeker Connect, where signMessage is
+      // the tested path. → { signature, signedMessage } or null (feature missing) — callers fall back to signMessage.
+      signIn: (F['solana:signIn'] && !/mobile wallet adapter|seeker/i.test(w.name || '')) ? function (fields) {
+        return F['solana:signIn'].signIn(Object.assign({}, fields, { address: account.address })).then(function (o) {
+          var r = o && o[0];
+          if (!r || !r.signature || !r.signedMessage || (r.account && r.account.address !== account.address)) return null;
+          return { signature: r.signature, signedMessage: r.signedMessage };
+        });
+      } : null,
       // Accepts EITHER a serialized Uint8Array OR a web3.js Transaction/VersionedTransaction
       // (so it's a drop-in for code that passes tx objects to a provider). Returns {signature}.
       signAndSendTransaction: function (txOrBytes) {

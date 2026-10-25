@@ -3,7 +3,7 @@
   Referrer-Policy: no-referrer
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https://store.degendojo.xyz https://degendojo.xyz https://degendojo.s3.us-west-1.amazonaws.com https://lite-api.jup.ag https://api.jup.ag https://api.mainnet-beta.solana.com https://solana-rpc.publicnode.com https://mainnet.helius-rpc.com wss://relay.damus.io ws://localhost:* ws://127.0.0.1:*; worker-src 'self' blob:; manifest-src 'self'; frame-src 'self' https:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https://store.degendojo.xyz https://degendojo.xyz https://degendojo.s3.us-west-1.amazonaws.com https://lite-api.jup.ag https://api.jup.ag https://api.mainnet-beta.solana.com https://solana-rpc.publicnode.com https://mainnet.helius-rpc.com wss://relay.damus.io ws://localhost:* ws://127.0.0.1:*; worker-src 'self' blob:; manifest-src 'self'; frame-src 'self' solana-wallet:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 /_next/static/*
   Cache-Control: public, max-age=31536000, immutable
 /*.html
@@ -18,7 +18,15 @@
   Cache-Control: public, max-age=0, must-revalidate
 /m/*
   Cache-Control: public, max-age=0, must-revalidate
+/admin
+  Cache-Control: no-store
+/admin.html
+  Cache-Control: no-store
 /miner-admin
+  Cache-Control: no-store
+/miner-admin.html
+  Cache-Control: no-store
+/preacher-admin.html
   Cache-Control: no-store
 /preacher-admin
   Cache-Control: no-store

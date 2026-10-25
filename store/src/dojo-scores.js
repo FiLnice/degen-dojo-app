@@ -6,8 +6,8 @@
  * is drawn among ticket-holders (Degen Dojo keeps 12%).
  *
  * One localStorage ledger keyed by a single username, so per-game and OVERALL
- * scoreboards all read the same source. On deploy this mirrors to the backend
- * that runs the provably-fair weekly draw — the shape here is what it will sync.
+ * scoreboards all read the same source. It is a LOCAL scoreboard only: the real
+ * draw tickets are minted server-side by /api/play (paid coin + verified outcome).
  *
  *   DojoScores.record('cluck', won)   // after a game ends
  *   DojoScores.setName('Sensei')
@@ -43,8 +43,7 @@
         p.grandSlam = true; awarded += GRAND_SLAM; p.tickets += GRAND_SLAM;
       }
       this.save(o);
-      // mirror to the server ticket ledger that feeds the provably-fair weekly draw
-      try { fetch('/api/ticket', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ player: name, game: game, won: !!won }) }); } catch (e) {}
+      // local scoreboard only — the weekly draw's tickets are minted server-side by /api/play
       return awarded;
     },
 

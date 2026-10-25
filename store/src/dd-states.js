@@ -5,7 +5,9 @@
 // Any <img> already showing degen/card/<mint>.png (directly or through the wsrv.nl resizer) is switched to the cracked
 // card once the list arrives, and so is every image added later — pages don't have to wait for it.
 (function () {
-  var S3 = "https://degendojo.s3.us-west-1.amazonaws.com/degen/", CARD_V = "7", CRACK_V = "1";
+  // card v8 / cracked v2 = the Nov 2 renders (labels HITPOINTS · POWER, cracked = stats faded) — on from Nov 2
+  var NOV2 = Date.now() >= Date.UTC(2026, 10, 2);
+  var S3 = "https://degendojo.s3.us-west-1.amazonaws.com/degen/", CARD_V = NOV2 ? "8" : "7", CRACK_V = NOV2 ? "2" : "1";
   var c = {}, m = {}, loaded = false;
   function cond(mint) { var k = String(mint || "").slice(0, 8); return m[k] ? "Mono" : c[k] ? "Cracked" : "Mint"; }
   function card(mint) { return cond(mint) === "Mint" ? S3 + "card/" + mint + ".png?v=" + CARD_V : S3 + "card-cracked/" + mint + ".png?v=" + CRACK_V; }

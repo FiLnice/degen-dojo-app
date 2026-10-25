@@ -11,7 +11,14 @@
 // a forged record that names no real transfer is worth nothing.
 //
 // A record is written ONCE: a re-POST of a known signature never overwrites it (it used to
-// reset verified:false, so the cron would credit the same payment again).
+// reset verified:false, so the cron would credit the same payment again). The one exception is a NON-FINAL rejection
+// (verify-core requeueAllowed): the on-chain payer's own POST after a "claimed buyer didn't pay" rejection, or a POST
+// of a transaction the RPC couldn't read before and can now — those re-queue the record (keeping the first claim time).
+// The kind and currency POSTed are hints: verify-core reads both from the transaction (security review H2).
+//
+// Junk filter (review M10): the node must know the signature, and when it can already read the transaction, it must be
+// a coin buy / tip paying us (verify-core postCheck). Each new record is queued at pending:<sig> — the only keys the
+// verify cron reads.
 //
 // GET ?sig=<signature> → {found, verified, rejected, creditedCoins} — lets the coins page show
 // "coins landed" without a sign-in. Public by design: the signature is already public on-chain.
@@ -25,8 +32,8 @@
 // No env needed to write; the admin read (/api/admin) is the gated side.
 import { limited } from "./store-ratelimit-core.mjs";
 import { getStore } from "@netlify/blobs";
-import { getStrong, createQuote, livePrice, QuoteError, QUOTE_ID_RE } from "./store-verify-core.mjs";
-import { putIfNew } from "./store-cas-core.mjs";
+import { getStrong, createQuote, livePrice, QuoteError, QUOTE_ID_RE, postCheck, queuePending, requeueAllowed, requeuedRecord } from "./store-verify-core.mjs";
+import { putIfNew, putIfMatch, readWithEtag } from "./store-cas-core.mjs";
 
 const SIG_RE = /^[1-9A-HJ-NP-Za-km-z]{64,96}$/;
 const ADDR_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
@@ -64,7 +71,7 @@ export default async (request) => {
   const rec = {
     sig: r.sig,
     buyer: r.buyer,
-    kind: r.kind === "tip" ? "tip" : "buy",   // a tip mints no coins — 100% feeds the pot (see verify-core)
+    kind: r.kind === "tip" ? "tip" : "buy",   // a hint: verify-core reads the kind from the transaction
     coins: Number.isFinite(+r.coins) ? Math.max(0, Math.round(+r.coins)) : 0,
     currency: r.currency,
     tokenAmount: Number.isFinite(+r.tokenAmount) ? +r.tokenAmount : 0,
@@ -83,19 +90,30 @@ export default async (request) => {
     const s = st?.result?.value?.[0];
     if (st?.result && (!s || s.err)) return new Response(JSON.stringify({ error: s ? "that transaction failed" : "unknown transaction" }), { status: 400, headers: JSONH });
   } catch { /* RPC hiccup: accept — the cron still verifies, and unreadable records expire after 15 minutes */ }
+  // …and once the node can read it, it must be a coin buy / tip paying us (one getTransaction): an unrelated real
+  // signature (someone's swap, a royalty, our own transaction) is refused here instead of costing a verification.
+  const chk = await postCheck(rec.sig);
+  if (!chk.ok) return new Response(JSON.stringify({ error: chk.error }), { status: 400, headers: JSONH });
   // the live price when this purchase was first claimed: a payment without a usable quote is never valued above it
-  if (rec.kind === "buy") rec.postPrice = await livePrice(rec.currency).catch(() => null);
+  // (stored for every record — the kind is only a hint, verify-core decides whether it is a coin buy)
+  rec.postPrice = await livePrice(rec.currency).catch(() => null);
   const store = getStore("coin-purchases");
   // create-only write: two racing POSTs of one signature can't both "win". The buyer named here is
   // only a claim — verify-core credits the wallet that actually paid on-chain (payer binding).
   let created;
   try { created = await putIfNew(store, "buy:" + rec.sig, rec); }
   catch (e) { return new Response(JSON.stringify({ error: "busy — retry" }), { status: 503, headers: JSONH }); }
-  if (!created) {
-    const prev = await getStrong(store, "buy:" + rec.sig);
-    return new Response(JSON.stringify({ ok: true, known: true, verified: !!prev?.verified, rejected: !!prev?.rejected }), { headers: JSONH });
+  if (created) { await queuePending(store, rec.sig); return new Response(JSON.stringify({ ok: true }), { headers: JSONH }); }
+  const { value: prev, etag } = await readWithEtag(store, "buy:" + rec.sig);
+  // a non-final rejection (claimed buyer wasn't the payer / tx unreadable) re-opens for the payer's own POST
+  if (requeueAllowed(prev, rec, { readable: chk.readable }) && etag && (await putIfMatch(store, "buy:" + rec.sig, requeuedRecord(prev, rec), etag))) {
+    await getStore("coin-purchases").delete("rej:" + rec.sig);
+    await queuePending(store, rec.sig);
+    return new Response(JSON.stringify({ ok: true, requeued: true }), { headers: JSONH });
   }
-  return new Response(JSON.stringify({ ok: true }), { headers: JSONH });
+  // still open: make sure it is queued (a run that died between the record and its pending key would strand it)
+  if (prev && !prev.verified && !prev.rejected) await queuePending(store, rec.sig);
+  return new Response(JSON.stringify({ ok: true, known: true, verified: !!prev?.verified, rejected: !!prev?.rejected }), { headers: JSONH });
 };
 
 export const config = { path: "/api/coinbuy" };

@@ -13,7 +13,7 @@ import { casUpdate, readWithEtag, putIfMatch, putIfNew, pushId, CasError } from 
 //   22% the Pot · 22% the Reserve · 12% operations · 44% preacher pool (the referring preacher's tier takes
 //   28 / 36 / 44% of the WHOLE payment; whatever the tier doesn't take, or all 44% when nobody referred, → Reserve).
 // Exception: a mining tip with NO preacher goes 100% to the Reserve (no Pot, no ops) — store-verify-core.mjs.
-// Royalties never feed the Pot any more (44% card vault / 44% Reserve / 12% ops — store-keeper-core.mjs).
+// Royalties never feed the Pot any more (88% Card Vault / 12% ops — store-keeper-core.mjs).
 export const POT_FRAC = 0.22;             // the Pot's share of a coin buy / mining tip (what /pot shows as "potPct")
 export const LEGACY_POT_FRAC = 0.65;      // records verified before 2026-10-23 (no `split`) gave the Pot 65%
 export const GAME_SPLIT = { pot: 22n, ops: 12n, preacherPool: 44n };   // percent; the Reserve gets the rest

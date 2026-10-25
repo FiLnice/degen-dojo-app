@@ -6,6 +6,7 @@
 //   slugify(name)             → URL-safe base slug ("Cool Apes!" → "cool-apes")
 
 import { createHash } from "node:crypto";
+import { memosOf } from "./store-ref-core.mjs";   // also dependency-free: memos from the Memo program's own instructions
 
 /** The store treasury (receives coin purchases) — default receiver of the branded-miner setup fee.
  *  Override with env OPERATOR_WALLET. MUST match the address baked into the /create page
@@ -36,7 +37,7 @@ export function minerRequestHash(b) {
 /** true when the payment transaction carries this request's "ddminer:<hash>" memo */
 export function memoBindsRequest(tx, body) {
   const want = MINER_MEMO_PREFIX + minerRequestHash(body);
-  return (tx?.meta?.logMessages || []).some((l) => { const m = /Memo \(len \d+\): "(.*)"$/.exec(l); return !!m && m[1] === want; });
+  return memosOf(tx).includes(want);
 }
 
 /** Fee in ORE base units ("grams"), allowing a 0.1% rounding tolerance. */

@@ -5,12 +5,18 @@
 //   POST {key, action:'exclude', round, who, undo} → drop (or restore) a flagged payee. An excluded
 //        WINNER's share stays in the pot: it's added back to the live pot when the round is paid, so
 //        it's in next week's prize. An excluded PREACHER stays owed (records remain unpaid).
-//   POST {key, action:'send', tx}                → relay ONE wallet-signed tx (base64) to SOLANA_RPC.
+//   POST {key, action:'send', tx, round}         → relay ONE wallet-signed tx (base64) to SOLANA_RPC.
 //        /api/rpc deliberately has no sendTransaction; this admin-only relay exists so the batch-signed
 //        payout txs can be broadcast in order. It can't sign anything — the tx is already signed.
+//        REFUSED while that round's plan has an open BLOCK flag not marked reviewed (action 'review'), or a preacher
+//        whose records another payout already paid (exclude / rebuild first) — enforced here, not only on the page.
+//   POST {key, action:'review', round, reviewed} → record (or clear) "I reviewed the flags" on the plan (server-side)
+//   POST {key, action:'preflight', round}        → the same gate as 'send', asked right before the wallet signs
 //   POST {key, action:'quote', round}           → SERVER-side Jupiter quote for the unpaid SOL/USDC shares;
 //        the exact ORE each of those payees gets is recorded in plan.manifest (the page swaps with this
-//        quote and sends exactly those amounts). A currency whose payees were already paid stays locked.
+//        quote and sends exactly those amounts). A currency whose swap landed or whose payees were paid stays locked.
+//   POST {key, action:'swapped', round, cur, sig} → a landed SOL/USDC → ORE swap, verified on-chain and pinned in the
+//        manifest, so no device ever swaps that bucket again
 //   POST {key, action:'paid', round, sigs, payer, reviewed} → verify each sig on-chain (success, fee
 //        payer = payer, one round per sig), check every payee received their due EXACTLY (BigInt, per
 //        mint; SOL/USDC shares against the manifest — a browser-sent swapOre is ignored), commit
@@ -26,13 +32,17 @@
 //   POST {action:'keeper-burned', mints}             → mark sent-in cards burned (token supply is 0 on-chain)
 //   POST {action:'keeper-repairs-applied', mints}    → the local apply step set these cards to "Mint"
 //   POST {action:'keeper-convert-quote', inputMint}  → server Jupiter quote: unconverted vault+reserve share → stORE
-//   POST {action:'keeper-converted', sig}            → verify the conversion swap and book it
+//   POST {action:'keeper-converted', sig | sigs[]}   → verify the conversion (one swap, or up to 4 steps done by hand) and book it
 //   POST {action:'keeper-scan'}                      → read the Treasury's newest transactions now
 //   POST {action:'keeper-ops-quote'}                 → the operations share (12%) due to OPS_WALLET, per currency
 //   POST {action:'keeper-ops-moved', sig}            → verify the Treasury → OPS_WALLET transfer and book it
 //   POST {action:'keeper-refunds-paid', sigs, payer} → verify the Treasury's ORE refunds (repairs over the Mint cap)
 //   POST {action:'keeper-set-mint-cap', cap}         → change the Mint cap NOW (no redeploy); logged with time + IP.
 //        Payments already received keep the cap that was in force when they were paid.
+//   POST {action:'keeper-redecide', sig}             → decide a SKIPPED Treasury payment again with today's rules + data
+//        (listed on the desk with its reason: a DAS outage, a junk coin record, …); a booked one is never re-decided
+//   POST {action:'keeper-held-convert', mints}       → (burning open) turn cards sent in while burning was off into
+//        claims at today's value, for the wallet that sent them
 //   The admin key travels ONLY in the Authorization header — a browser never attaches it on its own, so another
 //   site can't forge these requests (no cookie, nothing ambient).
 //
@@ -40,9 +50,9 @@
 import { limited } from "./store-ratelimit-core.mjs";
 import { adminRequestOk } from "./store-session-core.mjs";
 import { getStore } from "@netlify/blobs";
-import { getPlan, latestPlanRound, buildAndStore, setExcluded, recordPayment, quoteSwaps, settlePayment, openFlags, alreadyPaidElsewhere, reservedWallets, weeklyStatement, MINTS } from "./store-payout-core.mjs";
+import { getPlan, latestPlanRound, buildAndStore, setExcluded, recordPayment, quoteSwaps, settlePayment, openFlags, duplicatePreachers, reservedWallets, weeklyStatement, recordSwap, setReviewed, sendBlocked, MINTS } from "./store-payout-core.mjs";
 import { latestRound, getPublic, DrawError } from "./store-draw-core.mjs";
-import { keeperSummary, recordClaimsPaid, recordBurned, markRepairsApplied, conversionQuote, recordConversion, scanTreasury, opsMoveQuote, recordOpsMove, recordRefundsPaid, setMintCap, repairActivitySince, KeeperError } from "./store-keeper-core.mjs";
+import { keeperSummary, recordClaimsPaid, recordBurned, markRepairsApplied, conversionQuote, recordConversion, scanTreasury, opsMoveQuote, recordOpsMove, recordRefundsPaid, setMintCap, repairActivitySince, redecide, convertHeld, KeeperError } from "./store-keeper-core.mjs";
 import { getPot } from "./store-pot-core.mjs";
 
 const json = (o, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { "content-type": "application/json", "cache-control": "no-store", "x-robots-tag": "noindex" } });
@@ -57,8 +67,8 @@ async function view(round) {
   if (plan) {
     out.openFlags = openFlags(plan);
     try {
-      const dup = await alreadyPaidElsewhere(plan);
-      for (const [id, n] of Object.entries(dup)) out.openFlags.push({ severity: "block", who: id, check: "g", reason: `${n} of this preacher's records were already marked paid elsewhere since this plan was built — rebuild the plan` });
+      const dup = plan.status === "paid" ? {} : await duplicatePreachers(plan);   // unpaid + not excluded only
+      for (const [id, n] of Object.entries(dup)) out.openFlags.push({ severity: "block", who: id, check: "g", reason: `${n} of this preacher's records were already marked paid elsewhere since this plan was built — exclude them or rebuild the plan (the store refuses to send until then)` });
     } catch {}
   } else out.canBuild = pub?.status === "drawn";
   return out;
@@ -130,8 +140,20 @@ export default async (request) => {
       await setExcluded(round, String(body.who || ""), !body.undo);
       return json({ ok: true, ...(await view(round)) });
     }
+    if (body.action === "review") {
+      await setReviewed(round, !!body.reviewed);
+      return json({ ok: true, ...(await view(round)) });
+    }
+    if (body.action === "swapped") return json({ ...(await recordSwap({ round, cur: String(body.cur || ""), sig: String(body.sig || "") })), ...(await view(round)) });
+    if (body.action === "preflight") {   // the page's last call before the wallet signs (the same gate as 'send')
+      const stop = await sendBlocked(round);
+      return stop ? json({ error: "Not signed: " + stop }, 409) : json({ ok: true });
+    }
     if (body.action === "send") {
       if (typeof body.tx !== "string" || body.tx.length > 2000 || !/^[A-Za-z0-9+/=]+$/.test(body.tx)) return json({ error: "bad tx" }, 400);
+      // server-side gate (L2): the page's "I reviewed" box and double-pay warnings are not the only thing in the way
+      const stop = await sendBlocked(round);
+      if (stop) return json({ error: "Not sent: " + stop }, 409);
       const upstream = [process.env.SOLANA_RPC, process.env.HELIUS_RPC, "https://api.mainnet-beta.solana.com"].find((v) => typeof v === "string" && /^https?:\/\//.test(v.trim()));
       const r = await fetch(upstream.trim(), { method: "POST", headers: { "content-type": "application/json" },
         body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "sendTransaction", params: [body.tx, { encoding: "base64", skipPreflight: !!body.skipPreflight, maxRetries: 5 }] }) });
@@ -152,7 +174,7 @@ export default async (request) => {
     if (body.action === "keeper-burned") return json({ ok: true, burned: await recordBurned(body.mints), keeper: await keeperSummary() });
     if (body.action === "keeper-repairs-applied") return json({ ok: true, applied: await markRepairsApplied(body.mints) });
     if (body.action === "keeper-convert-quote") return json({ ok: true, ...(await conversionQuote(String(body.inputMint || ""))) });
-    if (body.action === "keeper-converted") return json({ ok: true, ...(await recordConversion(String(body.sig || ""))), keeper: await keeperSummary() });
+    if (body.action === "keeper-converted") return json({ ok: true, ...(await recordConversion(Array.isArray(body.sigs) ? body.sigs.map(String) : String(body.sig || ""))), keeper: await keeperSummary() });
     if (body.action === "keeper-scan") return json({ ok: true, scan: await scanTreasury({ max: 40, budgetMs: 8e3 }), keeper: await keeperSummary() });
     if (body.action === "keeper-ops-quote") return json({ ok: true, ...(await opsMoveQuote()) });
     if (body.action === "keeper-ops-moved") return json({ ok: true, ...(await recordOpsMove(String(body.sig || ""))), keeper: await keeperSummary() });
@@ -161,6 +183,8 @@ export default async (request) => {
       const ip = request.headers.get("x-nf-client-connection-ip") || request.headers.get("x-forwarded-for") || null;
       return json({ ok: true, ...(await setMintCap(body.cap, { ip })), keeper: await keeperSummary() });
     }
+    if (body.action === "keeper-redecide") return json({ ok: true, ...(await redecide(String(body.sig || "").trim())), keeper: await keeperSummary() });
+    if (body.action === "keeper-held-convert") return json({ ok: true, ...(await convertHeld(Array.isArray(body.mints) ? body.mints.map(String) : [])), keeper: await keeperSummary() });
     return json({ error: "unknown action" }, 400);
   } catch (e) {
     if (e instanceof DrawError || e instanceof KeeperError) return json({ error: e.message }, e.status);

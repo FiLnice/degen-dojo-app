@@ -361,14 +361,65 @@
   // have the SOL yet — which the swap is about to provide). Returns null when ME can't build it, or the
   // built tx fails simulation for a REAL reason (e.g. buy_now returned a bogus tx for a pool listing) —
   // in which case we must NOT swap. This is what stops "swapped ORE but the buy failed" strandings.
-  // Simulate a marketplace-built tx, reading the buyer's SOL before and after → { sim, spent } (spent null = unreadable).
+  // Every account a transaction lists (static keys + lookup-table entries) — only these can change when it runs.
+  function txAccountKeys(tx) {
+    var W = W3();
+    if (!(tx instanceof W.VersionedTransaction)) { try { return Promise.resolve(tx.compileMessage().accountKeys.map(function (k) { return k.toBase58(); })); } catch (e) { return Promise.reject(e); } }
+    var msg = tx.message, keys = msg.staticAccountKeys.map(function (k) { return k.toBase58(); });
+    return Promise.all((msg.addressTableLookups || []).map(function (l) {
+      return rpcCall('getAccountInfo', [l.accountKey.toBase58(), { encoding: 'base64' }]).then(function (ai) {
+        if (!ai || !ai.value) throw new Error('lookup table not found');
+        var addrs = W.AddressLookupTableAccount.deserialize(Uint8Array.from(atob(ai.value.data[0]), function (c) { return c.charCodeAt(0); })).addresses;
+        return l.writableIndexes.concat(l.readonlyIndexes).map(function (i) { if (!addrs[i]) throw new Error('lookup index out of range'); return addrs[i].toBase58(); });
+      });
+    })).then(function (lists) { return keys.concat.apply(keys, lists); });
+  }
+  // The buyer's token accounts (classic SPL + Token-2022) → { pubkey: { amount, delegate, closeAuthority } }.
+  var TOKEN_2022_ID = 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb';
+  function buyerTokenAccounts(buyer) {
+    return Promise.all([TOKEN_ID, TOKEN_2022_ID].map(function (prog) {
+      return rpcCall('getTokenAccountsByOwner', [buyer, { programId: prog }, { encoding: 'jsonParsed', commitment: 'confirmed' }]);
+    })).then(function (rs) {
+      var out = {};
+      rs.forEach(function (r) { ((r && r.value) || []).forEach(function (x) {
+        var info = x.account && x.account.data && x.account.data.parsed && x.account.data.parsed.info; if (!info) return;
+        out[x.pubkey] = { amount: BigInt((info.tokenAmount && info.tokenAmount.amount) || '0'), delegate: info.delegate || null, closeAuthority: info.closeAuthority || null };
+      }); });
+      return out;
+    });
+  }
+  // A marketplace-built buy may only take the buyer's SOL (checked by spentSol). Any of the buyer's token accounts it
+  // touches must come out with no less balance, the same owner, and no new delegate or close authority — otherwise it
+  // could move the buyer's other tokens / NFTs inside the SOL cap. → null when fine, else a reason.
+  function tokenProblem(sim, watched, pre, buyer) {
+    var accs = (sim && sim.value && sim.value.accounts) || [];
+    for (var i = 0; i < watched.length; i++) {
+      var post = accs[i + 1], before = pre[watched[i]];
+      if (!post) return 'it would close one of your token accounts';
+      var d = Uint8Array.from(atob(post.data[0]), function (c) { return c.charCodeAt(0); });
+      if (d.length < 165) return 'it would rewrite one of your token accounts';
+      var dv = new DataView(d.buffer), key = function (o) { return new (W3().PublicKey)(d.slice(o, o + 32)).toBase58(); };
+      if (key(32) !== buyer) return 'it would hand one of your token accounts to another wallet';
+      if (dv.getBigUint64(64, true) < before.amount) return 'it would also take tokens or an NFT you already hold';
+      if (dv.getUint32(72, true) === 1 && key(76) !== before.delegate) return 'it would give another wallet the right to move your tokens';
+      if (dv.getUint32(129, true) === 1 && key(133) !== before.closeAuthority) return 'it would give another wallet the right to close your token account';
+    }
+    return null;
+  }
+  // Simulate a marketplace-built tx, reading the buyer's SOL AND the buyer's token accounts it lists, before and after
+  // → { sim, spent, tokenIssue } (spent null = unreadable; tokenIssue = why its effect on the buyer's tokens is refused).
   function simulateSpend(tx, buyer, replaceBlockhash) {
     var W = W3(), isV0 = tx instanceof W.VersionedTransaction;
     var b64tx = isV0 ? b64(tx.serialize()) : b64(tx.serialize({ requireAllSignatures: false, verifySignatures: false }));
-    return rpcCall('getBalance', [buyer, { commitment: 'confirmed' }]).then(function (bal) {
+    return Promise.all([rpcCall('getBalance', [buyer, { commitment: 'confirmed' }]), txAccountKeys(tx), buyerTokenAccounts(buyer)]).then(function (got) {
+      var bal = got[0], keys = got[1], mine = got[2];
       var pre = (bal && bal.value != null) ? bal.value : (typeof bal === 'number' ? bal : null);
-      return rpcCall('simulateTransaction', [b64tx, { encoding: 'base64', sigVerify: false, replaceRecentBlockhash: replaceBlockhash, commitment: 'confirmed', accounts: { encoding: 'base64', addresses: [buyer] } }])
-        .then(function (sim) { return { sim: sim, spent: sim && sim.value && !sim.value.err ? spentSol(sim, pre) : null }; });
+      var watched = keys.filter(function (k, i) { return mine[k] && keys.indexOf(k) === i; }).slice(0, 63);
+      return rpcCall('simulateTransaction', [b64tx, { encoding: 'base64', sigVerify: false, replaceRecentBlockhash: replaceBlockhash, commitment: 'confirmed', accounts: { encoding: 'base64', addresses: [buyer].concat(watched) } }])
+        .then(function (sim) {
+          var ok = sim && sim.value && !sim.value.err;
+          return { sim: sim, spent: ok ? spentSol(sim, pre) : null, tokenIssue: ok ? tokenProblem(sim, watched, mine, buyer) : null };
+        });
     });
   }
   // Returns the tx when it's structurally sound (sim passes, OR fails ONLY for lack of the SOL the swap is about
@@ -380,7 +431,7 @@
   function probeSpend(tx, opts, listing) {
     return simulateSpend(tx, opts.adapter.pubkey, true).then(function (r) {
       var sim = r.sim;
-      if (!sim.value.err) { if (r.spent == null || r.spent > maxSpendSol(listing)) return null; tx._spendOk = true; return tx; }   // fully valid (and within the price) / overcharging → never use it
+      if (!sim.value.err) { if (r.spent == null || r.spent > maxSpendSol(listing) || r.tokenIssue) return null; tx._spendOk = true; return tx; }   // fully valid (and within the price) / overcharging or touching other tokens → never use it
       var logs = (sim.value.logs || []).join('\n');
       if (/insufficient lamports|insufficient funds|debit an account/i.test(logs)) { tx._spendOk = false; return tx; }   // only needs the SOL the swap provides — re-checked before signing
       return null;                                                     // real failure → don't swap
@@ -398,6 +449,7 @@
       }
       var max = maxSpendSol(listing);
       if (r.spent == null || r.spent > max) throw spendRefusal(r.spent, max);
+      if (r.tokenIssue) { var te = new Error('This purchase was refused because ' + r.tokenIssue + ' — nothing was signed.'); te.priceLock = true; throw te; }
       onState && onState('Approve in your wallet…');
       return adapter.signAndSendTransaction(tx).then(function (sig) { var s = sig.signature || sig; onState && onState('Confirming…'); return waitForConfirm(s).then(function () { return s; }); });
     });
@@ -445,14 +497,13 @@
     });
   }
 
-  // Preacher attribution: if this browser carries a dd_ref cookie (a /preacher/<code> visit in the last
-  // 30 days), POST the confirmed buy to /api/attr. Fire-and-forget — never blocks or fails the buy. The
-  // server re-reads the tx on-chain: only Degen Dojo NFTs whose royalty actually reached the royalty
-  // wallet earn the preacher anything (marketplace buys settle in SOL, whatever the buyer swapped from).
+  // Preacher attribution for NFT buys — RETIRED (review 2026-10-23, M9): referred NFT sales earn preachers nothing
+  // since 2026-10-23 and /api/attr no longer accepts records, so this posts nothing (kept as a no-op for its caller).
+  var ATTRIBUTE_NFT_SALES = false;
   function recordRef(sig, listing, adapter) {
     try {
-      if (!sig || typeof sig !== 'string') return;
-      var m = document.cookie.match(/(?:^|;\s*)dd_ref=([^;]+)/), ref = m ? decodeURIComponent(m[1]) : '';
+      if (!ATTRIBUTE_NFT_SALES || !sig || typeof sig !== 'string') return;
+      var ref = (window.DojoRef && DojoRef.code()) || '';   // host-only referral cookie (wallet-picker.js)
       if (!/^[a-zA-Z0-9_-]{2,32}$/.test(ref)) return;
       var price = +listing.price || 0;
       fetch(RPC.replace(/\/rpc(\?|$)/, '/attr$1'), { method: 'POST', headers: { 'content-type': 'application/json' },

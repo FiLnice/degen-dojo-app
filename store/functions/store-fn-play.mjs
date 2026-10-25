@@ -17,6 +17,9 @@
 //        → recompute the outcome server-side (per-game verifier), mint tickets to
 //          the wallet (play = 1, verified win = 3, +5 grand slam per round; ×2 for 5+ Degen holders), reveal
 //          the seed. The client's claimed result is ignored.
+//          A play belongs to the round it was STARTED in (security review M11 — ticket hoarding): finished in a
+//          later round more than 30 min after it started, it earns the play ticket only (no win bonus), and an
+//          open play can't be finished at all after 24 h (store-draw-core PLAY_TTL_MS / ROUND_GRACE_MS).
 //
 // Fail-closed: if a game's outcome verifier isn't available yet, the win is NOT
 // trusted — the play still earns its 1 base ticket (the coin was really spent),
@@ -24,8 +27,9 @@
 //
 //   POST {action:"seeker", token}
 //        → ONE free coin per Seeker phone: the session wallet must hold a genuine Seeker
-//          Genesis Token (checked on-chain). The claim is keyed by the SGT MINT (it can be
-//          moved between wallets) and the wallet is marked too (no second SGT, same wallet).
+//          Genesis Token (checked on-chain). The claim is keyed by the SGT MINT (the SGT is frozen
+//          with a permanent delegate, so it is soulbound in practice — keying by mint holds either
+//          way) and the wallet is marked too (no second SGT, same wallet).
 //
 // Env: SESSION_SECRET (≥ 32 chars; no fallback — fails closed, see store-session-core.mjs). SOLANA_RPC for the Seeker check.
 import { limited } from "./store-ratelimit-core.mjs";
@@ -38,7 +42,7 @@ import { simulate as flipSimulate } from "./dojo-flip-engine.mjs";
 import { POOL as FLIP_POOL } from "./flip-pool.mjs";
 import { dealHands, statsFromDigest, playRound, freshState, winnerOf, simulateV2, DUEL_V2, STATS_TAG } from "./dojo-duel-engine.mjs";
 import { DUEL_POOL } from "./duel-pool.mjs";
-import { ticketRound, ticketKey } from "./store-draw-core.mjs";
+import { ticketRound, ticketKey, mintedInSnapshot, PLAY_TTL_MS, ROUND_GRACE_MS } from "./store-draw-core.mjs";
 
 const GAMES = new Set(["duel", "flip", "teto", "cluck", "brawl"]);
 // Grand slam (+5, once per draw round): PLAY all five games in the same round, win or lose — it
@@ -48,8 +52,10 @@ const SLAM_WIN_GAMES = [];
 const SLAM_PLAY_GAMES = ["duel", "flip", "cluck", "brawl", "teto"];
 const WIN = 3, PLAY = 1, GRAND_SLAM = 5;
 // Holders of 5+ Degen Dojo fighters earn 2× chances on everything they play (0 plays → 0 chances).
+// A wallet's count is re-checked every 10 min, and each Degen backs ONE wallet's 2× for an hour — the same five
+// NFTs passed from wallet to wallet can't make every wallet a holder (security review LOW-2).
 const DD_COLLECTION = "2m9DupVeheZ5vfuXZxqV3KSQ7HnVDk2tG6ouH1ZnLwYb";
-const HOLDER_MIN = 5, HOLDER_MULT = 2, HOLDER_TTL_MS = 60 * 60 * 1000;
+const HOLDER_MIN = 5, HOLDER_MULT = 2, HOLDER_TTL_MS = 10 * 60 * 1000, ASSET_CLAIM_MS = 60 * 60 * 1000;
 const SEEKER_FREE_COINS = 1;   // free coins for a Seeker owner — once per Seeker device (SGT mint)
 const sha256 = (b) => createHash("sha256").update(b).digest("hex");
 // Degen Duel v2: the 8 battle stats = SHA-256(seed + STATS_TAG) (same as the engine's roundStats)
@@ -66,8 +72,8 @@ const VERIFIERS = {
   // moment the seed was committed (before the player picked). Player wins iff they
   // backed that rooster. Fully recomputable from the revealed seed.
   cluck(play, sub) {
-    const pick = Number(sub.pick);
-    if (!Number.isInteger(pick) || pick < 0 || pick >= BIRDS) return { error: "bad pick" };
+    const pick = sub.pick;   // a real number only (null / "" / [7] / true are refused, not coerced)
+    if (typeof pick !== "number" || !Number.isInteger(pick) || pick < 0 || pick >= BIRDS) return { error: "bad pick" };
     const winner = seedInt(play.seed, "cluck:" + play.playId) % BIRDS;
     return { won: pick === winner, winner, birds: BIRDS };
   },
@@ -98,8 +104,8 @@ const VERIFIERS = {
   // HMAC(seed,'brawl:'+playId) % 8, fixed at commit (before the player backs a bird).
   // Player wins iff they backed the last bird standing. Fully recomputable from the seed.
   brawl(play, sub) {
-    const pick = Number(sub.pick);
-    if (!Number.isInteger(pick) || pick < 0 || pick >= BIRDS) return { error: "bad pick" };
+    const pick = sub.pick;
+    if (typeof pick !== "number" || !Number.isInteger(pick) || pick < 0 || pick >= BIRDS) return { error: "bad pick" };
     const winner = seedInt(play.seed, "brawl:" + play.playId) % BIRDS;
     return { won: pick === winner, winner };
   },
@@ -143,8 +149,11 @@ async function solanaRpc(method, params) {
   return j.result;
 }
 
-// How many Degen Dojo fighters does this wallet hold? Cached 1h per wallet (Blobs "holders").
+// How many Degen Dojo fighters back this wallet's 2×? Cached 10 min per wallet (Blobs "holders", w:<wallet>).
+// Each counted NFT is claimed for this wallet for ASSET_CLAIM_MS (a:<asset id>, conditional write): an NFT another
+// wallet counted within the hour doesn't count here. Look-alikes never count (DAS lists verified collections only).
 // Any lookup failure → treated as not a holder for this play (never blocks the game).
+const CLAIM_CHECKS_MAX = 50;   // stop after this many claim lookups (a whale's first five are almost always free)
 async function ddHolderMult(wallet) {
   const cache = getStore("holders");
   try {
@@ -152,16 +161,30 @@ async function ddHolderMult(wallet) {
     if (c && Date.now() - c.at < HOLDER_TTL_MS) return c.count >= HOLDER_MIN ? HOLDER_MULT : 1;
   } catch {}
   try {
-    let count = 0;
+    const ids = [];
     for (let page = 1; page <= 5; page++) {
       const res = await solanaRpc("getAssetsByOwner", { ownerAddress: wallet, page, limit: 1000 });
       const items = res?.items || [];
-      for (const a of items) if ((a.grouping || []).some((g) => g.group_key === "collection" && g.group_value === DD_COLLECTION) && !a.burnt) count++;
-      if (items.length < 1000 || count >= HOLDER_MIN) break;
+      for (const a of items) if (a?.id && !a.burnt && (a.grouping || []).some((g) => g.group_key === "collection" && g.group_value === DD_COLLECTION)) ids.push(a.id);
+      if (items.length < 1000) break;
     }
-    try { await cache.setJSON("w:" + wallet, { count, at: Date.now() }); } catch {}
+    let count = 0;
+    const now = Date.now();
+    for (const id of ids.slice(0, CLAIM_CHECKS_MAX)) {
+      if (count >= HOLDER_MIN) break;
+      if (await claimAsset(cache, id, wallet, now)) count++;
+    }
+    try { await cache.setJSON("w:" + wallet, { count, at: now }); } catch {}
     return count >= HOLDER_MIN ? HOLDER_MULT : 1;
   } catch { return 1; }
+}
+// true if `id` may back `wallet` now: unclaimed, expired, or already ours → (re)claimed for us. A lost race = not ours.
+async function claimAsset(cache, id, wallet, now) {
+  const key = "a:" + id;
+  const { value, etag } = await readWithEtag(cache, key);
+  if (value && value.wallet !== wallet && now - (value.at || 0) < ASSET_CLAIM_MS) return false;
+  const next = { wallet, at: now };
+  return etag ? await putIfMatch(cache, key, next, etag) : await putIfNew(cache, key, next);
 }
 
 // is this parsed mint account a genuine SGT?
@@ -246,7 +269,9 @@ export default async (request) => {
     // indices) and round 1's battle stat only; later stats come one round at a time ("move").
     // Cluck / Brawl hide the seed until the pick lands.
     const revealSeed = r.game === "flip";
-    const rec = { playId, wallet, game: r.game, seed, commitHash: sha256(Buffer.from(seed, "hex")), status: "open", createdAt: Date.now(), ...choice };
+    // the round this play belongs to (the one being filled now) — a finish in a later round can't carry its win there
+    const round = await ticketRound();
+    const rec = { playId, wallet, game: r.game, seed, commitHash: sha256(Buffer.from(seed, "hex")), status: "open", createdAt: Date.now(), round, ...choice };
     let duelView = null;
     if (r.game === "duel") {
       const hands = dealHands(DUEL_POOL, seed);
@@ -265,8 +290,8 @@ export default async (request) => {
     if (!rec) return json({ error: "unknown play" }, 404);
     if (rec.wallet !== wallet) return json({ error: "not your play" }, 403);
     if (rec.game !== "duel" || rec.duel?.v !== DUEL_V2) return json({ error: "not a round-by-round duel" }, 400);
-    const d = rec.duel, round = Number(r.round), pick = Number(r.pick);
-    if (!Number.isInteger(round) || !Number.isInteger(pick)) return json({ error: "bad move" }, 400);
+    const d = rec.duel, round = r.round, pick = r.pick;
+    if (typeof round !== "number" || typeof pick !== "number" || !Number.isInteger(round) || !Number.isInteger(pick)) return json({ error: "bad move" }, 400);
     // an exact retry of the last played round (its reply got lost) gets the same answer back;
     // a different card for an already-played round is refused — every round's choice is final
     if (round === d.round - 1 && d.moves[round]?.yi === pick) return json({ ok: true, replay: true, ...duelMoveReply(rec, round) });
@@ -288,6 +313,9 @@ export default async (request) => {
     if (!rec) return json({ error: "unknown play" }, 404);
     if (rec.wallet !== wallet) return json({ error: "not your play" }, 403);
     if (rec.status === "done") return json({ error: "already finished", already: true }, 409);
+    // an open play can't be banked forever (security review M11): after PLAY_TTL_MS it is void (the coin was spent)
+    if (rec.status === "open" && Date.now() - (rec.createdAt || 0) > PLAY_TTL_MS)
+      return json({ error: "this play expired — plays must be finished within 24 hours", expired: true }, 410);
 
     // 1) LOCK the outcome: open → finishing, a conditional write only one request can win. The
     //    outcome is stored on the play, so a retry/resume can never re-roll it with new input.
@@ -297,8 +325,12 @@ export default async (request) => {
       if (res.error) return json({ error: res.error }, 400);
       const won = res.won === true;
       const mult = await ddHolderMult(wallet);
+      // finished in a later round than it was started in (or, for a play from before rounds were stored, simply
+      // old) and past the grace → "late": the play ticket only. A banked win can't be timed into another week's pot.
+      const lateRound = rec.round == null || rec.round !== (await ticketRound());
+      const late = lateRound && Date.now() - (rec.createdAt || 0) > ROUND_GRACE_MS;
       const locked = { ...rec, status: "finishing", won, mult, unverified: !!res.unverified, finishingAt: Date.now(),
-        ...(res.winner != null ? { winner: res.winner } : {}) };
+        ...(late ? { late: true } : {}), ...(res.winner != null ? { winner: res.winner } : {}) };
       if (await putIfMatch(plays, pkey, locked, etag)) rec = locked;
       else {
         ({ value: rec } = await readWithEtag(plays, pkey));   // lost the race → follow the winner's outcome
@@ -314,14 +346,30 @@ export default async (request) => {
     //    Tickets go into the round being filled NOW (store-draw-core ticketRound — the next one once a draw has
     //    started, audit DD-07). The play remembers that round (mintRound) so a retried finish lands in the same
     //    ledger; if it never landed there and that round has since been frozen for its draw, it moves on.
-    const { won, mult } = rec;
-    const base = (won ? WIN : PLAY) * mult;
+    //    A "late" play (see the lock) counts as a played game only: 1 ticket (× holder), no win, no grand slam.
+    const { won, mult, late } = rec;
+    const winCounts = won && !late;
+    const base = (winCounts ? WIN : PLAY) * mult;
     const tstore = getStore("tickets");
     const has = async (key) => ((await getStrong(tstore, key))?.playIds || []).includes(rec.playId);
     const tr = await ticketRound();
     let mintRound = rec.mintRound;
     if (mintRound == null && (await has("player:" + wallet))) mintRound = "legacy";   // minted before per-round ledgers
-    if (mintRound != null && mintRound !== "legacy" && mintRound !== tr && !(await has(ticketKey(mintRound, wallet)))) mintRound = null;
+    let alreadyMinted = false;
+    if (mintRound != null && mintRound !== "legacy" && mintRound !== tr && !(await has(ticketKey(mintRound, wallet)))) {
+      // the round this play was aimed at has been frozen and its live ledger doesn't show the play: ask that round's
+      // ticket snapshot (security review LOW-1 — after the draw the live ledger is gone, so "missing" used to read as
+      // "never minted" and the play was minted again into the next round)
+      // (no snapshot yet → its live ledger is still the truth: the play never landed there)
+      if ((await mintedInSnapshot(mintRound, wallet, rec.playId)) === true) alreadyMinted = true;
+      else mintRound = null;   // it never landed there → re-aim at the round open now
+    }
+    if (alreadyMinted) {
+      const done = { ...rec, mintRound, status: "done", awarded: rec.awarded ?? base, finishedAt: rec.finishedAt || Date.now() };
+      await plays.setJSON(pkey, done);
+      return json({ ok: true, won, awarded: done.awarded, grandSlam: false, holder2x: mult > 1, seed: rec.seed, alreadyMinted: true, ...(late ? { late: true } : {}),
+        winUnverified: !!rec.unverified, ...(rec.winner != null ? { winner: rec.winner } : {}) });
+    }
     if (mintRound == null) {
       const seen = rec.mintRound ?? null;
       const { value: p } = await casUpdate(plays, pkey, (cur) => (cur && cur.status === "finishing" && (cur.mintRound ?? null) === seen ? { ...cur, mintRound: tr } : undefined));
@@ -332,10 +380,11 @@ export default async (request) => {
       const c = t || { name: rec.displayName || wallet, wallet, tickets: 0, plays: 0, wins: 0, games: {}, grandSlam: false };
       if ((c.playIds || []).includes(rec.playId)) return undefined;   // already minted for this play
       c.games ||= {};
-      c.tickets += base; c.plays += 1; if (won) c.wins += 1;
+      c.tickets += base; c.plays += 1; if (winCounts) c.wins += 1;
       c.games[rec.game] = c.games[rec.game] || { plays: 0, wins: 0 };
-      c.games[rec.game].plays += 1; if (won) c.games[rec.game].wins += 1;
-      if (!c.grandSlam && SLAM_WIN_GAMES.every((k) => c.games[k] && c.games[k].wins > 0)
+      c.games[rec.game].plays += 1; if (winCounts) c.games[rec.game].wins += 1;
+      if (late) c.latePlays = (c.latePlays || 0) + 1;
+      if (!late && !c.grandSlam && SLAM_WIN_GAMES.every((k) => c.games[k] && c.games[k].wins > 0)
           && SLAM_PLAY_GAMES.every((k) => c.games[k] && c.games[k].plays > 0)) {
         c.grandSlam = true; c.slamPlayId = rec.playId; c.tickets += GRAND_SLAM * mult;
       }
@@ -351,7 +400,9 @@ export default async (request) => {
     const done = { ...rec, mintRound, status: "done", awarded, finishedAt: rec.finishedAt || Date.now() };
     await plays.setJSON(pkey, done);
 
-    return json({ ok: true, won, awarded, grandSlam, holder2x: mult > 1, tickets: cur.tickets, seed: rec.seed, winUnverified: !!rec.unverified, ...(rec.winner != null ? { winner: rec.winner } : {}) });
+    return json({ ok: true, won, awarded, grandSlam, holder2x: mult > 1, tickets: cur.tickets, seed: rec.seed, winUnverified: !!rec.unverified,
+      ...(late ? { late: true, note: "finished in a later round than it was started in — counted as a play (1 chance), not a win" } : {}),
+      ...(rec.winner != null ? { winner: rec.winner } : {}) });
   }
 
   if (r.action === "seeker") {

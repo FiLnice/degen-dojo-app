@@ -216,7 +216,7 @@ h1{text-align:center;font-family:'Cinzel',serif;font-size:clamp(28px,5vw,44px);f
 
   <div class="fine">
     You earn on the coin packs and mining tips <b>you refer</b> — a referral program, not passive income for holding. Your cut is set by the fighters
-    you hold when each payment is verified (and locked in for that payment). The <b>SOL pot</b> is a prize you win by opting in and staying active, never a dividend you're owed;
+    you have held for at least 7 days when each payment is verified (and locked in for that payment). The <b>SOL pot</b> is a prize you win by opting in and staying active, never a dividend you're owed;
     entries come from real activity (your coin buys &amp; what you refer), with a 2× multiplier for holding 5+, so it can't be farmed by splitting a wallet.
     Fees never add a charge to the buyer. <span id="demoNote"></span>
   </div>
@@ -274,8 +274,7 @@ async function start(){
     WADAPTER=a; window.DOJO_WALLET=a; paintNavWallet(a.pubkey);
     const wallet=a.pubkey;
     // the server writes the exact, one-time message (this site + this wallet + a nonce + expiry); we sign it once
-    const sig=await signFor(a,{action:'nonce',wallet,for:'desk'});
-    const desk=await post({action:'desk',wallet,nonce:sig.nonce,sig:sig.sig});
+    const desk=await signedPost(a,{action:'nonce',wallet,for:'desk'},{action:'desk',wallet});
     if(!desk.ok) throw new Error(desk.error||'claim failed');
     AUTH={wallet,token:desk.token};
     $('link1').value=desk.links.store;
@@ -289,19 +288,34 @@ async function post(body){
   const r=await fetch(API,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
   return r.json();
 }
-// Ask the server for a one-time message, have the wallet sign it → {nonce, sig}
-async function signFor(a,req){
+// Ask the server for a one-time message, have the wallet sign it → {nonce, sig, signedMessage?}
+// Wallets with Sign-In With Solana (solana:signIn) sign the server's fields themselves and check the domain (signedMessage
+// = the text they built, base64); the others sign the same text with signMessage. noSiws → always the plain way.
+async function signFor(a,req,noSiws){
   const n=await post(req);
   if(!n.ok||!n.message) throw new Error(n.error||'Could not start the signature.');
+  if(!noSiws && a.signIn && n.siws){
+    let r=null; try{ r=await a.signIn(n.siws); }catch(e){ if(/cancel|reject|declin|denied|closed/i.test(String(e&&e.message||e))) throw e; }
+    if(r){ let s=''; const u=new Uint8Array(r.signedMessage); for(let i=0;i<u.length;i++) s+=String.fromCharCode(u[i]);
+      return {nonce:n.nonce, sig:b58enc(r.signature), signedMessage:btoa(s)}; }
+  }
   const signed=await a.signMessage(new TextEncoder().encode(n.message));
   return {nonce:n.nonce, sig:b58enc(signed.signature)};
+}
+// one signed action, retried once the plain way if the wallet's own sign-in text didn't match ours
+async function signedPost(a,req,act){
+  let s=await signFor(a,req), r=await post({...act,nonce:s.nonce,sig:s.sig,signedMessage:s.signedMessage});
+  if(r && r.siwsMismatch && s.signedMessage){ s=await signFor(a,req,true); r=await post({...act,nonce:s.nonce,sig:s.sig}); }
+  return r;
 }
 function sessionEnded(r){ return r && r.signIn; }
 function renderDash(st){
   if(!st||!st.ok){ $('err').textContent=(st&&st.error)||'Could not load dashboard.'; return; }
   if(st.links){ $('link1').value=st.links.store; }
   if(st.code){ $('codeIn').value=st.code; }
-  $('who').textContent=`Connected · ${st.wallet.slice(0,4)}…${st.wallet.slice(-4)} · holds ${st.held} fighter${st.held===1?'':'s'}`;
+  // the tier counts fighters held for 7+ days (heldLive = what the wallet holds right now)
+  const live=st.heldLive!=null?st.heldLive:st.held, wait=live>st.held&&st.nextCountsAt?` · ${live-st.held} more count from ${new Date(st.nextCountsAt).toLocaleDateString()}`:'';
+  $('who').textContent=`Connected · ${st.wallet.slice(0,4)}…${st.wallet.slice(-4)} · holds ${live} fighter${live===1?'':'s'} (${st.held} held ${st.holdDays||7}+ days count)${wait}`;
   $('tierName').textContent=`${st.tier} — ${Math.round(st.share*100)}% cut`;
   $('mVol').textContent='$'+nf(st.volumeUsd,2);
   $('mPend').innerHTML=`${nf(oreOfUsd(st.pendingUsd),3)} ${oreIcon}`;
@@ -322,7 +336,7 @@ function renderDash(st){
           : '$'+nf(s.usd,2)+' → $'+nf(s.earnUsd,2)}</span>
         <span class="fp ${s.paid?'paid':'pend'}">${s.paid?'paid':s.verified?'pending':'checking'}</span>
         <span class="ft">${s.ts?new Date(s.ts).toLocaleDateString():''}</span></div>`).join('')
-    : '<div class="empty">Nothing yet — share your link; coin packs, miner tips and NFT sales appear here live.</div>';
+    : '<div class="empty">Nothing yet — share your link; coin packs and miner tips appear here live.</div>';
 }
 async function saveCode(){
   const want=$('codeIn').value.trim(); const m=$('ceMsg');
@@ -333,9 +347,7 @@ async function saveCode(){
   try{
     const a=WADAPTER||window.DOJO_WALLET;
     if(!a||a.pubkey!==AUTH.wallet) throw new Error('Reconnect the wallet that owns this desk.');
-    const s=await signFor(a,{action:'nonce',wallet:AUTH.wallet,for:'setCode',code:want});
-    m.textContent='Saving…';
-    const st=await post({action:'setCode',wallet:AUTH.wallet,nonce:s.nonce,sig:s.sig,code:want});
+    const st=await signedPost(a,{action:'nonce',wallet:AUTH.wallet,for:'setCode',code:want},{action:'setCode',wallet:AUTH.wallet,code:want});
     if(!st.ok){ m.style.color='#e0846f'; m.textContent=st.error||'Could not set that code.'; return; }
     $('link1').value=st.links.store; $('codeIn').value=st.code;
     m.style.color='#7fd8a0'; m.textContent='Saved ✓ — your link is now degendojo.xyz/preacher/'+st.code;
@@ -370,7 +382,7 @@ loadPrices();
 if(new URLSearchParams(location.search).get('demo')){
   $('demoNote').innerHTML='<b>Demo view</b> — sample numbers, no wallet connected.';
   $('claimStart').style.display='none'; $('dash').classList.add('show');
-  renderDash({ ok:true, code:'ronin', links:{store:'https://degendojo.xyz/preacher/ronin',miner:'https://mine.degendojo.xyz/preacher/ronin'},
+  renderDash({ ok:true, code:'ronin', links:{store:'https://degendojo.xyz/preacher/ronin',miner:'https://store.degendojo.xyz/mine?ref=ronin'},
     wallet:'ED3GMCfoX3XNvavnWADvd6oCsohGg1ukdhv3PaUpvwJe', held:7, tier:'Sensei', share:0.3,
     salesCount:4, volumeUsd:85, buyUsd:0, pendingUsd:5.4, paidUsd:2.1,
     cycle:'2026-W30', optedIn:false, potMult:2, entries:128,

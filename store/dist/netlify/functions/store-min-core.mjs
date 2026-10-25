@@ -9,6 +9,9 @@ export const collectionOf = (asset) => (asset?.grouping || []).find((g) => g.gro
 // at list time (2% slack for the page's price being a minute old); the co-signer allows 15% drift so honest
 // listings stay buyable while dumps far under the floor are refused.
 export const LIST_SLACK = 0.98, BUY_SLACK = 0.85;
+// The lowest price anything sells for on our house, whatever the collection (base units of the house currency).
+// Same number in the co-signer (store-fn-dd-cosign HOUSE_CUR.minSale) — no dust-priced listings or sales.
+export const MIN_SALE_BU = { ORE: 100_000_000n };   // 0.001 ORE
 
 const MINTS = {
   SOL: "So11111111111111111111111111111111111111112",
@@ -17,17 +20,22 @@ const MINTS = {
 };
 
 let cache = { at: 0, usd: null };
-/** USD prices { SOL, ORE, SKR, USDC } from Jupiter, cached 60s per instance; null when unavailable. */
+export const STALE_OK_MS = 6 * 3600_000;   // a floor priced off a price up to 6 h old (15% slack) beats no floor at all
+/** USD prices { SOL, ORE, SKR, USDC } from Jupiter, cached 60s per instance. When Jupiter fails, the last good prices
+ *  of this instance are used for up to STALE_OK_MS; null when there are none — callers that enforce the Degen floor
+ *  then REFUSE ("try again") instead of skipping it. */
 export async function usdPrices(fetchFn = fetch) {
   if (cache.usd && Date.now() - cache.at < 60_000) return cache.usd;
   try {
-    const j = await (await fetchFn("https://lite-api.jup.ag/price/v3?ids=" + Object.values(MINTS).join(","))).json();
+    const j = await (await fetchFn("https://lite-api.jup.ag/price/v3?ids=" + Object.values(MINTS).join(","), { signal: AbortSignal.timeout(5000) })).json();
     const usd = { USDC: 1 };
     for (const [k, m] of Object.entries(MINTS)) usd[k] = Number(j?.[m]?.usdPrice) || 0;
-    if (!(usd.SOL > 0)) return null;
+    if (!(usd.SOL > 0)) throw new Error("no SOL price");
     cache = { at: Date.now(), usd };
     return usd;
-  } catch { return null; }
+  } catch {
+    return cache.usd && Date.now() - cache.at < STALE_OK_MS ? cache.usd : null;
+  }
 }
 
 /** The 1.5 SOL minimum in `currency` (ORE / SKR / USDC); null when prices are unavailable. */

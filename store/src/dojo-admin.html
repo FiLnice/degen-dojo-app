@@ -73,7 +73,7 @@ td.r,th.r{text-align:right;}
   </div>
 
   <div class="sect">Affiliate (Preacher) rankings</div>
-  <div class="box"><table id="affTable"><thead><tr><th>#</th><th>Preacher</th><th>Tier</th><th class="r">Referred buyers</th><th class="r">Referred volume</th><th class="r">Earnings (ORE)</th></tr></thead><tbody id="affBody"></tbody></table></div>
+  <div class="box"><table id="affTable"><thead><tr><th>#</th><th>Preacher</th><th>Tier</th><th class="r">Referred buyers</th><th class="r">Referred volume</th><th class="r">Earnings (USD)</th></tr></thead><tbody id="affBody"></tbody></table></div>
 
   <div class="sect">Recent coin purchases</div>
   <div class="box"><table id="buyTable"><thead><tr><th>When</th><th>Buyer</th><th class="r">Coins</th><th class="r">Paid</th><th>Referrer</th></tr></thead><tbody id="buyBody"></tbody></table></div>
@@ -93,7 +93,9 @@ const POT_PCT = 22, AFF_PCT = 36;   // 22% of every buy funds the pot; preachers
 const $ = id => document.getElementById(id);
 const usd = n => '$' + (n||0).toLocaleString('en-US',{maximumFractionDigits:0});
 const nf = (n,d=0) => (n==null?'—':n.toLocaleString('en-US',{maximumFractionDigits:d}));
-const short = a => a ? a.slice(0,4)+'…'+a.slice(-4) : '—';
+const short = a => a ? esc(String(a).slice(0,4)+'…'+String(a).slice(-4)) : '—';
+// every server string is escaped before it goes into innerHTML (security review 2026-10-23, I9 — defence in depth)
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 const ago = ts => { const s=Math.round((Date.now()-ts)/1000); if(s<60)return s+'s'; if(s<3600)return Math.round(s/60)+'m'; if(s<86400)return Math.round(s/3600)+'h'; return Math.round(s/86400)+'d'; };
 
 // ---- sample data (design preview until the backend is live) ----------------
@@ -110,8 +112,10 @@ function sample(){
 
 function render(d, isSample){
   $('src').innerHTML = isSample ? '⚠ <b>SAMPLE DATA</b> — enter the admin key to load live figures' : '● Live · updated '+new Date().toLocaleTimeString();
-  const pot = d.revenueUsd*POT_PCT/100, affVol = (d.affiliates||[]).reduce((t,a)=>t+(a.volume||0),0), profit = d.revenueUsd*(1-POT_PCT/100) - affVol*AFF_PCT/100;   // what's left after pot + preachers
-  const affPaid = d.affiliates.reduce((s,a)=>s+a.earnings,0);
+  // the live backend sends the exact Pot / preacher / profit figures from the VERIFIED records' locked splits; the sample estimates
+  const affVol = (d.affiliates||[]).reduce((t,a)=>t+(a.volume||0),0);
+  const pot = d.pot ?? d.revenueUsd*POT_PCT/100, profit = d.profit ?? d.revenueUsd*(1-POT_PCT/100) - affVol*AFF_PCT/100;   // what's left after pot + preachers
+  const affPaid = d.preachers ?? d.affiliates.reduce((s,a)=>s+a.earnings,0);
   $('cards').innerHTML =
     card('🪙 Coins sold', nf(d.coinsSold)) +
     card('👤 Buyers', nf(d.buyers)) +
@@ -130,11 +134,11 @@ function render(d, isSample){
     splitRow('Degen Dojo (profit)', profit, 'var(--green)');
   // affiliates
   $('affBody').innerHTML = d.affiliates.length ? d.affiliates.map((a,i)=>
-    `<tr><td class="rk">${i+1}</td><td>${a.name}</td><td><span class="tag">${a.tier}</span></td><td class="r">${nf(a.buyers)}</td><td class="r">${usd(a.volume)}</td><td class="r">${nf(a.earnings)} ◎</td></tr>`).join('')
+    `<tr><td class="rk">${i+1}</td><td>${esc(a.name)}</td><td><span class="tag">${esc(a.tier)}</span></td><td class="r">${nf(a.buyers)}</td><td class="r">${usd(a.volume)}</td><td class="r">${usd(a.earnings)}</td></tr>`).join('')
     : '<tr><td colspan="6" style="color:var(--mut);text-align:center;padding:16px">No referred sales yet.</td></tr>';
   // recent
   $('buyBody').innerHTML = d.recent.length ? d.recent.map(b=>
-    `<tr><td>${ago(b.ts)} ago</td><td class="mono">${short(b.buyer)}</td><td class="r">${nf(b.coins)} 🪙</td><td class="r">${usd(b.usd)} <span style="color:var(--gold-dim)">${b.currency}</span></td><td>${b.referrer?b.referrer:'<span style="color:var(--mut)">—</span>'}</td></tr>`).join('')
+    `<tr><td>${ago(b.ts)} ago</td><td class="mono">${short(b.buyer)}</td><td class="r">${nf(b.coins)} 🪙</td><td class="r">${usd(b.usd)} <span style="color:var(--gold-dim)">${esc(b.currency)}</span></td><td>${b.referrer?esc(b.referrer):'<span style="color:var(--mut)">—</span>'}</td></tr>`).join('')
     : '<tr><td colspan="5" style="color:var(--mut);text-align:center;padding:16px">No purchases yet.</td></tr>';
 }
 function card(k,v,cls){ return `<div class="stat ${cls||''}"><div class="k">${k}</div><div class="v">${v}</div></div>`; }

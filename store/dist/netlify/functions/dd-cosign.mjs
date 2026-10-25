@@ -14,23 +14,28 @@
 // Env: COSIGNER_SECRET (base58 or JSON-array 64-byte secret key), SOLANA_RPC (Helius URL).
 import { limited } from "./store-ratelimit-core.mjs";
 import bs58 from "bs58";
-import { createPrivateKey, sign as edSign } from "crypto";
-import { minInCurrency, BUY_SLACK, FLOOR_COLLECTION, collectionOf } from "./store-min-core.mjs";
+import { createPrivateKey, createPublicKey, sign as edSign, verify as edVerify } from "crypto";
+import { minInCurrency, BUY_SLACK, FLOOR_COLLECTION, collectionOf, MIN_SALE_BU } from "./store-min-core.mjs";
 import { isLookalike } from "./store-genuine-core.mjs";
 
 const AH = "hausS13jsjafwWwGqZTUQRmWyvyxn9EQpqMwV1PBBmk";
-// Our three houses (ORE / SKR / USDC). The cosigner is their authority, so its signature is only ever
-// lent to a buy/execute_sale on one of THESE houses.
-const HOUSES = new Set([
-  "7jAwmzBpVLL9ntSZWRFTvNXZztJJhk84HxGznq1Q3U8Y",   // ORE
-  "EfeSbHoNsXxKFRjMmNpFPNnUDYE2QmkQ5ugxvtQzCE6C",   // SKR
-  "GnbcBGfDLe3S2QaKwSPGwiJ6SoU8qzdkYAPdzTLfn1Ft",   // USDC
-]);
-const HOUSE_CUR = {   // house → its currency (treasury mint), for the exact-schema check and the price floor
-  "7jAwmzBpVLL9ntSZWRFTvNXZztJJhk84HxGznq1Q3U8Y": { code: "ORE", decimals: 11, mint: "oreoU2P8bN6jkk3jbaiVxYnG1dCXcYxwhwyK9jSybcp" },
-  "EfeSbHoNsXxKFRjMmNpFPNnUDYE2QmkQ5ugxvtQzCE6C": { code: "SKR", decimals: 6, mint: "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3" },
-  "GnbcBGfDLe3S2QaKwSPGwiJ6SoU8qzdkYAPdzTLfn1Ft": { code: "USDC", decimals: 6, mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" },
+// The store is ORE-only (owner decision), so the co-signer's signature is only ever lent to a buy/execute_sale on the
+// ORE house. The SKR / USDC houses still exist on-chain (their fee accounts are empty) but are never co-signed.
+const HOUSE_CUR = {   // house → its currency (treasury mint) + fee account, for the exact-schema check, the floor and rent
+  "7jAwmzBpVLL9ntSZWRFTvNXZztJJhk84HxGznq1Q3U8Y": { code: "ORE", decimals: 11, mint: "oreoU2P8bN6jkk3jbaiVxYnG1dCXcYxwhwyK9jSybcp", feeAccount: "5cKyg3wmG1P6fyAj7W21KKv58a1Hkmzp3sNyKA2UJBxn",
+    minSale: MIN_SALE_BU.ORE },   // 0.001 ORE — no dust-priced sales, whatever the collection
 };
+const HOUSES = new Set(Object.keys(HOUSE_CUR));
+// HOUSE RENT. When the authority co-signs, the AuctionHouse makes the house FEE ACCOUNT pay for every account the sale
+// has to create (utils.rs get_fee_payer): the buyer's escrow (bid), the seller's payment ATA, the buyer's NFT ATA, every
+// creator ATA (pay_creator_fees, even 0-share creators) and the buyer's pNFT token record (TokenMetadata transfer
+// payer). Those accounts then belong to the buyer / seller / creators, so a junk pNFT with fresh wallets could drain the
+// fee account and stop every store sale. So every co-signed sale must REFUND that rent in the same transaction: one
+// System transfer buyer → fee account, before the buy, of at least what this co-signer computes from chain state.
+const TOKEN_ACCOUNT_LEN = 165, TOKEN_RECORD_LEN = 80;
+const MAX_REFUND = 50_000_000;            // lamports — far above the worst case (~13M today), refuses a broken client
+const FEE_LOW = 20_000_000;               // alert under 0.02 SOL (the account must also hold the bid's trade-state rent transiently)
+const RPC_TIMEOUT = 8000;
 const COMPUTE_BUDGET = "ComputeBudget111111111111111111111111111111";
 const BUY_DISC = [102, 6, 61, 18, 1, 218, 235, 234];
 const EXEC_DISC = [37, 74, 217, 157, 79, 49, 35, 6];
@@ -73,22 +78,84 @@ const take = (b, o, n) => { if (n < 0 || o + n > b.length) throw new Refuse("tru
 const encCU16 = (n) => { const out = []; for (;;) { let b = n & 0x7f; n >>= 7; if (n) out.push(b | 0x80); else { out.push(b); break; } } return Buffer.from(out); };
 const b58 = (bytes) => bs58.encode(bytes);
 
+async function rpcCall(rpc, method, params) {
+  const r = await fetch(rpc, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }), signal: AbortSignal.timeout(RPC_TIMEOUT) });
+  const j = await r.json();   // a 429 / HTML error page is not JSON → throws
+  if (j.error) throw new Error(method + ": " + (j.error.message || "rpc error"));
+  return j.result;
+}
 async function getAccount(rpc, pubkeyB58) {
-  const r = await fetch(rpc, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "getAccountInfo", params: [pubkeyB58, { encoding: "base64" }] }) });
-  const j = await r.json();
-  return j.result && j.result.value;
+  const res = await rpcCall(rpc, "getAccountInfo", [pubkeyB58, { encoding: "base64" }]);
+  return res && res.value;
 }
 
-// The NFT's DAS record (null on an RPC hiccup, so an outage never blocks a sale).
+// The NFT's DAS record, tried twice; null when DAS is unavailable (the caller then reads the Metadata account itself).
 async function assetOf(rpc, mint) {
+  for (let i = 0; i < 2; i++) {
+    try { const a = await rpcCall(rpc, "getAsset", { id: mint }); if (a && a.id) return a; } catch {}
+    if (!i) await new Promise((ok) => setTimeout(ok, 400));
+  }
+  return null;
+}
+// Fallback when DAS is down: the same facts from the on-chain Metadata account — name, uri, creators and the VERIFIED
+// collection (what DAS `grouping` reports). Shaped like a DAS asset so the floor + look-alike rules read it unchanged.
+// The account is the execute_sale's metadata slot; AuctionHouse itself checks it is this mint's metadata, so a fake
+// one only makes the transaction fail on-chain. null when it can't be read either → the caller refuses.
+export function assetFromMetadata(mint, b) {
+  let o = 1 + 32 + 32;
+  const str = () => { const n = b.readUInt32LE(o); o += 4; const s = b.subarray(o, o + n).toString("utf8").replace(/\0+$/, ""); o += n; return s; };
+  const name = str(); str(); const uri = str();
+  o += 2;   // seller fee bps
+  const creators = [];
+  if (b[o++]) { const n = b.readUInt32LE(o); o += 4; for (let k = 0; k < n; k++) { creators.push({ address: bs58.encode(b.subarray(o, o + 32)), verified: !!b[o + 32], share: b[o + 33] }); o += 34; } }
+  o += 2;                                // primary sale happened, is mutable
+  if (b[o++]) o += 1;                    // edition nonce
+  if (b[o++]) o += 1;                    // token standard
+  let grouping = [];
+  if (b[o++]) { const verified = !!b[o]; const key = bs58.encode(b.subarray(o + 1, o + 33)); if (verified) grouping = [{ group_key: "collection", group_value: key }]; }
+  return { id: mint, content: { metadata: { name: name.trim() }, json_uri: uri.trim(), links: {}, files: [] }, creators, grouping, _fromMetadata: true };
+}
+async function metadataAsset(rpc, mint, metadataKey) {
   try {
-    const r = await fetch(rpc, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "getAsset", params: { id: mint } }) });
-    return (await r.json()).result || null;
+    const acc = await getAccount(rpc, metadataKey);
+    if (!acc || acc.owner !== META) return null;
+    return assetFromMetadata(mint, Buffer.from(acc.data[0], "base64"));
   } catch { return null; }
 }
 
+// Rent a co-signed sale makes the house fee account pay, from live chain state: every account it must create that
+// doesn't exist yet (full rent-exempt minimum, from the Rent sysvar). Also returns the fee account's balance.
+export async function houseRent(rpcFn, { feeAccount, escrow, sellerPayAta, buyerNftAta, creatorAtas, destTokenRecord }) {
+  const keys = [RENT, feeAccount, escrow, sellerPayAta, buyerNftAta, destTokenRecord, ...creatorAtas];
+  const res = await rpcFn("getMultipleAccounts", [keys, { encoding: "base64", commitment: "confirmed" }]);
+  const v = res && res.value;
+  if (!Array.isArray(v) || v.length !== keys.length || !v[0]) throw new Error("chain unavailable");
+  const rs = Buffer.from(v[0].data[0], "base64");
+  if (rs.length < 16) throw new Error("bad rent sysvar");
+  const perByteYear = rs.readBigUInt64LE(0), threshold = rs.readDoubleLE(8);
+  const rentOf = (len) => Math.ceil(Number((128n + BigInt(len)) * perByteYear) * threshold);
+  const empty = (a) => !a || !a.data || Buffer.from(a.data[0] || "", "base64").length === 0;
+  let owed = 0;
+  [[2, TOKEN_ACCOUNT_LEN], [3, TOKEN_ACCOUNT_LEN], [4, TOKEN_ACCOUNT_LEN], [5, TOKEN_RECORD_LEN]].forEach(([i, len]) => { if (empty(v[i])) owed += rentOf(len); });
+  for (let i = 6; i < keys.length; i++) if (empty(v[i])) owed += rentOf(TOKEN_ACCOUNT_LEN);
+  return { owed, feeLamports: v[1] ? v[1].lamports : 0 };
+}
+
+const SPKI_ED25519 = Buffer.from("302a300506032b6570032100", "hex");
+const verifySig = (pubkey32, message, sig) => { try { return edVerify(null, message, createPublicKey({ key: Buffer.concat([SPKI_ED25519, pubkey32]), format: "der", type: "spki" }), sig); } catch { return false; } };
+
 export default async (request) => {
   const blocked = limited(request, "dd-cosign", 20); if (blocked) return blocked;   // 20 / minute / IP (DD-04)
+  // GET ?status=1 — the house fee account balance (public on-chain anyway), for the payouts desk's low-balance alert.
+  if (request.method === "GET" && new URL(request.url).searchParams.has("status")) {
+    const rpc = process.env.SOLANA_RPC; if (!rpc) return json({ error: "SOLANA_RPC is not set" }, 500);
+    const houses = {};
+    for (const [house, c] of Object.entries(HOUSE_CUR)) {
+      let lamports = null; try { const a = await getAccount(rpc, c.feeAccount); lamports = a ? a.lamports : 0; } catch {}
+      houses[c.code] = { house, feeAccount: c.feeAccount, lamports, sol: lamports == null ? null : lamports / 1e9, low: lamports != null && lamports < FEE_LOW, lowBelowSol: FEE_LOW / 1e9 };
+    }
+    return json({ houses });
+  }
   if (request.method !== "POST") return new Response("POST only", { status: 405 });
   const secret = process.env.COSIGNER_SECRET, rpc = process.env.SOLANA_RPC;
   if (!secret) return json({ error: "COSIGNER_SECRET is not set" }, 500);
@@ -125,6 +192,9 @@ export default async (request) => {
     let numStatic; [numStatic, m] = readCU16(message, m);
     if (numStatic < 3 || numStatic > MAX_ACCOUNTS || roUnsigned > numStatic - numReqSig) return json({ error: "refused: bad account header" }, 400);
     const staticKeys = []; for (let i = 0; i < numStatic; i++) { staticKeys.push(take(message, m, 32)); m += 32; }
+    // The buyer (fee payer, slot 0) signs first in their wallet. Check that signature before anything else — no RPC
+    // call, no co-signature and no relay for a transaction its buyer never signed.
+    if (!verifySig(Buffer.from(staticKeys[0]), message, sigs[0])) return json({ error: "refused: the buyer's signature is missing or invalid" }, 400);
     take(message, m, 32); m += 32;                      // recent blockhash
     let numIx; [numIx, m] = readCU16(message, m);
     if (numIx < 2 || numIx > 24) return json({ error: "refused: unexpected number of instructions" }, 400);
@@ -167,11 +237,17 @@ export default async (request) => {
     // ── exact shape: only the programs a store buy uses, AuctionHouse exactly [buy, execute_sale] in that order ──
     const progOf = (ix) => (ix.programIdIndex < numStatic ? b58(accounts[ix.programIdIndex]) : null);   // programs are never loaded from a lookup table
     const keyOf = (ix, n) => b58(accounts[ix.accIdx[n]]);
-    const cbSeen = new Set(); let memos = 0, guards = 0; const ahIxs = [];
+    const cbSeen = new Set(); let memos = 0, guards = 0; const ahIxs = [], sysIxs = [];
     for (const ix of ixs) {
       if (ix.accIdx.some((k) => k >= accounts.length)) return json({ error: "refused: instruction references an unknown account" }, 400);
       const prog = progOf(ix);
       if (prog === AH) { ahIxs.push(ix); continue; }
+      // the house-rent refund: exactly a System transfer (no other System instruction), checked against the sale below
+      if (prog === SYSTEM) {
+        if (sysIxs.length || ix.accIdx.length !== 2 || ix.data.length !== 12 || Buffer.from(ix.data).readUInt32LE(0) !== 2)
+          return json({ error: "refused: unexpected System instruction" }, 400);
+        sysIxs.push(ix); continue;
+      }
       if (prog === COMPUTE_BUDGET) {
         const kind = ix.data[0];
         if (ix.accIdx.length || CB_DATA_LEN[kind] !== ix.data.length || cbSeen.has(kind)) return json({ error: "refused: unexpected compute-budget instruction" }, 400);
@@ -210,11 +286,13 @@ export default async (request) => {
       && keyOf(bx, 11) === TOKEN && keyOf(bx, 12) === SYSTEM && keyOf(bx, 13) === RENT
       && keyOf(ex, 16) === TOKEN && keyOf(ex, 17) === SYSTEM && keyOf(ex, 18) === ATA_PROG && keyOf(ex, 19) === AH_SIGNER && keyOf(ex, 20) === RENT
       && keyOf(ex, t) === META && keyOf(ex, t + 4) === AUTH_RULES && keyOf(ex, t + 6) === SYSVAR_IX
+      && keyOf(bx, 9) === cur.feeAccount
       && bPrice === ePrice && bPrice > 0n && bSize === 1n && eSize === 1n;
     if (!schemaOk) return json({ error: "refused: AuctionHouse accounts are not the store's buy layout" }, 400);
+    if (bPrice < cur.minSale) return json({ error: `refused: the lowest price the store co-signs is ${Number(cur.minSale) / 10 ** cur.decimals} ${cur.code}` }, 400);
 
-    // GATE (security invariant): the cosigner is the AUTHORITY of our three houses, so its signature must
-    // only ever reach an AuctionHouse buy/execute_sale on one of those houses.
+    // GATE (security invariant): the cosigner is the AUTHORITY of our houses, so its signature must only ever
+    // reach an AuctionHouse buy/execute_sale on the one it co-signs for (HOUSES = the ORE house).
     //  · A signature covers the whole transaction, and any instruction that lists the cosigner account can
     //    use that signer privilege — including another program that CPIs into the AuctionHouse's admin
     //    calls (update_auction_house, withdraw_from_fee, …). So EVERY instruction that references the
@@ -251,22 +329,43 @@ export default async (request) => {
     if (ixs.filter(isBuy).some((ix) => !saleStates.has(keyAt(ix, 10))))
       return json({ error: "refused: a bid without its matching sale" }, 400);
 
+    // HOUSE RENT REFUND (see HOUSE RENT above): the buyer's System transfer to this house's fee account, placed before
+    // the buy, must cover every account the sale makes the house create. Nothing else may use the System program.
+    let rent;
+    try {
+      rent = await houseRent((method, params) => rpcCall(rpc, method, params), {
+        feeAccount: cur.feeAccount, escrow: keyOf(bx, 6), sellerPayAta: keyOf(ex, 7), buyerNftAta: keyOf(ex, 8),
+        destTokenRecord: keyOf(ex, t + 3), creatorAtas: Array.from({ length: creators }, (_, i) => keyOf(ex, EXEC_FIXED + 2 * i + 1)) });
+    } catch { return json({ error: "refused: couldn't read the chain right now — please try again in a minute" }, 503); }
+    const refund = sysIxs[0];
+    const refundLamports = refund ? Buffer.from(refund.data).readBigUInt64LE(4) : 0n;
+    if (refund && !(keyOf(refund, 0) === payer && keyOf(refund, 1) === cur.feeAccount && ixs.indexOf(refund) < ixs.indexOf(bx)))
+      return json({ error: "refused: the rent refund must go from the buyer to the house fee account, before the buy" }, 400);
+    if (refundLamports > BigInt(MAX_REFUND)) return json({ error: "refused: rent refund larger than any sale needs" }, 400);
+    if (refundLamports < BigInt(rent.owed))
+      return json({ error: `refused: this sale opens accounts worth ${rent.owed} lamports of rent; the transaction refunds ${refundLamports} — rebuild the buy and try again`, rentOwed: rent.owed }, 400);
+    if (rent.feeLamports < FEE_LOW) console.warn(`[dd-cosign] LOW house fee account ${cur.feeAccount}: ${rent.feeLamports / 1e9} SOL (top up above ${FEE_LOW / 1e9} SOL)`);
+
     // FLOOR: never co-sign a Degen Dojo sale priced under the minimum (1.5 SOL in the house's currency), so a
     // listing made around the List page can't be sold under the floor. Checked on execute_sale — the step this
     // co-signer actually signs (a bid can be placed without it). Other collections have no minimum. 15% slack keeps
-    // honest listings buyable when the currency drifts against SOL; if the price feed is down, sales aren't blocked.
+    // honest listings buyable when the currency drifts against SOL. FAIL CLOSED: when DAS is down the NFT is read from
+    // its Metadata account instead; when neither can be read, or the price feed has no price for a Degen, refuse
+    // ("try again") rather than skip the floor / look-alike checks.
     for (const ix of ixs) {
       if (!(isAH(ix) && EXEC_DISC.every((b, i) => ix.data[i] === b)) || ix.data.length < 27) continue;
       const cur = ix.accIdx.map((k) => HOUSE_CUR[b58(accounts[k])]).find(Boolean);
       const mintKey = accounts[ix.accIdx[3]];   // execute_sale accounts: buyer, seller, token_account, token_mint(3), …
       if (!cur || !mintKey) continue;           // (AuctionHouse checks the mint against the token account + trade states)
       const priceBU = Buffer.from(ix.data).readBigUInt64LE(11);   // execute_sale: disc(8) 3 bumps buyer_price(u64) token_size(u64)
-      const asset = await assetOf(rpc, b58(mintKey));
+      const asset = (await assetOf(rpc, b58(mintKey))) || (await metadataAsset(rpc, b58(mintKey), keyOf(ix, 4)));
+      if (!asset) return json({ error: "refused: couldn't check this NFT right now — please try again in a minute" }, 503);
       if (isLookalike(asset)) return json({ error: "refused: this NFT copies Degen Dojo but isn't one of ours" }, 400);
       if (collectionOf(asset) !== FLOOR_COLLECTION) continue;
       const min = await minInCurrency(cur.code);
-      if (min && Number(priceBU) / 10 ** cur.decimals < min * BUY_SLACK)
-        return json({ error: `refused: price is under the Degen Dojo minimum (${min.toFixed(cur.code === "USDC" ? 2 : 3)} ${cur.code} ≈ 1.5 SOL)` }, 400);
+      if (!min) return json({ error: "refused: the price feed is unavailable, so the Degen Dojo minimum can't be checked — please try again in a minute" }, 503);
+      if (Number(priceBU) / 10 ** cur.decimals < min * BUY_SLACK)
+        return json({ error: `refused: price is under the Degen Dojo minimum (${min.toFixed(3)} ${cur.code} ≈ 1.5 SOL)` }, 400);
     }
 
     // find the cosigner's signature slot
@@ -291,7 +390,7 @@ export default async (request) => {
     const out = Buffer.concat([encCU16(numSigs), ...sigs, message]);
     // skipPreflight: the client already simulated the buy; a preflight here just re-checks the blockhash on
     // a possibly-lagging node and throws BlockhashNotFound. Send straight to the leader.
-    const sr = await fetch(rpc, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "sendTransaction", params: [out.toString("base64"), { encoding: "base64", skipPreflight: true, maxRetries: 5 }] }) });
+    const sr = await fetch(rpc, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "sendTransaction", params: [out.toString("base64"), { encoding: "base64", skipPreflight: true, maxRetries: 5 }] }), signal: AbortSignal.timeout(RPC_TIMEOUT) });
     const sj = await sr.json();
     if (sj.error) return json({ error: "submit failed: " + JSON.stringify(sj.error).slice(0, 300) }, 400);
     return json({ signature: sj.result });

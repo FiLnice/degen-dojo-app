@@ -65,6 +65,10 @@ async function rpc(method, params, tries = 3) {
 
 const keysOf = (tx) => [...(tx.transaction.message.accountKeys || []), ...(tx.meta?.loadedAddresses?.writable || []), ...(tx.meta?.loadedAddresses?.readonly || [])];
 const signersOf = (tx) => (tx.transaction.message.accountKeys || []).slice(0, tx.transaction.message.header?.numRequiredSignatures || 1);
+// the programs the tx actually RAN (top level + inner) — a marketplace id merely listed as an unused account in a plain
+// transfer doesn't make it a royalty (security review 2026-10-23, M-1; same rule as the Keeper)
+const invokedOf = (tx) => { const keys = keysOf(tx);
+  return new Set([...(tx.transaction.message.instructions || []), ...(tx.meta?.innerInstructions || []).flatMap((x) => x.instructions || [])].map((ix) => (ix.programId != null ? String(ix.programId) : keys[ix.programIdIndex])).filter(Boolean)); };
 
 /** The tx's full signed change to `wallet` per mint (SOL under the wrapped-SOL mint + fungible tokens; NFTs
  *  excluded) — fees included, and for a FAILED tx just the fee it still cost. {} when nothing changed. */
@@ -120,8 +124,8 @@ async function currentHoldings(wallet) {
  *  the store holds a verified purchase for that signature, otherwise it becomes "direct". */
 export function classify(tx, wallet) {
   if (!tx || tx.meta?.err) return null;
-  const keys = keysOf(tx), signers = signersOf(tx);
-  const market = keys.some((k) => MARKETPLACES.has(k));
+  const keys = keysOf(tx), signers = signersOf(tx), ran = invokedOf(tx);
+  const market = [...ran].some((p) => MARKETPLACES.has(p));
   const delta = walletDelta(tx, wallet);                                  // signed change per mint (SOL + fungible tokens)
   if (!Object.keys(delta).length) return null;
   if (signers.includes(wallet)) {                                        // the Reserve's own transaction: net change + who got paid
@@ -141,7 +145,7 @@ export function classify(tx, wallet) {
   if (!Object.keys(d).length) return null;
   if (signers.some((x) => OWN.has(x)) || (signers.includes(COSIGNER) && !market)) return { src: "team", d };   // our wallets / the owner
   const src = memosOf(tx).some((m) => m === TIP_MEMO || m.startsWith(TIP_MEMO)) ? "tips"
-    : market ? "royalties" : keys.includes(ORE_PROGRAM) ? "mining" : "coins";
+    : market ? "royalties" : ran.has(ORE_PROGRAM) ? "mining" : "coins";
   return { src, d };
 }
 

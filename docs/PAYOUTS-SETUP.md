@@ -8,7 +8,7 @@ The store now runs the weekly Dojo Pot by itself. Every week it:
 4. **Checks for anything fishy** (see "Flags" below).
 5. **Messages you** on Telegram and/or Discord with a link to **https://store.degendojo.xyz/payouts**.
 
-Then you open the page, connect the wallet that holds the money, and press **Pay everything**. You approve once in your wallet. The server never holds a private key.
+Then you open the page, connect the Treasury wallet, and press **Pay this week**. You approve once in your wallet. The server never holds a private key.
 
 ---
 
@@ -39,8 +39,9 @@ Netlify → the store site → **Site configuration → Environment variables**.
 | `DRAW_HOUR_UTC` | optional | hour of the draw in UTC, 0–23 (default 18) |
 | `PAYOUT_CAP_USD` | optional | flag any week paying out more than this (default 300) |
 | `MIN_PREACHER_PAYOUT_USD` | optional | smallest preacher payout (default 1) |
-| `TEAM_WALLETS` | optional | comma-separated wallets of yours that must never win (treasury, pot/royalty and creator wallets are already covered) |
+| `TEAM_WALLETS` | optional | comma-separated wallets of yours that must never win (treasury, pot/royalty, creator, the Operations wallet and `OWNER_WALLETS` are already covered) |
 | `COSIGNER_PUBKEY` | optional | the marketplace cosigner's **public** address, so it's never paid |
+| `OWNER_WALLETS` | optional | your personal wallets (comma list; default your main wallet) — never paid, and the Keeper doesn't count their transfers as income |
 
 `ADMIN_KEY` and `SOLANA_RPC` are already set. The /payouts page uses `ADMIN_KEY`, the same key as /admin and the draw.
 
@@ -55,24 +56,25 @@ Redeploy after changing variables.
    - **Proof**: the commitment, the revealed seed, the blockhash and a link to the public draw record.
    - **Winners / Preachers**: who gets what in ORE and SKR. "SOL → ORE" and "USDC → ORE" amounts are swapped to ORE when you pay.
    - **Flags**: red = **block**, amber = **warn**.
-4. Press **Connect the paying wallet** and connect the wallet that holds the funds. Coin-pack money arrives in the treasury `5w55…WMuWp`. Tips and royalties arrive in `ED3G…pvwJe`. The page shows what's needed per token against what that wallet holds, including a little SOL for fees and new token accounts. If anything is short, Pay stays locked. Move funds into that wallet first.
-5. If there are flags, read them. Then either press **Exclude** on a flagged winner or preacher, or tick **"I reviewed these flags"**.
-6. Press **Pay everything** and approve once in your wallet. The page:
-   - swaps the SOL/USDC part to ORE on Jupiter (the minimum guaranteed amount is what gets handed out; any extra stays with you),
+4. Press **Connect the Treasury wallet** and connect the Treasury `5w55…WMuWp` — everything (coin packs, tips, royalties, repairs) arrives there. The page checks what's needed per token against what the Treasury holds, including a little SOL for fees and new token accounts. If anything is short, it tells you what to top up.
+5. If there are flags, read them. Then either press **Exclude** on a flagged winner or preacher, or tick **"I reviewed the flags"**. The tick is saved on the server too: the store refuses to send a payout past an unreviewed **block** flag, and refuses outright while a preacher's records were already paid in another payout (exclude them or **Rebuild plan**).
+6. Press **Pay this week** and approve once in your wallet. Before you sign, every transaction is checked — for the swap that includes the swap's own on-chain minimum (a swap whose price protection was loosened is refused). The page:
+   - swaps the SOL/USDC part to ORE on Jupiter at the server's quote (the quote must be within 10% of the market price; the minimum guaranteed amount is what gets handed out; any extra stays with you),
+   - tells the store each swap landed (so no browser or device ever swaps that bucket again),
    - sends ORE/SKR to everyone, creating their token accounts if needed,
-   - and reports back. The server re-checks every transaction on-chain, marks the round paid, marks the preachers' records paid, and messages you "Paid ✓".
+   - and reports back. The server re-checks every transaction on-chain, marks the round paid, marks the preachers' records paid (each record only once), and messages you "Paid ✓".
    Each transaction gets a Solscan link.
 
-If something breaks halfway (a wallet hiccup, a timeout), press **Pay** again. Finished steps are remembered, so the swap never runs twice and nobody gets paid twice.
+If something breaks halfway (a wallet hiccup, a timeout), press **Pay** again — from any device. Finished steps are remembered (swaps on the server), so the swap never runs twice and nobody gets paid twice.
 
 ## Flags (what makes a payout "fishy")
 
 - One wallet holds more than 40% of the week's tickets.
 - A winner's wallet is less than 7 days old.
 - Two or more winners were first funded by the same wallet.
-- A winner or preacher is one of our own wallets (treasury, pot, royalty, creator, cosigner, team).
+- A winner or preacher is one of our own wallets (treasury, pot, royalty, creator, cosigner, Operations, owner, team).
 - The draw doesn't re-check: the seed doesn't match its commitment, the blockhash is wrong, or the archived tickets don't reproduce the same winners.
-- The total payout is over `PAYOUT_CAP_USD`.
+- The total payout is over `PAYOUT_CAP_USD` (valued at today's prices, or the ledger value if that's higher).
 - A preacher's referred buyer was funded by the preacher's own wallet, or the preacher's referred spend jumped more than 10× vs. what they were paid before.
 - The pot ledger doesn't match the verified coin-pack and tip records for the week.
 - A check couldn't run (RPC busy, out of time). It shows as a warning, so you know it wasn't checked.
@@ -83,6 +85,7 @@ If something breaks halfway (a wallet hiccup, a timeout), press **Pay** again. F
 
 - If nobody played (no tickets), there are no winners and the pot carries over to next week. Preachers still get paid.
 - If the store was down on draw day and more than 2 days have passed, it waits for the next draw day rather than drawing late.
-- The manual buttons still work. `/api/draw?action=commit|draw&key=…` runs the same engine. The weekly job notices a round you opened by hand and won't open a second one.
+- The manual draw still works: `GET /api/draw?action=commit` / `?action=draw` with the header `Authorization: Bearer <ADMIN_KEY>` (e.g. `curl -H "Authorization: Bearer $ADMIN_KEY" "https://store.degendojo.xyz/api/draw?action=commit"`). A key in the URL or the body is refused. The weekly job notices a round you opened by hand and won't open a second one.
 - A plan is never rebuilt once any payment has landed. Before that, **Rebuild plan** re-reads everything and re-runs the checks.
-- Only the newest plan pays preachers. If an older week was never paid, its preachers move to the newest plan, so nobody is paid twice.
+- Only the newest plan pays preachers. If an older week was never paid, its preachers move to the newest plan — and rebuilding that older week later never adds them back — so nobody is paid twice.
+- Once a week the cron also clears out expired sign-in requests and old one-time markers, so those stores can't grow forever.

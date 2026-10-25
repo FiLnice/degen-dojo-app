@@ -335,4 +335,63 @@ Fixed + tested locally (store + site zips rebuilt; nothing deployed or sent):
 | 19 | Info | Function sources / package files downloadable | `_redirects` 404! for /netlify/*, /node_modules/*, package*.json, netlify.toml (both sites) |
 | — | Guard | Keys could ship again | `build-leak-guard.mjs` refuses to zip if a key / private key / 64-byte array is in the output |
 
-Still open: counterfeit-Degen labelling (verified-collection badge), market buy not tied to the shown price, inspect ME/Tensor/Jupiter-built txs (payouts), admin keys in URLs, listing GET cap per seller/mint, Duel seed revealed at start, miner-fee front-run, function rate limits. Operator: rotate Helius key; delete local `scripts/dd-cosigner.json` once Netlify has COSIGNER_SECRET; delete `bulkitor/.netlify` cache; one encrypted backup of the APK keystore.
+Still open: counterfeit-Degen labelling (verified-collection badge), inspect ME/Tensor/Jupiter-built txs (payouts), admin keys in URLs, listing GET cap per seller/mint, Duel seed revealed at start, miner-fee front-run, function rate limits. Operator: rotate Helius key; delete local `scripts/dd-cosigner.json` once Netlify has COSIGNER_SECRET; delete `bulkitor/.netlify` cache; one encrypted backup of the APK keystore.
+(2026-10-24, review of 2026-10-23 M12: the market price lock — buy refused if the live price moved — IS live: store-template.html PRICE LOCK for Magic Eden/Tensor + dojo-ah.js lockPrice; the repo copy was simply stale because the sync never copied store-template.html — fixed in scripts/sync-github.ps1.)
+
+---
+
+## Review round 3 (report of 2026-10-23, fixed 2026-10-24/25): 7 lanes, every finding re-checked against the current code
+
+Fixed and tested locally in `bulkitor/scripts`. The store and site zips are rebuilt; nothing is deployed or sent. There are 30 suites in `run-all-tests.ps1`, and all pass except `swap-guard-test`: it is a live simulation that needs ≥ 0.01 SOL in the owner's wallet, and its two refusal checks pass.
+
+| # | Severity | Item | Fix |
+|---|---|---|---|
+| H1 | High | `mine.degendojo.xyz` is a dangling CNAME; the preacher link uses it; the `dd_ref` cookie is domain-wide | Preacher link → `store.degendojo.xyz/mine?ref=`. Cookie is host-only `__Host-dd_ref`, read through `DojoRef.code()`; the old cookie is migrated once. **Owner deletes the DNS record (Spaceship).** |
+| H2 | High | Front-run POST with the wrong kind/currency voids a coin buy or tip | Kind, currency and the inspected wallet come from the transaction (POST = hints). Payer/unreadable rejections are re-queueable. Admin `requeue`/`delete` on `/api/verify` |
+| M1 | Medium | Keeper double-books an inflow (decoy marketplace key) | Marketplace = programs actually invoked. Royalty branch skips credited coin records. verify-core refuses txs listing a marketplace program |
+| M2 | Medium | Repair nullified via `/api/coinbuy` | `ddfix:` decided first. Memo-less ORE waits for the coin verdict. verify-core refuses ddfix and memo-less ORE at POST |
+| M3 | Medium | DAS/RPC hiccup → permanent skip | Errors → retry (24 h max), then a desk-visible skip with **Re-decide** |
+| M4 | Medium | House fee account drained by rent | Every co-signed buy carries a buyer → fee-account rent refund, computed server-side. 0.001 ORE minimum price. Fee account pinned. Low-balance line on /payouts. SKR/USDC houses retired |
+| M5 | Medium | Floor / look-alike checks fail open | Cosigner retries DAS, falls back to on-chain metadata, else 503. Listing POST refuses on DAS failure. GET re-checks old "" records |
+| M6 | Medium | Payout swap inspector can't see a stripped slippage floor | Jupiter route args decoded (verified on 4 real swaps). Refuses unknown/v2/ExactOut, fee > 0, slippage > 1%, minimum < quote |
+| M7 | Medium | Sign-in lockout by nonce overwrite | Nonces keyed by nonce, single-use. Legacy pointer until 2026-11-09 |
+| M8 | Medium | Self-referral via a 2nd wallet | Detection only (owner decides): `few buyers` / `one buyer` / `same tx` warn; `linked wallets` (90-day transfers either way) **blocks** the payout send until reviewed |
+| M9 | Medium | Retired `/api/attr` read in request paths | POST → 410. No reads in stats/owed/plan. Client calls removed |
+| M10 | Medium | verify-cron reads the whole ledger | `pending:<sig>` index, 20 s budget, readable-tx check at POST, junk purged after 3 days |
+| M11 | Medium | Ticket hoarding across rounds | Round stored at start. A late finish gets the base ticket only. 24 h finish deadline. Sweep |
+| M12 | Medium | Repo ≠ deployed template | The template had every fix; the sync now copies it (`scripts/sync-github.ps1`) |
+| M13 | Medium | degendojo.xyz without CSP/anti-framing | In the site `_headers` (`build-all.mjs`). **Owner uploads the site zip** |
+| L | Low | Quote shopping / 4% tolerance | Latest quote per wallet+currency only, 1% tolerance, 20 quotes/h |
+| L | Low | Admin dashboard sums POSTed hints | Verified records only |
+| L | Low | Double mint after a crash; lendable ×2; `/api/ticket` sink; -32009 slot skip | Play ids in the snapshot; per-asset 1 h claim; endpoint removed; `getBlocks` |
+| L | Low | Fairness verifiable by the operator only; randomness fixed while entries are open | Commit closes the round → entries snapshot + hash published → only then the target slot. `/draw` re-runs the pick in the browser |
+| L | Low | Rebuild plan re-adds moved preachers; flags page-only; swap-once in localStorage; dust quote | Old rounds get no preachers + create-only `rec:` claims. Server-side review gate on send/preflight. Server-verified `swapped`. 90%-of-spot check |
+| L | Low | Cosigner relays without checking the buyer signature; residual price-lock gap; non-ATA listings | Ed25519 check first. Buyer token accounts simulated. Seller ATA required |
+| L | Low | Keeper payer = fee payer; `/api/vault` amplifier; stale claim prices; NFT arrival with a marketplace key | Owner of the debited ORE account. Batched/cached reads, cron-only scan. 5-min price age + stORE ≥ ORE band. Arrivals decided first |
+| L | Low | Preacher tier read live; brand codes squattable; SIWS relay | 7-day holding (grandfathered until 2026-11-30). Reserved + confusable names. `Sec-Fetch-Site` + `solana:signIn` |
+| L | Low | Unbounded Blobs stores | Weekly sweep in payout-cron (nonces, used markers, legacy tickets). Launch intake capped 50/day + 1 per wallet/day |
+| L | Low | Memos parsed from any program log | Memo-program instructions only (store + Keeper share the reader) |
+| L | Low | Leak guard misses key formats | base58/hex keys, keypair arrays, Telegram/Discord, `apiKey:`, keystores. The finished zip is scanned too (all 3 builds) |
+| L | Low | Second assetlinks cert; `?relay=` persisted; unescaped Reserve/credits/admin strings; `/nft` pages without CSP; admin cached by SW | Removed 84:8C (release APK = CD:AB only); overrides tab-only + localhost; escaped; headers added; SW never caches operator pages / no-store |
+| I | Info | Legacy miner API routes; Next 16.2.9; `reservedWallets` gaps; stale docs; Keeper conversion quote unchecked | Routes → 410; Next 16.2.11; OPS/owner/cosigner wallets reserved; docs fixed; X→stORE quote sanity-checked against spot |
+
+**Not changed (owner decisions):**
+- Duel balance: a greedy strategy wins ~70%, so Duel pays ~2× tickets per coin.
+- The 10-minute coin price lock: could be 5 minutes.
+- CSP `'unsafe-inline'`: needs per-page nonces.
+- `img-src https:`: the market shows art from any collection.
+- The rate limiter is per instance.
+
+**Owner actions after round 3:**
+1. Delete the `mine` CNAME at Spaceship, and remove the host from Netlify if it's listed.
+2. Upload both zips, then sync the repo with `scripts/sync-github.ps1`, delete `store/functions/store-fn-ticket.mjs` from the repo copy, and push.
+3. Keep the AuctionHouse ORE fee account above 0.02 SOL (the /payouts line warns).
+4. Optional: set `PREACHER_RESERVED_WALLETS`.
+5. Confirm the old Helius key was rotated.
+
+Round 2 "still open" items now closed:
+- the Duel seed (fixed);
+- the miner-fee front-run (ddminer memo);
+- ME/Tensor/Jupiter-built txs (inspector + decode);
+- admin keys in URLs (Bearer only; the legacy miner routes are retired);
+- the listing cap.

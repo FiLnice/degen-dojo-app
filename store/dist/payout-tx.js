@@ -195,6 +195,28 @@
     var k = function (a, b) { return new W3.PublicKey(d.subarray(a, b)).toBase58(); };
     return { mint: k(0, 32), owner: k(32, 64), amount: u64At(d, 64), delegate: u32At(d, 72) ? k(76, 108) : null, closeAuth: u32At(d, 129) ? k(133, 165) : null };
   }
+  // ---- the Jupiter swap instruction's OWN limits (what the chain enforces — a test run can't see them) ----
+  // Jupiter v6 (JUP6…) instructions end with fixed arguments; checked against real lite-api.jup.ag swaps built for the
+  // Treasury (2026-10-24): route / sharedAccountsRoute (ExactIn) end with  in_amount u64 · quoted_out_amount u64 ·
+  // slippage_bps u16 · platform_fee_bps u8;  exactOutRoute / sharedAccountsExactOutRoute end with  out_amount u64 ·
+  // quoted_in_amount u64 · slippage_bps u16 · platform_fee_bps u8. On-chain, an ExactIn swap fails unless it gets
+  // ≥ quoted_out × (10000 − slippage) / 10000 (rounded up, as Jupiter's otherAmountThreshold is) — so a builder that
+  // strips that floor (quoted_out = 1, slippage 99.99%) leaves a swap any sandwich bot can drain while its test run
+  // still looks fine. Any other Jupiter instruction (token-ledger / v2 variants) is refused, not guessed at.
+  var JUP_IX = { e517cb977ae3ad2a: { name: 'route', mode: 'ExactIn' }, c1209b3341d69c81: { name: 'sharedAccountsRoute', mode: 'ExactIn' },
+    d033ef977b2bed5c: { name: 'exactOutRoute', mode: 'ExactOut' }, b0d169a89a7d453e: { name: 'sharedAccountsExactOutRoute', mode: 'ExactOut' } };
+  var MAX_SLIPPAGE_BPS = 100;
+  function hex8(d) { var s = ''; for (var i = 0; i < 8 && i < d.length; i++) s += (d[i] < 16 ? '0' : '') + d[i].toString(16); return s; }
+  // → { name, mode, amount (in_amount | out_amount), quoted (quoted_out | quoted_in), slippageBps, platformFeeBps } | null
+  function jupSwapArgs(d) {
+    var k = JUP_IX[hex8(d)], L = d.length;
+    if (!k || L < 8 + 4 + 19) return null;
+    return { name: k.name, mode: k.mode, amount: u64At(d, L - 19), quoted: u64At(d, L - 11), slippageBps: d[L - 3] | (d[L - 2] << 8), platformFeeBps: d[L - 1] };
+  }
+  var ceilDiv = function (a, b) { return (a + b - 1n) / b; };
+  // the minimum an ExactIn swap must deliver on-chain / the most an ExactOut swap may take, from its own arguments
+  function jupOnChainMinOut(a) { return ceilDiv(a.quoted * BigInt(10000 - a.slippageBps), 10000n); }
+  function jupOnChainMaxIn(a) { return ceilDiv(a.quoted * BigInt(10000 + a.slippageBps), 10000n); }
   function sumBy(list, key, val) { var o = {}; list.forEach(function (x) { o[x[key]] = (o[x[key]] || 0n) + B(x[val]); }); return o; }
   function andList(parts) { return parts.length < 2 ? parts.join('') : parts.slice(0, -1).join(', ') + ' + ' + parts[parts.length - 1]; }
 
@@ -233,7 +255,7 @@
     expB.forEach(function (b) { okMints[b.mint] = 1; closable[b.token] = 1; });
 
     // 1) instruction by instruction
-    var cuLimit = null, cuPrice = 0n, nIx = 0;
+    var cuLimit = null, cuPrice = 0n, nIx = 0, jupN = 0, jupMin = null;
     msg.compiledInstructions.forEach(function (ci, n) {
       var prog = K[ci.programIdIndex], acc = ci.accountKeyIndexes.map(function (x) { return K[x]; }), d = ci.data, where = 'step ' + (n + 1) + ': ';
       if (!allowed[prog]) refuse(where + 'it calls a program a ' + (kind === 'swap' ? 'swap' : kind === 'burns' ? 'burn' : 'payment') + ' never needs (' + prog.slice(0, 6) + '…)');
@@ -288,8 +310,21 @@
         if (!b) refuse(where + 'it burns ' + acc[4].slice(0, 4) + '…, which is not on the burn list');
         b.seen = true; return;
       }
-      // the swap program itself: opaque — the test run below decides
+      if (prog === JUP) {
+        // the swap's own on-chain limits must be at least what the server quoted (the test run alone can't see them)
+        var ja = jupSwapArgs(d);
+        if (!ja) refuse(where + 'an unknown Jupiter instruction (' + hex8(d) + ') — only a plain route can be checked');
+        if (ja.mode !== 'ExactIn') refuse(where + 'the swap is not an exact-input swap, as the server quote is');
+        if (++jupN > 1) refuse(where + 'more than one swap in one transaction');
+        if (ja.platformFeeBps !== 0) refuse(where + 'the swap would pay a platform fee of ' + (ja.platformFeeBps / 100) + '%');
+        if (ja.slippageBps > (e.maxSlippageBps != null ? e.maxSlippageBps : MAX_SLIPPAGE_BPS)) refuse(where + 'the swap allows ' + (ja.slippageBps / 100) + '% slippage (the quote allows ' + ((e.maxSlippageBps != null ? e.maxSlippageBps : MAX_SLIPPAGE_BPS) / 100) + '%)');
+        if (ja.amount > B(e.spendMax)) refuse(where + 'the swap spends ' + fmtRaw(ja.amount, e.spendMint) + ', more than the quoted ' + fmtRaw(e.spendMax, e.spendMint));
+        jupMin = jupOnChainMinOut(ja);
+        if (jupMin < B(e.getMin)) refuse(where + 'the swap\'s own on-chain minimum is ' + fmtRaw(jupMin, e.getMint) + ', below the quoted ' + fmtRaw(e.getMin, e.getMint) + ' — its price protection was changed');
+        return;
+      }
     });
+    if (kind === 'swap' && !jupN) refuse('there is no swap in this transaction');
     var missing = expT.filter(function (x) { return !x.seen; }).length + expS.filter(function (x) { return !x.seen; }).length + expB.filter(function (x) { return !x.seen; }).length;
     if (missing) refuse(missing + ' planned payment(s) are missing from the transaction');
     var limit = BigInt(cuLimit != null ? cuLimit : 200000 * Math.max(1, nIx));
@@ -305,7 +340,7 @@
       var who = {}; expT.forEach(function (t) { who[t.owner] = 1; }); expS.forEach(function (s) { who[s.to] = 1; });
       var nw = Object.keys(who).length;
       said = 'sends ' + andList(parts) + ' to ' + nw + ' wallet' + (nw === 1 ? '' : 's');
-    } else if (kind === 'swap') said = 'swaps ' + fmtRaw(e.spendMax, e.spendMint) + ' for at least ' + fmtRaw(e.getMin, e.getMint) + ' into the Treasury';
+    } else if (kind === 'swap') said = 'swaps ' + fmtRaw(e.spendMax, e.spendMint) + ' for at least ' + fmtRaw(e.getMin, e.getMint) + ' into the Treasury (the swap itself enforces ≥ ' + fmtRaw(jupMin, e.getMint) + ')';
     else said = 'burns ' + expB.length + ' card' + (expB.length === 1 ? '' : 's') + ' the holders sent in';
 
     // 2) the test run, and the Treasury's accounts before / after
@@ -379,5 +414,6 @@
 
   return { MINTS: MINTS, DEC: DEC, TOKEN: TOKEN, ATA: ATA, MAX_TX: MAX_TX, ataAddress: ataAddress, transferIxs: transferIxs, packTransfers: packTransfers,
     B: B, swapBuckets: swapBuckets, transfersForPlan: transfersForPlan, need: need, payable: payable, swapFromQuote: swapFromQuote,
-    burnPnftIxs: burnPnftIxs, packBurns: packBurns, swapFromQuoteTo: swapFromQuoteTo, inspect: inspect, STORE: STORE, JUP: JUP };
+    burnPnftIxs: burnPnftIxs, packBurns: packBurns, swapFromQuoteTo: swapFromQuoteTo, inspect: inspect, STORE: STORE, JUP: JUP,
+    jupSwapArgs: jupSwapArgs, jupOnChainMinOut: jupOnChainMinOut, jupOnChainMaxIn: jupOnChainMaxIn, JUP_IX: JUP_IX };
 });

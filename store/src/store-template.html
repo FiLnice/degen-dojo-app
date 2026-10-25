@@ -768,7 +768,7 @@ footer a{color:var(--gold);text-decoration:none;}
 <footer>
   Listings read directly from Solana program state · Magic Eden and Tensor books, no marketplace API.<br />
   Prices shown are all-in — list price plus the <span id="fRoy">13</span>% creator royalty plus the marketplace's 2% taker fee.<br />
-  Indexed <span id="fWhen">—</span> · <a href="https://degendojo.xyz">degendojo.xyz</a>
+  Indexed <span id="fWhen">—</span> · <a href="/reserve/">Degen Dojo Reserve</a> · <a href="https://degendojo.xyz">degendojo.xyz</a>
 </footer>
 
 <script>
@@ -777,6 +777,9 @@ const STORE = __STORE_DATA__;
 // Magic Eden listing for a demon "Teary Goro" would otherwise land in the degen floor and show
 // raw demon art. Excluded by MINT everywhere (first paint AND the 60s live refresh).
 const CARDLESS_MINTS = new Set(__CARDLESS_MINTS__);
+// Nov 2 (owner 2026-10-24): the Demons + Oni Senseis join Degen Dojo as cards — from then (or ?labels=new) they leave the
+// cardless set and show their collectible card in their character's chamber, like any Degen.
+if (Date.now() >= Date.UTC(2026, 10, 2) || /[?&]labels=new/.test(location.search)) for (const m of __DEMON_MINTS__) CARDLESS_MINTS.delete(m);
 
 // Trait emoji, lifted at build time from the site's lore explorer so the store
 // speaks the same visual language. { cat: type→emoji, val: value→emoji }
@@ -798,9 +801,10 @@ const CFG = {
   // Same-origin proxy. This file is public, so it must never carry a keyed RPC
   // URL; the Netlify function behind /api/rpc holds it. Solana's own public
   // node refuses browser origins outright, so a proxy isn't optional.
-  // For local testing: ?rpc=<url> or localStorage.ddRpc = '<url>'.
-  rpc: new URLSearchParams(location.search).get('rpc')
-       || localStorage.getItem('ddRpc')
+  // For local testing ONLY: ?rpc=<url> or localStorage.ddRpc = '<url>'. Ignored on the live site, so a link can
+  // never point a visitor's balance checks, simulations and sends at someone else's server.
+  rpc: ((/^(localhost|127\.|0\.0\.0\.0|\[?::1)/.test(location.hostname) || location.protocol === 'file:')
+         && (new URLSearchParams(location.search).get('rpc') || localStorage.getItem('ddRpc')))
        || '/api/rpc',
   // Set to a wallet you control to earn the referral share of Magic Eden's
   // taker fee on every sale the store routes.
@@ -924,7 +928,7 @@ let FLOORS = orderedFloors();
    categories the site's trait pages use. Filtering narrows the tower to the
    listings that carry that trait — the held copies step aside while it's on,
    because only listings carry per-fighter traits in the store payload. */
-const FILTER_CATS = ['Character','Race','Weapon','Clothing','Hair','Glasses','Accessories','Background','Generation'];
+const FILTER_CATS = ['Character','Race','Weapon','Clothing','Hair','Glasses','Accessories','Background','Condition'];   // "Generation" retired (now Race)
 const TRAIT_INDEX = (() => {
   const idx = {};
   for (const l of STORE.listings) {
@@ -1067,9 +1071,9 @@ function fudaPrice(allInSol) {
 // ones out, because guessing the extension 403s.
 const S3IMG = (mint, ext) => `https://degendojo.s3.us-west-1.amazonaws.com/degen/img/${mint}.${ext || 'png'}`;
 // The collectible CARD image (portrait). Tiles show this now; fall back to the art for cardless races.
-// ?v=2 busts the Netlify image proxy + browser caches after the cards were re-rendered at
+// ?v=5 busts the Netlify image proxy + browser caches after the cards were re-rendered at
 // 2× (664×1080). S3 ignores the query and serves the new object; bump this if cards change again.
-const cardImg = (mint) => `https://degendojo.s3.us-west-1.amazonaws.com/degen/card/${mint}.png?v=4`;
+const cardImg = (mint) => `https://degendojo.s3.us-west-1.amazonaws.com/degen/card/${mint}.png?v=7`;
 // Request the card at DEVICE-pixel resolution so it's crisp on retina/hi-dpi screens (a 235px
 // tile on a 2× display needs ~470px of image, not 300). Capped near the card's native width
 // (~664px) so we never upscale past the source. This is the #4 "cards look low quality" fix.
@@ -1255,7 +1259,7 @@ function imgErr(img) {
 /* ── the dossier ─────────────────────────────────────────────────── */
 let current = null, payCur = 'ORE';   // ORE-only marketplace — external listings settle via an ORE→SOL swap under the hood
 let TIP = 0;                                                    // optional tip, in whatever currency is selected
-const TIP_WALLET = 'ED3GMCfoX3XNvavnWADvd6oCsohGg1ukdhv3PaUpvwJe';   // the Dojo Pot / treasury wallet tips flow to
+const TIP_WALLET = '5w55F58ia3H71QjBD9bYvNQF2DcNu8K3AfJj9A4WMuWp';   // tips flow to the Degen Dojo Reserve (the Dojo Pot is a ledger on top of it)
 const CUR_DEC = { SOL: 1e9, ORE: 1e11, SKR: 1e6 };             // base-unit multiplier per currency
 const CUR_ICON = { SOL: () => ICON.sol, ORE: () => ICON.ore, SKR: () => ICON.skr };
 const CUR_PRICE = { SOL: () => PRICES.SOL, ORE: () => PRICES.ORE, SKR: () => PRICES.SKR };
@@ -1510,6 +1514,20 @@ const M2_SELL_DISCS = new Set(['a40e5c647b39eacc', '01ee48898a15fef9', 'c3372e29
 // to tell "this is one of ours" from a resolved outside collection — only ours
 // carries the ORE royalty rebate, since only ours pays royalty to a wallet we run.
 const DD_CREATORS = (STORE.listings || []).flatMap(l => l.creators || []);
+// Genuine = in our VERIFIED collections (or a verified Dojo creator). A look-alike copies our name, collection
+// name, creator wallets or artwork without being ours — never shown or sold here (same rule as store-genuine-core.mjs).
+const DOJO_COLLS = ['2m9DupVeheZ5vfuXZxqV3KSQ7HnVDk2tG6ouH1ZnLwYb', 'WyUy9qjJekjqTAYGanANjhtviwgu1uhCkXx1uas8fWb', 'dgd6We3oS4M5LSVzT6Ep39wwVpjLC336tCpyPZkLAHx'];
+// trusted when VERIFIED (same rule as store-genuine-core.mjs); the retired ED3GMC only marks look-alikes
+const DOJO_CREATORS = ['HEyazxpV2wxMUvNx53UZUXthRS9Rjsbv7hoHYJNbVedC', 'DoJoE6b8Lbb1t8qcdm4qDRXLS7RvadZo9Rfz8xq2VgLx', 'DfaGo3Qht6MC2bqgFCBHgUWjaeXDNmsbE7XjyRKWM3qS', '5w55F58ia3H71QjBD9bYvNQF2DcNu8K3AfJj9A4WMuWp'];
+const RETIRED_CREATORS = ['ED3GMCfoX3XNvavnWADvd6oCsohGg1ukdhv3PaUpvwJe'];
+function lookalikeDas(das, collId){
+  if (!das || DOJO_COLLS.includes(collId) || (das.creators || []).some(c => c.verified && DOJO_CREATORS.includes(c.address))) return false;
+  const c = das.content || {}, cn = ((das.grouping || []).find(g => g.group_key === 'collection') || {}).collection_metadata?.name || '';
+  const NAMES = /degen\s*dojo|demon\s*dojo|oni\s*sensei/i;
+  if (NAMES.test(c.metadata?.name || '') || NAMES.test(cn)) return true;
+  if ((das.creators || []).some(x => DOJO_CREATORS.includes(x.address) || RETIRED_CREATORS.includes(x.address))) return true;
+  return [c.links?.image, c.json_uri, ...(c.files || []).map(f => f.uri)].filter(Boolean).some(u => { try { return /degendojo/i.test(new URL(u).hostname); } catch { return false; } });
+}
 function mintFromInput(s) {
   s = (s || '').trim();
   const m = s.match(/(?:item-details\/|item\/|\/)([1-9A-HJ-NP-Za-km-z]{32,44})(?:$|[/?#])/);
@@ -1557,7 +1575,10 @@ async function resolveListing(mint) {
   const { creators, royaltyBps, ruleSet } = await readRoyaltyB(mint);
   let das = null; try { das = await rpcCall('getAsset', { id: mint }); } catch {}
   const priceSol = Number(state.priceLamports) / 1e9;
-  const isDD = (creators || []).some(c => DD_CREATORS.includes(c));
+  // a Degen = in our VERIFIED collection only (a listed-but-unverified creator can be faked)
+  const collId = ((das && das.grouping) || []).find(g => g.group_key === 'collection')?.group_value || '';
+  const isDD = collId === DOJO_COLLS[0];
+  if (lookalikeDas(das, collId)) return { lookalike: true, mint };
   return {
     mint, seller: state.seller, sellerReferral: state.sellerReferral,
     price: priceSol, royaltyBps,
@@ -1575,19 +1596,19 @@ async function resolveListing(mint) {
    buy we POST the sale + code to /api/attr, which appends it to the ledger. The
    POST is only a HINT — store-preacher-core.mjs re-checks every recorded
    signature on-chain before it earns anything, so a forged POST earns nothing. */
-// Attribution cookie — scoped to .degendojo.xyz so the SAME ref link is honoured
-// across the store AND the miner (different subdomains can't share localStorage,
-// but they share this cookie). 30-day rolling window, last-touch: a fresh ?ref
-// overwrites and resets the clock. A visitor who arrives today and buys any time
-// in the next 30 days — on this device/browser — still credits the preacher.
+// Attribution cookie — HOST-ONLY (security review 2026-10-23, H1): "__Host-dd_ref" on https (Secure, no Domain),
+// so no sibling *.degendojo.xyz host can overwrite it; the miner lives on this same host at /mine, and
+// degendojo.xyz/preacher/<code> lands here with ?ref=. Same rules as wallet-picker.js (DojoRef), which every
+// buy path reads. 30-day rolling window, last-touch: a fresh ?ref overwrites and resets the clock.
 const REF_WINDOW_DAYS = 30;
+const REF_COOKIE = location.protocol === 'https:' ? '__Host-dd_ref' : 'dd_ref';
 function setRefCookie(code) {
-  const onDD = /(^|\.)degendojo\.xyz$/.test(location.hostname);
-  const dom = onDD ? '; domain=.degendojo.xyz' : '';
-  document.cookie = `dd_ref=${encodeURIComponent(code)}${dom}; max-age=${REF_WINDOW_DAYS*86400}; path=/; SameSite=Lax`;
+  if (window.DojoRef && DojoRef.set) { DojoRef.set(code); return; }
+  document.cookie = `${REF_COOKIE}=${encodeURIComponent(code)}; max-age=${REF_WINDOW_DAYS*86400}; path=/; SameSite=Lax${location.protocol === 'https:' ? '; Secure' : ''}`;
 }
 function getRefCookie() {
-  const m = document.cookie.match(/(?:^|;\s*)dd_ref=([^;]+)/);
+  if (window.DojoRef && DojoRef.code) return DojoRef.code();
+  const m = document.cookie.match(new RegExp('(?:^|;\\s*)' + REF_COOKIE.replace(/-/g, '\\-') + '=([^;]+)'));
   return m ? decodeURIComponent(m[1]) : null;
 }
 (function captureRef(){
@@ -1606,6 +1627,7 @@ function getRefCookie() {
         try {
           notify('Finding this NFT’s live listing…');
           const l = await resolveListing(m);
+          if (l && l.lookalike) { notify('That NFT copies Degen Dojo but isn’t one of ours — it isn’t sold here.'); return; }
           if (l) renderDrawer(l);
           else notify('No live Magic Eden listing for that NFT — it may have sold, delisted, or be listed only on Tensor.');
         } catch (e) { notify('Could not load that listing right now — try again in a moment.'); }
@@ -1613,10 +1635,9 @@ function getRefCookie() {
     }
   } catch {}
 })();
-// Referred Degen Dojo NFT sales earn the preacher their tier share (20–30%) of the preacher half (6.5%)
-// of the 13% royalty. The server re-reads the sig on-chain (DD collection, royalty actually received,
-// buyer ≠ preacher) — other collections pay no royalty, so they earn nothing. Best-effort, never blocks.
-const ATTRIBUTE_NFT_SALES = true;
+// RETIRED (review 2026-10-23, M9): referred NFT sales earn preachers nothing since 2026-10-23 and /api/attr no longer
+// accepts records, so nothing is posted any more (the call sites stay harmless no-ops).
+const ATTRIBUTE_NFT_SALES = false;
 async function recordSale(sig, l, currency) {
   if (!ATTRIBUTE_NFT_SALES) return;
   let ref = null; try { ref = getRefCookie(); } catch {}
@@ -1639,6 +1660,7 @@ async function resolvePaste() {
   msg.textContent = 'Resolving straight off the chain…';
   try {
     const l = await resolveListing(mint);
+    if (l && l.lookalike) { msg.textContent = 'That NFT copies Degen Dojo but isn’t one of ours — it isn’t sold here.'; return; }
     if (!l) { msg.textContent = 'No live Magic Eden listing for that NFT.'; return; }
     msg.textContent = '';
     renderDrawer(l);
@@ -1694,6 +1716,21 @@ async function tensorBuyTx(listing) {
   return window.DojoRef ? window.DojoRef.addToTx(W3(), tx, rpcCall) : tx;
 }
 
+/* PRICE LOCK — a buyer never pays more than the price the drawer showed (or they explicitly OK'd):
+   ownClick re-reads the live Magic Eden listing and asks before building if it went up; our own M2 buy is built at
+   that confirmed price; a Tensor-built transaction is simulated and may take no more of the buyer's SOL than the
+   confirmed all-in price + SPEND_SLACK_SOL (rent for the accounts a buy opens + fees). */
+const SPEND_SLACK_SOL = 0.015;
+const priceRaised = (shown, live) => +shown > 0 && (+live - +shown) > Math.max(+shown * 0.0005, 1e-6);
+const maxSpendSol = (l) => (+l.priceAllIn || +l.price) * 1.005 + SPEND_SLACK_SOL;
+async function simulateSpend(tx, buyer) {
+  const bal = await rpcCall('getBalance', [buyer, { commitment: 'confirmed' }]);
+  const pre = bal && bal.value != null ? bal.value : null;
+  const sim = await rpcCall('simulateTransaction', [b64(tx.serialize()), { encoding:'base64', sigVerify:false, replaceRecentBlockhash:true, commitment:'confirmed', accounts: { encoding: 'base64', addresses: [buyer] } }]);
+  const acc = sim && sim.value && sim.value.accounts && sim.value.accounts[0];
+  return { sim, spent: !sim.value.err && acc && typeof acc.lamports === 'number' && pre != null ? (pre - acc.lamports) / 1e9 : null };
+}
+
 async function payAndBuy(listing) {
   const { VersionedTransaction, TransactionMessage, ComputeBudgetProgram } = W3();
   const buyer = PK(WALLET.pubkey);
@@ -1703,13 +1740,16 @@ async function payAndBuy(listing) {
   if (listing.source !== 'magiceden') {
     const tx = await tensorBuyTx(listing);
     setBuyState('Checking it against the chain…');
-    const sim = await rpcCall('simulateTransaction', [b64(tx.serialize()), { encoding:'base64', sigVerify:false, replaceRecentBlockhash:true, commitment:'confirmed' }]);
+    const { sim, spent } = await simulateSpend(tx, WALLET.pubkey);
     if (sim.value.err) {
       console.error('tensor simulation failed', sim.value);
       const logs = (sim.value.logs || []).join(' ');
       if (/insufficient lamports|insufficient funds/i.test(logs)) throw new Error('Not enough SOL in this wallet for the price + fees. Nothing was signed.');
       throw new Error('The listing may have just sold or changed price. Nothing was signed.');
     }
+    const max = maxSpendSol(listing);
+    if (spent == null) throw new Error('Couldn’t verify what this purchase would charge — nothing was signed.');
+    if (spent > max) throw new Error(`This purchase would take ${spent.toFixed(4)} SOL, more than the ${max.toFixed(4)} SOL price shown — nothing was signed.`);
     setBuyState('Approve in your wallet…');
     const sigT = await WALLET.provider.signAndSendTransaction(tx);
     const signatureT = sigT?.signature || sigT;
@@ -1827,9 +1867,24 @@ async function ownClick() {
   if (!current || $('dOwn').dataset.busy) return;
   if (!W3()) { notify('Wallet library still loading — one moment.'); return; }
 
-  const listing = current;
+  let listing = current;
   const alreadySwapped = swappedFor === listing.mint;
   try {
+    // PRICE LOCK: re-read the live Magic Eden listing; if it went UP since the drawer showed it, ask before building.
+    // The buy is then built at the live price (the same, lower, or the one just confirmed).
+    if (listing.source === 'magiceden') {
+      setBuyState('Checking the live price…');
+      const live = await resolveListing(listing.mint);
+      if (!live || live.lookalike) throw new Error('This NFT just sold or was delisted — nothing was bought.');
+      const { price, priceAllIn, royaltyBps, royaltySol, takerFeeSol, seller, sellerReferral, tokenAccount, tokenOwner, creators, ruleSet } = live;
+      const fresh = { ...listing, price, priceAllIn, royaltyBps, royaltySol, takerFeeSol, seller, sellerReferral, tokenAccount, tokenOwner, creators, ruleSet };   // the live sale terms; name/number/art stay
+      if (priceRaised(listing.price, live.price)) {
+        const ok = confirm(`The price changed from ${sol(listing.priceAllIn)} SOL to ${sol(live.priceAllIn)} SOL — buy at ${sol(live.priceAllIn)} SOL?`);
+        if (!ok) { setBuyState(null); renderDrawer(fresh); notify('The price changed — nothing was bought or signed.'); return; }
+      }
+      listing = fresh;
+      current = listing;
+    }
     let sig = null;
     // Paying in a token → ONE prompt: sign the swap + buy together (if the wallet can batch and we
     // haven't already swapped for this listing). Falls back to the two-prompt flow only when the
@@ -1960,6 +2015,8 @@ async function sendTip() {
     const transfer = { programId: PK(TOKEN_ID), keys: [a(src, false, true), a(dst, false, true), a(buyer, true, false)], data: new Uint8Array([3, ...amt]) };   // SPL Transfer
     ixs = [createDst, transfer];
   }
+  // marks this as a Dojo Pot tip — the server only counts plain transfers that carry it
+  ixs.push({ programId: PK('MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr'), keys: [], data: new TextEncoder().encode('ddtip') });
   setBuyState('Approve the tip…');
   const { blockhash, lastValidBlockHeight } = (await rpcCall('getLatestBlockhash', [{ commitment: 'confirmed' }])).value;
   const msg = new TransactionMessage({ payerKey: buyer, recentBlockhash: blockhash, instructions: ixs }).compileToV0Message();
@@ -2270,6 +2327,7 @@ addEventListener('scroll', () => $('toTop').classList.toggle('show', scrollY > 6
 <script src="web3.js"></script>
 <script src="dojo-credits.js"></script><script src="dojo-profile.js"></script><script src="mwa.js"></script><script src="wallet-picker.js"></script>
 <script src="dojo-ah.js"></script>
+<script src="dojo-swap.js"></script>
 <script>
 /* ── DD-native listings strip: Degens listed on our own ORE/SKR/USDC houses ──
    Separate from the SOL floor tower (different currency). Reuses DojoAH.prepareBuy,
@@ -2303,16 +2361,23 @@ async function loadDD(){
 async function ddConfirm(sig){ for(let k=0;k<40;k++){ try{ const st=await rpcCall('getSignatureStatuses',[[sig]]); const s=st&&st.value&&st.value[0]; if(s&&(s.confirmationStatus==='confirmed'||s.confirmationStatus==='finalized')){ if(s.err) throw new Error('The transaction failed on-chain — nothing was bought. Try again.'); return; } }catch(e){ if(/failed on-chain/.test(e.message)) throw e; } await new Promise(r=>setTimeout(r,1200)); } throw new Error("Couldn't confirm it yet — check your wallet before trying again."); }
 async function doBuyDD(i){
   if(_ddBusy) return;                                   // block double-clicks while a buy is in flight
-  const x = DD_LISTINGS[i]; if(!x) return;
+  const shown = DD_LISTINGS[i]; if(!shown) return;
   if(!(window.DojoAH && DojoAH.ALT_TABLE)){ notify('Buying with ORE/SKR is being switched on — check back shortly.'); return; }
   if(!WALLET){ notify('Connect your wallet (top right) to buy with ORE/SKR.'); return; }
-  if(WALLET.pubkey===x.seller){ notify('That is your own listing.'); return; }
+  if(WALLET.pubkey===shown.seller){ notify('That is your own listing.'); return; }
   _ddBusy = true;
   notify('Checking the purchase — you are not charged yet…');
   try{
-    const r = await DojoAH.prepareBuy(rpcCall, {currency:x.currency, buyer:WALLET.pubkey, seller:x.seller, mint:x.mint, price:x.price});
+    // price lock: buy exactly the listing shown, or — if the seller re-listed it higher — only after an explicit OK
+    const x = await DojoAH.lockPrice(rpcCall, shown, { listings: async () => ((await (await fetch('/api/dd-listings', { cache: 'no-store' })).json()) || {}).listings || [] });
+    if(WALLET.pubkey===x.seller){ notify('That is your own listing.'); return; }
+    // short on ORE? open the swap with exactly what's missing instead of a failed purchase
+    if(x.currency==='ORE' && window.DojoSwap){ const short = await DojoSwap.oreShortfall(WALLET.pubkey, +x.price);
+      if(short > 0){ notify('You need '+short+' more ORE for this one — swap it in, then buy.'); DojoSwap.open({ needOre: short }); return; } }
+    const r = await DojoAH.prepareBuy(rpcCall, {currency:x.currency, buyer:WALLET.pubkey, seller:x.seller, mint:x.mint, price:x.price, sellerTokenAccount:x.tokenAccount});
     if(r.err){ console.log('DD buy sim failed', JSON.stringify(r.err), r.logs); notify('This purchase would fail — you were NOT charged. It may have just sold, or you don’t have enough '+x.currency+'.'); return; }
-    notify('Approve in your wallet — you pay '+x.price+' '+x.currency+' (seller nets '+r.breakdown.sellerNet.toFixed(x.currency==='USDC'?2:3)+' after the 13% royalty)…');
+    notify('Approve in your wallet — you pay '+x.price+' '+x.currency+' (seller nets '+r.breakdown.sellerNet.toFixed(x.currency==='USDC'?2:3)+' after the 13% royalty)'
+      +(r.breakdown.accountRentSol>0?' + ~'+r.breakdown.accountRentSol.toFixed(3)+' SOL account rent (first buy)':'')+'…');
     const s = await DojoAH.submitBuy(rpcCall, WALLET.provider, r);
     notify('Confirming your purchase…'); await ddConfirm(s);
     try{ fetch('/api/dd-royalty',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({sig:s,currency:x.currency})}); }catch(e){}   // 50% of the royalty → weekly pot
@@ -2321,7 +2386,7 @@ async function doBuyDD(i){
     renderDDRow();
     notify('✓ Bought '+(x.name||'this Degen')+' — it is now in the buyer wallet.');
     setTimeout(loadDD, 9000);                            // reconcile with the (pruned) index shortly after
-  }catch(e){ notify('Buy failed: '+((e&&e.message)||e)); }
+  }catch(e){ notify(e && e.cancelled ? e.message : 'Buy failed: '+((e&&e.message)||e)); if(e && e.cancelled) loadDD(); }
   finally{ _ddBusy = false; }
 }
 async function doDelistDD(i){
@@ -2335,7 +2400,8 @@ async function doDelistDD(i){
     const W = W3();
     // Cancel = seller revokes the SaleV1 delegate. Seller is the ONLY signer (no cosigner),
     // so this is a clean single-signature tx — no Phantom multi-signer flag.
-    const built = DojoAH.buildCancelIx({ currency:x.currency, seller:WALLET.pubkey, mint:x.mint, price:x.price });
+    const ruleSet = await DojoAH.ruleSetOf(rpcCall, x.mint);   // the NFT's own rule set (store-only Degens differ)
+    const built = DojoAH.buildCancelIx({ currency:x.currency, seller:WALLET.pubkey, mint:x.mint, price:x.price, ruleSet });
     const ix = new W.TransactionInstruction({ programId:built.programId, keys:built.keys, data:W.Buffer?W.Buffer.from(built.data):built.data });
     const bh = (await rpcCall('getLatestBlockhash',[{commitment:'confirmed'}])).value.blockhash;
     const msg = new W.TransactionMessage({ payerKey:new W.PublicKey(WALLET.pubkey), recentBlockhash:bh, instructions:[ix] }).compileToV0Message();

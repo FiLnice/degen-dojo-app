@@ -4,16 +4,21 @@
 // What a preacher earns on (owner's call, 2026-10-23) — GAMES + MINING TIPS ONLY, tier share = 28/36/44%:
 //   coin pack → tier share of the whole verified pack     (the pack splits 22% Pot · 22% Reserve · 12% ops ·
 //   mining tip → tier share of the whole verified tip      44% preacher pool — see store-pot-core.mjs splitGame)
-// The share is LOCKED when verify-core verifies the payment (lockPreacherShare: the preacher's live fighters at
-// that moment; self-referral / no linked wallet → 0) and stored on the record as `split`; the unused part of the
+// The share is LOCKED when verify-core verifies the payment (lockPreacherShare: the preacher's fighters held for
+// 7+ days at that moment; self-referral / no linked wallet → 0) and stored on the record as `split`; the unused part of the
 // 44% pool went to the Reserve right then, so a payout pays exactly the locked amount.
 // Dojo Pot tips (ddtip memo) earn preachers nothing (100% Pot). Referred NFT sales no longer earn anything
-// (royalties now go 44% card vault / 44% Reserve / 12% ops); their records stay readable for history.
+// (royalties now go 88% Card Vault / 12% ops); their records stay readable for history.
 // Records verified BEFORE the change (no `split`) keep the old rules: live tier at payout, 20/25/30%.
 // Only records the server has verified on-chain count. Owed amounts are kept in the token actually paid.
+// Holding period (review 2026-10-23, L1): a fighter counts toward the tier only after the preacher has held it for
+// HOLD_DAYS days (first seen by us — preacher-holds h:<wallet>), so fighters borrowed for the minute a referred payment
+// is verified no longer lift the share to 44%. Preachers from before the rule keep what they already hold (counted as
+// held from their first look, until HOLD_GRANDFATHER_UNTIL); new preachers (new:<wallet>) start from zero.
 import { getStore } from "@netlify/blobs";
 import { livePrice } from "./store-verify-core.mjs";
 import { refFromTx } from "./store-ref-core.mjs";
+import { casUpdate } from "./store-cas-core.mjs";
 
 export const DD_COLLECTION = "2m9DupVeheZ5vfuXZxqV3KSQ7HnVDk2tG6ouH1ZnLwYb";
 // Where every DD royalty lands (same wallet + env var as store-royalty-core.mjs).
@@ -38,7 +43,7 @@ export const recordShare = (rec, liveLegacyShare) => (rec?.split ? (+rec.split.p
 export const earnedUsd = (rec, share) => !rec?.verified ? 0 : (rec.verifiedUsd || 0) * recordShare(rec, share);
 
 // Lock the preacher's share for one verified payment: the code from the buyer-signed "ddref:" memo → the
-// preacher's linked wallet → their fighters RIGHT NOW. Self-referral, an unknown code or no linked wallet → 0%.
+// preacher's linked wallet → their fighters held ≥ HOLD_DAYS days. Self-referral, an unknown code or no linked wallet → 0%.
 // Throws on an RPC failure, so the caller retries later instead of locking a wrong tier.
 export async function lockPreacherShare({ ref, buyer }) {
   const code = ref ? String(ref).toLowerCase() : null;
@@ -46,8 +51,8 @@ export async function lockPreacherShare({ ref, buyer }) {
   const wallet = await getStore("preacher-codes").get("code:" + code, { type: "text" });
   if (!wallet) return { code, wallet: null, pct: 0, why: "code has no linked wallet" };
   if (wallet === buyer) return { code, wallet, pct: 0, why: "self-referral" };
-  const { count, mythic } = await ddHeld(wallet);
-  return { code, wallet, pct: tierPct(count, mythic), tier: tierName(count, mythic), held: count };
+  const { count, mythic, live } = await seasonedHeld(wallet);   // fighters held ≥ HOLD_DAYS days
+  return { code, wallet, pct: tierPct(count, mythic), tier: tierName(count, mythic), held: count, heldLive: live };
 }
 
 // throws on an RPC/HTTP error — an outage must never read as "holds 0 fighters" (that would lock a low tier)
@@ -61,22 +66,56 @@ async function das(method, params) {
 }
 const MYTHIC_RE = /gods?|devil|sensei|mutants?|pirate|rowdy|rugger/i;   // mythic Body/Race values
 const bodyOf = (a) => ((a.content?.metadata?.attributes || []).find((x) => /^(body|race)$/i.test(x.trait_type || x.key)) || {}).value;
-// Returns live { count, mythic } — recomputed on every claim and before every payout, so a
-// preacher who sold their fighters drops a tier (or out of the pot) automatically.
-export async function ddHeld(wallet) {
-  let page = 1, count = 0, mythic = false;
+// The wallet's Degen Dojo fighters right now: [{ id, mythic }]. Only a VERIFIED collection grouping counts (a provider
+// that also returns unverified groupings must not let anyone mint look-alike "Degen Dojo" NFTs to reach a tier).
+export async function ddAssets(wallet) {
+  let page = 1; const out = [];
   for (;;) {
     const res = await das("getAssetsByOwner", { ownerAddress: wallet, page, limit: 1000 });
     const items = res?.items || [];
     for (const a of items) {
-      if ((a.grouping || []).some((g) => g.group_key === "collection" && g.group_value === DD_COLLECTION)) {
-        count++;
-        if (MYTHIC_RE.test(String(bodyOf(a) || ""))) mythic = true;
-      }
+      if ((a.grouping || []).some((g) => g.group_key === "collection" && g.group_value === DD_COLLECTION && g.verified !== false))
+        out.push({ id: a.id, mythic: MYTHIC_RE.test(String(bodyOf(a) || "")) });
     }
     if (items.length < 1000) break; page++;
   }
-  return { count, mythic };
+  return out;
+}
+// Returns live { count, mythic } — what the wallet holds this minute (display; the tier uses seasonedHeld).
+export async function ddHeld(wallet) {
+  const a = await ddAssets(wallet);
+  return { count: a.length, mythic: a.some((x) => x.mythic) };
+}
+
+export const HOLD_DAYS = 7;
+const DAY = 864e5;
+export const HOLD_GRANDFATHER_UNTIL = Date.UTC(2026, 10, 30);   // first looks after this date get no grandfathering
+const holds = () => getStore("preacher-holds");
+// A wallet that claims its FIRST preacher code after the rule shipped (store-fn-preacher ensureCode / setCode).
+export async function markNewPreacher(wallet) {
+  try { await holds().set("new:" + wallet, String(Date.now()), { onlyIfNew: true }); } catch {}
+}
+// Fighters this preacher has held for ≥ HOLD_DAYS days → { count, mythic, live, liveMythic, nextAt }.
+// Every look records when each fighter was first seen in the wallet (a fighter that leaves and comes back starts
+// over). Throws on an RPC failure, like ddHeld — an outage must never lock a low tier.
+export async function seasonedHeld(wallet, now = Date.now()) {
+  const live = await ddAssets(wallet);
+  const isNew = !!(await holds().get("new:" + wallet, { type: "text" }).catch(() => null));
+  const { value } = await casUpdate(holds(), "h:" + wallet, (cur) => {
+    const grand = !cur && !isNew && now < HOLD_GRANDFATHER_UNTIL;   // a preacher from before the rule: today's fighters count already
+    const seen = {};
+    for (const a of live) seen[a.id] = cur?.seen?.[a.id] ?? (grand ? now - HOLD_DAYS * DAY : now);
+    const same = cur && Object.keys(cur.seen || {}).length === live.length && live.every((a) => cur.seen[a.id] === seen[a.id]);
+    return same ? undefined : { seen, at: now, ...(grand ? { grandfatheredAt: now } : cur?.grandfatheredAt ? { grandfatheredAt: cur.grandfatheredAt } : {}) };
+  });
+  const seen = value?.seen || {}, cutoff = now - HOLD_DAYS * DAY;
+  let count = 0, mythic = false, nextAt = null;
+  for (const a of live) {
+    const t = seen[a.id] ?? now;
+    if (t <= cutoff) { count++; if (a.mythic) mythic = true; }
+    else nextAt = Math.min(nextAt ?? Infinity, t + HOLD_DAYS * DAY);
+  }
+  return { count, mythic, live: live.length, liveMythic: live.some((a) => a.mythic), nextAt };
 }
 
 // Every coin-pack / tip record (Blobs "coin-purchases", written by /api/coinbuy, verified by verify-core).
@@ -256,6 +295,7 @@ export async function computePreacherOwed({ verify = true } = {}) {
     const kind = rec.route === "minetip" || rec.kind === "tip" ? "tip" : "coins";
     if (kind === "tip") r.tips++; else r.packs++;
     r.referredUsd += rec.verifiedUsd || 0;
+    if (rec.buyer) (r._byBuyer ||= {})[rec.buyer] = (r._byBuyer[rec.buyer] || 0) + (rec.verifiedUsd || 0);   // who the volume came from (risk flags)
     if (paidSigs.has(rec.sig)) continue;
     if (rec.split) {   // locked at verification — exact raw amount, already net of the Reserve's part
       const pct = +rec.split.preacherPct || 0;
@@ -264,21 +304,16 @@ export async function computePreacherOwed({ verify = true } = {}) {
         lockedPct: pct, earnUsd: (rec.verifiedUsd || 0) * pct / 100, earnAmount: Number(BigInt(rec.split.preacher)) / 10 ** (+rec.split.dec || 9) });
     } else r.unpaidSigs.push({ sig: rec.sig, kind, usd: rec.verifiedUsd || 0, currency: rec.currency, amount: rec.verifiedAmount || 0, legacy: true });
   }
-  // Referred NFT sales: history only since 2026-10-23 (royalties now go to the card vaults + Reserve) — counted, never owed.
-  try {
-    const ledger = getStore("preacher-ledger");
-    const { blobs: lb } = await ledger.list({ prefix: "sale:" });
-    for (const b of lb) {
-      const s = await ledger.get(b.key, { type: "json" }); if (!s?.ref) continue;
-      const r = row(String(s.ref).toLowerCase());
-      r.nftBuys++; r.nftSol += (s.priceLamports || 0) / 1e9;
-      if (s.rejected) r.nftRejected++; else if (s.verified) r.nftVerified++;
-    }
-  } catch {}
+  // Referred NFT sales (the old /api/attr ledger) earn nothing since 2026-10-23 and are NOT read here any more: anyone
+  // could grow that ledger, and walking it pushed this sheet past the weekly plan's time budget (review M9).
+  // nftBuys / nftVerified / nftRejected stay 0 for the screens that still show the columns.
   for (const r of Object.values(rows)) {
     let legacyShare = 0;
-    if (r.wallet) { try { const { count, mythic } = await ddHeld(r.wallet); r.held = count; r.tier = tierName(count, mythic); r.share = tierShare(count, mythic); legacyShare = legacyTierShare(count, mythic); } catch { r.tier = "?"; r.share = 0.28; legacyShare = 0.20; } }
+    if (r.wallet) { try { const { count, mythic, live } = await seasonedHeld(r.wallet); r.held = count; r.heldLive = live; r.tier = tierName(count, mythic); r.share = tierShare(count, mythic); legacyShare = legacyTierShare(count, mythic); } catch { r.tier = "?"; r.share = 0.28; legacyShare = 0.20; } }
     else { r.tier = "no wallet"; r.share = 0; }
+    const by = Object.entries(r._byBuyer || {}).sort((a, b) => b[1] - a[1]); delete r._byBuyer;
+    r.buyers = by.length;                                                   // distinct referred buyer wallets (verified)
+    if (by.length) r.topBuyer = { wallet: by[0][0], usd: +by[0][1].toFixed(2), pct: r.referredUsd > 0 ? Math.round(100 * by[0][1] / r.referredUsd) : 100 };
     for (const u of r.unpaidSigs) {
       if (u.legacy) { u.earnUsd = u.usd * legacyShare; u.earnAmount = u.amount * legacyShare; }
       r.owedUsd += u.earnUsd;
@@ -287,6 +322,114 @@ export async function computePreacherOwed({ verify = true } = {}) {
     r.nftUsdEarned = 0; delete r._nftBaseUsd;
   }
   return Object.values(rows).sort((a, b) => b.owedUsd - a.owedUsd);
+}
+
+// ── Self-referral risk (review 2026-10-23, M8) ──────────────────────────────────────────────────────────────
+// A buyer can register a second wallet as a preacher and put its code in their own purchases (28–44% back). Nothing
+// here cuts anyone's pay: these are weekly-payout FLAGS (same shape as store-payout-core's checks — the Pay button stays
+// locked until the owner reviews them), so the owner decides. `preachers` = the plan's preacher payees
+// ({ id, wallet, code, usd, sigs }), `records` = the coin-purchase records. Flags (check "g"):
+//   warn  "few buyers"     — all of a preacher's referred volume comes from ≤ 2 buyer wallets
+//   warn  "one buyer"      — one buyer wallet is ≥ 75% of the volume (3+ buyers), or earns the preacher ≥ $50 in this plan
+//   block "linked wallets" — a referred buyer and the preacher's wallet moved SOL/tokens to each other in the last 90
+//                            days, or the preacher's wallet was first funded by a referred buyer (the reverse of the
+//                            existing "buyer funded by the preacher" check)
+//   warn  "same tx"        — they appear in the same transaction (no transfer between them seen)
+const envNum = (k, d) => { const v = Number(process.env[k]); return Number.isFinite(v) && v >= 0 ? v : d; };
+async function sigsSince(rpc, within, addr, sinceSec, maxPages = 3) {
+  const out = new Set(); let before;
+  for (let p = 0; p < maxPages; p++) {
+    const list = await within(rpc("getSignaturesForAddress", [addr, { limit: 1000, ...(before ? { before } : {}) }]));
+    if (!list?.length) break;
+    for (const s of list) { if (s.blockTime && s.blockTime < sinceSec) return out; if (!s.err) out.add(s.signature); }
+    if (list.length < 1000) break; before = list[list.length - 1].signature;
+  }
+  return out;
+}
+// Oldest signature of a wallet (≤ maxPages × 1000 back) → sig, or null when the history is longer than that.
+async function oldestSig(rpc, within, addr, maxPages = 5) {
+  let before, last = null;
+  for (let p = 0; p < maxPages; p++) {
+    const list = await within(rpc("getSignaturesForAddress", [addr, { limit: 1000, ...(before ? { before } : {}) }]));
+    if (!list?.length) return last;
+    last = list[list.length - 1].signature;
+    if (list.length < 1000) return last;
+    before = last;
+  }
+  return null;
+}
+// Per wallet in one tx: SOL change (lamports) and per-mint token change (raw), by owner.
+function walletDeltas(tx, wallet) {
+  const keys = txKeys(tx), i = keys.indexOf(wallet), d = { sol: 0, tokens: {} };
+  if (i >= 0) d.sol = (tx.meta?.postBalances?.[i] || 0) - (tx.meta?.preBalances?.[i] || 0);
+  const add = (arr, sign) => { for (const b of arr || []) if (b.owner === wallet) d.tokens[b.mint] = (d.tokens[b.mint] || 0n) + sign * BigInt(b.uiTokenAmount?.amount || "0"); };
+  add(tx.meta?.postTokenBalances, 1n); add(tx.meta?.preTokenBalances, -1n);
+  return d;
+}
+// Did value move from `a` to `b` in this tx? (SOL beyond fee noise, or any token)
+function moved(tx, a, b) {
+  const da = walletDeltas(tx, a), db = walletDeltas(tx, b);
+  if (da.sol < 0 && db.sol > 10000) return true;
+  return Object.keys(db.tokens).some((m) => db.tokens[m] > 0n && (da.tokens[m] || 0n) < 0n);
+}
+export async function preacherRiskFlags(preachers, records, { within = (p) => p, now = Date.now(), days = 90, maxBuyersEach = 6, maxBuyers = 30, rpc = rpcRaw } = {}) {
+  const flags = [], short = (w) => `${w.slice(0, 4)}…${w.slice(-4)}`;
+  const minUsd = envNum("PREACHER_FLAG_MIN_USD", 5), perBuyerUsd = envNum("PREACHER_PER_BUYER_FLAG_USD", 50);
+  const bySig = new Map((records || []).map((r) => [r.sig, r]));
+  const jobs = [];
+  for (const p of preachers || []) {
+    if (p.kind && p.kind !== "preacher") continue;
+    const code = String(p.code || p.label || "").toLowerCase();
+    const vol = {};   // buyer → verified referred USD (all time, not only this plan)
+    for (const r of records || []) {
+      if (String(r.ref || "").toLowerCase() !== code || !r.verified || r.rejected || r.route === "tip" || !r.buyer || r.buyer === p.wallet) continue;
+      vol[r.buyer] = (vol[r.buyer] || 0) + (+r.verifiedUsd || 0);
+    }
+    const buyers = Object.entries(vol).sort((a, b) => b[1] - a[1]), total = buyers.reduce((t, [, u]) => t + u, 0);
+    if (buyers.length && buyers.length <= 2 && (+p.usd || 0) >= minUsd)
+      flags.push({ severity: "warn", who: p.id, check: "g", reason: `few buyers: all referred volume ($${total.toFixed(2)}) comes from ${buyers.length} buyer wallet${buyers.length === 1 ? "" : "s"} (${buyers.map(([w]) => short(w)).join(", ")}) — make sure it isn't the preacher's own second wallet` });
+    else if (buyers.length >= 3 && total > 0 && buyers[0][1] / total >= 0.75 && (+p.usd || 0) >= 25)
+      flags.push({ severity: "warn", who: p.id, check: "g", reason: `one buyer: ${short(buyers[0][0])} is ${Math.round(100 * buyers[0][1] / total)}% of this preacher's referred volume` });
+    const earnBy = {};   // what THIS plan pays the preacher, per buyer
+    for (const s of p.sigs || []) { const r = bySig.get(s); if (!r?.buyer) continue; earnBy[r.buyer] = (earnBy[r.buyer] || 0) + (+r.verifiedUsd || 0) * (+r.split?.preacherPct || 0) / 100; }
+    const topEarn = Object.entries(earnBy).sort((a, b) => b[1] - a[1])[0];
+    if (topEarn && topEarn[1] >= perBuyerUsd)
+      flags.push({ severity: "warn", who: p.id, check: "g", reason: `one buyer: this payout gives the preacher $${topEarn[1].toFixed(2)} from buyer ${short(topEarn[0])} alone` });
+    if (/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(p.wallet || "")) jobs.push({ p, buyers: buyers.slice(0, maxBuyersEach).map(([w]) => w) });
+  }
+  // on-chain links between the preacher's wallet and its referred buyers (bounded RPC work)
+  let left = maxBuyers; const failed = new Set(), sinceSec = Math.floor((now - days * DAY) / 1000);
+  for (const { p, buyers } of jobs) {
+    if (!buyers.length || left <= 0) { if (buyers.length) flags.push({ severity: "warn", who: p.id, check: "g", reason: "linked wallets: not checked (limit for this plan)" }); continue; }
+    const take = buyers.slice(0, left); left -= take.length;
+    try {
+      const first = await oldestSig(rpc, within, p.wallet);
+      if (first) {
+        const tx = await within(fetchTx(first));
+        const keys = tx ? txKeys(tx) : [];
+        const funder = keys[0] && keys[0] !== p.wallet ? keys[0] : null;
+        if (funder && take.includes(funder))
+          flags.push({ severity: "block", who: p.id, check: "g", reason: `linked wallets: this preacher's wallet was first funded by its referred buyer ${short(funder)}` });
+      }
+      const mine = await sigsSince(rpc, within, p.wallet, sinceSec);
+      for (const b of take) {
+        const theirs = await sigsSince(rpc, within, b, sinceSec);
+        const common = [...theirs].filter((s) => mine.has(s)).slice(0, 3);
+        if (!common.length) continue;
+        let transfer = null;
+        for (const s of common) {
+          const tx = await within(fetchTx(s)); if (!tx) continue;
+          if (moved(tx, b, p.wallet)) { transfer = { s, dir: "buyer → preacher" }; break; }
+          if (moved(tx, p.wallet, b)) { transfer = { s, dir: "preacher → buyer" }; break; }
+        }
+        flags.push(transfer
+          ? { severity: "block", who: p.id, check: "g", reason: `linked wallets: referred buyer ${short(b)} and the preacher's wallet moved funds to each other in the last ${days} days (${transfer.dir}, tx ${transfer.s.slice(0, 8)}…)` }
+          : { severity: "warn", who: p.id, check: "g", reason: `same tx: referred buyer ${short(b)} and the preacher's wallet appear in the same transaction in the last ${days} days (tx ${common[0].slice(0, 8)}…)` });
+      }
+    } catch { failed.add(p.id); }
+  }
+  for (const id of failed) flags.push({ severity: "warn", who: id, check: "g", reason: "linked wallets: couldn't check the preacher's on-chain links to its buyers" });
+  return flags;
 }
 
 // Record a payment to a preacher: it covers the listed record sigs (so they never count as owed again).

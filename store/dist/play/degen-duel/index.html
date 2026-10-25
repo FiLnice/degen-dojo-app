@@ -2,6 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<script>
+// Card stat labels (owner 2026-10-24): HEALTH → HITPOINTS and SPECIAL MOVE DAMAGE → POWER, switching with the Nov 2 card
+// update (2 Nov 2026 UTC) so the game matches the new card pictures — or right away with ?labels=new.
+var DD_NEWLBL = Date.now() >= Date.UTC(2026,10,2) || /[?&]labels=new/.test(location.search);
+function ddLbl(l){ return !DD_NEWLBL ? l : l==='Health' ? 'Hitpoints' : (l==='Special Move Damage' || l==='SM Dmg') ? 'Power' : l; }
+if (DD_NEWLBL) document.addEventListener('DOMContentLoaded', function(){ var b=document.querySelector('button[data-stat="s"]'); if(b && b.textContent.trim()==='SM Dmg') b.textContent='Power'; });
+</script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <title>DEGEN DUEL — Degen Dojo</title>
@@ -302,7 +309,7 @@
 </div>
 <script>
 (function(){
-  var STATS = [['atk','Attack'],['def','Defence'],['hp','Health'],['dmg','Special Move Damage']];  // labels match the card (Defence/Health)
+  var STATS = [['atk','Attack'],['def','Defence'],['hp',ddLbl('Health')],['dmg',ddLbl('Special Move Damage')]];  // labels match the card (ddLbl: Hitpoints/Power from Nov 2)
   var _norm=function(u){return String(u||'').replace('www.arweave.net','arweave.net');};
   // pool = every regular (non-framed) Degen with rank-based stats, built from the site's own data
   function buildPool(){
@@ -513,7 +520,7 @@ function ccCardFront(d, hi){
       +'<div class="cc-art" style="background:'+d.bg+'">'+imgTag+'</div>'
       +'</div></div>';
   }
-  var rows=[['Attack',d.atk],['Defence',d.def],['Health',d.hp],['Special Move Damage',d.dmg]].map(function(r,i){
+  var rows=[['Attack',d.atk],['Defence',d.def],[ddLbl('Health'),d.hp],[ddLbl('Special Move Damage'),d.dmg]].map(function(r,i){
     return '<div class="cc-srow'+(hi===i?' cc-srow-hi':'')+'"><span class="cc-slbl">'+r[0]+'</span><span class="cc-sval"><span class="cc-statnum">'+ccEsc(r[1])+'</span></span></div>';   // hi = battle-highlighted stat row
   }).join('');
   // Framed art is a 1308² square with a decorative frame baked in — wrap it so CSS shows only the

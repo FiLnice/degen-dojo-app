@@ -105,11 +105,13 @@
     render();
   }
 
-  // Preacher attribution: a buy made while a dd_ref cookie is set (30 days from a /preacher/<code> visit)
-  // is recorded at /api/attr. Best-effort and fire-and-forget — the server verifies it on-chain.
+  // Preacher attribution for NFT buys — RETIRED (review 2026-10-23, M9): referred NFT sales earn preachers nothing
+  // since 2026-10-23 and /api/attr no longer accepts records, so this posts nothing (kept as a no-op for its caller).
+  var ATTRIBUTE_NFT_SALES = false;
   function recordRef(sig, x, buyer) {
     try {
-      var m = document.cookie.match(/(?:^|;\s*)dd_ref=([^;]+)/), ref = m ? decodeURIComponent(m[1]) : "";
+      if (!ATTRIBUTE_NFT_SALES) return;
+      var ref = (window.DojoRef && DojoRef.code()) || "";   // host-only referral cookie (wallet-picker.js)
       if (!/^[a-zA-Z0-9_-]{2,32}$/.test(ref)) return;
       fetch("/api/attr", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ sig: sig, ref: ref.toLowerCase(),
         buyer: buyer, mint: x.mint, currency: x.currency, price: +x.price || null, priceLamports: 0, external: false, ts: Date.now() }) }).catch(function () {});
@@ -134,7 +136,7 @@
         if (short > 0) { toast("You need " + short + " more ORE for this one — swap it in, then buy."); window.DojoSwap.open({ needOre: short }); return; } }
       var r = await window.DojoAH.prepareBuy(rpcCall, { currency: x.currency, buyer: W.pubkey, seller: x.seller, mint: x.mint, price: x.price, sellerTokenAccount: x.tokenAccount });
       if (r.err) { toast("This purchase would fail — you were NOT charged. It may have just sold, or you don’t have enough " + x.currency + "."); return; }
-      toast("Approve in your wallet — you pay " + x.price + " " + x.currency + " (seller nets " + r.breakdown.sellerNet.toFixed(x.currency === "USDC" ? 2 : 3) + " after the 13% royalty)…");
+      toast("Approve in your wallet — you pay " + x.price + " " + x.currency + " (seller nets " + r.breakdown.sellerNet.toFixed(x.currency === "USDC" ? 2 : 3) + " after the 13% royalty)" + (r.breakdown.accountRentSol > 0 ? " + " + r.breakdown.accountRentSol.toFixed(4) + " SOL account rent" : "") + "…");
       var s = await window.DojoAH.submitBuy(rpcCall, W, r);
       toast("Confirming your purchase…"); await ddConfirm(s);
       try { fetch("/api/dd-royalty", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ sig: s, currency: x.currency }) }); } catch (e) {}

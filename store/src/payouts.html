@@ -140,7 +140,16 @@
   function loadView() { var r = $('round').value ? '?round=' + encodeURIComponent($('round').value) : ''; return getJ(r).then(function (j) { V = j; $('round').value = j.round || ''; render(); }); }
   function loadKeeper() { return getJ('?keeper=1').then(function (j) { KP = j; renderKeeper(); }).catch(function (e) { $('keeper').innerHTML = '<div class="card err">Keeper: ' + esc(e.message) + '</div>'; }); }
   function loadStatement() { return getJ('?statement=1').then(function (j) { STMT = j; renderStatement(); }).catch(function (e) { $('stmt').innerHTML = '<div class="card err">This week: ' + esc(e.message) + '</div>'; }); }
-  function reloadAll() { return Promise.all([loadView(), loadKeeper(), loadStatement()]); }
+  // the AuctionHouse ORE fee account (pays the accounts cosigned store sales create) — shown, never blocking
+  var FEE = null;
+  // (updates only its own span — re-rendering the statement here would wipe a running payment's log)
+  function loadFee() { return fetch('/api/dd-cosign?status=1', { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { FEE = (j && j.houses && j.houses.ORE) || null; }).catch(function () { FEE = null; }).then(function () { if ($('feeline')) $('feeline').innerHTML = feeHtml(); }); }
+  function feeHtml() {
+    if (!FEE || FEE.sol == null) return '';
+    return ' <span class="msg">· Market fee account: ' + esc((+FEE.sol).toLocaleString('en-US', { maximumFractionDigits: 4 })) + ' SOL</span>' +
+      (FEE.low ? ' <span class="pill warn">⚠ top it up above ' + esc(FEE.lowBelowSol) + ' SOL' + (FEE.feeAccount ? ' (' + acct(FEE.feeAccount) + ')' : '') + ' — store sales fail when it runs dry</span>' : '');
+  }
+  function reloadAll() { loadFee(); return Promise.all([loadView(), loadKeeper(), loadStatement()]); }
   function load() {
     if (!key()) { $('status').textContent = 'Enter the key first.'; return; }
     $('status').textContent = 'Reading this week (the Treasury\'s latest transactions)…';
@@ -162,7 +171,7 @@
   function renderStatement() {
     var s = STMT; if (!s) return;
     var h = '<div class="card stmt"><div class="stmt-head"><h2>This week</h2><span class="msg">' + new Date(s.from).toLocaleDateString() + ' – ' + new Date(s.at).toLocaleDateString() +
-      (s.reserveAt ? ' · Treasury read ' + ago(s.reserveAt) : '') + '</span>' + (s.partial ? ' <span class="pill warn">still reading the newest transactions — reload in a minute for the full week</span>' : '') + '</div><div class="cols">';
+      (s.reserveAt ? ' · Treasury read ' + ago(s.reserveAt) : '') + '</span>' + (s.partial ? ' <span class="pill warn">still reading the newest transactions — reload in a minute for the full week</span>' : '') + '<span id="feeline">' + feeHtml() + '</span></div><div class="cols">';
     // COMES IN
     var ins = s.in.filter(function (l) { return Object.keys(l.amounts || {}).length; });
     h += '<section class="col"><h3><span class="dot in"></span>Comes in <b>' + usdS(s.inUsd) + '</b></h3><ul class="lines">' +
@@ -199,7 +208,7 @@
     $('stmt').innerHTML = h;
     $('wconnect').onclick = connect;
     $('payweek').onclick = function () { payWeek(null); };
-    if ($('wrev')) $('wrev').onchange = function () { REVIEWED = this.checked; if ($('rev')) $('rev').checked = REVIEWED; gate(); };
+    if ($('wrev')) $('wrev').onchange = function () { setReviewed(this.checked); };
     renderReceipts();
     gate();
   }
@@ -266,7 +275,18 @@
   }
   var b64 = function (u8) { var s = ''; for (var i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); };
   var unb64 = function (s) { return Uint8Array.from(atob(s), function (c) { return c.charCodeAt(0); }); };
-  function relay(u8) { return api({ action: 'send', tx: b64(u8), skipPreflight: true }).then(function (j) { return j.signature; }); }
+  // the relay re-checks the plan server-side (unreviewed BLOCK flags / records paid elsewhere → refused)
+  function relay(u8) { return api({ action: 'send', tx: b64(u8), skipPreflight: true, round: curRound() }).then(function (j) { return j.signature; }); }
+  // "I reviewed the flags" is recorded on the server too (the relay refuses while a BLOCK flag is unreviewed)
+  function setReviewed(on) {
+    REVIEWED = !!on; if ($('wrev')) $('wrev').checked = REVIEWED; if ($('rev')) $('rev').checked = REVIEWED; gate();
+    if (V && V.plan && V.plan.status !== 'paid') api({ action: 'review', round: V.round, reviewed: REVIEWED }).then(function (j) { if (j && j.plan) V = j; }).catch(function (e) { wlog('<span class="err">✖ ' + esc(e.message) + '</span>'); });
+  }
+  // a landed SOL/USDC → ORE swap, pinned server-side so no device swaps that bucket again (idempotent)
+  function reportSwap(round, cur, sig) {
+    return api({ action: 'swapped', round: round, cur: cur, sig: sig }).then(function (j) { if (j && j.plan) V = j; wlog('<span class="okc">' + esc(cur) + ' → ORE swap recorded by the store.</span>'); })
+      .catch(function (e) { wlog('<span class="warnc">' + esc(cur) + ' swap not recorded yet: ' + esc(e.message) + ' (it is retried on the next Pay)</span>'); });
+  }
   function sigStatus(sig) { return rpcCall('getSignatureStatuses', [[sig], { searchTransactionHistory: true }]).then(function (st) { return st.value && st.value[0]; }); }
   function waitConfirm(sig) {
     var tries = 0;
@@ -299,7 +319,9 @@
       if (flagsNow().length && !REVIEWED) throw new Error('Tick "I reviewed the flags" first.');
       var buckets = T.swapBuckets(plan, PP.doneIds), toSwap = [];
       var sameIds = function (s, b) { return s && s.ids.slice().sort().join() === b.parts.map(function (x) { return x.id; }).sort().join(); };
-      ['SOL', 'USDC'].forEach(function (c) { if (buckets[c].total > 0n && !PP.swaps[c]) toSwap.push(c); });
+      // a swap the SERVER already recorded (from any device) is never run again
+      var srvSwapped = function (c) { var mm = plan.manifest; return !!(mm && mm.swaps && mm.swaps[c] && mm.swaps[c].sig); };
+      ['SOL', 'USDC'].forEach(function (c) { if (buckets[c].total > 0n && !PP.swaps[c] && !srvSwapped(c)) toSwap.push(c); });
       var m = plan.manifest;
       if (toSwap.some(function (c) { return !m || Date.now() > m.expiresAt || !sameIds(m.swaps && m.swaps[c], buckets[c]); })) {
         wlog('Asking the server for a fresh swap quote (it fixes what each payee gets in ORE)…');
@@ -418,6 +440,8 @@
     if (bu.length) { var mints = []; bu.forEach(function (s) { mints = mints.concat(P.done[s].mints || []); }); var jb = await api({ action: 'keeper-burned', mints: mints }); wlog('<span class="okc">Burned on-chain: ' + jb.burned.length + ' card(s).</span>'); mark(bu); }
     var cl = of('claims');
     if (cl.length) { var jl = await api({ action: 'keeper-claims-paid', sigs: cl, payer: payer }); wlog('<span class="okc">Claims verified paid: ' + jl.paid.length + '.</span>' + (jl.short.length ? ' <span class="warnc">Short: ' + esc(JSON.stringify(jl.short)) + '</span>' : '')); mark(okOnly(cl, jl.bad)); }
+    // swaps first: pin each landed swap on the server (a no-op when it already is)
+    for (var sw of of('planSwap')) await reportSwap(P.done[sw].round || curRound(), P.done[sw].cur, sw);
     // each round's payout is verified with ALL its signatures (swaps + transfers)
     var pl = of('planSwap').concat(of('planPack')), rounds = {};
     pl.forEach(function (s) { rounds[P.done[s].round || curRound()] = true; });
@@ -454,6 +478,8 @@
       if (Object.keys(P.done).some(function (s) { return !P.recorded[s]; })) { wlog('Verifying what an earlier attempt already sent…'); await recordAll(P); }
       await reloadAll();
       P = weekProg();
+      // the ticked "I reviewed" box must be on the server too (the store refuses to send past unreviewed BLOCK flags)
+      if (REVIEWED && V && V.plan && V.plan.status !== 'paid' && !V.plan.review && flagsNow().length) { var rv = await api({ action: 'review', round: V.round, reviewed: true }); if (rv && rv.plan) V = rv; }
       var parts = await buildParts(only, P);
       if (!parts.length) { wlog('Nothing left to pay.'); return; }
       await checkFunds(parts);
@@ -464,6 +490,8 @@
       // instructions don't change)
       var bh = (await rpcCall('getLatestBlockhash', [{ commitment: 'confirmed' }])).value.blockhash;
       parts.forEach(function (p) { p.tx.message.recentBlockhash = bh; });
+      // the store's own last check before anything is signed (also covers wallets that send by themselves)
+      await api({ action: 'preflight', round: curRound() });
       // ONE approval (when the wallet can sign a batch), swaps first
       parts.sort(function (a, b) { return a.phase - b.phase; });
       var signed = null;
@@ -486,6 +514,8 @@
           sent.push({ sig: sig, meta: meta });
         }
         await Promise.all(sent.map(function (s) { return waitConfirm(s.sig).then(function () { landed(P, s.sig, s.meta); saveProg(P); wlog('  <span class="okc">confirmed</span> ' + esc(s.meta.label)); }); }));
+        // the swaps landed: tell the store NOW, before the payments, so even another device never swaps again
+        if (ph === 1) for (var ss of sent) if (ss.meta.kind === 'planSwap') await reportSwap(ss.meta.round, ss.meta.cur, ss.sig);
       }
       await recordAll(P);
       var waiting = Object.keys(blockedParts(P));
@@ -576,7 +606,7 @@
         api({ action: 'exclude', round: V.round, who: who, undo: undo }).then(function (j) { V = j; render(); return loadStatement(); }).catch(function (e) { alert(e.message); b.disabled = false; });
       };
     });
-    if ($('rev')) $('rev').onchange = function () { REVIEWED = this.checked; if ($('wrev')) $('wrev').checked = REVIEWED; gate(); };
+    if ($('rev')) $('rev').onchange = function () { setReviewed(this.checked); };
     wireOnly();
   }
   function whoLabel(who) {
@@ -607,13 +637,16 @@
     if (!KP) return;
     var t = KP.totals || {}, due = KP.claimsDue || [], burn = KP.toBurn || [], rep = KP.repairsPending || [], on = !!KP.burnEnabled;
     var refunds = KP.refundsDue || [], ops = KP.ops || {}, mc = KP.mint || null, pools = KP.pools || {};
-    var h = '<div class="card"><h2>Dojo Keeper — the books</h2><div class="msg">Royalties and repairs split 44% collection Card Vault · 44% Reserve · 12% ops. ' +
+    var h = '<div class="card"><h2>Dojo Keeper — the books</h2><div class="msg">Royalties and repairs split 88% collection Card Vault · 12% ops. ' +
       'Coin buys and referred mining tips split 22% Pot · 22% Reserve · 12% ops · 44% preacher pool (what the preacher\'s tier doesn\'t take → Reserve); a mining tip with no preacher is 100% Reserve. ' +
       (on ? 'Burning is OPEN: a burned card is paid its equal share of its collection\'s Card Vault, in stORE. ' : 'Burning is OFF (BURN_ENABLED not set): the Card Vaults fill silently and nothing about them is shown publicly. ') +
       'Treasury reader: ' + (KP.scan.pending ? KP.scan.pending + ' transaction(s) still to read' : KP.scan.gaps ? 'older history still being read' : 'up to date') + (KP.scan.at ? ' (' + new Date(KP.scan.at).toLocaleString() + ')' : '') + ' <button class="small" id="kscan">Read now</button></div>' +
-      '<dl style="margin-top:10px"><dt>Reserve (44%)</dt><dd>' + amtList(t.reserve) + '</dd><dt>Ops (12%)</dt><dd>' + amtList(t.ops) + '</dd><dt>Direct (tips beyond repairs)</dt><dd>' + amtList(t.direct) + '</dd>' +
-      '<dt>Still to convert to stORE</dt><dd>' + amtList(t.unconverted) + '</dd></dl></div>';
-    h += '<div class="card"><h2>Card Vaults (44% of every royalty + repair, per collection)</h2><table><tr><th>Collection</th><th>Pool</th><th class="num">Eligible NFTs (shares)</th><th class="num">One share (Mint; Framed = 2)</th><th class="num">Claimed</th></tr>' +
+      '<dl style="margin-top:10px"><dt>Reserve</dt><dd>' + amtList(t.reserve) + '</dd><dt>Ops (12%)</dt><dd>' + amtList(t.ops) + '</dd><dt>Direct (tips beyond repairs)</dt><dd>' + amtList(t.direct) + '</dd>' +
+      '<dt>Still to convert to stORE</dt><dd>' + amtList(t.unconverted) + '</dd></dl>' +
+      // a conversion done outside this page (e.g. SOL→ORE on Jupiter, then ORE→stORE on the ORE site) — book it so it isn't converted twice
+      '<div class="msg" style="margin-top:8px">Converted to stORE by hand? Paste the Treasury transaction(s), one per line (up to 4 — e.g. the swap and the stake):</div>' +
+      '<div class="bar"><textarea id="kconvsigs" rows="2" style="flex:1;min-width:220px;font:12px monospace" placeholder="transaction signature(s)"></textarea> <button id="kconvbook">Book it</button><span class="msg" id="kconvmsg"></span></div></div>';
+    h += '<div class="card"><h2>Card Vaults (88% of every royalty + repair, per collection)</h2><table><tr><th>Collection</th><th>Pool</th><th class="num">Eligible NFTs (shares)</th><th class="num">One share (Mint; Framed = 2)</th><th class="num">Claimed</th></tr>' +
       Object.keys(pools).map(function (n) { var p = pools[n] || {}; return '<tr><td>' + esc(n) + '</td><td>' + amtList(p.pool) + '</td><td class="num">' + (p.eligible == null ? '?' : p.eligible + ' (' + p.shares + ')') + '</td><td class="num">' + esc((p.perShare || {}).store || '0') + ' stORE ($' + (+((p.perShare || {}).usd) || 0).toFixed(2) + ')</td><td class="num">' + (p.claimed || 0) + '</td></tr>'; }).join('') + '</table></div>';
     h += '<div class="card"><h2>Mint cap</h2>' + (mc ? '<div class="msg">' + mc.mintCount + ' Mint cards (Mint/Framed + repairs granted) of a cap of <b>' + mc.mintCap + '</b> — <b>' + mc.mintSpotsLeft + '</b> spot(s) left. Lowering it only closes repairs for later payments; it never downgrades a Mint card.</div>' : '<div class="msg">Mint count unavailable right now.</div>') +
       '<div class="bar"><input id="kcap" type="number" min="1" step="1" value="' + (mc ? mc.mintCap : '') + '" style="width:110px"> <button id="kcapsave">Save Mint cap</button><span class="msg" id="kcapmsg"></span></div>' +
@@ -626,7 +659,18 @@
       due.map(function (c) { return '<tr><td>' + acct(c.wallet) + '</td><td>' + acct(c.mint) + ' <span class="msg">' + esc(c.coll || '') + '</span></td><td>' + (c.kind === 'sent' ? 'sent to Treasury' : 'burned by holder') + '</td><td class="num">' + esc(c.store) + '</td><td class="num">$' + (+c.usd || 0).toFixed(2) + '</td><td>' + new Date(c.at).toLocaleDateString() + '</td></tr>'; }).join('') + '</table>'
       : '<div class="msg">No claims due.</div>') + '</div>';
     if (on) h += '<div class="card"><h2>Cards sent in to burn (' + burn.length + ')</h2>' + (burn.length ? '<div class="msg">' + burn.map(function (b) { return acct(b.mint) + ' (' + esc(b.coll) + ', from ' + acct(b.wallet) + ')'; }).join(' · ') + '</div>' : '<div class="msg">None.</div>') + '</div>';
-    else if ((KP.held || []).length) h += '<div class="card"><h2>Cards sent to the Treasury while burning is off (' + KP.held.length + ')</h2><div class="msg">Held only — no claim. ' + KP.held.map(function (b) { return acct(b.mint) + ' (' + esc(b.coll) + ', from ' + acct(b.from) + ')'; }).join(' · ') + '</div></div>';
+    if ((KP.held || []).length) h += '<div class="card"><h2>Cards sent to the Treasury while burning was off (' + KP.held.length + ')</h2><div class="msg">Held only — no claim. ' + KP.held.map(function (b) { return acct(b.mint) + ' (' + esc(b.coll) + ', from ' + acct(b.from) + ')'; }).join(' · ') + '</div>' +
+      (on ? '<div class="bar"><button id="kheldconv">Make them claims at today\'s value</button><span class="msg" id="kheldmsg"></span></div>' : '') + '</div>';
+    // payments the Treasury reader skipped that may hide someone's money — each can be decided again with today's data
+    var sk = KP.skips || [];
+    h += '<div class="card"><h2>Skipped payments (' + sk.length + ')</h2><div class="msg">Payments into the Treasury that were not booked as a repair, royalty or card — with the reason. If one looks wrong (a DAS outage, a junk coin record, a repair paid before the fixes), <b>Re-decide</b> it with today\'s rules. Booked ones can never be re-decided.</div>' +
+      (sk.length ? '<table><tr><th>When</th><th>Payer</th><th class="num">ORE</th><th>Why</th><th></th></tr>' + sk.map(function (s) {
+        return '<tr><td>' + new Date(s.at).toLocaleString() + ' ' + txl(s.sig) + '</td><td>' + (s.payer ? acct(s.payer) : '—') + '</td><td class="num">' + esc(s.oreUi || '') + '</td><td>' + esc(s.why) +
+          ((s.refused || []).length ? ' <span class="msg">(' + s.refused.map(function (r) { return esc(short(r.mint)) + ': ' + esc(r.reason); }).join('; ') + ')</span>' : '') +
+          (s.redecided ? ' <span class="msg">→ re-decided ' + esc(s.redecided.kind) + (s.redecided.why ? ' (' + esc(s.redecided.why) + ')' : '') + '</span>' : '') + '</td><td>' +
+          (s.redecided && s.redecided.kind !== 'skip' ? '' : '<button class="small" data-redecide="' + esc(s.sig) + '">Re-decide</button>') + '</td></tr>';
+      }).join('') + '</table>' : '<div class="msg">None.</div>') +
+      '<div class="bar"><input id="kredsig" placeholder="any Treasury transaction signature" style="flex:1;min-width:220px;font:12px monospace"> <button id="kred">Re-decide</button><span class="msg" id="kredmsg"></span></div></div>';
     h += '<div class="card"><h2>Repairs paid, to apply (' + rep.length + ')</h2>' + (rep.length ? '<div class="msg">Run <code>node scripts/keeper-apply-repairs.mjs --apply</code> on your computer: it sets these cards to Mint (protected forever) on S3 and prepares Bulk Re-point.</div><div class="msg">' +
       rep.map(function (r) { return acct(r.mint) + ' ' + esc(r.from) + '→Mint'; }).join(' · ') + '</div>' : '<div class="msg">None.</div>') + '</div>';
     h += '<div class="card"><h2>One part at a time</h2><div class="msg">Same checks, receipts and resume as <b>Pay this week</b> — for when you want to pay just one part.</div><div class="bar" style="margin-top:8px">' +
@@ -634,6 +678,31 @@
       '<button data-only="convert">Convert to stORE</button>' + (on ? '<button data-only="claims">Burns & claims</button>' : '') + '</div></div>';
     $('keeper').innerHTML = h;
     if ($('kscan')) $('kscan').onclick = function () { this.disabled = true; api({ action: 'keeper-scan' }).then(function (j) { KP = j.keeper; renderKeeper(); return loadStatement(); }).catch(function (e) { alert(e.message); }); };
+    if ($('kconvbook')) $('kconvbook').onclick = function () {
+      var sigs = ($('kconvsigs').value || '').split(/[\s,]+/).filter(Boolean), b = this;
+      if (!sigs.length) { $('kconvmsg').textContent = 'Paste at least one signature.'; return; }
+      b.disabled = true; $('kconvmsg').textContent = 'Checking…';
+      api({ action: 'keeper-converted', sigs: sigs }).then(function (j) { KP = j.keeper; renderKeeper(); return loadStatement(); })
+        .then(function () { if ($('kconvmsg')) $('kconvmsg').textContent = '✓ Booked — "still to convert" updated.'; })
+        .catch(function (e) { $('kconvmsg').textContent = '✖ ' + e.message; b.disabled = false; });
+    };
+    var redecide = function (sig, msgEl, b) {
+      if (!sig) return;
+      if (b) b.disabled = true; if (msgEl) msgEl.textContent = 'Deciding…';
+      api({ action: 'keeper-redecide', sig: sig }).then(function (j) {
+        alert('Re-decided: ' + (j.before ? j.before.kind + ' (' + (j.before.why || '') + ')' : 'no decision') + ' → ' + j.after.kind + (j.after.why ? ' (' + j.after.why + ')' : '') + (j.after.cards && j.after.cards.length ? ' · cards: ' + j.after.cards.length : ''));
+        KP = j.keeper; renderKeeper(); return loadStatement();
+      }).catch(function (e) { if (msgEl) msgEl.textContent = '✖ ' + e.message; else alert(e.message); if (b) b.disabled = false; });
+    };
+    Array.prototype.forEach.call(document.querySelectorAll('[data-redecide]'), function (b) { b.onclick = function () { redecide(b.getAttribute('data-redecide'), null, b); }; });
+    if ($('kred')) $('kred').onclick = function () { redecide(($('kredsig').value || '').trim(), $('kredmsg'), this); };
+    if ($('kheldconv')) $('kheldconv').onclick = function () {
+      var b = this; if (!confirm('Turn the ' + KP.held.length + ' held card(s) into burn claims at today\'s value, for the wallets that sent them?')) return;
+      b.disabled = true; $('kheldmsg').textContent = 'Valuing…';
+      api({ action: 'keeper-held-convert', mints: KP.held.map(function (x) { return x.mint; }) }).then(function (j) {
+        KP = j.keeper; renderKeeper(); alert('Claims made: ' + j.converted.length + (j.refused.length ? ' · not converted: ' + j.refused.map(function (r) { return short(r.mint) + ' (' + r.reason + ')'; }).join(', ') : ''));
+      }).catch(function (e) { $('kheldmsg').textContent = '✖ ' + e.message; b.disabled = false; });
+    };
     if ($('kcapsave')) $('kcapsave').onclick = function () {
       var v = parseInt($('kcap').value, 10), b = this;
       if (!(v > 0)) { $('kcapmsg').textContent = 'Enter a whole number.'; return; }

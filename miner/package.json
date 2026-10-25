@@ -9,16 +9,16 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@netlify/blobs": "^8.1.0",
     "@solana/wallet-adapter-base": "^0.9.27",
     "@solana/wallet-adapter-phantom": "^0.9.29",
     "@solana/wallet-adapter-react": "^0.15.39",
     "@solana/wallet-adapter-react-ui": "^0.9.39",
     "@solana/wallet-adapter-solflare": "^0.6.33",
     "@solana/web3.js": "^1.98.4",
-    "@netlify/blobs": "^8.1.0",
     "buffer": "^6.0.3",
     "lucide-react": "^1.22.0",
-    "next": "16.2.9",
+    "next": "16.2.11",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "shadcn": "^4.12.0",
@@ -31,7 +31,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.2.9",
+    "eslint-config-next": "16.2.11",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

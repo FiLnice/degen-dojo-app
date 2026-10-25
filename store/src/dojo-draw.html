@@ -75,7 +75,7 @@ h1{font-family:"Teko",sans-serif;font-weight:700;font-size:clamp(34px,7vw,56px);
 
   <div class="verify" id="verifyBox" style="display:none">
     <h3>🔍 Verify this draw</h3>
-    <p>Two checks anyone can run — no trust required:</p>
+    <p>Three checks anyone can run — no trust required:</p>
     <div id="checks"></div>
     <div class="verdict" id="verdict"></div>
     <button class="vbtn" onclick="verify()" style="margin-top:14px">Run the checks</button>
@@ -84,9 +84,10 @@ h1{font-family:"Teko",sans-serif;font-weight:700;font-size:clamp(34px,7vw,56px);
   <div class="card">
     <h3 style="font-family:'Teko';color:var(--gold);margin:0 0 8px;font-size:20px">How it works</h3>
     <div class="steps">
-      <b>1 · Commit</b> — before the week ends, we publish <b>sha256(seed)</b> and a target future slot. The seed stays secret; that slot's blockhash doesn't exist yet.<br>
-      <b>2 · Draw</b> — once the slot finalizes, we take its on-chain blockhash (nobody controlled it), mix it with the seed, and pick winners weighted by raffle tickets. Then we reveal the seed.<br>
-      <b>3 · Verify</b> — check <b>sha256(seed)</b> equals the commitment (the seed wasn't swapped), and the blockhash really is that slot's on-chain (the randomness was real &amp; unpredictable). Same inputs always give the same winners.
+      <b>1 · Commit</b> — when the week ends, we publish <b>sha256(seed)</b> and close the round: new chances go to next week. The seed stays secret.<br>
+      <b>2 · Freeze</b> — we publish every entry (wallet · chances) and only then pick a target future slot, so its blockhash doesn't exist until the entries are fixed and public.<br>
+      <b>3 · Draw</b> — once the slot finalizes, we take its on-chain blockhash (nobody controlled it), mix it with the seed, and pick winners weighted by chances. Then we reveal the seed.<br>
+      <b>4 · Verify</b> — check <b>sha256(seed)</b> equals the commitment (the seed wasn't swapped), the blockhash really is that slot's on-chain (the randomness was real &amp; unpredictable), and re-run the pick on the published entries. Same inputs always give the same winners.
     </div>
   </div>
 
@@ -125,8 +126,9 @@ function render(){
   const rows = [
     ['Round', '#'+d.round],
     ['Commitment (sha256 of seed)', short(d.commitHash)],
-    ['Target slot', d.targetSlot],
+    ['Target slot', d.targetSlot != null ? d.targetSlot : 'set once the entries are frozen'],
   ];
+  if(d.entriesHash) rows.push(['Entries hash', short(d.entriesHash)]);
   if(drawn){
     rows.push(['Block slot used', d.blockSlot], ['Block hash', short(d.blockhash)], ['Revealed seed', short(d.seed)], ['Entrants · tickets', d.entrants+' · '+d.totalTickets]);
   }
@@ -190,7 +192,7 @@ function finishReveal(winCells, winners){
 
 async function verify(){
   const d = DRAW; if(!d || d.status!=='drawn') return;
-  $('checks').innerHTML = row('pending','⏳','Checking sha256(seed) = commitment…') + row('pending','⏳','Checking blockhash on-chain…');
+  $('checks').innerHTML = row('pending','⏳','Checking sha256(seed) = commitment…') + row('pending','⏳','Checking blockhash on-chain…') + row('pending','⏳','Re-running the pick on the published entries…');
   const lines = $('checks').children;
   // check 1: sha256(seed) == commitHash
   const h = await sha256hex(d.seed);
@@ -206,9 +208,45 @@ async function verify(){
     }catch(e){}
   }
   $('checks').children[1].outerHTML = row(c2?'ok':(msg.includes('could not')?'pending':'bad'), c2?'✓':(msg.includes('could not')?'…':'✗'), msg);
-  const ok = c1 && c2;
+  // check 3: the published entries hash to the drawn snapshot, and re-running the pick gives the same winners
+  let c3 = null, msg3 = 'no published entries for this round (drawn before entries were published)';
+  try{
+    const er = await fetch('/api/draw?action=entries&round='+encodeURIComponent(d.round));
+    if(er.ok){
+      const E = await er.json(), list = Array.isArray(E.entries) ? E.entries : [];
+      const hOk = hex(await sha256text(JSON.stringify(list))) === hex(d.entriesHash);
+      const again = await pickWinnersJS(d.seed, d.blockhash, list, d.nWinners || (d.winners||[]).length);
+      const same = again.join(',') === (d.winners||[]).map(w=>w.wallet).join(',');
+      c3 = hOk && same;
+      msg3 = !hOk ? 'the published entries do NOT match the drawn entries hash — invalid.'
+        : same ? 'the '+list.length+' published entries match the entries hash, and re-running the pick gives exactly these winners.'
+        : 're-running the pick on the published entries gives different winners — invalid.';
+    }
+  }catch(e){}
+  $('checks').children[2].outerHTML = row(c3===true?'ok':c3===false?'bad':'pending', c3===true?'✓':c3===false?'✗':'…', msg3);
+  const ok = c1 && c2 && c3 !== false;
   $('verdict').className = 'verdict '+(ok?'ok':'bad');
-  $('verdict').textContent = ok ? '✓ Provably fair — this draw could not have been rigged.' : (c1 ? 'Blockhash check inconclusive (RPC).' : '✗ Verification failed.');
+  $('verdict').textContent = ok ? '✓ Provably fair — this draw could not have been rigged.' : (c3 === false ? '✗ Verification failed (entries / pick).' : c1 ? 'Blockhash check inconclusive (RPC).' : '✗ Verification failed.');
+}
+async function sha256text(s){
+  const dig = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return [...new Uint8Array(dig)].map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+// The draw's exact pick (store-draw-core pickWinners): HMAC-SHA256(seed, blockhash+':'+n) → first 8 bytes mod the
+// tickets left, ticket-weighted over the entries in wallet order, no repeat winners.
+async function pickWinnersJS(seedHex, blockhash, list, n){
+  let es = list.filter(e=>e[1]>0).map(e=>({ wallet:e[0], tickets:+e[1] }));
+  const key = await crypto.subtle.importKey('raw', new Uint8Array(seedHex.match(/.{2}/g).map(b=>parseInt(b,16))), { name:'HMAC', hash:'SHA-256' }, false, ['sign']);
+  const out = []; let counter = 0;
+  while(out.length < n && es.length){
+    const total = es.reduce((s,e)=>s+e.tickets, 0);
+    const dig = new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(blockhash+':'+(counter++))));
+    let v = 0n; for(let i=0;i<8;i++) v = (v<<8n) | BigInt(dig[i]);
+    const roll = Number(v % BigInt(total));
+    let acc = 0, hit = 0; for(let i=0;i<es.length;i++){ acc += es[i].tickets; if(roll < acc){ hit = i; break; } }
+    out.push(es[hit].wallet); es.splice(hit, 1);
+  }
+  return out;
 }
 function row(cls,ic,txt){ return `<div class="check ${cls}"><span class="ic">${ic}</span><span>${txt}</span></div>`; }
 

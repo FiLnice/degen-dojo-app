@@ -124,6 +124,9 @@ const TOKEN_PROGRAMS = ['TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', 'TokenzQd
 // names that must never fall back to an address if the token lookup hiccups
 const KNOWN = { [ORE_MINT]: 'ORE', 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': 'USDC', 'SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3': 'SKR',
   'G1jonmoSEbMJSwEg1AmgDAJq2utmuBSZct8oqttBf9rT': 'GRAMS' };
+// Only these are VALUED on the public Reserve (security review 2026-10-23, L5): anyone can airdrop a token with a thin
+// pool and a high quote to the Reserve wallets — it is still listed, but never counted in the Reserve's value.
+const VALUED = new Set([SOL_MINT, ...Object.keys(KNOWN)]);
 const ORE_ICON = 'https://wsrv.nl/?url=https%3A%2F%2Fore.com%2Fassets%2Ficon.png&w=48&h=48&output=png';
 // `miner` = the wallet's ORE v3 miner account, PDA(["miner", wallet], oreV3EG1i9BEgiAJ8b177Z2S2rMarzak4NMv1kULvWv)
 const WALLETS = [
@@ -163,7 +166,7 @@ async function prices(mints) {   // Jupiter price v3 → { mint: usd }
   const p = {};
   for (let i = 0; i < mints.length; i += 50) {
     try { const j = await (await fetch('https://lite-api.jup.ag/price/v3?ids=' + mints.slice(i, i + 50).join(','))).json();
-      for (const m of Object.keys(j || {})) if (j[m] && j[m].usdPrice) p[m] = j[m].usdPrice; } catch (e) {}
+      for (const m of Object.keys(j || {})) if (VALUED.has(m) && j[m] && j[m].usdPrice) p[m] = j[m].usdPrice; } catch (e) {}
   }
   return p;
 }
@@ -256,36 +259,12 @@ function histTip(i) {
 }
 
 function render() {
-  if (!MODEL) return;
-  return renderHistory();   // the mountain, layered by VIEW (the flat Assets/Wallets bars below are kept unused)
-  const { cats, perWallet, total } = MODEL;
-  const segs = (vals, scale) => CATS.filter((c) => vals[c.id] > 0).map((c) => {
-    const share = vals[c.id] / scale;
-    return `<div class="sg" tabindex="0" data-cat="${c.id}" data-w="${vals.__w ?? ''}" style="flex:0 0 ${(share * 100).toFixed(3)}%;background:${c.color}">${share >= 0.12 ? `<span>${pct(vals[c.id] / (vals.__t || scale))}</span>` : ''}</div>`;
-  }).join('');
-  if (!total) { $('chart').innerHTML = '<div class="muted" style="text-align:center">Nothing with a live price yet.</div>'; $('legend').innerHTML = ''; return; }
-  if (VIEW === 'assets') {
-    $('chart').innerHTML = `<div class="bar" role="img" aria-label="${esc(CATS.filter((c) => cats[c.id].usd > 0).map((c) => `${cats[c.id].name} ${pct(cats[c.id].usd / total)}`).join(', '))}">${segs(Object.fromEntries(CATS.map((c) => [c.id, cats[c.id].usd])), total)}</div>`;
-  } else {
-    const max = Math.max(...perWallet.map((p) => p.total), 1e-9);
-    $('chart').innerHTML = perWallet.map((p, i) => `<div class="wrow"><div class="wn">${esc(WALLETS[i].label)}</div>
-      <div class="track">${segs({ ...p.vals, __w: i, __t: p.total }, max)}</div><div class="wt">${p.total ? usd(p.total) : '—'}</div></div>`).join('');
-  }
-  $('legend').innerHTML = CATS.filter((c) => cats[c.id].usd > 0 || cats[c.id].amt > 0).map((c) =>
-    `<div class="li"><span class="sw" style="background:${c.color}"></span>${esc(cats[c.id].name)} <small>${cats[c.id].label} · ${cats[c.id].usd ? usd(cats[c.id].usd) + ' · ' + pct(cats[c.id].usd / total) : 'no price'}</small></div>`).join('');
-}
-
-function tipFor(el) {
-  const c = el.dataset.cat, w = el.dataset.w, cat = MODEL.cats[c];
-  if (w === '') return `<b>${esc(cat.name)}</b><br>${cat.label}<br><span class="tm">${usd(cat.usd)} · ${pct(cat.usd / MODEL.total)} of the Reserve</span>${cat.note ? `<br><span class="tm">${esc(cat.note)}</span>` : ''}`;
-  const p = MODEL.perWallet[+w];
-  return `<b>${esc(WALLETS[+w].label)} — ${esc(cat.name)}</b><br>${p.labels[c]}<br><span class="tm">${usd(p.vals[c])} · ${pct(p.vals[c] / (p.total || 1))} of this wallet</span>`;
+  if (MODEL) renderHistory();   // the 30-day mountain, layered by VIEW (assets | wallets)
 }
 function showTipHtml(html, x, y) { const t = $('tip'); t.innerHTML = html; t.style.display = 'block';
   const r = t.getBoundingClientRect(); t.style.left = Math.min(window.innerWidth - r.width - 8, Math.max(8, x + 12)) + 'px'; t.style.top = Math.max(8, y - r.height - 12) + 'px'; }
 const tipOf = (target) => {   // the hovered/focused chart mark → its tooltip html
   const h = target.closest && target.closest('.hcol'); if (h && MODEL && MODEL.hist) return histTip(+h.dataset.i);
-  const s = target.closest && target.closest('.sg'); if (s && MODEL) return tipFor(s);
   return null;
 };
 document.addEventListener('mousemove', (e) => { const html = tipOf(e.target); if (html) showTipHtml(html, e.clientX, e.clientY); else $('tip').style.display = 'none'; });
@@ -331,13 +310,13 @@ async function main() {
     const ti = a.token_info || {}, md = (a.content && a.content.metadata) || {};
     tok[a.id] = { sym: KNOWN[a.id] || ti.symbol || md.symbol || '', name: md.name || '', price: (ti.price_info && ti.price_info.price_per_token) || 0 };
   }
-  const priceOf = (m) => px[m] || (tok[m] && tok[m].price) || 0;
+  const priceOf = (m) => (VALUED.has(m) ? px[m] || (tok[m] && tok[m].price) || 0 : 0);   // airdropped tokens: listed, not valued
 
   // the "top token" = the largest-value token that isn't SOL/ORE (e.g. GRAMS) gets its own colour; the rest fold into "Other tokens"
   const tokVal = {};
   ok.forEach((r) => { for (const [m, amt] of Object.entries(r.fung)) if (m !== ORE_MINT) tokVal[m] = (tokVal[m] || 0) + amt * priceOf(m); });
   const tokAmt = {}; ok.forEach((r) => { for (const [m, amt] of Object.entries(r.fung)) tokAmt[m] = (tokAmt[m] || 0) + amt; });
-  const topMint = Object.keys(tokVal).sort((a, b) => tokVal[b] - tokVal[a] || tokAmt[b] - tokAmt[a])[0] || null;
+  const topMint = Object.keys(tokVal).filter((m) => VALUED.has(m)).sort((a, b) => tokVal[b] - tokVal[a] || tokAmt[b] - tokAmt[a])[0] || null;
   const topSym = topMint ? (KNOWN[topMint] || (tok[topMint] && (tok[topMint].sym || tok[topMint].name)) || short(topMint)) : 'Token';
   const catOf = (m) => (m === ORE_MINT ? 'ore' : m === topMint ? 'tok' : 'oth');
   const colorOf = { sol: 'var(--s-sol)', ore: 'var(--s-ore)', tok: 'var(--s-tok)', oth: 'var(--s-oth)' };
@@ -375,7 +354,7 @@ async function main() {
       const c = catOf(x.m), label = KNOWN[x.m] || x.t.sym || x.t.name || short(x.m);
       if (c === 'ore') oreTok += x.amt; else { cats[c].amt += x.amt; if (c === 'oth') cats.oth.n++; }
       cats[c].usd += x.v; pw.vals[c] += x.v;
-      pw.labels[c] = (pw.labels[c] ? pw.labels[c] + ' + ' : '') + fmt(x.amt) + ' ' + label;
+      pw.labels[c] = (pw.labels[c] ? pw.labels[c] + ' + ' : '') + fmt(x.amt) + ' ' + esc(label);   // labels are HTML: escape token names here
       html += row(colorOf[c], esc(label), fmt(x.amt), x.v, x.t.name && x.t.sym && x.t.name !== x.t.sym ? esc(x.t.name) : '');
     }
     // mined ORE (miner account): refined + unrefined; value = refined + 90% of unrefined (ORE's claim fee)
@@ -398,7 +377,7 @@ async function main() {
   cats.sol.name = 'SOL'; cats.sol.label = fmt(cats.sol.amt, 4) + ' SOL';
   cats.ore.name = 'ORE'; cats.ore.label = fmt(cats.ore.amt, 4) + ' ORE';
   cats.ore.note = cats.ore.u ? `incl. ${fmt(cats.ore.u, 4)} unrefined ORE in the mining account (valued after ORE's 10% claim fee)` : '';
-  cats.tok.name = topSym; cats.tok.label = compact(cats.tok.amt) + ' ' + topSym;
+  cats.tok.name = topSym; cats.tok.label = compact(cats.tok.amt) + ' ' + esc(topSym);
   cats.oth.name = 'Other tokens'; cats.oth.label = cats.oth.n + ' token' + (cats.oth.n === 1 ? '' : 's');
   const total = cats.sol.usd + cats.ore.usd + cats.tok.usd + cats.oth.usd;
   MODEL = { cats, perWallet, total, catOf, miningConst, oldConst: (perWallet[1] && perWallet[1].total) || 0, hist: null, histPartial: false };

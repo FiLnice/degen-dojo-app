@@ -154,7 +154,7 @@ function paint(){const p=parseFloat($('price').value)||0;const usd=CUR==='USDC'?
   const rbps=(SEL&&typeof SEL.roybps==='number')?SEL.roybps:1300, royRate=rbps/10000;
   // our 3 collections: the royalty builds that NFT's own card vault (burn to claim) + the Reserve
   const ours=!!(SEL&&typeof COLL_NAME!=='undefined'&&COLL_NAME[SEL.coll]);
-  const roy=p*royRate, net=p-roy; const dest=ours?' → card vault + Reserve':' → to the creators';
+  const roy=p*royRate, net=p-roy; const dest=ours?' → collection card vault':' → to the creators';
   const rl=document.getElementById('roylbl'); if(rl) rl.textContent='Royalty '+(rbps/100).toFixed(rbps%100?1:0)+'% (seller-side)';
   $('royline').textContent=p?('−'+roy.toFixed(CUR==='USDC'?2:3)+' '+CUR+dest):'—'; $('net').textContent=p?(net.toFixed(CUR==='USDC'?2:3)+' '+CUR):'—';
   // no price, or below the Degen Dojo minimum → the List button can't be pressed (a busy "Building…" button is left alone)
@@ -266,7 +266,15 @@ async function doList(){ if(!WALLET){conn();return;} if(!SEL||!SEL.mint){$('msg'
     $('msg').innerHTML='Listed — <a href="https://solscan.io/tx/'+esc(encodeURIComponent(s))+'" target="_blank" rel="noopener">view tx ↗</a>';
     // The index re-derives + verifies everything on-chain (trade-state PDA, house, price, holder) and
     // takes the name/image from DAS — so only the listing coordinates are sent.
-    try{await fetch('/api/dd-listings',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({mint:SEL.mint,seller:WALLET.pubkey,currency:CUR,price:price,priceBaseUnits:built.priceBaseUnits,tradeState:built.tradeState,tokenAccount:SEL.ta||undefined})});}catch(e){}
+    // The index refuses ("try again", 409/502/503) when it can't confirm the NFT or the price right now — retry a few
+    // times, and say so if it still can't, so a real on-chain listing never silently goes missing from the market.
+    const body=JSON.stringify({mint:SEL.mint,seller:WALLET.pubkey,currency:CUR,price:price,priceBaseUnits:built.priceBaseUnits,tradeState:built.tradeState,tokenAccount:SEL.ta||undefined});
+    let idxErr='';
+    for(let k=0;k<5;k++){ try{ const r=await fetch('/api/dd-listings',{method:'POST',headers:{'content-type':'application/json'},body});
+        if(r.ok){idxErr='';break;} const j=await r.json().catch(()=>({})); idxErr=(j&&j.error)||('HTTP '+r.status);
+        if(![409,429,502,503].includes(r.status)||r.status===429&&/already have/.test(idxErr))break; }catch(e){idxErr='network error';}
+      await new Promise(ok=>setTimeout(ok,2500*(k+1))); }
+    if(idxErr) $('msg').innerHTML+=' <span style="color:#c1443a">· the market list couldn’t record it yet ('+esc(idxErr)+') — reload this page in a minute; if it’s still missing, tell us on Discord with the tx link.</span>';
     setTimeout(()=>{btn.disabled=false;btn.textContent='List for '+CUR;loadListings();},2000);
   }catch(e){btn.disabled=false;btn.textContent=orig; var m=(e&&e.message)||'Failed.';
     if(/insufficient|AccountNotFound/i.test(m))m='The '+CUR+' house fee account may need funding, or you lack SOL for the network fee. '+m;
@@ -313,12 +321,10 @@ async function doBuy(i){ if(_buying)return; let x=window._LISTINGS&&window._LIST
     if(x.currency==='ORE'&&window.DojoSwap){ const short=await DojoSwap.oreShortfall(WALLET.pubkey,+x.price); if(short>0){ say.textContent='You need '+short+' more ORE — swap it in, then buy.'; DojoSwap.open({needOre:short}); return; } }
     const r=await DojoAH.prepareBuy(rpc,{currency:x.currency,buyer:WALLET.pubkey,seller:x.seller,mint:x.mint,price:x.price,sellerTokenAccount:x.tokenAccount});
     if(r.err){ console.log('buy sim failed',JSON.stringify(r.err),r.logs); say.innerHTML='<span style="color:#c1443a">This purchase would fail — you were NOT charged.</span> It may have just sold, or you lack enough '+esc(x.currency)+'. <span style="color:var(--mut)">('+esc(JSON.stringify(r.err).slice(0,80))+')</span>'; return; }
-    say.textContent='Approve in your wallet — you pay '+r.breakdown.price+' '+x.currency+' (seller nets '+r.breakdown.sellerNet.toFixed(x.currency==='USDC'?2:3)+' after royalty)…';
+    say.textContent='Approve in your wallet — you pay '+r.breakdown.price+' '+x.currency+' (seller nets '+r.breakdown.sellerNet.toFixed(x.currency==='USDC'?2:3)+' after royalty)'+(r.breakdown.accountRentSol>0?' + '+r.breakdown.accountRentSol.toFixed(4)+' SOL account rent':'')+'…';
     const s=await DojoAH.submitBuy(rpc, WALLET.adapter, r);
     say.textContent='Confirming…'; await waitForConfirm(s);
     try{ fetch('/api/dd-royalty',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({sig:s,currency:x.currency})}); }catch(e){}   // 50% of the royalty → weekly pot
-    try{ const m=document.cookie.match(/(?:^|;\s*)dd_ref=([^;]+)/); const ref=m?decodeURIComponent(m[1]):'';   // referring preacher → /api/attr (verified on-chain server-side)
-      if(/^[a-zA-Z0-9_-]{2,32}$/.test(ref)) fetch('/api/attr',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({sig:s,ref:ref.toLowerCase(),buyer:WALLET.pubkey,mint:x.mint,currency:x.currency,price:+x.price||null,priceLamports:0,external:false,ts:Date.now()})}).catch(()=>{}); }catch(e){}
     say.innerHTML='✓ Bought '+esc(x.name||x.mint.slice(0,6))+' — <a href="https://solscan.io/tx/'+esc(encodeURIComponent(s))+'" target="_blank" rel="noopener">view tx ↗</a>';
     if(window._LISTINGS) window._LISTINGS=window._LISTINGS.filter(l=>l.tradeState!==x.tradeState);
     setTimeout(()=>{loadListings(); loadDegens();}, 9000);

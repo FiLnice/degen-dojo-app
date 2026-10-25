@@ -10,6 +10,16 @@
 import { limited } from "./store-ratelimit-core.mjs";
 import { renderNftPage, gatherNft } from "./seo-nft.mjs";
 import RARITY from "./dd-trait-rarity.json" with { type: "json" };
+import { STORE_CSP } from "./csp.mjs";
+
+// Netlify's _headers only reach static files, so a function page sets the store's security headers itself
+// (security review 2026-10-23, L6): the same CSP, no framing by other sites, no sniffing.
+const SECURITY_HEADERS = {
+  "content-security-policy": STORE_CSP,
+  "x-frame-options": "DENY",
+  "x-content-type-options": "nosniff",
+  "referrer-policy": "no-referrer",   // as every other store page (_headers)
+};
 
 const M2 = "M2mx93ekt1fmXSVkTrUL9xVFHkmME8HTUi5Cyc5aF7K";
 const SELL = new Set(["a40e5c647b39eacc", "01ee48898a15fef9"]);
@@ -44,6 +54,7 @@ export default async (request) => {
     if (data.lookalike) return new Response("not found", { status: 404, headers: { "cache-control": "public, max-age=0, s-maxage=86400" } });   // copies of our NFTs get no page
     const html = renderNftPage(data);
     return new Response(html, { status: 200, headers: {
+      ...SECURITY_HEADERS,
       "content-type": "text/html; charset=utf-8",
       // render once, then let the CDN serve it; refresh in the background daily
       "cache-control": "public, max-age=0, s-maxage=86400, stale-while-revalidate=604800",

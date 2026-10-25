@@ -225,10 +225,15 @@ async function recordBuy(rec){
   return false;
 }
 let watching = {};
+// a transaction signature is base58 — anything else a wallet (or an old localStorage entry) hands back is dropped,
+// and every value that reaches innerHTML is escaped
+const SIG_RE = /^[1-9A-HJ-NP-Za-km-z]{64,96}$/;
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
 async function watchPurchase(sig){
+  if(!SIG_RE.test(String(sig||''))) return;
   if(watching[sig]) return; watching[sig]=true;
   const st=$('buyStatus'); st.style.display='';
-  const short = sig.slice(0,8)+'…'+sig.slice(-6);
+  const short = esc(sig.slice(0,8)+'…'+sig.slice(-6));
   st.innerHTML = '⏳ <b>Payment sent</b> — coins appear after the on-chain check (about a minute). Tx <code>'+short+'</code>';
   const t0 = Date.now();
   while(Date.now()-t0 < 3*60*1000){
@@ -236,14 +241,15 @@ async function watchPurchase(sig){
     let s=null; try{ s = await (await fetch('/api/coinbuy?sig='+encodeURIComponent(sig), { cache:'no-store' })).json(); }catch(e){}
     if(s && s.verified){
       dropPending(sig);
-      st.innerHTML = '✅ <b>Verified on-chain</b> — +'+(s.creditedCoins||0)+' coin'+(s.creditedCoins===1?'':'s')+' added 🪙';
+      const n = Math.max(0, Math.floor(+s.creditedCoins||0));
+      st.innerHTML = '✅ <b>Verified on-chain</b> — +'+n+' coin'+(n===1?'':'s')+' added 🪙';
       if(signedIn()) DojoWallet.refresh().then(renderBalance).catch(()=>{});
       else st.innerHTML += ' · <a href="#" onclick="signInForBalance();return false;">sign in to see your balance</a>';
       watching[sig]=false; return;
     }
     if(s && s.rejected){
       dropPending(sig);
-      st.innerHTML = '⚠ This payment could not be verified on-chain, so no coins were added. If tokens left your wallet, contact us with tx <code>'+sig+'</code>';
+      st.innerHTML = '⚠ This payment could not be verified on-chain, so no coins were added. If tokens left your wallet, contact us with tx <code>'+esc(sig)+'</code>';
       watching[sig]=false; return;
     }
     if(s && !s.found){ const p = pendingList().find(x=>x.sig===sig); if(p) recordBuy(p); }   // record never landed → send it again
@@ -291,7 +297,7 @@ const RPC = location.origin + '/api/rpc';      // same-origin proxy → our Heli
 const DEC = { SOL: 1e9, ORE: 1e11, SKR: 1e6 };
 let WALLET = null, web3 = null;
 // the referring preacher, if this visit carried one (?ref=code or a dd_ref cookie set by /preacher/<code>)
-function getRef(){ try{ const u=new URLSearchParams(location.search).get('ref'); if(u) return u; const m=document.cookie.match(/(?:^|;\s*)dd_ref=([^;]+)/); return m?decodeURIComponent(m[1]):null; }catch(e){ return null; } }
+function getRef(){ try{ const u=new URLSearchParams(location.search).get('ref'); if(u) return u; return (window.DojoRef&&DojoRef.code())||null; }catch(e){ return null; } }
 async function loadWeb3(){ web3 = window.solanaWeb3; if(!web3) throw new Error('Checkout failed to load — refresh the page'); }
 async function connectWallet(){
   try{ WALLET = await DojoWalletPicker.pick(); }   // picker w/ official icons: Phantom / Solflare / Backpack / Jupiter
@@ -315,7 +321,7 @@ async function buy(i){
       if(!qr.ok || !q.quoteId || !/^\d+$/.test(q.tokenRaw||'') || q.currency !== cur || q.treasury !== TREASURY) throw new Error(q.error || 'Could not lock a price — try again');
     }catch(e){ toast(String(e.message||e).slice(0,70)); return; }
     const st=$('buyStatus'); st.style.display='';
-    st.innerHTML = '🔒 Price locked: <b>'+q.tokenAmount+' '+cur+'</b> ≈ $'+q.usd+' → <b>'+q.coins+' coin'+(q.coins===1?'':'s')+'</b> · pay within 10 minutes';
+    st.innerHTML = '🔒 Price locked: <b>'+esc(q.tokenAmount)+' '+esc(cur)+'</b> ≈ $'+(+q.usd||0)+' → <b>'+(+q.coins||0)+' coin'+(q.coins===1?'':'s')+'</b> · pay within 10 minutes';
     const { Connection, PublicKey, VersionedTransaction, TransactionMessage, SystemProgram, TransactionInstruction } = web3;
     const conn = new Connection(RPC, 'confirmed');
     const buyer = new PublicKey(WALLET.pubkey), dest = new PublicKey(TREASURY);
@@ -349,7 +355,8 @@ async function buy(i){
     try{ await conn.confirmTransaction(sig.signature || sig, 'confirmed'); }catch(_){ /* ws confirm may not run over the /api/rpc proxy — fine, the backend re-verifies the payment on-chain */ }
     // Record the purchase (an untrusted hint — the server re-reads the tx on-chain and credits coins
     // from what the treasury ACTUALLY received). No local credit: the balance moves when the server says so.
-    const sigStr = sig.signature || sig;
+    const sigStr = String(sig.signature || sig);
+    if(!SIG_RE.test(sigStr)){ toast('Your wallet returned an unexpected result — check its activity before paying again'); return; }
     const rec = { sig: sigStr, buyer: WALLET.pubkey, coins: q.coins, currency: cur, tokenAmount: +q.tokenAmount, usd: q.usd, quoteId: q.quoteId, ref: getRef(), ts: Date.now() };
     setPending(pendingList().concat([rec]));            // survives a closed tab — re-sent + watched on the next visit
     recordBuy(rec);

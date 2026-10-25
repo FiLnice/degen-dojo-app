@@ -63,8 +63,9 @@ const REF_RE = /^[a-zA-Z0-9_-]{2,32}$/;
 function readRef(): string | null {
   try {
     const q = new URLSearchParams(window.location.search).get("ref");
-    const c = document.cookie.match(/(?:^|;\s*)dd_ref=([^;]+)/);
-    const raw = q || (c ? decodeURIComponent(c[1]) : "");
+    // the store's host-only referral cookie, read through wallet-picker.js (loaded before this app on /mine)
+    const dojoRef = (window as unknown as { DojoRef?: { code?: () => string | null } }).DojoRef;
+    const raw = q || (dojoRef?.code ? dojoRef.code() || "" : "");
     return raw && REF_RE.test(raw) ? raw.toLowerCase() : null;
   } catch {
     return null;

@@ -35,6 +35,17 @@ const CARDLESS_MINTS = (() => {
   } catch { return []; }
 })();
 const CARDLESS_SET = new Set(CARDLESS_MINTS);
+// Nov 2 (owner 2026-10-24): the Demons + Oni Senseis join Degen Dojo as cards. From the Nov 1 build (or NEW_LABELS=1) their
+// listings stay in the data; the page drops them from CARDLESS_MINTS from Nov 2 (or ?labels=new) and shows their card.
+const NEWLBL = process.env.NEW_LABELS === "1" || Date.now() >= Date.UTC(2026, 10, 1);
+const DEMON_RACES = new Set(["demons", "oni senseis"]);
+const DEMON_MINTS = (() => {
+  try {
+    const c = JSON.parse(readFileSync(`${ROOT}/scripts/claim-onchain-cache.json`, "utf8"));
+    return Object.values(c).filter((v) => v.mint && DEMON_RACES.has(String(v.race || "").toLowerCase())).map((v) => v.mint);
+  } catch { return []; }
+})();
+const DEMON_SET = new Set(DEMON_MINTS);
 const MOVES = (() => {
   // move name lives only in the site template's founders' D array (D[3]=move,
   // D[6]="…#N"), keyed by fighter number.
@@ -93,7 +104,7 @@ const slim = {
   floorPriceAllIn: data.floorPriceAllIn,
   sources: data.sources,
   characters: data.characters || [],
-  listings: data.listings.filter((l) => !CARDLESS_SET.has(l.mint)).map((l) => ({
+  listings: data.listings.filter((l) => !CARDLESS_SET.has(l.mint) || (NEWLBL && DEMON_SET.has(l.mint))).map((l) => ({
     mint: l.mint, name: l.name, image: l.image, attributes: l.attributes,
     externalUrl: l.externalUrl || "",
     source: l.source, price: l.price, priceAllIn: l.priceAllIn,
@@ -111,7 +122,7 @@ const withStats = slim.listings.filter((l) => l.stats).length;
 const withStory = slim.listings.filter((l) => l.story).length;
 
 const template = readFileSync(TEMPLATE, "utf8");
-for (const ph of ["__STORE_DATA__", "__TRAIT_EMOJI__", "__CARDLESS_MINTS__"]) {
+for (const ph of ["__STORE_DATA__", "__TRAIT_EMOJI__", "__CARDLESS_MINTS__", "__DEMON_MINTS__"]) {
   if (!template.includes(ph)) { console.error(`Template is missing the ${ph} placeholder.`); process.exit(1); }
 }
 // JSON is injected as a JS literal: escape < > & U+2028/9 (html-safe.mjs) so no NFT string can close
@@ -123,7 +134,8 @@ writeFileSync(
   template
     .replace("__STORE_DATA__", () => safe(slim))
     .replace("__TRAIT_EMOJI__", () => safe(TRAIT_EMOJI))
-    .replace("__CARDLESS_MINTS__", () => safe(CARDLESS_MINTS)),
+    .replace("__CARDLESS_MINTS__", () => safe(CARDLESS_MINTS))
+    .replace("__DEMON_MINTS__", () => safe(DEMON_MINTS)),
 );
 
 console.log(`Built ${OUT}`);

@@ -3,6 +3,8 @@
 //   DojoSwap.open({ needOre: 1.27 }) → "you need 1.27 ORE": quotes the exact ORE (ExactOut) for a buy
 // The swap transaction is built by Jupiter's API, so BEFORE the wallet is asked to sign, it is checked:
 //   · the buyer pays the fee and none of their OTHER token accounts (NFTs, other coins) is writable in it;
+//   · the Jupiter instruction's own limits (amount, minimum out / maximum in, slippage ≤ 1%, no platform fee) match the
+//     quote — that is what the chain enforces when it lands;
 //   · a simulation shows ORE going up by at least the quoted minimum, and only the chosen coin (+ a small
 //     SOL fee) going down — anything else and the swap is refused.
 // Needs: web3.js (window.solanaWeb3), wallet-picker.js (window.DOJO_WALLET / DojoWalletPicker), /api/rpc.
@@ -34,6 +36,38 @@
   function b64ToBytes(s) { if (global.Buffer && global.Buffer.from) { var b = global.Buffer.from(s, 'base64'); return new Uint8Array(b.buffer, b.byteOffset, b.byteLength); } var r = atob(s), o = new Uint8Array(r.length); for (var i = 0; i < r.length; i++) o[i] = r.charCodeAt(i); return o; }
   function bytesToB64(b) { if (global.Buffer && global.Buffer.from) return global.Buffer.from(b).toString('base64'); var s = ''; for (var i = 0; i < b.length; i++) s += String.fromCharCode(b[i]); return btoa(s); }
   function u64At(bytes, off) { var v = 0n; for (var i = 7; i >= 0; i--) v = (v << 8n) | BigInt(bytes[off + i]); return v; }
+  // Jupiter's own on-chain limits, read from its instruction (layout checked against real lite-api swaps, 2026-10-24 —
+  // same decoder as payout-tx.js): ExactIn routes end with in_amount u64 · quoted_out u64 · slippage_bps u16 · fee_bps u8,
+  // ExactOut routes with out_amount u64 · quoted_in u64 · slippage_bps u16 · fee_bps u8. The simulation shows what
+  // happens NOW; these are what the chain enforces when it lands — a builder that strips them invites a sandwich.
+  var JUP_PROG = 'JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4';
+  var JUP_IX = { e517cb977ae3ad2a: 'ExactIn', c1209b3341d69c81: 'ExactIn', d033ef977b2bed5c: 'ExactOut', b0d169a89a7d453e: 'ExactOut' };
+  function jupArgs(d) {
+    var h = ''; for (var i = 0; i < 8 && i < d.length; i++) h += (d[i] < 16 ? '0' : '') + d[i].toString(16);
+    var mode = JUP_IX[h], L = d.length;
+    if (!mode || L < 31) return null;
+    return { mode: mode, amount: u64At(d, L - 19), quoted: u64At(d, L - 11), slippageBps: d[L - 3] | (d[L - 2] << 8), feeBps: d[L - 1] };
+  }
+  function checkJupLimits(msg, all, q) {
+    var n = 0;
+    msg.compiledInstructions.forEach(function (ci) {
+      if (all.get(ci.programIdIndex).toBase58() !== JUP_PROG) return;
+      var a = jupArgs(ci.data);
+      if (!a) throw new Error('refused: an unknown Jupiter instruction');
+      if (++n > 1) throw new Error('refused: more than one swap in the transaction');
+      if (a.mode !== (q.swapMode === 'ExactOut' ? 'ExactOut' : 'ExactIn')) throw new Error('refused: the swap is not the kind that was quoted');
+      if (a.feeBps !== 0) throw new Error('refused: the swap would charge a platform fee');
+      if (a.slippageBps > SLIPPAGE_BPS) throw new Error('refused: the swap allows more slippage than quoted');
+      if (a.mode === 'ExactIn') {
+        if (a.amount !== BigInt(q.inAmount)) throw new Error('refused: the swap spends a different amount than quoted');
+        if ((a.quoted * BigInt(10000 - a.slippageBps) + 9999n) / 10000n < BigInt(q.otherAmountThreshold)) throw new Error('refused: the swap\'s own minimum is below the quote — its price protection was changed');
+      } else {
+        if (a.amount !== BigInt(q.outAmount)) throw new Error('refused: the swap gets a different amount of ORE than quoted');
+        if ((a.quoted * BigInt(10000 + a.slippageBps) + 9999n) / 10000n > BigInt(q.otherAmountThreshold)) throw new Error('refused: the swap could take more than the quoted maximum — its price protection was changed');
+      }
+    });
+    if (!n) throw new Error('refused: no swap found in the transaction');
+  }
 
   async function rpc(method, params) {
     var r = await fetch('/api/rpc', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: method, params: params }) });
@@ -91,6 +125,7 @@
     }
     var all = msg.getAccountKeys({ addressLookupTableAccounts: alts }), writable = new Set();
     for (var i = 0; i < all.length; i++) if (msg.isAccountWritable(i)) writable.add(all.get(i).toBase58());
+    checkJupLimits(msg, all, q);   // what the chain will enforce, not just what the simulation shows
     // none of the buyer's OTHER token accounts (NFTs, other coins) may be writable
     var ok = new Set([ORE, COINS.SOL.mint, COINS[S.coin].mint]);
     for (var p = 0; p < 2; p++) {
@@ -232,5 +267,5 @@
     } catch (e) { return 0; }   // unknown → let the normal simulation decide
   }
 
-  global.DojoSwap = { open: open, close: close, oreShortfall: oreShortfall, _check: checkSwapTx, _state: S, _load: loadBalances, _quote: getQuote, _swap: doSwap };   // _*: test hooks   // _check/_state: for tests only
+  global.DojoSwap = { open: open, close: close, oreShortfall: oreShortfall, _check: checkSwapTx, _jupArgs: jupArgs, _state: S, _load: loadBalances, _quote: getQuote, _swap: doSwap };   // _*: test hooks   // _check/_state: for tests only
 })(window);

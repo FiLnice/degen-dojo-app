@@ -16,8 +16,8 @@
 //  feature); it cannot be set from the deploy bundle.
 // ============================================================================
 import { readFileSync, writeFileSync, mkdirSync, copyFileSync, cpSync, rmSync, existsSync, readdirSync } from "fs";
-import { assertNoSecrets } from "./build-leak-guard.mjs";
-import { CSP } from "./csp.mjs";
+import { assertNoSecrets, assertZipClean } from "./build-leak-guard.mjs";
+import { STORE_CSP as CSP } from "./csp.mjs";   // the store loads nothing from cdnjs (security review L8)
 import { execSync } from "child_process";
 
 const ROOT = "C:/Users/sazei/Documents/DEGEN DOJO/BULKITOR/bulkitor";
@@ -149,6 +149,7 @@ copyFileSync(`${ROOT}/scripts/store-fn-preacher.mjs`, `${OUT}/netlify/functions/
 // the pure renderer and the DD rarity table, so both are co-located for bundling.
 copyFileSync(`${ROOT}/scripts/store-fn-nft.mjs`, `${OUT}/netlify/functions/nft.mjs`);
 copyFileSync(`${ROOT}/scripts/seo-nft.mjs`, `${OUT}/netlify/functions/seo-nft.mjs`);
+copyFileSync(`${ROOT}/scripts/csp.mjs`, `${OUT}/netlify/functions/csp.mjs`);   // /nft/<mint> sends the same CSP (_headers doesn't reach functions)
 copyFileSync(`${ROOT}/scripts/dd-trait-rarity.json`, `${OUT}/netlify/functions/dd-trait-rarity.json`);
 // Cross-collection browse: live collection search + a collection's live listings.
 copyFileSync(`${ROOT}/scripts/store-fn-collection.mjs`, `${OUT}/netlify/functions/collection.mjs`);
@@ -162,7 +163,7 @@ copyFileSync(`${ROOT}/scripts/store-fn-coinbuy.mjs`, `${OUT}/netlify/functions/c
 // activated set ME_BUY_ACTIVE=1 and pNFT/Core buy via ME too. Needs MAGICEDEN_API_KEY (+ SOLANA_RPC).
 copyFileSync(`${ROOT}/scripts/store-fn-listings.mjs`, `${OUT}/netlify/functions/listings.mjs`);
 copyFileSync(`${ROOT}/scripts/store-fn-admin.mjs`, `${OUT}/netlify/functions/admin.mjs`);
-// Payment verification (on-chain) + raffle-ticket ledger + provably-fair weekly draw. Need ADMIN_KEY + SOLANA_RPC.
+// Payment verification (on-chain) + provably-fair weekly draw. Need ADMIN_KEY + SOLANA_RPC.
 copyFileSync(`${ROOT}/scripts/store-fn-verify.mjs`, `${OUT}/netlify/functions/verify.mjs`);
 // Auto-verify on a 1-minute cron so coins credit without anyone hitting /api/verify by hand.
 copyFileSync(`${ROOT}/scripts/store-fn-verify-cron.mjs`, `${OUT}/netlify/functions/verify-cron.mjs`);
@@ -177,7 +178,7 @@ copyFileSync(`${ROOT}/scripts/store-cas-core.mjs`, `${OUT}/netlify/functions/sto
 //    Free/Personal, 5 on Pro): /api/rpc 300/min, /api/collection 90/min — declared in each function's config.
 //  • store-ratelimit-core.mjs, an in-memory per-IP window in EVERY public function (per warm instance):
 //    rpc 240 · nft 120 · collection/search/topcollections/listings/tensor-listings/resolve/dd-listings/miner/play 60
-//    · preacher/draw/payouts 30 · attr/coinbuy/ticket/mebuy/tensorbuy/dd-cosign/dd-royalty/miner-requests 20
+//    · preacher/draw/payouts 30 · attr/coinbuy/mebuy/tensorbuy/dd-cosign/dd-royalty/miner-requests 20
 //    · admin/verify/launch-apply 10 (per minute). Crons are not limited. On Pro, spend the 3 extra platform
 //    rules on /api/dd-cosign, /api/mebuy and /api/play.
 copyFileSync(`${ROOT}/scripts/store-ratelimit-core.mjs`, `${OUT}/netlify/functions/store-ratelimit-core.mjs`);
@@ -185,7 +186,7 @@ copyFileSync(`${ROOT}/scripts/store-preacher-core.mjs`, `${OUT}/netlify/function
 copyFileSync(`${ROOT}/scripts/store-ref-core.mjs`, `${OUT}/netlify/functions/store-ref-core.mjs`);   // signed "ddref:" memo → preacher referral
 copyFileSync(`${ROOT}/scripts/store-min-core.mjs`, `${OUT}/netlify/functions/store-min-core.mjs`);
 copyFileSync(`${ROOT}/scripts/store-genuine-core.mjs`, `${OUT}/netlify/functions/store-genuine-core.mjs`);   // genuine vs look-alike Degens (one rule everywhere)   // 1.5 SOL listing floor (dd-listings + dd-cosign)
-copyFileSync(`${ROOT}/scripts/store-fn-ticket.mjs`, `${OUT}/netlify/functions/ticket.mjs`);
+// (/api/ticket — the old unauthenticated ticket POST — is retired: security review LOW-3. Tickets come only from /api/play.)
 copyFileSync(`${ROOT}/scripts/store-fn-draw.mjs`, `${OUT}/netlify/functions/draw.mjs`);
 // Weekly payout: the cron commits + draws + plans + notifies; /api/payouts backs the owner's /payouts
 // page (ONE wallet-signed "Pay" click — no key on the server). Shared cores ride along.
@@ -198,7 +199,7 @@ copyFileSync(`${ROOT}/scripts/store-fn-payouts.mjs`, `${OUT}/netlify/functions/p
 // Coins live server-side (credited only by verify.mjs on a confirmed purchase);
 // tickets are minted only by play.mjs after it recomputes the outcome itself.
 copyFileSync(`${ROOT}/scripts/store-fn-auth.mjs`, `${OUT}/netlify/functions/auth.mjs`);
-// Dojo Keeper money backend: card vaults (44/44/12), repairs (0.01 ORE), burn claims (stORE) — store-keeper-core.mjs
+// Dojo Keeper money backend: card vaults (88/12), repairs (0.01 ORE), burn claims (stORE) — store-keeper-core.mjs
 copyFileSync(`${ROOT}/scripts/store-keeper-core.mjs`, `${OUT}/netlify/functions/store-keeper-core.mjs`);
 copyFileSync(`${ROOT}/scripts/store-fn-vault.mjs`, `${OUT}/netlify/functions/vault.mjs`);         // /api/vault
 copyFileSync(`${ROOT}/scripts/store-fn-repair.mjs`, `${OUT}/netlify/functions/repair.mjs`);       // /api/repair
@@ -479,7 +480,6 @@ writeFileSync(`${OUT}/_redirects`,
   "/api/listings  /.netlify/functions/listings  200\n" +
   "/api/admin  /.netlify/functions/admin  200\n" +
   "/api/verify  /.netlify/functions/verify  200\n" +
-  "/api/ticket  /.netlify/functions/ticket  200\n" +
   "/api/draw  /.netlify/functions/draw  200\n" +
   "/api/payouts  /.netlify/functions/payouts  200\n" +
   "/api/auth  /.netlify/functions/auth  200\n" +
@@ -549,7 +549,16 @@ writeFileSync(
     "  Cache-Control: public, max-age=0, must-revalidate",
     "/m/*",
     "  Cache-Control: public, max-age=0, must-revalidate",
+    // operator pages: never cached by the browser (security review L7) — the service worker skips them too (store-sw.js)
+    "/admin",
+    "  Cache-Control: no-store",
+    "/admin.html",
+    "  Cache-Control: no-store",
     "/miner-admin",
+    "  Cache-Control: no-store",
+    "/miner-admin.html",
+    "  Cache-Control: no-store",
+    "/preacher-admin.html",
     "  Cache-Control: no-store",
     "/preacher-admin",
     "  Cache-Control: no-store",
@@ -671,6 +680,7 @@ execSync(
   `powershell -NoProfile -ExecutionPolicy Bypass -File "${zps}" -Src "${OUT.replaceAll("/", "\\")}" -Zip "${ZIP.replaceAll("/", "\\")}"`,
   { stdio: "inherit" },
 );
+assertZipClean(ZIP);   // scan what Netlify will actually receive (deletes the zip on a hit)
 
 const kb = (p) => (readFileSync(p).length / 1024).toFixed(0);
 console.log(`\n[4/4] ===== STORE READY FOR NETLIFY =====`);

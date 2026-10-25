@@ -28,6 +28,15 @@
     SKR:  { house: 'EfeSbHoNsXxKFRjMmNpFPNnUDYE2QmkQ5ugxvtQzCE6C', mint: 'SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3', decimals: 6 },
     USDC: { house: 'GnbcBGfDLe3S2QaKwSPGwiJ6SoU8qzdkYAPdzTLfn1Ft', mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', decimals: 6 },
   };
+  // The store is ORE-only (owner decision): list + buy on the ORE house only (the co-signer signs nothing else).
+  // SKR / USDC stay above so an old listing there can still be CANCELLED.
+  var ACTIVE = { ORE: true };
+  function activeHouse(currency) { var h = HOUSES[currency]; if (!h) throw new Error('bad currency'); if (!ACTIVE[currency]) throw new Error('The marketplace is ORE-only — ' + currency + ' listings can only be cancelled.'); return h; }
+  // HOUSE RENT REFUND — a co-signed sale makes the house fee account pay for every account it opens (the buyer's escrow,
+  // the buyer's NFT ATA, the seller's payment ATA, creator ATAs, the buyer's pNFT token record). The buyer refunds that
+  // rent in the same transaction (System transfer → fee account, before the buy); /api/dd-cosign checks the amount
+  // against chain state and refuses a buy that doesn't refund it. Mirrors store-fn-dd-cosign.mjs houseRent().
+  var TOKEN_ACCOUNT_LEN = 165, TOKEN_RECORD_LEN = 80;
   // The AuctionHouse authority = the dedicated cosigner (set-ah-authority.mjs). The build bakes its pubkey
   // here from scripts/dd-authority.json — every sell/cancel/buy must pass the CURRENT house authority.
   var AUTHORITY = '8KUWwAHMb7TL31JGbucCi8YE1ax7njWi46ajVbWnvDqr';
@@ -77,9 +86,11 @@
   // Build the pNFT SELL (list) instruction. currency = 'ORE'|'SKR'|'USDC'; price is a human number.
   function buildSellIx(opts) {
     var W = W3();
-    var h = HOUSES[opts.currency]; if (!h) throw new Error('bad currency');
+    var h = activeHouse(opts.currency);
     var seller = PK(opts.seller), mint = PK(opts.mint);
-    var tokenAccount = opts.tokenAccount ? PK(opts.tokenAccount) : ataOf(seller, mint);
+    var tokenAccount = ataOf(seller, mint);
+    // execute_sale only settles from the seller's ATA (assert_is_ata) — a listing from any other token account could never sell
+    if (opts.tokenAccount && !PK(opts.tokenAccount).equals(tokenAccount)) throw new Error('This NFT isn’t in your wallet’s main token account, so a listing could never be bought. Send it to your own wallet address first (that moves it into the main account), then list.');
     var price = priceToBaseUnits(opts.price, h.decimals);
     var size = 1n;
     var ts = tradeStateOf(seller, h.house, tokenAccount, h.mint, mint, price, size);
@@ -133,7 +144,7 @@
   //   asserts each creator address positionally, and for an SPL treasury each creator needs [wallet, ATA].
   //   opts.pnft (default true) appends the TokenMetadata transfer accounts; set false for a plain NFT.
   function buildBuyIxs(opts) {
-    var h = HOUSES[opts.currency]; if (!h) throw new Error('bad currency');
+    var h = activeHouse(opts.currency);
     var buyer = PK(opts.buyer), seller = PK(opts.seller), mint = PK(opts.mint);
     var sellerAta = opts.sellerTokenAccount ? PK(opts.sellerTokenAccount) : ataOf(seller, mint);
     var buyerNftAta = ataOf(buyer, mint);              // buyer_receipt_token_account (created by program if absent)
@@ -189,10 +200,38 @@
     var cbData = new Uint8Array(5); cbData[0] = 2; var u = 800000 >>> 0;
     cbData[1] = u & 0xff; cbData[2] = (u >> 8) & 0xff; cbData[3] = (u >> 16) & 0xff; cbData[4] = (u >> 24) & 0xff;
     var cbIx = { programId: PK('ComputeBudget111111111111111111111111111111'), keys: [], data: cbData };
+    var ixs = [ cbIx, { programId: PK(AH), keys: buyKeys, data: d1 }, { programId: PK(AH), keys: exKeys, data: d2 } ];
+    // the house-rent refund (opts.houseRent lamports, from houseRentOwed) goes BEFORE the buy
+    var rentLamports = BigInt(opts.houseRent || 0);
+    if (rentLamports > 0n) {
+      var td = new Uint8Array(12); td[0] = 2; td.set(u64le(rentLamports), 4);   // SystemInstruction::Transfer
+      ixs.splice(1, 0, { programId: PK(SYS), keys: [a(buyer, true, true), a(feeAcct, false, true)], data: td });
+    }
     return {
-      ixs: [ cbIx, { programId: PK(AH), keys: buyKeys, data: d1 }, { programId: PK(AH), keys: exKeys, data: d2 } ],
+      ixs: ixs,
       buyerTradeState: buyerTs[0].toBase58(), escrow: escrow[0].toBase58(), priceBaseUnits: priceBU.toString(),
     };
+  }
+
+  // Lamports of rent this sale makes the house open (see HOUSE RENT REFUND). rpc = async (method, params) => result.
+  async function houseRentOwed(rpc, opts) {
+    var h = activeHouse(opts.currency);
+    var buyer = PK(opts.buyer), seller = PK(opts.seller), mint = PK(opts.mint);
+    var buyerNftAta = ataOf(buyer, mint);
+    var keys = [SYSVAR_RENT, feeAccountOf(h.house).toBase58(), escrowOf(h.house, buyer)[0].toBase58(), ataOf(seller, h.mint).toBase58(),
+      buyerNftAta.toBase58(), tokenRecordOf(mint, buyerNftAta).toBase58()]
+      .concat((opts.creators || []).map(function (cr) { return ataOf(PK(cr.address), h.mint).toBase58(); }));
+    var res = await rpc('getMultipleAccounts', [keys, { encoding: 'base64', commitment: 'confirmed' }]);
+    var v = res && res.value;
+    if (!v || v.length !== keys.length || !v[0]) throw new Error('Couldn’t read the chain to price this buy — try again.');
+    var rs = b64ToBytes(v[0].data[0]), dv = new DataView(rs.buffer, rs.byteOffset, rs.byteLength);
+    var perByteYear = dv.getBigUint64(0, true), threshold = dv.getFloat64(8, true);
+    var rentOf = function (len) { return Math.ceil(Number((128n + BigInt(len)) * perByteYear) * threshold); };
+    var empty = function (x) { return !x || !x.data || b64ToBytes(x.data[0] || '').length === 0; };
+    var owed = 0;
+    [[2, TOKEN_ACCOUNT_LEN], [3, TOKEN_ACCOUNT_LEN], [4, TOKEN_ACCOUNT_LEN], [5, TOKEN_RECORD_LEN]].forEach(function (p) { if (empty(v[p[0]])) owed += rentOf(p[1]); });
+    for (var i = 6; i < keys.length; i++) if (empty(v[i])) owed += rentOf(TOKEN_ACCOUNT_LEN);
+    return owed;
   }
 
   // Parse a Token Metadata account (base64) → { name, symbol, sellerFeeBasisPoints, creators:[{address,share}], ruleSet }.
@@ -270,7 +309,7 @@
   // and SIMULATE it. Returns { tx, err, logs, breakdown }. The page must only prompt the wallet when err==null,
   // so a buyer can never spend ORE/SKR on a transaction that would fail. rpc = async (method, params) => result.
   async function prepareBuy(rpc, opts) {
-    var W = W3(), h = HOUSES[opts.currency]; if (!h) throw new Error('bad currency');
+    var W = W3(), h = activeHouse(opts.currency);
     if (!ALT_TABLE) throw new Error('Buy is not enabled yet — the marketplace lookup table has not been created.');
     // 1) creators, in metadata order (execute_sale asserts them positionally)
     var mi = await rpc('getAccountInfo', [metaOf(opts.mint).toBase58(), { encoding: 'base64' }]);
@@ -279,7 +318,9 @@
     if (!md.creators.length) throw new Error('NFT has no creators — cannot pay royalty.');
     // 2) instructions
     var isPnft = opts.pnft !== false;
-    var built = buildBuyIxs({ currency: opts.currency, buyer: opts.buyer, seller: opts.seller, mint: opts.mint, price: opts.price, sellerTokenAccount: opts.sellerTokenAccount, creators: md.creators, ruleSet: md.ruleSet, pnft: isPnft, cosign: isPnft });
+    // co-signed (pNFT) sales refund the rent of the accounts they make the house open — the co-signer requires it
+    var houseRent = isPnft ? await houseRentOwed(rpc, { currency: opts.currency, buyer: opts.buyer, seller: opts.seller, mint: opts.mint, creators: md.creators }) : 0;
+    var built = buildBuyIxs({ currency: opts.currency, buyer: opts.buyer, seller: opts.seller, mint: opts.mint, price: opts.price, sellerTokenAccount: opts.sellerTokenAccount, creators: md.creators, ruleSet: md.ruleSet, pnft: isPnft, cosign: isPnft, houseRent: houseRent });
     var ixs = built.ixs.map(function (b) { return new W.TransactionInstruction({ programId: b.programId, keys: b.keys, data: W.Buffer ? W.Buffer.from(b.data) : b.data }); });
     // 3) lookup table
     var ai = await rpc('getAccountInfo', [ALT_TABLE, { encoding: 'base64' }]);
@@ -301,7 +342,7 @@
     var sim = await rpc('simulateTransaction', [bytesToB64(tx.serialize()), { encoding: 'base64', sigVerify: false, replaceRecentBlockhash: true, commitment: 'processed' }]);
     var v = (sim && sim.value) || {};
     var roy = md.sellerFeeBasisPoints / 10000, price = Number(opts.price);
-    return { tx: tx, err: v.err || null, logs: v.logs || [], needsCosign: isPnft, breakdown: { price: price, currency: opts.currency, royalty: price * roy, sellerNet: price * (1 - roy), royaltyBps: md.sellerFeeBasisPoints } };
+    return { tx: tx, err: v.err || null, logs: v.logs || [], needsCosign: isPnft, breakdown: { price: price, currency: opts.currency, royalty: price * roy, sellerNet: price * (1 - roy), royaltyBps: md.sellerFeeBasisPoints, accountRentSol: houseRent / 1e9 } };
   }
 
   // Submit a prepared buy. pNFTs (needsCosign) route through the /api/dd-cosign authority cosigner:
@@ -328,7 +369,7 @@
   }
 
   global.DojoAH = {
-    HOUSES: HOUSES, AUTHORITY: AUTHORITY, ALT_TABLE: ALT_TABLE, prepareBuy: prepareBuy, submitBuy: submitBuy, lockPrice: lockPrice, priceUp: priceUp,
+    HOUSES: HOUSES, ACTIVE: ACTIVE, AUTHORITY: AUTHORITY, ALT_TABLE: ALT_TABLE, prepareBuy: prepareBuy, submitBuy: submitBuy, lockPrice: lockPrice, priceUp: priceUp, houseRentOwed: houseRentOwed,
     buildSellIx: buildSellIx, buildCancelIx: buildCancelIx, buildBuyIxs: buildBuyIxs, parseMetadata: parseMetadata, ruleSetOf: ruleSetOf,
     ataOf: ataOf, metaOf: metaOf, editionOf: editionOf, tokenRecordOf: tokenRecordOf, feeAccountOf: feeAccountOf,
     escrowOf: escrowOf, treasuryOf: treasuryOf, priceToBaseUnits: priceToBaseUnits, tradeStateOf: tradeStateOf,

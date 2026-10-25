@@ -45,15 +45,20 @@ try {
   console.debug('MWA register skipped:', e && e.message);
 }
 
-// URL overrides persist (localStorage) so they survive moving between store pages:
+// URL overrides last for this browser TAB (sessionStorage) so they survive moving between store pages:
 //   ?seekerconnect=1 / =0   force the Seeker Connect option on / off
-//   ?relay=<domain>          use a different Nostr relay
+//   ?relay=<domain>          use a different Nostr relay — honoured on localhost only (the CSP allows just the default)
+// Security review 2026-10-23 (L3): they used to persist in localStorage from ANY link, so a crafted link could switch
+// Seeker Connect off (or onto a dead relay) for a visitor for good. Now a link's effect ends with the tab, and the old
+// persisted values are cleared.
+const LOCAL_DEV = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+try { localStorage.removeItem('dd_seekerconnect'); localStorage.removeItem('dd_relay'); } catch (_) {}
 function pref(param, storeKey) {
   let v = null;
   try { v = new URLSearchParams(location.search).get(param); } catch (_) {}
   try {
-    if (v !== null) localStorage.setItem(storeKey, v);
-    else v = localStorage.getItem(storeKey);
+    if (v !== null) sessionStorage.setItem(storeKey, v);
+    else v = sessionStorage.getItem(storeKey);
   } catch (_) {}
   return v;
 }
@@ -82,7 +87,7 @@ async function looksLikeSeeker() {
   try {
     if (!/android/i.test(navigator.userAgent) || !window.isSecureContext) return;
     if (!(await looksLikeSeeker())) return;
-    const relayDomain = pref('relay', 'dd_relay') || DEFAULT_PUBLIC_RELAY;
+    const relayDomain = (LOCAL_DEV && pref('relay', 'dd_relay')) || DEFAULT_PUBLIC_RELAY;
     registerSeekerConnect({ identity, relayDomain, chain: 'solana:mainnet', associationTimeoutMs: 60000 });
   } catch (e) {
     console.debug('Seeker Connect register skipped:', e && e.message);

@@ -1,68 +1,72 @@
 // Netlify Function: admin stats at /api/admin (header Authorization: Bearer <ADMIN_KEY>)
 //
-// Aggregates the coin-purchase ledger (and referral ledger) into the numbers the
-// admin dashboard shows: coins sold, buyers, revenue by currency, pot funded,
-// Degen Dojo profit, affiliate rankings, recent purchases.
+// Aggregates the coin-purchase ledger into the numbers the admin dashboard shows: coins sold, buyers, revenue by
+// currency, pot funded, Degen Dojo's part, preacher rankings, recent purchases.
 //
 // Gated by ADMIN_KEY so the books aren't world-readable. Read-only.
 //
-// NOTE these come from POSTed hints (untrusted). For payouts, verify on-chain
-// first — this endpoint is for at-a-glance monitoring, not settlement.
+// Only VERIFIED records count (security review L2): a POST is an unverified hint anyone can send, so its coins / usd /
+// ref fields are never summed. The totals use what verify-core wrote after reading the chain — creditedCoins,
+// verifiedUsd, the locked split (Pot / preacher shares) and the memo referral (split.ref). Pending and rejected records
+// are only counted, and shown in the recent list with their status.
 import { limited } from "./store-ratelimit-core.mjs";
 import { getStore } from "@netlify/blobs";
 import { adminRequestOk } from "./store-session-core.mjs";
 
-const POT_PCT = 22;          // share of every coin buy / mining tip that funds the weekly pot (since 2026-10-23)
-const AFFILIATE_RATE = 0.36; // preachers earn 28/36/44% of a referred coin pack (36% = the middle tier)
+const POT_PCT = 22;          // share of every coin buy / referred mining tip that funds the weekly pot (since 2026-10-23)
+const frac = (s, part) => (s && Number(s.gainRaw) > 0 ? Number(s[part] || 0) / Number(s.gainRaw) : null);
 
 export default async (request) => {
   const blocked = limited(request, "admin", 10); if (blocked) return blocked;   // 10 / minute / IP (DD-04)
-  const url = new URL(request.url);
   if (!adminRequestOk(request, "ADMIN_KEY")) {
     return new Response("forbidden", { status: 403 });
   }
 
-  // ---- read every coin purchase ----
+  // ---- read every coin purchase record (buy:<sig> only — not the pending / purge index keys) ----
   const store = getStore("coin-purchases");
-  const { blobs } = await store.list();
+  const { blobs } = await store.list({ prefix: "buy:" });
   const buys = [];
   for (const b of blobs) { const v = await store.get(b.key, { type: "json" }); if (v) buys.push(v); }
 
   const byCurrency = { ORE: 0, SKR: 0, SOL: 0 };
   const buyers = new Set();
-  const affMap = {};      // ref → {buyers:Set, volume}
-  let coinsSold = 0, revenueUsd = 0;
+  const affMap = {};      // memo ref → {buyers:Set, volume, earnings}
+  let coinsSold = 0, revenueUsd = 0, pot = 0, preacherUsd = 0, pending = 0, rejected = 0;
   for (const b of buys) {
-    coinsSold += b.coins || 0;
-    revenueUsd += b.usd || 0;
-    if (b.currency in byCurrency) byCurrency[b.currency] += b.usd || 0;
+    if (!b.verified) { if (b.rejected) rejected++; else pending++; continue; }
+    const usd = +b.verifiedUsd || 0, cur = b.split?.currency || b.currency;
+    coinsSold += b.creditedCoins || 0;
+    revenueUsd += usd;
+    if (cur in byCurrency) byCurrency[cur] += usd;
     if (b.buyer) buyers.add(b.buyer);
-    if (b.ref) {
-      const a = affMap[b.ref] || (affMap[b.ref] = { name: b.ref, buyers: new Set(), volume: 0 });
-      if (b.buyer) a.buyers.add(b.buyer);
-      a.volume += b.usd || 0;
+    // the Pot's part: a Pot tip is all Pot; a split record its locked Pot share (22%, or 0 for an unreferred mining tip)
+    pot += b.route === "tip" ? (+b.toPotUsd || usd) : usd * (frac(b.split, "pot") ?? POT_PCT / 100);
+    const pr = usd * (frac(b.split, "preacher") || 0);
+    preacherUsd += pr;
+    const ref = b.split?.ref;
+    if (ref && pr > 0) {
+      const a = affMap[ref] || (affMap[ref] = { name: ref, tier: b.split.tier || "Preacher", buyers: new Set(), volume: 0, earnings: 0 });
+      a.buyers.add(b.buyer); a.volume += usd; a.earnings += pr;
     }
   }
-
-  const pot = revenueUsd * POT_PCT / 100;
-  // DD keeps what's left after the pot (22%) and the preachers' cut: Reserve 22% + ops 12% + the unused preacher pool
-  const affVolume = Object.values(affMap).reduce((t, a) => t + a.volume, 0);
-  const profit = revenueUsd * (1 - POT_PCT / 100) - affVolume * AFFILIATE_RATE;
+  const profit = revenueUsd - pot - preacherUsd;   // Reserve + ops: what stays with Degen Dojo
 
   const affiliates = Object.values(affMap)
-    .map((a) => ({ name: a.name, tier: "Affiliate", buyers: a.buyers.size, volume: Math.round(a.volume), earnings: Math.round(a.volume * AFFILIATE_RATE) }))
+    .map((a) => ({ name: a.name, tier: a.tier, buyers: a.buyers.size, volume: Math.round(a.volume), earnings: Math.round(a.earnings) }))
     .sort((x, y) => y.volume - x.volume)
     .slice(0, 25);
 
   const recent = buys
-    .sort((a, b) => (b.ts || 0) - (a.ts || 0))
+    .sort((a, b) => (b.recordedAt || b.ts || 0) - (a.recordedAt || a.ts || 0))
     .slice(0, 12)
-    .map((b) => ({ buyer: b.buyer, coins: b.coins, currency: b.currency, usd: b.usd, ts: b.ts, referrer: b.ref }));
+    .map((b) => ({ buyer: b.buyer, coins: b.verified ? b.creditedCoins || 0 : 0, currency: b.split?.currency || b.currency,
+      usd: b.verified ? +b.verifiedUsd || 0 : 0, ts: b.recordedAt || b.ts, referrer: b.verified ? b.split?.ref || null : null,
+      status: b.verified ? "verified" : b.rejected ? "rejected" : "pending" }));
 
   const out = {
     coinsSold, buyers: buyers.size, revenueUsd: Math.round(revenueUsd),
     byCurrency: { ORE: Math.round(byCurrency.ORE), SKR: Math.round(byCurrency.SKR), SOL: Math.round(byCurrency.SOL) },
-    pot: Math.round(pot), profit: Math.round(profit),
+    pot: Math.round(pot), preachers: Math.round(preacherUsd), profit: Math.round(profit), pending, rejected,
     affiliates, recent,
   };
   return new Response(JSON.stringify(out), { headers: { "content-type": "application/json", "cache-control": "no-store" } });
