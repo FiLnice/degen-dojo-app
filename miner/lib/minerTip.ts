@@ -4,6 +4,7 @@
 // best-effort record of it.
 import { SystemProgram, type PublicKey, type TransactionInstruction } from "@solana/web3.js";
 import { refMemoIx } from "@/lib/ore";
+import { dojoFeeOf } from "@/lib/dojoFee";
 // ─── Preacher referral on tips (Degen Dojo miner only) ───────────────────────
 export const REF_RE = /^[a-zA-Z0-9_-]{2,32}$/;
 export function readRef(): string | null {
@@ -23,14 +24,8 @@ export function readRef(): string | null {
 // the Automate transaction — so it is paid only if that lands — plus the preacher's signed "ddref:<code>" memo when one
 // referred this miner, so the store's minetip split (store-verify-core) still pays preachers; no preacher → 100% Reserve.
 // Not on branded /m/<slug> miners: they keep their own optional tip to the collection's wallet.
-export const DOJO_FEE_BPS = 100;
-export const dojoFeeOf = (depositLamports: number) => Math.floor((Math.max(0, depositLamports) * DOJO_FEE_BPS) / 10_000);
-/** The largest deposit whose deposit + 1% fee fits in `lamports` (Burn to Mine spends exactly what came back). */
-export const depositWithin = (lamports: number) => {
-  let d = Math.floor((Math.max(0, lamports) * 10_000) / (10_000 + DOJO_FEE_BPS));
-  while (d > 0 && d + dojoFeeOf(d) > lamports) d--;
-  return d;
-};
+// the fee math itself lives in lib/dojoFee.ts (import-free, shared with lib/burnMine.ts)
+export { DOJO_FEE_BPS, dojoFeeOf, depositWithin } from "@/lib/dojoFee";
 export function dojoFeeIxs(payer: PublicKey, depositLamports: number, wallet: PublicKey): { ixs: TransactionInstruction[]; feeLamports: number } {
   const feeLamports = dojoFeeOf(depositLamports);
   if (feeLamports <= 0) return { ixs: [], feeLamports: 0 };

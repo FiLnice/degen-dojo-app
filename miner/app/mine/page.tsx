@@ -275,11 +275,11 @@ export default function MinePage() {
       <>
         <StoreNav />
         <main className="min-h-screen px-5 py-16">
-          <div className="mx-auto max-w-md space-y-4 rounded-xl border border-slate-800 bg-slate-900/40 p-6 text-center">
+          <div className="mx-auto max-w-md space-y-4 rounded-xl border border-stone-800 bg-stone-900/40 p-6 text-center">
             <OreIcon className="mx-auto size-8" />
-            <h1 className="text-lg font-semibold text-slate-100">Miner not found</h1>
-            <p className="text-sm text-slate-400">
-              There&apos;s no live miner at <span className="font-mono text-slate-300">/m/{hosted.slug}</span>. It may
+            <h1 className="text-lg font-semibold text-stone-100">Miner not found</h1>
+            <p className="text-sm text-stone-400">
+              There&apos;s no live miner at <span className="font-mono text-stone-300">/m/{hosted.slug}</span>. It may
               still be awaiting approval, or the link is mistyped.
             </p>
             <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
@@ -287,7 +287,7 @@ export default function MinePage() {
               <a href="/mine" className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-500">
                 Mine with Degen Dojo
               </a>
-              <Link href="/whitelabel" className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-200 hover:bg-slate-800">
+              <Link href="/whitelabel" className="rounded-lg border border-stone-700 px-4 py-2 text-sm text-stone-200 hover:bg-stone-800">
                 Get your own miner
               </Link>
             </div>
@@ -300,8 +300,8 @@ export default function MinePage() {
   return (
     <>
       <StoreNav />
-      <main className="min-h-screen px-5 py-10">
-      <div className="mx-auto max-w-5xl space-y-4">
+      <main className="mine-cave min-h-screen px-5 py-6">
+      <div className="mx-auto max-w-5xl space-y-4 xl:max-w-6xl">
         {error && (
           <div className="rounded-md border border-amber-700/40 bg-amber-950/20 p-3 text-xs text-amber-300">
             RPC issue: {error}. Retrying…
@@ -309,7 +309,7 @@ export default function MinePage() {
         )}
 
         {burnMode && !hosted ? (
-          <BurnMode connection={connection} automation={automation} motherlode={motherlode} busy={busy} submit={submit} onBack={() => showBurn(false)} />
+          <BurnMode connection={connection} automation={automation} motherlode={motherlode} miner={miner} busy={busy} submit={submit} onBack={() => showBurn(false)} />
         ) : (
         /* Desktop: Degens left, info + auto-miner right */
         <div className="space-y-4 lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:grid-rows-[auto_auto_auto_1fr] lg:items-start lg:gap-x-6 lg:gap-y-4 lg:space-y-0">
@@ -325,7 +325,7 @@ export default function MinePage() {
               <span className="inline-flex items-center gap-1.5 text-xs font-medium">
                 <OreIcon className="size-3.5" /> Vault ↗
               </span>
-              <span className="text-right text-[10px] leading-tight text-slate-300">
+              <span className="text-right text-[10px] leading-tight text-stone-300">
                 {vaultUnrefined.toFixed(2)} uORE · {vaultRefined.toFixed(2)} rORE
               </span>
             </Link>
@@ -340,21 +340,20 @@ export default function MinePage() {
             <Stat
               label="Chance of winning a single uORE"
               value={!connected ? "0%" : avgPerTile > 0 ? fmtPct(winSingleUOre) : "—"}
-              accent="emerald"
               sub="40% of rounds give a single uORE"
             />
             <Stat
               label="Mining Round Time"
               value={secondsLeft > 0 ? `${secondsLeft}s` : phase === "starting" ? "starting…" : board ? "resolving…" : "—"}
-              accent="amber"
             />
           </div>
 
           {/* The 5×5 Degen grid (display only — you always mine all 25) */}
-          <div className="grid grid-cols-5 gap-2 sm:gap-2.5 lg:col-start-1 lg:row-span-4 lg:row-start-1 lg:self-start">
+          <div className="mine-frame mx-auto w-full lg:col-start-1 lg:row-span-4 lg:row-start-1 lg:w-[min(100%,calc(100dvh-8.5rem))] lg:self-start">
+          <div className="mine-shaft grid grid-cols-5 gap-1 sm:gap-2">
             {pending
               ? Array.from({ length: SQUARES }).map((_, i) => (
-                  <div key={i} className="aspect-square animate-pulse rounded-lg bg-slate-900/60" />
+                  <div key={i} className="aspect-square animate-pulse rounded-lg bg-stone-900/60" />
                 ))
               : degens.map((d, i) => {
                   const isWinner = lastWinner === i;
@@ -364,10 +363,10 @@ export default function MinePage() {
                     <div
                       key={d.mint || i}
                       title={`${d.name} — ${sqSol.toFixed(3)} SOL · ${sqMiners} miners`}
-                      className={`group relative aspect-square overflow-hidden rounded-lg bg-slate-900 ring-1 transition-all duration-300 ${
+                      className={`group relative aspect-square overflow-hidden rounded-lg bg-stone-900 ring-1 transition-all duration-300 ${
                         isWinner
                           ? "z-10 ring-2 ring-amber-400 shadow-[0_0_22px_rgba(251,191,36,0.55)]"
-                          : "ring-slate-800"
+                          : "ring-stone-800"
                       }`}
                     >
                       <Image
@@ -390,16 +389,17 @@ export default function MinePage() {
                         </div>
                       )}
 
-                      <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-gradient-to-t from-black/80 to-transparent px-1 pt-3 pb-0.5 text-[9px] font-medium text-slate-100">
+                      <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-gradient-to-t from-black/80 to-transparent px-0.5 pt-3 pb-0.5 text-[9px] font-medium sm:px-1 text-stone-100">
                         <span className="inline-flex items-center gap-0.5 tabular-nums">
                           {sqSol.toFixed(2)}
                           <SolIcon className="size-2" />
                         </span>
-                        <span className="tabular-nums text-slate-300">{sqMiners}⛏</span>
+                        <span className="tabular-nums text-stone-300">{sqMiners}⛏</span>
                       </div>
                     </div>
                   );
                 })}
+          </div>
           </div>
 
           {/* Auto-miner (only mining mode) */}
@@ -407,25 +407,25 @@ export default function MinePage() {
             {!mounted ? (
               <div className="h-24" />
             ) : !connected ? (
-              <div className="flex flex-col items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/40 p-4">
+              <div className="flex flex-col items-center gap-2 rounded-lg border border-stone-800 bg-stone-900/40 p-4">
                 {embedded ? (
                   // Inside the store, StoreNav already renders a Connect button (top-right).
                   // Avoid a second wallet button so mobile doesn't show "connect" twice.
-                  <p className="text-sm text-slate-400 text-center">
+                  <p className="text-sm text-stone-400 text-center">
                     Connect your wallet using the <span className="text-amber-400 font-semibold">Connect wallet</span> button at the top to auto-mine.
                   </p>
                 ) : (
                   <>
-                    <p className="text-sm text-slate-400">Connect your wallet to auto-mine.</p>
+                    <p className="text-sm text-stone-400">Connect your wallet to auto-mine.</p>
                     <WalletMultiButton />
                   </>
                 )}
               </div>
             ) : (
-              <div className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/40 p-4">
+              <div className="space-y-3 rounded-lg border border-stone-800 bg-stone-900/40 p-4">
                 {automation?.active ? (
                   <>
-                    <div className="space-y-1 rounded-md bg-slate-950/60 p-3 text-xs">
+                    <div className="space-y-1 rounded-md bg-stone-950/60 p-3 text-xs">
                       <Row label="Status" value={<span className="text-emerald-300">Auto-mining ✓</span>} />
                       <Row
                         label="Per tile"
@@ -457,60 +457,60 @@ export default function MinePage() {
                   </>
                 ) : (
                   <>
-                    <div className="flex items-center justify-between rounded bg-slate-950/60 px-3 py-2 text-xs">
-                      <span className="text-slate-400">Wallet balance</span>
-                      <span className="inline-flex items-center gap-1 font-medium text-slate-100">
+                    <div className="flex items-center justify-between rounded bg-stone-950/60 px-3 py-2 text-xs">
+                      <span className="text-stone-400">Wallet balance</span>
+                      <span className="inline-flex items-center gap-1 font-medium text-stone-100">
                         {walletSol != null ? walletSol.toFixed(4) : "…"} <SolIcon className="size-3" />
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-2">
-                      <label className="text-xs text-slate-400">SOL / tile</label>
+                      <label className="text-xs text-stone-400">SOL / tile</label>
                       <input
                         value={amountStr}
                         onChange={(e) => setAmountStr(e.target.value)}
                         inputMode="decimal"
-                        className="w-24 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-right text-sm text-slate-100 tabular-nums outline-none focus:border-sky-500"
+                        className="w-24 rounded border border-stone-700 bg-stone-950 px-2 py-1 text-right text-sm text-stone-100 tabular-nums outline-none focus:border-sky-500"
                       />
                     </div>
                     <div className="flex items-center justify-between gap-2">
-                      <label className="text-xs text-slate-400">
+                      <label className="text-xs text-stone-400">
                         Deposit <SolIcon className="inline size-3" />
                       </label>
                       <input
                         value={depositStr}
                         onChange={(e) => setDepositStr(e.target.value)}
                         inputMode="decimal"
-                        className="w-24 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-right text-sm text-slate-100 tabular-nums outline-none focus:border-sky-500"
+                        className="w-24 rounded border border-stone-700 bg-stone-950 px-2 py-1 text-right text-sm text-stone-100 tabular-nums outline-none focus:border-sky-500"
                       />
                     </div>
-                    <div className="flex items-center justify-between rounded bg-slate-950/60 px-3 py-2 text-xs">
-                      <span className="text-slate-400">Est. rounds</span>
+                    <div className="flex items-center justify-between rounded bg-stone-950/60 px-3 py-2 text-xs">
+                      <span className="text-stone-400">Est. rounds</span>
                       <span className="font-semibold text-emerald-300">~{estSetupRounds}</span>
                     </div>
                     {dojoFee && (
                       <div className="space-y-1">
-                        <div className="flex items-center justify-between rounded bg-slate-950/60 px-3 py-2 text-xs">
-                          <span className="text-slate-400">Dojo fee 1%</span>
-                          <span className="inline-flex items-center gap-1 font-medium text-slate-200">
+                        <div className="flex items-center justify-between rounded bg-stone-950/60 px-3 py-2 text-xs">
+                          <span className="text-stone-400">Dojo fee 1%</span>
+                          <span className="inline-flex items-center gap-1 font-medium text-stone-200">
                             {feeSol.toFixed(6)} <SolIcon className="size-3" />
                           </span>
                         </div>
-                        <p className="text-[11px] text-slate-500">1% Dojo fee — same as ORE takes. Paid only when it works.</p>
+                        <p className="text-[11px] text-stone-500">1% Dojo fee — same as ORE takes. Paid only when it works.</p>
                       </div>
                     )}
                     {!dojoFee && TIP_ENABLED && (
                       <div className="flex items-center justify-between gap-2">
-                        <label className="text-xs text-slate-400">Tip {collectionName} (optional)</label>
+                        <label className="text-xs text-stone-400">Tip {collectionName} (optional)</label>
                         <div className="flex items-center gap-1.5">
                           {oreTipOk && (
-                            <div className="flex overflow-hidden rounded border border-slate-700 text-[11px]" role="group" aria-label="Tip currency">
+                            <div className="flex overflow-hidden rounded border border-stone-700 text-[11px]" role="group" aria-label="Tip currency">
                               {(["SOL", "ORE"] as const).map((c) => (
                                 <button
                                   key={c}
                                   type="button"
                                   onClick={() => setTipCur(c)}
                                   aria-pressed={tipCur === c}
-                                  className={`px-2 py-1 font-semibold ${tipCur === c ? "bg-sky-600/30 text-sky-200" : "text-slate-400 hover:text-slate-200"}`}
+                                  className={`px-2 py-1 font-semibold ${tipCur === c ? "bg-sky-600/30 text-sky-200" : "text-stone-400 hover:text-stone-200"}`}
                                 >
                                   {c}
                                 </button>
@@ -523,7 +523,7 @@ export default function MinePage() {
                             inputMode="decimal"
                             placeholder="0"
                             aria-label={`Tip in ${tipCur}`}
-                            className="w-24 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-right text-sm text-slate-100 tabular-nums outline-none focus:border-sky-500"
+                            className="w-24 rounded border border-stone-700 bg-stone-950 px-2 py-1 text-right text-sm text-stone-100 tabular-nums outline-none focus:border-sky-500"
                           />
                         </div>
                       </div>
@@ -586,22 +586,22 @@ export default function MinePage() {
                 className="mb-2 flex w-full flex-col items-center rounded-lg border border-red-500/50 bg-gradient-to-r from-red-950/60 to-amber-950/50 px-3 py-2.5 text-amber-200 transition-colors hover:from-red-900/60 hover:to-amber-900/50"
               >
                 <span className="text-sm font-semibold">🔥 Burn to Mine</span>
-                <span className="text-[11px] text-slate-400">burn NFTs you don&apos;t want, mine ORE with the SOL</span>
+                <span className="text-[11px] text-stone-400">burn NFTs you don&apos;t want, mine ORE with the SOL</span>
               </button>
             )}
             {/* One even 2×2 grid: every button the same size, the collection CTA first. */}
-            <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-500">
+            <div className="grid grid-cols-2 gap-2 text-[11px] text-stone-500">
               <Link href="/whitelabel" prefetch={false} className={`${FOOT_BTN} border-amber-600/60 bg-amber-950/30 text-amber-300 hover:bg-amber-900/40`}>
                 <Pickaxe className="size-3.5 shrink-0" /> add your collection on the grid
               </Link>
-              <button onClick={() => setShowHow(true)} className={`${FOOT_BTN} border-slate-800 bg-slate-900/40 hover:bg-slate-800 hover:text-slate-300`}>
+              <button onClick={() => setShowHow(true)} className={`${FOOT_BTN} border-stone-800 bg-stone-900/40 hover:bg-stone-800 hover:text-stone-300`}>
                 <Info className="size-3.5 shrink-0" /> how it works
               </button>
-              <button onClick={refresh} className={`${FOOT_BTN} border-slate-800 bg-slate-900/40 hover:bg-slate-800 hover:text-slate-300`}>
+              <button onClick={refresh} className={`${FOOT_BTN} border-stone-800 bg-stone-900/40 hover:bg-stone-800 hover:text-stone-300`}>
                 <RefreshCw className="size-3.5 shrink-0" /> refresh
               </button>
               {connected && (
-                <button onClick={() => disconnect()} className={`${FOOT_BTN} border-slate-800 bg-slate-900/40 hover:bg-slate-800 hover:text-slate-300`}>
+                <button onClick={() => disconnect()} className={`${FOOT_BTN} border-stone-800 bg-stone-900/40 hover:bg-stone-800 hover:text-stone-300`}>
                   <LogOut className="size-3.5 shrink-0" /> disconnect
                 </button>
               )}
@@ -623,8 +623,8 @@ function HowStep({ n, t, d }: { n: number; t: string; d: string }) {
         {n}
       </div>
       <div>
-        <div className="text-sm font-medium text-slate-200">{t}</div>
-        <div className="text-xs leading-relaxed text-slate-400">{d}</div>
+        <div className="text-sm font-medium text-stone-200">{t}</div>
+        <div className="text-xs leading-relaxed text-stone-400">{d}</div>
       </div>
     </div>
   );
@@ -639,12 +639,12 @@ function HowItWorksModal({ open, onClose }: { open: boolean; onClose: () => void
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md space-y-3 rounded-xl border border-slate-800 bg-slate-900 p-5"
+        className="w-full max-w-md space-y-3 rounded-xl border border-stone-800 bg-stone-900 p-5"
       >
         <div className="flex items-center gap-2">
           <Info className="size-4 text-amber-400" />
-          <h2 className="text-sm font-medium text-slate-100">How mining works</h2>
-          <button onClick={onClose} className="ml-auto text-slate-500 hover:text-slate-200">
+          <h2 className="text-sm font-medium text-stone-100">How mining works</h2>
+          <button onClick={onClose} className="ml-auto text-stone-500 hover:text-stone-200">
             <X className="size-4" />
           </button>
         </div>
@@ -653,7 +653,7 @@ function HowItWorksModal({ open, onClose }: { open: boolean; onClose: () => void
         <HowStep n={3} t="Every ~2 min, one tile wins" d="Whoever staked the winning tile mines the round's fresh uORE (one miner takes it, or it's split) — plus the Motherlode when it hits. Your SOL comes back, minus ORE's fees: 1% on every tile, and 10% on the tiles that lost." />
         <HowStep n={4} t="Your uORE stacks in the Vault" d="Claim it to your wallet whenever you like." />
         <HowStep n={5} t="Auto-mine plays for you" d="Fund a balance and it enters every round until it runs low. Stop & withdraw pulls the rest back out." />
-        <p className="rounded bg-slate-950/60 px-3 py-2 text-xs text-slate-500">
+        <p className="rounded bg-stone-950/60 px-3 py-2 text-xs text-stone-500">
           Each round costs roughly a tenth of what you stake, and only 1 of 25 tiles mines ORE — so you can lose SOL. That&apos;s the game.
         </p>
       </div>
@@ -668,7 +668,7 @@ const ACCENT: Record<Accent | "default", string> = {
   violet: "text-violet-300",
   sky: "text-sky-300",
   gold: "text-amber-400",
-  default: "text-slate-100",
+  default: "text-stone-100",
 };
 
 /** Solana logo mark; inherits the surrounding text colour. */
@@ -696,12 +696,12 @@ function Stat({
   sub?: string;
 }) {
   return (
-    <div className="flex flex-col rounded-lg border border-slate-800 bg-slate-900/50 p-3" title={hint}>
-      <div className="text-[10px] uppercase leading-tight tracking-wide text-slate-500">{label}</div>
+    <div className="flex flex-col rounded-lg border border-stone-800 bg-stone-900/50 p-3" title={hint}>
+      <div className="text-[10px] uppercase leading-tight tracking-wide text-stone-500">{label}</div>
       <div className={`mt-auto text-base font-semibold tabular-nums sm:text-lg ${ACCENT[accent ?? "default"]}`}>
         {value}
       </div>
-      {sub && <div className="mt-0.5 text-[8px] leading-tight text-slate-600">{sub}</div>}
+      {sub && <div className="mt-0.5 text-[8px] leading-tight text-stone-600">{sub}</div>}
     </div>
   );
 }
@@ -716,8 +716,8 @@ const FOOT_BTN =
 function Row({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="flex items-center justify-between">
-      <span className="text-slate-400">{label}</span>
-      <span className="font-medium text-slate-200">{value}</span>
+      <span className="text-stone-400">{label}</span>
+      <span className="font-medium text-stone-200">{value}</span>
     </div>
   );
 }
@@ -737,14 +737,14 @@ function ActionButton({
 }) {
   const enabled =
     variant === "outline"
-      ? "border border-slate-700 text-slate-200 hover:bg-slate-800"
+      ? "border border-stone-700 text-stone-200 hover:bg-stone-800"
       : "bg-amber-600 text-white hover:bg-amber-500";
   return (
     <button
       onClick={onClick}
       disabled={disabled || busy}
       className={`inline-flex w-full items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium transition-colors ${
-        disabled || busy ? "cursor-not-allowed bg-slate-800 text-slate-500" : enabled
+        disabled || busy ? "cursor-not-allowed bg-stone-800 text-stone-500" : enabled
       }`}
     >
       {busy && <Loader2 className="size-4 animate-spin" />}

@@ -5,8 +5,8 @@ import { useEffect, useState } from "react";
 import * as web3 from "@solana/web3.js";
 import { Buffer } from "buffer";
 
-export type BurnNft = { mint: string; name: string; image: string; collectionName: string; collection: string | null; lamports: number; burnable: boolean; junk: number; reason: string | null; pnft: boolean };
-export type ScanOut = { nfts: BurnNft[]; empties: unknown[]; emptyLamports: number; unread: number; calls: number | null; ms: number };
+export type BurnNft = { mint: string; name: string; image: string; collectionName: string; collection: string | null; lamports: number; burnable: boolean; junk: number; reason: string | null; pnft: boolean; core?: boolean; floorSol?: number | null };   // core: a Metaplex Core NFT (mint = its asset address)
+export type ScanOut = { nfts: BurnNft[]; empties: unknown[]; emptyLamports: number; unread: number; calls: number | null; ms: number; floors?: { groups: number; calls: number; unknown: number; unknownVerified?: number; degraded?: boolean; high: number; ms: number } };
 export type Batch = { ixs: unknown[]; items: BurnNft[]; lamports: number };
 export type Plan = { batches: Batch[]; dropped: { item: BurnNft; reason: string }[] };
 export type Rpc = (method: string, params: unknown) => Promise<any>; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -17,6 +17,12 @@ export type DojoBurnApi = {
   planBurns: (rpc: Rpc, owner: string, nfts: BurnNft[], step?: (s: string) => void, opts?: { fee?: boolean }) => Promise<Plan>;
   planCloses: (rpc: Rpc, owner: string, empties: unknown[], step?: (s: string) => void, opts?: { fee?: boolean }) => Promise<Plan>;
   finalize: (rpc: Rpc, owner: string, batches: Batch[]) => Promise<web3.VersionedTransaction[]>;
+  // floor guard (owner 2026-10-27): a collection floor >= FLOOR_MAX SOL = worth more listed than burned
+  FLOOR_MAX: number;
+  floorHigh: (n: BurnNft) => boolean;
+  visibleNfts: (list: BurnNft[], showAll: boolean, degraded?: boolean) => BurnNft[];   // degraded floors: unknown-floor verified collections hidden too
+  rawImageOk: (url: string) => boolean;   // the original image may load only from a storage network
+  junkPicks: (list: BurnNft[]) => BurnNft[];
 };
 
 // One paced client for the page once /dojo-burn.js is loaded (≤ 2 in flight, ≤ 4 a second, retries 429/5xx with

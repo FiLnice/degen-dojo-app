@@ -21,10 +21,11 @@ const NAV_CSS = `.dn-ham{display:none}.dn-connect{display:none}
 const PILLS: [string, string][] = [
   ["/", "⌂ Store"],
   ["/market", "🛒 Market"],
-  ["/launch", "🚀 Launch"],
   ["/list", "🏷 List"],
   ["/play", "▶ Play"],
   ["/mine", "⛏ Mine"],
+  ["/sweep", "💰 Claim"],
+  ["/launch", "🚀 Launch"],
   ["/pot", "🏆 Pot"],
   ["/become-a-preacher", "📣 Preacher"],
 ];

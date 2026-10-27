@@ -113,9 +113,9 @@ h1{font-family:"Teko",sans-serif;font-weight:700;font-size:clamp(38px,8vw,66px);
     <div class="stat"><div class="k">Plays left</div><div class="v" id="playsV">0</div></div>
     <div class="stat"><div class="k">Into the pot / buy</div><div class="v" id="potPctV">22<small>%</small></div></div>
   </div>
-  <!-- coins live on the server: sign in (one free signature, 12h) to see them; Seeker owners get one free coin -->
+  <!-- coins live on the server: a connected wallet sees them by address (peek); signing in (one free signature, 12h) is for playing; Seeker owners get one free coin -->
   <div class="acct">
-    <button class="acct-btn" id="signInBtn" type="button" onclick="signInForBalance()">🔑 Sign in to see your coins</button>
+    <button class="acct-btn" id="signInBtn" type="button" onclick="connectForBalance()">🔑 Connect your wallet to see your coins</button>
     <button class="acct-btn" id="seekerBtn" type="button" onclick="claimSeekerCoin(this)">📱 Seeker owner? Claim your free coin</button>
   </div>
   <div class="acct-msg" id="seekerMsg"></div>
@@ -170,15 +170,14 @@ const ICON = {
   SOL: 'https://wsrv.nl/?url=https%3A%2F%2Fraw.githubusercontent.com%2Fsolana-labs%2Ftoken-list%2Fmain%2Fassets%2Fmainnet%2FSo11111111111111111111111111111111111111112%2Flogo.png&w=40&h=40&output=png',
   SKR: 'https://wsrv.nl/?url=https%3A%2F%2Fr2.solanamobiledappstore.com%2Fskr%2Fseeker.png&w=40&h=40&output=png',
 };
-// 1 credit ≈ $1. Bigger packs give bonus credits (the discount that nudges bulk buys).
+// 1 credit ≈ $1, flat: 3 / 5 / 10 / 25 coins (owner 2026-10-27 — no bonus coins, no 50 pack).
 // DISPLAY ONLY — the server (store-verify-core.mjs coinsForUsd) credits from the verified
 // on-chain amount at the price LOCKED by its quote when you click Buy, never from what this page claims.
 const PACKS = [
-  { credits: 3,  bonus: 0,  usd: 3, tag: 'Starter' },   // smallest pack (owner: minimum 3 coins)
-  { credits: 5,  bonus: 0,  usd: 5  },
-  { credits: 10, bonus: 1,  usd: 10, tag: 'Popular' },
-  { credits: 25, bonus: 4,  usd: 25, tag: 'Best value', best: true },
-  { credits: 50, bonus: 10, usd: 50 },
+  { credits: 3,  bonus: 0, usd: 3,  tag: 'Starter' },   // smallest pack (owner: minimum 3 coins)
+  { credits: 5,  bonus: 0, usd: 5  },
+  { credits: 10, bonus: 0, usd: 10, tag: 'Popular' },
+  { credits: 25, bonus: 0, usd: 25, tag: 'Best value', best: true },   // owner 2026-10-27: 3/5/10/25 only, no bonus coins
 ];
 const POT_PCT = 22;                 // share of every purchase that feeds the Dojo Pot (store-pot-core POT_FRAC)
 const PRICES = { SOL:null, ORE:null, SKR:null };
@@ -191,10 +190,31 @@ const tok = c => `<img class="tok" src="${ICON[c]}" alt="${c}">`;
 
 // Coins live on the SERVER (DojoWallet) — this page never credits a balance itself.
 function signedIn(){ return !!(window.DojoWallet && DojoWallet.signedIn()); }
+// Connected but not signed in: the balance by address — /api/play "peek" (read-only, coins only, no signature;
+// owner 2026-10-27). Signing in is only needed to play (and for the Seeker coin), not to see your coins.
+let _peek = { w: null, coins: null, at: 0, busy: false };
+function connectedWallet(){ return (window.DOJO_WALLET && window.DOJO_WALLET.pubkey) ? String(window.DOJO_WALLET.pubkey) : null; }
+function peekBalance(force){
+  const w = connectedWallet(); if(!w || signedIn() || _peek.busy) return;
+  if(!force && _peek.w === w && Date.now() - _peek.at < 60000) return;
+  _peek.busy = true;
+  fetch('/api/play', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ action:'peek', wallet: w }) })
+    .then(r => r.ok ? r.json() : null)
+    .then(j => { _peek = { w, coins: (j && j.ok && typeof j.coins === 'number') ? j.coins : null, at: Date.now(), busy: false }; if(connectedWallet() === w) renderBalance(); })
+    .catch(() => { _peek = { w, coins: null, at: Date.now(), busy: false }; });
+}
 function renderBalance(){
-  const ok = signedIn(), b = ok ? DojoWallet.coins : '–';
+  const ok = signedIn(), w = connectedWallet(), seen = (!ok && w && _peek.w === w) ? _peek.coins : null;
+  const b = ok ? DojoWallet.coins : (seen != null ? seen : '–');
   $('balV').textContent = b; $('playsV').textContent = b;
-  $('signInBtn').style.display = ok ? 'none' : '';
+  // connected → the number shows by address, no button; not connected → a connect prompt (no signature needed to see coins)
+  $('signInBtn').style.display = (ok || w) ? 'none' : '';
+  if(!ok && w && seen == null) peekBalance();
+}
+function connectForBalance(){
+  const nav = document.getElementById('dojoNavWallet');
+  if(nav){ nav.click(); return; }   // the shared nav wallet button (sets window.DOJO_WALLET → dojo-wallet-change)
+  signInForBalance();
 }
 async function signInForBalance(){
   if(!window.DojoWallet){ toast('Wallet still loading — one moment'); return; }
@@ -244,7 +264,7 @@ async function watchPurchase(sig){
       const n = Math.max(0, Math.floor(+s.creditedCoins||0));
       st.innerHTML = '✅ <b>Verified on-chain</b> — +'+n+' coin'+(n===1?'':'s')+' added 🪙';
       if(signedIn()) DojoWallet.refresh().then(renderBalance).catch(()=>{});
-      else st.innerHTML += ' · <a href="#" onclick="signInForBalance();return false;">sign in to see your balance</a>';
+      else peekBalance(true);   // connected, not signed in → re-read the balance by address
       watching[sig]=false; return;
     }
     if(s && s.rejected){
@@ -272,7 +292,7 @@ function renderPacks(){
       ${p.tag?`<div class="tag">${p.tag}</div>`:''}
       <div class="cr">🪙 <b>${total}</b></div>
       <div class="plays">coin${total===1?'':'s'} · ${total} play${total===1?'':'s'}</div>
-      <div class="bonus">${p.bonus?`+${p.bonus} bonus`:'&nbsp;'}</div>
+      ${p.bonus?`<div class="bonus">+${p.bonus} bonus</div>`:''}
       <div class="price">${tok(CUR)} ${fmtTok(t)}</div>
       <div class="usd">≈ $${p.usd}</div>
       <button class="buy" onclick="buy(${i})">Buy</button>
@@ -386,6 +406,7 @@ $('potPctV').innerHTML = POT_PCT + '<small>%</small>'; $('potPill').textContent 
 renderBalance(); renderPacks(); loadPrices();
 if(window.DojoWallet) DojoWallet.on(renderBalance);
 window.addEventListener('dojo-coins-change', renderBalance);
+window.addEventListener('dojo-wallet-change', () => { _peek.at = 0; renderBalance(); });   // a wallet just connected → read its coins
 // payments from an earlier visit that weren't confirmed yet: re-send (write-once server-side) + watch
 pendingList().filter(p => Date.now() - (p.ts||0) < 24*3600*1000).forEach(p => { recordBuy(p); watchPurchase(p.sig); });
 setPending(pendingList().filter(p => Date.now() - (p.ts||0) < 24*3600*1000));

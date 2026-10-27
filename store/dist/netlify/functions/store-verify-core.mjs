@@ -93,11 +93,11 @@ const PENDING_INDEX_V = "meta:pending-v1";
 
 // The ONLY coin prices the server honours (mirror of dojo-credits.html PACKS).
 const PACKS = [
-  { usd: 3, total: 3 }, { usd: 5, total: 5 }, { usd: 10, total: 11 }, { usd: 25, total: 29 }, { usd: 50, total: 60 },
+  { usd: 3, total: 3 }, { usd: 5, total: 5 }, { usd: 10, total: 10 }, { usd: 25, total: 25 },   // owner 2026-10-27: 3/5/10/25, no bonus, no 50 pack
 ].sort((a, b) => a.usd - b.usd);
 export const MAX_COINS = PACKS[PACKS.length - 1].total;   // per-transaction credit cap (DD-11)
 // Coins for a verified USD amount: the biggest pack the payment covers (each pack gets the
-// same PACK_TOL price-drift allowance, so a $10 pack paid at $9.95 is still 11 coins), and for
+// same PACK_TOL price-drift allowance, so a $10 pack paid at $9.95 is still 10 coins), and for
 // odd amounts between packs 1 coin per $1 with the same allowance — never less than the
 // covered pack, never more than the biggest pack. Below ~$0.99 → 0 (dust; the caller rejects it).
 export function coinsForUsd(usd) {

@@ -229,6 +229,17 @@ export default async (request) => {
   let r; try { r = await request.json(); } catch { return new Response("bad json", { status: 400, headers: CORS }); }
   const json = (o, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { "content-type": "application/json", "cache-control": "no-store", ...CORS } });
 
+  // POST {action:"peek", wallet} → { ok, coins }: the coin balance of a CONNECTED wallet, read-only and without a
+  // signature (owner 2026-10-27 — "it should show them directly since i was connected"). Coins only — no tickets,
+  // plays or wins; starting/finishing a play, claims and everything else still need the signed session below.
+  // Accepted trade-off: a wallet's coin count is readable by its address (like its on-chain balances).
+  if (r.action === "peek") {
+    const slow = limited(request, "play-peek", 30); if (slow) return slow;   // 30 / minute / IP on top of the 60 above
+    const w = String(r.wallet || "");
+    if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(w)) return json({ error: "bad wallet" }, 400);
+    return json({ ok: true, coins: await getCoins(getStore("balances"), w) });
+  }
+
   if (!sessionReady()) return sessionUnavailable(CORS);
   const wallet = checkToken(r.token);
   if (!wallet) return json({ error: "sign in first" }, 401);

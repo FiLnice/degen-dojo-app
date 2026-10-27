@@ -52,7 +52,7 @@
     },
     creditsUrl: CREDITS_URL,
     /** Re-pull the server balance (if signed in) and repaint every readout. */
-    refresh: function () { var w = W(); if (signedIn()) w.refresh().then(paint, paint); else paint(); },
+    refresh: function () { var w = W(); if (signedIn()) w.refresh().then(paint, paint); else { peek(true); paint(); } },   // not signed in: re-read by address
     toast: function (msg, warn, href) { toast(msg, warn, href); },
   };
   window.DojoCredits = DojoCredits;
@@ -87,20 +87,42 @@
       for (var j = 0; j < els.length; j++) els[j].style.display = 'none';
       return;
     }
-    var known = signedIn(), n = DojoCredits.get();
+    var known = signedIn(), n = DojoCredits.get(), seen = known ? null : peeked();
+    if (!known && seen == null) peek();   // connected, not signed in → read the balance by address
     for (var i = 0; i < els.length; i++) {
       var style = els[i].getAttribute('data-dc-credits');   // "" = plain number, "icon" = 🪙 N
       els[i].style.display = '';
-      // connected but not signed in yet: the balance isn't known → "–" (tap it to sign in)
-      els[i].textContent = (style === 'icon' ? '🪙 ' : '') + (known ? n : '–');
-      els[i].title = known ? 'Your coins' : 'Sign in to see your coins';
-      els[i].style.cursor = known ? '' : 'pointer';
+      // connected but not signed in: the balance read by address (peek); "–" only until it arrives (tap it to sign in)
+      els[i].textContent = (style === 'icon' ? '🪙 ' : '') + (known ? n : seen != null ? seen : '–');
+      els[i].title = known ? 'Your coins' : seen != null ? 'Your coins — sign in when you play' : 'Sign in to see your coins';
+      els[i].style.cursor = known || seen != null ? '' : 'pointer';
     }
   }
-  // tapping an unknown "–" balance signs in (one free signature) and shows the real number
+  // Connected but not signed in: the coin balance by address — /api/play "peek" (read-only, coins only, no signature;
+  // owner 2026-10-27). Cached a minute per wallet; spending and playing still go through the signed session.
+  var peekCache = { wallet: null, coins: null, at: 0, busy: false };
+  function peekWallet() { var a = window.DOJO_WALLET; return a && a.pubkey ? String(a.pubkey) : null; }
+  function peeked() { var w = peekWallet(); return w && peekCache.wallet === w ? peekCache.coins : null; }
+  function peek(force) {
+    var w = peekWallet();
+    if (!w || signedIn() || !econOn() || peekCache.busy) return;
+    if (!force && peekCache.wallet === w && Date.now() - peekCache.at < 60000) return;
+    peekCache.busy = true;
+    var api = (window.DOJO_API || '').replace(/\/$/, '');
+    fetch(api + '/api/play', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'peek', wallet: w }) })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        peekCache.busy = false;
+        if (j && j.ok && typeof j.coins === 'number' && peekWallet() === w) { peekCache = { wallet: w, coins: j.coins, at: Date.now(), busy: false }; paint(); }
+        else peekCache = { wallet: w, coins: null, at: Date.now(), busy: false };   // failed: wait a minute, don't retry on every repaint
+      })
+      .catch(function () { peekCache = { wallet: w, coins: null, at: Date.now(), busy: false }; });
+  }
+  DojoCredits.peek = function () { peek(true); };
+  // tapping a still-unknown "–" balance signs in (one free signature) and shows the real number
   document.addEventListener('click', function (e) {
     var el = e.target && e.target.closest ? e.target.closest('[data-dc-credits]') : null;
-    if (!el || !econOn() || signedIn()) return;
+    if (!el || !econOn() || signedIn() || peeked() != null) return;
     var w = W(); if (w && w.signIn) w.signIn().then(paint).catch(function () {});
   });
 

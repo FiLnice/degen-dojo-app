@@ -24,6 +24,8 @@ const ALLOWED = new Set([
   "getAsset",             // DAS — name, image, traits
   "getAssetBatch",        // DAS batch — names + images for a wallet's NFTs / the listings grid
   "getAssetsByGroup",     // DAS — a collection's NFTs, for the branded-miner preview (/create); guarded below
+  "searchAssets",         // DAS — ONE wallet's Metaplex Core NFTs for Dojo Sweep / Burn to Mine; guarded below
+  "getMinimumBalanceForRentExemption",   // what a burned Core NFT's 1-byte tombstone keeps (Sweep pricing)
   // The ORE miner (/mine) reads the round clock and confirms deploys/claims
   // through this same proxy — both read-only.
   "getSlot",
@@ -39,10 +41,12 @@ const ALLOWED = new Set([
 const M2_PROGRAM = "M2mx93ekt1fmXSVkTrUL9xVFHkmME8HTUi5Cyc5aF7K";
 // Solana's public RPC: a fallback for plain methods when Helius is rate-limiting (no DAS / no gPA there).
 const PUBLIC_RPC = "https://api.mainnet-beta.solana.com";
-const PUBLIC_OK = new Set(["getLatestBlockhash", "getSignatureStatuses", "getAccountInfo", "getMultipleAccounts", "getBalance", "simulateTransaction", "getSlot", "getTransaction", "getTokenAccountsByOwner", "getRecentPerformanceSamples", "getTokenAccountBalance", "sendTransaction"]);
+const PUBLIC_OK = new Set(["getMinimumBalanceForRentExemption", "getLatestBlockhash", "getSignatureStatuses", "getAccountInfo", "getMultipleAccounts", "getBalance", "simulateTransaction", "getSlot", "getTransaction", "getTokenAccountsByOwner", "getRecentPerformanceSamples", "getTokenAccountBalance", "sendTransaction"]);
 // ── abuse limits (every call in a request must pass) ──
 export const MAX_BODY_BYTES = 64 * 1024;   // largest real call is ~5 KB (100-key getMultipleAccounts)
-export const MAX_BATCH = 10;               // the store/miner never batch; 10 leaves headroom
+export const MAX_BATCH = 10;
+export const DAS_LIMIT = 250, DAS_PAGES = 8;   // searchAssets: ≤ 2,000 Core NFTs a wallet, ≤ 250 per (multi-MB-free) answer
+const DAS_METHODS = new Set(["getAsset", "getAssetBatch", "searchAssets"]);               // the store/miner never batch; 10 leaves headroom
 const B58_KEY = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 const isKey = (v) => typeof v === "string" && B58_KEY.test(v);
 const isSig = (v) => typeof v === "string" && /^[1-9A-HJ-NP-Za-km-z]{64,96}$/.test(v);
@@ -104,6 +108,13 @@ const PARAM_OK = {
     (p?.[1]?.accounts == null || keyList(p[1].accounts.addresses, 64)),
   getAsset: (p) => isKey(dasArg({ params: p })?.id ?? (Array.isArray(p) ? p[0] : undefined)),
   getAssetBatch: (p) => keyList(dasArg({ params: p }).ids, 100),
+  // Core NFTs of ONE owner only: interface pinned, page-number paging (≤ 8 pages of ≤ 250 — keeps each answer small), no other filters/cursors
+  searchAssets: (p) => { const a = dasArg({ params: p });
+    return Object.keys(a).every((k) => ["ownerAddress", "interface", "burnt", "page", "limit"].includes(k)) && isKey(a.ownerAddress) &&
+      a.interface === "MplCoreAsset" && (a.burnt == null || a.burnt === false) && Number.isInteger(a.page ?? 1) && (a.page ?? 1) >= 1 && (a.page ?? 1) <= DAS_PAGES &&
+      Number.isInteger(a.limit ?? DAS_LIMIT) && (a.limit ?? DAS_LIMIT) >= 1 && (a.limit ?? DAS_LIMIT) <= DAS_LIMIT; },
+  getMinimumBalanceForRentExemption: (p) => Array.isArray(p) && p.length >= 1 && p.length <= 2 && Number.isInteger(p[0]) && p[0] >= 0 && p[0] <= 10240 &&
+    (p.length === 1 || (!!p[1] && typeof p[1] === "object" && Object.keys(p[1]).every((k) => k === "commitment"))),
 };
 const paramsOk = (c) => !PARAM_OK[c.method] || PARAM_OK[c.method](c.params);
 export const callOk = (c, n) => !!c && typeof c === "object" && !Array.isArray(c) && ALLOWED.has(c.method) &&
@@ -169,6 +180,8 @@ export default async (request) => {
   if (!calls.every((c) => callOk(c, calls.length))) {
     return new Response(JSON.stringify({ error: { message: "method or params not allowed" } }), { status: 403 });
   }
+  // DAS answers are the heavy ones (an NFT page of JSON each): their own, smaller per-IP budget on top of the 480/min
+  if (calls.some((c) => DAS_METHODS.has(c.method))) { const das = limited(request, "rpc-das", 90); if (das) return das; }
 
   // The upstream (Helius) rate-limits bursts with a 429. Retry ONCE with a short backoff so a busy second
   // doesn't fail a page load, a mining read or a purchase step (more retries just multiply quota use).

@@ -102,7 +102,7 @@ h1{font-family:"Teko",sans-serif;font-weight:700;font-size:clamp(38px,8vw,66px);
 </style>
 </head>
 <body>
-<style>.dn-ham{display:none}.dn-connect{display:none}.dn-extra{margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}@media(max-width:640px){.dn-bar{gap:10px!important;padding:10px 14px!important;}.dn-extra{display:none!important;}.dn-connect{display:block!important;}.dn-ham{display:flex!important;align-items:center;justify-content:center;width:44px;height:44px;border-radius:10px;cursor:pointer;background:rgba(201,151,58,.12);border:1px solid rgba(201,151,58,.45);color:#e8b84b;font-size:22px;line-height:1;margin-left:auto;flex:0 0 auto;}.dn-links{position:absolute!important;top:calc(100% - 2px);right:10px;min-width:214px;flex-direction:column!important;align-items:stretch;gap:5px!important;background:rgba(12,10,18,.98);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(201,151,58,.4);border-radius:12px;padding:9px;box-shadow:0 16px 36px rgba(0,0,0,.6);display:none!important;z-index:80;}.dn-links.dn-open{display:flex!important;}.dn-links a{text-align:left;font-size:13px!important;padding:11px 13px!important;}}</style><div class="dn-bar" style="position:sticky;top:0;z-index:72;background:rgba(10,10,15,.94);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-bottom:1px solid rgba(201,151,58,.18);display:flex;align-items:center;gap:16px;padding:11px 20px;flex-wrap:wrap;font-family:'Cinzel',serif;"><a href="/" style="display:flex;align-items:center;gap:11px;text-decoration:none;color:#efe6d2;"><img src="/dd-mark.jpg" alt="Degen Dojo" style="width:40px;height:40px;border-radius:9px;object-fit:cover;display:block;box-shadow:0 0 0 1px rgba(201,151,58,.35);" onerror="this.style.display='none'"/><div style="text-align:left;"><b style="font-family:'Cinzel',serif;font-size:15px;letter-spacing:.16em;display:block;color:#efe6d2;">DEGEN DOJO</b><small style="font-family:'Cinzel',serif;font-size:9px;letter-spacing:.26em;color:#a99a7e;">COINS</small></div></a><nav class="dn-links" style="display:flex;gap:8px;flex-wrap:wrap;"><a href="#" class="dn-connect" onclick="var b=this.closest('.dn-bar').querySelector('.dn-extra button');if(b)b.click();return false;" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#e8b84b;border:1px solid rgba(201,151,58,.5);background:rgba(201,151,58,.12);">🔑 Connect</a><a href="/" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">⌂ Store</a><a href="/market" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">🛒 Market</a><a href="/launch" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">🚀 Launch</a><a href="/list" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">🏷 List</a><a href="/play" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">▶ Play</a><a href="/mine" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">⛏ Mine</a><a href="/pot" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">🏆 Pot</a><a href="/become-a-preacher" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">📣 Preacher</a><a href="/sweep" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">🧹 Sweep</a></nav><span class="dn-extra"><button id="dojoNavWallet" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#0a0814;background:linear-gradient(135deg,#c8962a,#8b6018);border:none;padding:9px 16px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;">Connect wallet</button></span><button class="dn-ham" type="button" aria-label="Menu" onclick="var n=this.closest('.dn-bar').querySelector('.dn-links');if(n)n.classList.toggle('dn-open');">☰</button></div>
+<style>.dn-ham{display:none}.dn-connect{display:none}.dn-extra{margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}@media(max-width:640px){.dn-bar{gap:10px!important;padding:10px 14px!important;}.dn-extra{display:none!important;}.dn-connect{display:block!important;}.dn-ham{display:flex!important;align-items:center;justify-content:center;width:44px;height:44px;border-radius:10px;cursor:pointer;background:rgba(201,151,58,.12);border:1px solid rgba(201,151,58,.45);color:#e8b84b;font-size:22px;line-height:1;margin-left:auto;flex:0 0 auto;}.dn-links{position:absolute!important;top:calc(100% - 2px);right:10px;min-width:214px;flex-direction:column!important;align-items:stretch;gap:5px!important;background:rgba(12,10,18,.98);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(201,151,58,.4);border-radius:12px;padding:9px;box-shadow:0 16px 36px rgba(0,0,0,.6);display:none!important;z-index:80;}.dn-links.dn-open{display:flex!important;}.dn-links a{text-align:left;font-size:13px!important;padding:11px 13px!important;}}</style><div class="dn-bar" style="position:sticky;top:0;z-index:72;background:rgba(10,10,15,.94);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-bottom:1px solid rgba(201,151,58,.18);display:flex;align-items:center;gap:16px;padding:11px 20px;flex-wrap:wrap;font-family:'Cinzel',serif;"><a href="/" style="display:flex;align-items:center;gap:11px;text-decoration:none;color:#efe6d2;"><img src="/dd-mark.jpg" alt="Degen Dojo" style="width:40px;height:40px;border-radius:9px;object-fit:cover;display:block;box-shadow:0 0 0 1px rgba(201,151,58,.35);" onerror="this.style.display='none'"/><div style="text-align:left;"><b style="font-family:'Cinzel',serif;font-size:15px;letter-spacing:.16em;display:block;color:#efe6d2;">DEGEN DOJO</b><small style="font-family:'Cinzel',serif;font-size:9px;letter-spacing:.26em;color:#a99a7e;">COINS</small></div></a><nav class="dn-links" style="display:flex;gap:8px;flex-wrap:wrap;"><a href="#" class="dn-connect" onclick="var b=this.closest('.dn-bar').querySelector('.dn-extra button');if(b)b.click();return false;" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#e8b84b;border:1px solid rgba(201,151,58,.5);background:rgba(201,151,58,.12);">🔑 Connect</a><a href="/" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">⌂ Store</a><a href="/market" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">🛒 Market</a><a href="/list" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">🏷 List</a><a href="/play" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">▶ Play</a><a href="/mine" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">⛏ Mine</a><a href="/sweep" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">💰 Claim</a><a href="/launch" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">🚀 Launch</a><a href="/pot" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">🏆 Pot</a><a href="/become-a-preacher" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">📣 Preacher</a></nav><span class="dn-extra"><button id="dojoNavWallet" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#0a0814;background:linear-gradient(135deg,#c8962a,#8b6018);border:none;padding:9px 16px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;">Connect wallet</button></span><button class="dn-ham" type="button" aria-label="Menu" onclick="var n=this.closest('.dn-bar').querySelector('.dn-links');if(n)n.classList.toggle('dn-open');">☰</button></div>
 <div class="wrap">
   <div class="brand">道場 · Degen Dojo</div>
   <h1>Dojo Coins</h1>
@@ -113,9 +113,9 @@ h1{font-family:"Teko",sans-serif;font-weight:700;font-size:clamp(38px,8vw,66px);
     <div class="stat"><div class="k">Plays left</div><div class="v" id="playsV">0</div></div>
     <div class="stat"><div class="k">Into the pot / buy</div><div class="v" id="potPctV">22<small>%</small></div></div>
   </div>
-  <!-- coins live on the server: sign in (one free signature, 12h) to see them; Seeker owners get one free coin -->
+  <!-- coins live on the server: a connected wallet sees them by address (peek); signing in (one free signature, 12h) is for playing; Seeker owners get one free coin -->
   <div class="acct">
-    <button class="acct-btn" id="signInBtn" type="button" onclick="signInForBalance()">🔑 Sign in to see your coins</button>
+    <button class="acct-btn" id="signInBtn" type="button" onclick="connectForBalance()">🔑 Connect your wallet to see your coins</button>
     <button class="acct-btn" id="seekerBtn" type="button" onclick="claimSeekerCoin(this)">📱 Seeker owner? Claim your free coin</button>
   </div>
   <div class="acct-msg" id="seekerMsg"></div>
@@ -170,15 +170,14 @@ const ICON = {
   SOL: 'https://wsrv.nl/?url=https%3A%2F%2Fraw.githubusercontent.com%2Fsolana-labs%2Ftoken-list%2Fmain%2Fassets%2Fmainnet%2FSo11111111111111111111111111111111111111112%2Flogo.png&w=40&h=40&output=png',
   SKR: 'https://wsrv.nl/?url=https%3A%2F%2Fr2.solanamobiledappstore.com%2Fskr%2Fseeker.png&w=40&h=40&output=png',
 };
-// 1 credit ≈ $1. Bigger packs give bonus credits (the discount that nudges bulk buys).
+// 1 credit ≈ $1, flat: 3 / 5 / 10 / 25 coins (owner 2026-10-27 — no bonus coins, no 50 pack).
 // DISPLAY ONLY — the server (store-verify-core.mjs coinsForUsd) credits from the verified
 // on-chain amount at the price LOCKED by its quote when you click Buy, never from what this page claims.
 const PACKS = [
-  { credits: 3,  bonus: 0,  usd: 3, tag: 'Starter' },   // smallest pack (owner: minimum 3 coins)
-  { credits: 5,  bonus: 0,  usd: 5  },
-  { credits: 10, bonus: 1,  usd: 10, tag: 'Popular' },
-  { credits: 25, bonus: 4,  usd: 25, tag: 'Best value', best: true },
-  { credits: 50, bonus: 10, usd: 50 },
+  { credits: 3,  bonus: 0, usd: 3,  tag: 'Starter' },   // smallest pack (owner: minimum 3 coins)
+  { credits: 5,  bonus: 0, usd: 5  },
+  { credits: 10, bonus: 0, usd: 10, tag: 'Popular' },
+  { credits: 25, bonus: 0, usd: 25, tag: 'Best value', best: true },   // owner 2026-10-27: 3/5/10/25 only, no bonus coins
 ];
 const POT_PCT = 22;                 // share of every purchase that feeds the Dojo Pot (store-pot-core POT_FRAC)
 const PRICES = { SOL:null, ORE:null, SKR:null };
@@ -191,10 +190,31 @@ const tok = c => `<img class="tok" src="${ICON[c]}" alt="${c}">`;
 
 // Coins live on the SERVER (DojoWallet) — this page never credits a balance itself.
 function signedIn(){ return !!(window.DojoWallet && DojoWallet.signedIn()); }
+// Connected but not signed in: the balance by address — /api/play "peek" (read-only, coins only, no signature;
+// owner 2026-10-27). Signing in is only needed to play (and for the Seeker coin), not to see your coins.
+let _peek = { w: null, coins: null, at: 0, busy: false };
+function connectedWallet(){ return (window.DOJO_WALLET && window.DOJO_WALLET.pubkey) ? String(window.DOJO_WALLET.pubkey) : null; }
+function peekBalance(force){
+  const w = connectedWallet(); if(!w || signedIn() || _peek.busy) return;
+  if(!force && _peek.w === w && Date.now() - _peek.at < 60000) return;
+  _peek.busy = true;
+  fetch('/api/play', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ action:'peek', wallet: w }) })
+    .then(r => r.ok ? r.json() : null)
+    .then(j => { _peek = { w, coins: (j && j.ok && typeof j.coins === 'number') ? j.coins : null, at: Date.now(), busy: false }; if(connectedWallet() === w) renderBalance(); })
+    .catch(() => { _peek = { w, coins: null, at: Date.now(), busy: false }; });
+}
 function renderBalance(){
-  const ok = signedIn(), b = ok ? DojoWallet.coins : '–';
+  const ok = signedIn(), w = connectedWallet(), seen = (!ok && w && _peek.w === w) ? _peek.coins : null;
+  const b = ok ? DojoWallet.coins : (seen != null ? seen : '–');
   $('balV').textContent = b; $('playsV').textContent = b;
-  $('signInBtn').style.display = ok ? 'none' : '';
+  // connected → the number shows by address, no button; not connected → a connect prompt (no signature needed to see coins)
+  $('signInBtn').style.display = (ok || w) ? 'none' : '';
+  if(!ok && w && seen == null) peekBalance();
+}
+function connectForBalance(){
+  const nav = document.getElementById('dojoNavWallet');
+  if(nav){ nav.click(); return; }   // the shared nav wallet button (sets window.DOJO_WALLET → dojo-wallet-change)
+  signInForBalance();
 }
 async function signInForBalance(){
   if(!window.DojoWallet){ toast('Wallet still loading — one moment'); return; }
@@ -244,7 +264,7 @@ async function watchPurchase(sig){
       const n = Math.max(0, Math.floor(+s.creditedCoins||0));
       st.innerHTML = '✅ <b>Verified on-chain</b> — +'+n+' coin'+(n===1?'':'s')+' added 🪙';
       if(signedIn()) DojoWallet.refresh().then(renderBalance).catch(()=>{});
-      else st.innerHTML += ' · <a href="#" onclick="signInForBalance();return false;">sign in to see your balance</a>';
+      else peekBalance(true);   // connected, not signed in → re-read the balance by address
       watching[sig]=false; return;
     }
     if(s && s.rejected){
@@ -272,7 +292,7 @@ function renderPacks(){
       ${p.tag?`<div class="tag">${p.tag}</div>`:''}
       <div class="cr">🪙 <b>${total}</b></div>
       <div class="plays">coin${total===1?'':'s'} · ${total} play${total===1?'':'s'}</div>
-      <div class="bonus">${p.bonus?`+${p.bonus} bonus`:'&nbsp;'}</div>
+      ${p.bonus?`<div class="bonus">+${p.bonus} bonus</div>`:''}
       <div class="price">${tok(CUR)} ${fmtTok(t)}</div>
       <div class="usd">≈ $${p.usd}</div>
       <button class="buy" onclick="buy(${i})">Buy</button>
@@ -386,6 +406,7 @@ $('potPctV').innerHTML = POT_PCT + '<small>%</small>'; $('potPill').textContent 
 renderBalance(); renderPacks(); loadPrices();
 if(window.DojoWallet) DojoWallet.on(renderBalance);
 window.addEventListener('dojo-coins-change', renderBalance);
+window.addEventListener('dojo-wallet-change', () => { _peek.at = 0; renderBalance(); });   // a wallet just connected → read its coins
 // payments from an earlier visit that weren't confirmed yet: re-send (write-once server-side) + watch
 pendingList().filter(p => Date.now() - (p.ts||0) < 24*3600*1000).forEach(p => { recordBuy(p); watchPurchase(p.sig); });
 setPending(pendingList().filter(p => Date.now() - (p.ts||0) < 24*3600*1000));

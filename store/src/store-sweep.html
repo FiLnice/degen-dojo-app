@@ -44,6 +44,13 @@ label{font-size:12px;color:var(--mut);letter-spacing:.04em}
 .nft .tick{position:absolute;top:7px;left:7px;width:22px;height:22px;border-radius:6px;border:2px solid #fff;background:rgba(0,0,0,.45)}
 .nft.sel .tick{background:var(--red);border-color:var(--red)}
 .nft.sel .tick::after{content:"✓";color:#fff;font-weight:700;font-size:14px;position:absolute;left:4px;top:0}
+.nft .fl{display:inline-block;margin-top:3px;font-size:9.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:1px 6px;border-radius:999px;border:1px solid var(--line);color:var(--mut)}
+.nft .fl.hi{border-color:var(--red);background:var(--red);color:#fff}
+.nft .worth{font-size:10px;color:#ff9c8f;margin-top:2px;line-height:1.25}
+.nft.hiflo{border-color:var(--red)}
+.seg{display:inline-flex;gap:4px;flex-wrap:wrap}
+.seg .mini.on{background:rgba(232,184,75,.18);color:var(--ink2)}
+.redl{color:#ff9c8f}
 .tag{position:absolute;top:7px;right:7px;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 6px;border-radius:999px;background:var(--amber);color:#1a1206}
 .why{font-size:10.5px;color:#e58b80;margin-top:2px}
 .confirm{border:1px solid rgba(193,68,58,.6);background:rgba(193,68,58,.08);border-radius:11px;padding:12px;margin-top:12px}
@@ -97,6 +104,9 @@ const SOL = (l, d) => (Number(l || 0) / 1e9).toLocaleString(undefined, { minimum
 // thumbnails through an image proxy: a spam NFT's own host never sees the visitor, and huge files stay small
 const thumb = (u) => { try { const x = new URL(String(u || '')); return x.protocol === 'https:' ? 'https://wsrv.nl/?url=' + encodeURIComponent(x.href) + '&w=240&h=240&fit=cover&output=webp' : ''; } catch (e) { return ''; } };
 let OWNER = null, SCAN = null, SEL = new Set(), BUSY = false, SCANNING = false;
+let SHOW_ALL = false;   // burn list: "Floor below 0.05 SOL" (default) | "Show all"
+const FLOOR_MAX = DojoBurn.FLOOR_MAX;
+const floorTxt = (v) => (v >= 10 ? v.toFixed(1) : v >= 0.1 ? v.toFixed(2) : v.toFixed(3)).replace(/\.?0+$/, '');
 // one paced client for the whole page (≤ 2 in flight, ≤ 4 a second, retries 429/5xx with backoff — DojoBurn.makeRpc)
 const rpc = DojoBurn.makeRpc('/api/rpc', { onRetry: () => { const m = $('msg'); if (SCANNING && m && !/busy, retrying/.test(m.textContent)) m.textContent = (m.textContent || 'Reading wallet…') + ' (busy, retrying)'; } });
 const connected = () => (window.DOJO_WALLET && window.DOJO_WALLET.pubkey) || null;
@@ -177,16 +187,25 @@ function render() {
 
   // NFTs
   if (s.nfts.length) {
-    const selLamports = burnables.filter((c) => SEL.has(c.mint)).reduce((t, c) => t + c.lamports, 0);
-    html += '<div class="card"><div class="sec-h"><h2>NFTs you could burn (' + burnables.length + ')</h2><div class="amt">up to +' + SOL(s.nftLamports) + ' SOL</div></div>'
+    // floor guard (owner 2026-10-27): by default an NFT whose collection floor is >= FLOOR_MAX SOL isn't shown (or ticked)
+    const degraded = !!(s.floors && s.floors.degraded);
+    const shown = DojoBurn.visibleNfts(s.nfts, SHOW_ALL, degraded), hidden = s.nfts.length - shown.length;
+    const shownBurn = shown.filter((c) => c.burnable), selLamports = burnables.filter((c) => SEL.has(c.mint)).reduce((t, c) => t + c.lamports, 0);
+    html += '<div class="card"><div class="sec-h"><h2>NFTs you could burn (' + shownBurn.length + ')</h2><div class="amt">up to +' + SOL(shownBurn.reduce((t, c) => t + c.lamports, 0)) + ' SOL</div></div>'
       + '<div class="fine">Spam and dead-project NFTs still hold rent. Tick the ones you don’t want — <b>burning destroys them for good</b> and sends their rent back to you. Likely spam is shown first. Nothing is ticked for you.</div>'
-      + '<div class="grid">' + s.nfts.map((c) => {
-        const img = thumb(c.image), on = SEL.has(c.mint);
-        return '<div class="nft' + (on ? ' sel' : '') + (c.burnable ? '' : ' off') + '" data-mint="' + esc(c.mint) + '" title="' + esc(c.name) + '">'
+      + '<div style="margin:10px 0 2px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span class="seg"><button class="mini' + (SHOW_ALL ? '' : ' on') + '" id="floorLow">Floor below ' + FLOOR_MAX + ' SOL</button><button class="mini' + (SHOW_ALL ? ' on' : '') + '" id="floorAll">Show all</button></span>'
+      + (!SHOW_ALL && hidden ? '<span class="fine">' + hidden + ' hidden — their collection floor is ' + FLOOR_MAX + ' SOL or more' + (degraded ? ', or couldn’t be checked' : ' (worth more listed than burned)') + '</span>' : '') + '</div>'
+      + (degraded ? '<div class="fine warn" style="margin-bottom:6px">⚠ Floor prices couldn’t be checked for ' + s.floors.unknownVerified + ' collection' + (s.floors.unknownVerified === 1 ? '' : 's') + ' right now — their NFTs are under Show all until they can be. Spam without a collection stays here.</div>' : '')
+      + '<div class="fine" style="margin-bottom:8px">Staked somewhere off-chain? Some projects track staking on their own servers — the NFT looks free here, and burning it ends that stake.</div>'
+      + '<div class="grid">' + shown.map((c) => {
+        const img = thumb(c.image), on = SEL.has(c.mint), hi = DojoBurn.floorHigh(c);
+        const fl = !c.burnable ? '' : hi ? '<span class="fl hi">Floor ' + floorTxt(c.floorSol) + ' SOL</span><div class="worth">worth more listed than burned</div>'
+          : c.floorSol != null ? '<span class="fl">Floor ' + floorTxt(c.floorSol) + ' SOL</span>' : '<span class="fl">floor unknown</span>';
+        return '<div class="nft' + (on ? ' sel' : '') + (c.burnable ? '' : ' off') + (hi ? ' hiflo' : '') + '" data-mint="' + esc(c.mint) + '" title="' + esc(c.name) + '">'
           + (img ? '<img loading="lazy" src="' + esc(img) + '" alt="">' : '<div class="ph">no image</div>')
           + (c.burnable ? '<span class="tick"></span>' : '') + (c.burnable && c.junk >= 3 ? '<span class="tag">likely spam</span>' : '')
-          + '<div class="meta"><div class="nm">' + esc(c.name) + '</div><div class="co">' + esc(c.collectionName || (c.collection ? short(c.collection) : 'no verified collection')) + (c.pnft ? ' · pNFT' : '') + '</div>'
-          + (c.burnable ? '<div class="rent">+' + SOL(c.lamports) + ' SOL</div>' : '<div class="why">' + esc(c.reason) + '</div>') + '</div></div>';
+          + '<div class="meta"><div class="nm">' + esc(c.name) + '</div><div class="co">' + esc(c.collectionName || (c.collection ? short(c.collection) : 'no verified collection')) + (c.pnft ? ' · pNFT' : c.core ? ' · Core' : '') + '</div>'
+          + (c.burnable ? '<div class="rent">+' + SOL(c.lamports) + ' SOL</div>' + fl : '<div class="why">' + esc(c.reason) + '</div>') + '</div></div>';
       }).join('') + '</div>'
       + '<div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="btn burn" id="burnBtn"' + (mine() && SEL.size ? '' : ' disabled') + '>Burn ' + SEL.size + ' selected — get back ~' + SOL(net(selLamports)) + ' SOL</button>'
       + '<button class="btn" id="burnMineBtn"' + (mine() && SEL.size ? '' : ' disabled') + ' title="Pick a mining setting and confirm on the miner — nothing is burned before that">🔥 Burn &amp; ⛏ Mine ORE</button>'
@@ -202,6 +221,8 @@ function render() {
   const bm = $('burnMineBtn'); if (bm) bm.onclick = () => burnAndMine();
   const rs = $('rescan'); if (rs) rs.onclick = () => lookup(OWNER);
   const cs = $('clearSel'); if (cs) cs.onclick = () => { SEL.clear(); render(); };
+  const fl = $('floorLow'); if (fl) fl.onclick = () => { if (!SHOW_ALL) return; SHOW_ALL = false; const vis = new Set(DojoBurn.visibleNfts(s.nfts, false, !!(s.floors && s.floors.degraded)).map((c) => c.mint)); s.nfts.forEach((c) => { if (!vis.has(c.mint)) SEL.delete(c.mint); }); render(); };   // hidden = never ticked
+  const fa = $('floorAll'); if (fa) fa.onclick = () => { if (SHOW_ALL) return; SHOW_ALL = true; render(); };
 }
 
 // 🔥 Burn & ⛏ Mine ORE: hand the ticked NFTs to the miner's burn mode (/mine?burn=1) through sessionStorage — never the
@@ -218,6 +239,9 @@ function burnAndMine() {
 // a dead thumbnail (spam hosts vanish) shows the "no image" tile instead of a broken image
 document.addEventListener('error', (e) => {
   const im = e.target; if (!im || im.tagName !== 'IMG' || !im.closest('.nft')) return;
+  // the resizer refuses some hosts by policy (wsrv.nl: "Domain or TLD blocked", e.g. gateway.irys.xyz) → the original, once
+  let raw = null; try { raw = !im.dataset.raw && new URL(im.src).host === 'wsrv.nl' ? new URL(im.src).searchParams.get('url') : null; } catch (x) { /* not a URL */ }
+  if (raw && DojoBurn.rawImageOk(raw)) { im.dataset.raw = '1'; im.src = raw; return; }   // Arweave / Irys / IPFS / our S3 only
   const ph = document.createElement('div'); ph.className = 'ph'; ph.textContent = 'no image'; im.replaceWith(ph);
 }, true);
 document.addEventListener('click', (e) => {
@@ -311,9 +335,12 @@ async function sweepRevokes() {
 
 function askBurn() {
   const items = SCAN.nfts.filter((c) => c.burnable && SEL.has(c.mint)); if (!items.length || !mine()) return;
+  // a high-floor NFT ticked by hand in "Show all" is named in red, and the confirmation says so
+  const highs = items.filter((c) => DojoBurn.floorHigh(c)), top = highs.reduce((m, c) => Math.max(m, c.floorSol), 0);
+  const highNote = highs.length ? ' — includes ' + (highs.length === 1 ? '1 NFT with a ' + floorTxt(top) + ' SOL floor' : highs.length + ' NFTs with floors up to ' + floorTxt(top) + ' SOL') : '';
   $('burnConfirm').innerHTML = '<div class="confirm"><b class="err">⚠ Burning is permanent.</b><div class="fine" style="margin:6px 0">These ' + items.length + ' NFT' + (items.length === 1 ? '' : 's') + ' will be destroyed forever — they can’t be recovered or sold afterwards:</div>'
-    + '<div class="list" style="max-height:120px">' + items.map((c) => esc(c.name) + (c.collectionName ? ' · ' + esc(c.collectionName) : '')).join('<br>') + '</div>'
-    + '<label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:13px;color:var(--ink)"><input type="checkbox" id="burnSure"> I understand — burn them forever</label><div class="fine" style="margin-top:6px">1% Dojo fee on the SOL that comes back, in the same transaction.</div>'
+    + '<div class="list" style="max-height:120px">' + items.map((c) => { const t = esc(c.name) + (c.collectionName ? ' · ' + esc(c.collectionName) : ''); return DojoBurn.floorHigh(c) ? '<span class="redl">' + t + ' · Floor ' + floorTxt(c.floorSol) + ' SOL — worth more listed than burned</span>' : t; }).join('<br>') + '</div>'
+    + '<label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:13px;color:var(--ink)"><input type="checkbox" id="burnSure"> I understand — burn them forever' + highNote + '</label><div class="fine" style="margin-top:6px">1% Dojo fee on the SOL that comes back, in the same transaction.</div>'
     + '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn burn" id="burnGo" disabled>Burn ' + items.length + ' forever</button><button class="mini" id="burnCancel">Cancel</button></div></div>';
   $('burnSure').onchange = () => { $('burnGo').disabled = !$('burnSure').checked; };
   $('burnCancel').onclick = () => { $('burnConfirm').innerHTML = ''; };

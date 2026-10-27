@@ -364,8 +364,15 @@ function paintCase(items, shelf, countId){
     else { if(box) box.style.display=''; shelf.innerHTML = shelfMsg('No listings we can buy right now — Magic Eden pool listings aren’t supported. Try again in a minute.'); }
     return;
   }
-  // In the all-cases view a collection with no art at all is hidden too (a shelf of blanks sells nothing).
-  if(FILTER==='all' && !items.some(x=>x.image)){ if(box) box.style.display='none'; return; }
+  // A collection with no art at all (no image URL on any listing) is never shown — a shelf of blanks sells nothing
+  // (owner 2026-10-27). Hidden in every view; its chip goes too (BROKEN), and a picked one says why.
+  if(!items.some(x=>x.image)){
+    const c = COLLECTIONS[+shelf.id.slice(5)];
+    if(c && !c.coll && !BROKEN.has(c.symbol)){ BROKEN.add(c.symbol); renderFilters(); }
+    if(FILTER==='all'){ if(box) box.style.display='none'; }
+    else { if(box) box.style.display=''; shelf.innerHTML = shelfMsg('This collection’s images are offline at the source, so it isn’t shown in the market.'); }
+    return;
+  }
   if(box) box.style.display='';
   // All-cases view: 5 per shelf (keeps the page light) + a "see all" tile; picking the case shows them all.
   const i = shelf.id.slice(5);
@@ -643,12 +650,18 @@ const DOJO_CASES = [
   { symbol:DD_SYMBOL, coll:'WyUy9qjJekjqTAYGanANjhtviwgu1uhCkXx1uas8fWb', name:'Demon Dojo', logo:'/demon-mark.png', floor:0, listed:0 },
   { symbol:'teto',    coll:'dgd6We3oS4M5LSVzT6Ep39wwVpjLC336tCpyPZkLAHx', name:'TETO',       logo:'/teto-mark.png',  floor:0, listed:0 },
 ];
+// Collections whose art is gone for good — never shown (owner 2026-10-27). tomorrowland_winter: every NFT's metadata lives
+// on ftx.us (the collapsed FTX exchange), so there is no image, file or animation left anywhere (DAS has none either).
+// the_reflection_of_love + tomorrowland_love_unity: their art is only on nftstorage.link (shut down) and ipfs.io /
+// dweb.link / pinata don't serve those CIDs either (checked 2026-10-27). NOT a logo-host rule: many live collections
+// (Okay Bears, Famous Fox Dens, Mindfolk…) keep a dead-gateway LOGO while their NFT art is fine.
+const NO_ART = new Set(['tomorrowland_winter', 'the_reflection_of_love', 'tomorrowland_love_unity']);
 function pinDegenDojo(cols){
   const bundled = (window.__DATA__||[]).find(c=>c.symbol===DD_SYMBOL) || {};
   const live = cols.find(c=>c.symbol===DD_SYMBOL) || {};
   const dd = { ...bundled, ...live, ...DOJO_CASES[0], floor:live.floor ?? bundled.floor ?? 0, listed:live.listed ?? bundled.listed ?? 0, vol7:live.vol7 ?? bundled.vol7 ?? 0 };
   const ours = new Set(DOJO_CASES.map(c=>c.symbol));
-  return [dd, DOJO_CASES[1], DOJO_CASES[2], ...cols.filter(c=>!ours.has(c.symbol))];
+  return [dd, DOJO_CASES[1], DOJO_CASES[2], ...cols.filter(c=>!ours.has(c.symbol) && !NO_ART.has(c.symbol))];
 }
 COLLECTIONS = pinDegenDojo(COLLECTIONS);
 async function loadTopCollections(){
