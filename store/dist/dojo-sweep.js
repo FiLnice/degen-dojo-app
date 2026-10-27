@@ -34,16 +34,25 @@
   var V_LOCKED = 169;                                                                               // Vault
 
   // ── scan: Dojo Burn's scan + the Magic Eden escrow + GemFarm stakes ──────────
-  async function scan(rpc, owner, onStep) {
+  // onList(out): the burn scan's early list (before floor prices), with the escrow + GemFarm extras already filled in
+  async function scan(rpc, owner, onStep, onList) {
     var step = onStep || function () {};
     var t0 = Date.now(), c0 = rpc.stats ? rpc.stats.calls : 0;
-    var out = await B.scan(rpc, owner, step);
-    // the extras are read one after another too, and a failure here is partial (out.unread), never the whole scan
-    step('Checking Magic Eden…');
-    out.escrow = { address: meEscrowOf(owner).toBase58(), lamports: 0 };
-    try { var eb = await rpc('getBalance', [out.escrow.address]); out.escrow.lamports = (eb && eb.value) || 0; } catch (e) { out.escrow.unread = true; out.unread++; }
-    step('Checking GemFarm staking…');
-    try { out.farms = await scanGemFarm(rpc, owner); } catch (e) { out.farms = []; out.farmError = e.message || String(e); out.unread++; }
+    // the burn scan queues its first reads first (the list is what the page waits for); the extras run alongside it, and a
+    // failure there is partial (out.unread), never the whole scan
+    var listCb = null, scanP = B.scan(rpc, owner, step, function (partial) { if (listCb) listCb(partial); });
+    var escAddr = meEscrowOf(owner).toBase58();
+    var escP = rpc('getBalance', [escAddr]).then(function (eb) { return { lamports: (eb && eb.value) || 0 }; }, function () { return { lamports: 0, unread: true }; });
+    var farmP = scanGemFarm(rpc, owner).then(function (f) { return { farms: f }; }, function (e) { return { farms: [], error: e.message || String(e) }; });
+    var extras = Promise.all([escP, farmP]);
+    var fill = function (out, r) {
+      if (out._extras) return; out._extras = true;
+      out.escrow = { address: escAddr, lamports: r[0].lamports }; if (r[0].unread) { out.escrow.unread = true; out.unread++; }
+      out.farms = r[1].farms; if (r[1].error != null) { out.farmError = r[1].error; out.unread++; }
+    };
+    if (onList) listCb = function (partial) { extras.then(function (r) { fill(partial, r); if (partial.floorsPending) onList(partial); }); };
+    var out = await scanP;
+    fill(out, await extras);
     if (rpc.stats) { out.calls = rpc.stats.calls - c0; out.ms = Date.now() - t0; }
     return out;
   }

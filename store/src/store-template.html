@@ -33,7 +33,11 @@ body{background:var(--ink);color:var(--text);font-family:'Inter',sans-serif;font
 .topnav a{font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--text);
   border:1px solid rgba(201,151,58,.32);border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;transition:all .15s;}
 .topnav a:hover{border-color:var(--gold);color:var(--gold-l);background:rgba(201,151,58,.08);}
-.stats{display:flex;gap:20px;margin-left:auto;flex-wrap:wrap;}
+.stats{display:flex;gap:20px;flex-wrap:wrap;}
+.top .cta{margin-left:auto;}   /* nothing between the menu and the wallet button any more */
+/* one header row down to laptop widths: brand · 9 menu pills · wallet (the page's scrollbar eats ~17 px) */
+@media(min-width:641px) and (max-width:1500px){ .top{gap:12px;} .topnav{gap:6px;margin-left:8px;} .topnav a{padding:9px 11px;} }
+@media(min-width:641px) and (max-width:1279px){ .topnav{gap:4px;} .topnav a{padding:8px 8px;font-size:10.5px;letter-spacing:.05em;} .brand small{display:none;} .cta{padding:10px 14px;} }
 .stat .v{font-family:'Cinzel',serif;font-size:16px;font-weight:900;color:var(--gold-l);line-height:1.1;}
 .stat .k{font-size:8.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);font-weight:600;}
 .cta{background:linear-gradient(135deg,#c8962a,#8b6018);border:none;color:#0a0814;font-family:'Cinzel',serif;
@@ -600,12 +604,6 @@ footer a{color:var(--gold);text-decoration:none;}
     <a href="/pot">🏆 Pot</a>
     <a href="/become-a-preacher">📣 Preacher</a>
   </nav>
-  <div class="stats" id="statStrip">
-    <div class="stat"><div class="v" id="sFloor">—</div><div class="k">Floor</div></div>
-    <div class="stat"><div class="v" id="sListed">—</div><div class="k">Available</div></div>
-    <div class="stat"><div class="v" id="sChars">—</div><div class="k">Chambers</div></div>
-    <div class="stat"><div class="v" id="sSupply">—</div><div class="k">Supply</div></div>
-  </div>
   <button class="cta" id="walletBtn" onclick="walletClick()">Connect Wallet</button>
 </div>
 
@@ -637,6 +635,10 @@ footer a{color:var(--gold);text-decoration:none;}
   background:linear-gradient(180deg,#1b141c,#120d12);border-top:1px solid rgba(201,151,58,.4);
   box-shadow:0 -12px 34px rgba(0,0,0,.6);padding:12px 18px;display:flex;gap:14px;align-items:center;justify-content:flex-start;flex-wrap:wrap;}
 .filterpanel.open{transform:translateY(0);}
+/* the collection's numbers, first in the panel (they used to sit in the header) */
+.filterpanel .stats{display:flex !important;position:static !important;flex-direction:row !important;gap:18px;margin:0 10px 0 0;padding:0 14px 0 0;
+  background:none !important;border:0 !important;border-right:1px solid rgba(201,151,58,.25) !important;box-shadow:none !important;border-radius:0 !important;flex-wrap:nowrap;align-items:center;}
+.filterpanel .stats .stat{display:block !important;}
 .filterpanel .sortbtns{display:flex;gap:8px;}
 .filterpanel .filterbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
 .filterpanel .sortcap,.filterpanel .filtercap{font-size:11px;color:var(--muted);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -656,7 +658,9 @@ footer a{color:var(--gold);text-decoration:none;}
 /* mobile: one straight line — no labels/caps, compact controls, ✕ on the right */
 @media(max-width:640px){
   .filterfab .fftx{display:none;} .filterfab{padding:13px;border-radius:50%;}
-  .filterpanel{gap:7px;padding:10px;flex-wrap:nowrap;justify-content:flex-start;overflow-x:auto;}
+  .filterpanel{gap:7px;padding:10px;flex-wrap:wrap;justify-content:flex-start;}
+  .filterpanel .stats{flex:0 0 100%;justify-content:space-between;margin:0 0 4px;padding:0 2px 8px;border-right:0 !important;border-bottom:1px solid rgba(201,151,58,.2) !important;}
+  .filterpanel .filterbar{flex-wrap:nowrap;}
   .filterpanel .sortcap,.filterpanel .filtercap{display:none;}
   .filterpanel .sortbtn small{display:none;}
   .filterpanel .sortbtn{padding:9px 10px;font-size:12px;}
@@ -667,10 +671,17 @@ footer a{color:var(--gold);text-decoration:none;}
   .fpclose{padding:9px 11px;flex:0 0 auto;}
 }
 </style>
-<button class="filterfab" id="filterFab" onclick="toggleFilterPanel()" aria-label="Sort and filter the tower">
-  <span class="ffic">⚙</span><span class="fftx">Sort / Filter</span><span class="fdot"></span>
+<button class="filterfab" id="filterFab" onclick="toggleFilterPanel()" aria-label="Filter the tower and see the collection's numbers">
+  <span class="ffic">⚙</span><span class="fftx">Filter / Info</span><span class="fdot"></span>
 </button>
 <div class="filterpanel" id="filterPanel">
+  <!-- the collection's numbers (were in the header, owner 2026-10-27) -->
+  <div class="stats" id="statStrip">
+    <div class="stat"><div class="v" id="sFloor">—</div><div class="k">Floor</div></div>
+    <div class="stat"><div class="v" id="sListed">—</div><div class="k">Available</div></div>
+    <div class="stat"><div class="v" id="sChars">—</div><div class="k">Chambers</div></div>
+    <div class="stat"><div class="v" id="sSupply">—</div><div class="k">Supply</div></div>
+  </div>
   <!-- sort buttons removed per request — the tower stays on the default "fewest listed per
        character" order; only the trait filter is exposed. (#sortCap kept, hidden, so render() keeps working.) -->
   <span class="sortcap" id="sortCap" style="display:none"></span>
@@ -2060,7 +2071,7 @@ let _pw = [];             // enumerated Wallet-Standard wallets for the open mod
 
 // mobile hamburger: toggle the nav dropdown, close on outside tap or link choice
 function toggleTopNav(e){ if(e) e.stopPropagation(); const n=$('topNav'); if(n) n.classList.toggle('open'); const s=$('statStrip'); if(s) s.classList.remove('show'); }
-function toggleInfo(e){ if(e) e.stopPropagation(); const s=$('statStrip'); if(s) s.classList.toggle('show'); const n=$('topNav'); if(n) n.classList.remove('open'); }
+function toggleInfo(e){ if(e) e.stopPropagation(); const n=$('topNav'); if(n) n.classList.remove('open'); if (typeof toggleFilterPanel === 'function') toggleFilterPanel(); }   // the collection's numbers live in the Filter / Info panel
 document.addEventListener('click', (e)=>{ const n=$('topNav'), h=$('navHam');
   if(n && n.classList.contains('open') && !n.contains(e.target) && e.target!==h){ n.classList.remove('open'); } });
 document.addEventListener('click', (e)=>{ const s=$('statStrip'), b=$('navInfo');

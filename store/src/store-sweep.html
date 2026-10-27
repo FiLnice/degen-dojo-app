@@ -35,6 +35,7 @@ label{font-size:12px;color:var(--mut);letter-spacing:.04em}
 .nft{position:relative;border:1px solid var(--line);border-radius:11px;background:var(--pan2);overflow:hidden;cursor:pointer;min-width:0}
 .nft.sel{outline:2px solid var(--red);outline-offset:1px}
 .nft.off{opacity:.45;cursor:default}
+.nft.wait{cursor:progress}
 .nft img,.nft .ph{width:100%;aspect-ratio:1/1;object-fit:cover;display:block;background:#0d0a06}
 .nft .ph{display:flex;align-items:center;justify-content:center;color:var(--mut);font-size:11px}
 .nft .meta{padding:7px 8px}
@@ -103,7 +104,7 @@ const short = (a) => a.slice(0, 4) + '…' + a.slice(-4);
 const net = (l) => l - Math.floor(l * DojoBurn.FEE_BPS / 10000);   // what comes back after the 1% Dojo fee
 const SOL = (l, d) => (Number(l || 0) / 1e9).toLocaleString(undefined, { minimumFractionDigits: d == null ? 4 : d, maximumFractionDigits: d == null ? 4 : d });
 // thumbnails through an image proxy: a spam NFT's own host never sees the visitor, and huge files stay small
-const thumb = (u) => { try { const x = new URL(String(u || '')); return x.protocol === 'https:' ? 'https://wsrv.nl/?url=' + encodeURIComponent(x.href) + '&w=240&h=240&fit=cover&output=webp' : ''; } catch (e) { return ''; } };
+const thumb = (u) => { try { const x = new URL(String(u || '')); return x.protocol === 'https:' ? 'https://wsrv.nl/?url=' + encodeURIComponent(x.href) + '&w=200&h=200&fit=cover&output=webp' : ''; } catch (e) { return ''; } };
 let OWNER = null, SCAN = null, SEL = new Set(), BUSY = false, SCANNING = false;
 let SHOW_ALL = false;   // burn list: "Floor below 0.05 SOL" (default) | "Show all"
 let CHECK = null;       // the background "can it really be burned?" check for the current scan (DojoBurn.checkBurns)
@@ -112,7 +113,7 @@ let CHECK = null;       // the background "can it really be burned?" check for t
 function startBurnCheck(scan, addr) {
   if (!scan || !scan.nfts.some((c) => c.burnable)) return;
   CHECK = { scan, left: null };
-  const quiet = () => BUSY || !!($('burnConfirm') && $('burnConfirm').innerHTML);
+  const quiet = () => (BUSY && !SCANNING) || !!($('burnConfirm') && $('burnConfirm').innerHTML);   // scanning (floors pending) may re-render
   DojoBurn.checkBurns(rpc, addr, scan, (u) => {
     if (SCAN !== scan) return;
     if (u.left != null) CHECK = { scan, left: u.left };
@@ -133,13 +134,25 @@ $('useConnected').onclick = () => { const c = connected(); if (c) { $('wallet').
 $('scan').onclick = () => lookup($('wallet').value.trim());
 $('wallet').addEventListener('keydown', (e) => { if (e.key === 'Enter') lookup($('wallet').value.trim()); });
 
+// The list shows as soon as the scan knows it (onList, before the floor prices — owner 2026-10-27: "quite slow"); nothing
+// can be ticked or swept until the scan resolves (BUSY), and every tile says "checking floor…" until its floor is in.
+let SCAN_ID = 0;
 async function lookup(addr, note) {
   if (BUSY) return;
   if (!isB58(addr)) { $('msg').textContent = 'That doesn’t look like a Solana wallet address.'; return; }
   BUSY = true; SCANNING = true; $('scan').disabled = true; $('results').innerHTML = ''; SEL = new Set();
+  const id = ++SCAN_ID;
+  const early = (partial) => {
+    if (id !== SCAN_ID || !partial.floorsPending) return;
+    SCAN = partial; OWNER = addr; $('msg').textContent = 'Checking floor prices — you can tick NFTs in a moment…';
+    render(); startBurnCheck(partial, addr);
+  };
   try {
-    SCAN = await DojoSweep.scan(rpc, addr, (s) => { $('msg').textContent = s; });
-    OWNER = addr; $('msg').innerHTML = note || ''; render(); startBurnCheck(SCAN, addr);
+    const out = await DojoSweep.scan(rpc, addr, (s) => { if (!SCAN || SCAN.owner !== addr) $('msg').textContent = s; }, early);
+    if (id === SCAN_ID) {
+      const fresh = SCAN !== out; SCAN = out; OWNER = addr; $('msg').innerHTML = note || '';
+      BUSY = false; render(); if (fresh) startBurnCheck(SCAN, addr);
+    }
   } catch (e) { $('msg').textContent = 'Couldn’t read that wallet right now (' + e.message + '). Try again in a minute.'; }
   BUSY = false; SCANNING = false; $('scan').disabled = false;
 }
@@ -216,10 +229,10 @@ function render() {
         : cant ? '<div class="fine" style="margin-bottom:6px">' + cant + ' can’t be burned — their project blocks it, or they’re frozen. They’re greyed at the end.</div>' : '')
       + '<div class="fine" style="margin-bottom:8px">Staked somewhere off-chain? Some projects track staking on their own servers — the NFT looks free here, and burning it ends that stake.</div>'
       + '<div class="grid">' + shown.map((c) => {
-        const img = thumb(c.image), on = SEL.has(c.mint), hi = DojoBurn.floorHigh(c);
-        const fl = !c.burnable ? '' : hi ? '<span class="fl hi">Floor ' + floorTxt(c.floorSol) + ' SOL</span><div class="worth">worth more listed than burned</div>'
+        const img = thumb(c.image), on = SEL.has(c.mint), hi = DojoBurn.floorHigh(c), wait = !!s.floorsPending;
+        const fl = !c.burnable ? '' : wait ? '<span class="fl">checking floor…</span>' : hi ? '<span class="fl hi">Floor ' + floorTxt(c.floorSol) + ' SOL</span><div class="worth">worth more listed than burned</div>'
           : c.floorSol != null ? '<span class="fl">Floor ' + floorTxt(c.floorSol) + ' SOL</span>' : '<span class="fl">floor unknown</span>';
-        return '<div class="nft' + (on ? ' sel' : '') + (c.burnable ? '' : ' off') + (hi ? ' hiflo' : '') + '" data-mint="' + esc(c.mint) + '" title="' + esc(c.name + (c.burnable ? '' : ' — ' + (c.reason || 'can’t be burned'))) + '">'
+        return '<div class="nft' + (on ? ' sel' : '') + (c.burnable ? '' : ' off') + (hi ? ' hiflo' : '') + (wait && c.burnable ? ' wait' : '') + '" data-mint="' + esc(c.mint) + '" title="' + esc(c.name + (c.burnable ? (wait ? ' — checking its floor price' : '') : ' — ' + (c.reason || 'can’t be burned'))) + '">'
           + (img ? '<img loading="lazy" src="' + esc(img) + '" alt="">' : '<div class="ph">no image</div>')
           + (c.burnable ? '<span class="tick"></span>' : '<span class="tag no">Can’t burn</span>') + (c.burnable && c.junk >= 3 ? '<span class="tag">likely spam</span>' : '')
           + '<div class="meta"><div class="nm">' + esc(c.name) + '</div><div class="co">' + esc(c.collectionName || (c.collection ? short(c.collection) : 'no verified collection')) + (c.pnft ? ' · pNFT' : c.core ? ' · Core' : '') + '</div>'
@@ -247,6 +260,7 @@ function render() {
 // URL. The miner re-checks every one against the connected wallet, and burns nothing until the user confirms there.
 const BURN2MINE_KEY = 'dd:burn2mine';
 function burnAndMine() {
+  if (BUSY || SCAN.floorsPending) return;   // never before every floor is known
   const mints = SCAN.nfts.filter((c) => c.burnable && SEL.has(c.mint)).map((c) => c.mint);
   if (!mints.length || !mine()) return;
   try { sessionStorage.setItem(BURN2MINE_KEY, JSON.stringify({ owner: OWNER, mints, at: Date.now() })); } catch (e) { /* storage blocked: the miner opens with nothing ticked */ }
@@ -264,7 +278,7 @@ document.addEventListener('error', (e) => {
 }, true);
 document.addEventListener('click', (e) => {
   const t = e.target.closest('.nft[data-mint]');
-  if (t && !t.classList.contains('off') && !BUSY) { const m = t.dataset.mint; SEL.has(m) ? SEL.delete(m) : SEL.add(m); render(); }
+  if (t && !t.classList.contains('off') && !t.classList.contains('wait') && !BUSY && !(SCAN && SCAN.floorsPending)) { const m = t.dataset.mint; SEL.has(m) ? SEL.delete(m) : SEL.add(m); render(); }
 });
 
 // sign every planned transaction (one approval where the wallet can batch), send, confirm
@@ -352,6 +366,7 @@ async function sweepRevokes() {
 }
 
 function askBurn() {
+  if (BUSY || SCAN.floorsPending) return;   // never before every floor is known
   const items = SCAN.nfts.filter((c) => c.burnable && SEL.has(c.mint)); if (!items.length || !mine()) return;
   // a high-floor NFT ticked by hand in "Show all" is named in red, and the confirmation says so
   const highs = items.filter((c) => DojoBurn.floorHigh(c)), top = highs.reduce((m, c) => Math.max(m, c.floorSol), 0);
