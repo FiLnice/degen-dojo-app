@@ -8,7 +8,7 @@
 // Standalone (mine.degendojo.xyz, no store shell) → falls straight through to the real
 // wallet-adapter, unchanged. The store nav itself is rendered by React (StoreNav), so it
 // survives Next's hydration; this file owns the wallet plumbing.
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useWallet as useAdapterWallet } from "@solana/wallet-adapter-react";
 import { PublicKey, type Transaction, type VersionedTransaction } from "@solana/web3.js";
 
@@ -97,9 +97,14 @@ export function useWallet(): BridgedWallet {
     setStoreWallet(null);
   }, []);
 
+  // ONE PublicKey per address: a fresh object every render made every effect keyed on publicKey (the miner's board and
+  // balance reads) re-run on each render — the 1 s round clock alone turned that into ~20 RPC calls a second and 429s
+  const pkStr = sw ? String(sw.pubkey || sw.publicKey) : null;
+  const pk = useMemo(() => (pkStr ? new PublicKey(pkStr) : null), [pkStr]);
+
   if (!embedded) return adapter as unknown as BridgedWallet;
 
-  if (!sw) {
+  if (!sw || !pk) {
     return {
       publicKey: null,
       connected: false,
@@ -113,7 +118,7 @@ export function useWallet(): BridgedWallet {
   }
 
   return {
-    publicKey: new PublicKey((sw.pubkey || sw.publicKey) as string),
+    publicKey: pk,
     connected: true,
     embedded: true,
     select: pickStoreWallet,

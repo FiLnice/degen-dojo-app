@@ -377,6 +377,9 @@ export async function decide(sig, tx, { now = Date.now() } = {}) {
 async function decideTx(sig, tx, t, now) {
   const signers = signersOf(tx);
   if (signers.includes(TREASURY)) return { kind: "skip", why: "the Treasury's own transaction" };
+  // Dojo Sweep's fees (memo "ddsweep:fee": the 1% in SOL, the 0.01 ORE GemFarm rescue fee) and older ddsweep tips: decided
+  // by the memo FIRST, so an ORE fee is never read as a memo-less card repair
+  if (memosOf(tx).some((m) => m.startsWith("ddsweep:"))) return { kind: "skip", why: "a Dojo Sweep fee or tip (ddsweep memo) — not a royalty, repair or card" };
   const progs = invokedPrograms(tx);
   const market = [...progs].some((p) => MARKETPLACES.has(p));
   const deltas = tokenDeltas([tx])[TREASURY] || {};

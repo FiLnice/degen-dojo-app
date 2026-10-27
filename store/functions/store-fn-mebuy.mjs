@@ -74,6 +74,7 @@ export default async (request) => {
   // ME resolves the rest per asset type (pNFT rules, Core, etc.).
   const q = new URLSearchParams({ buyer, seller, auctionHouseAddress: AH, tokenMint: mint, price: String(priceSol) });
   if (tokenAccount) q.set("tokenATA", tokenAccount);
+  q.set("buyerCreatorRoyaltyPercent", "100");   // always the FULL creator royalty (optional-royalty listings default lower)
   const meRes = await fetch(`${ME}/instructions/buy_now?${q.toString()}&v0=true`, { headers: { Authorization: "Bearer " + key, accept: "application/json" } });
   const text = await meRes.text();
   if (!meRes.ok) return json({ error: "Magic Eden returned " + meRes.status, detail: text.slice(0, 300) }, 502);

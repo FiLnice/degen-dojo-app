@@ -77,12 +77,6 @@ h1{font-size:30px; font-weight:600; letter-spacing:-.02em; margin:0 0 8px}
 .explain.panel h2{margin-top:0}
 .explain.panel p{color:var(--dust); font-size:13.5px; margin:0 0 10px; max-width:none}
 .explain .fine{font-size:12px}
-.tipbox{margin-top:18px}
-.tip-head{font-weight:600; color:var(--gold); font-size:15px; margin-bottom:8px}
-.tip-head .opt{color:var(--dust); font-weight:400; font-size:12.5px}
-.tip-p{color:var(--dust); font-size:13.5px; margin:0 0 12px; max-width:70ch}
-.tip-addr{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
-.tip-addr code{background:var(--ink); border:1px solid var(--line-2); border-radius:6px; padding:9px 12px; color:var(--cream); font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:13px}
 .field{margin-bottom:16px}
 .field:last-child{margin-bottom:0}
 label{display:block; font-size:12px; letter-spacing:.08em; text-transform:uppercase;
@@ -269,12 +263,6 @@ footer.ft .disc{display:block; margin-top:10px; color:#6E655B; max-width:76ch}
     <p class="hint" data-ja="ウォレットを接続すると、ソフトステーク（デリゲート方式）のNFTをその場でアンステークできます。アドレスを貼るだけなら読み取り専用の診断になります。">Connect your wallet to <b>unstake</b> soft-staked NFTs in place. Or just paste an address for a read-only scan.</p>
     <div id="wstatus" class="wstatus hidden"></div>
     <div id="err" class="err hidden"></div>
-  </div>
-
-  <div class="panel tipbox">
-    <div class="tip-head">☕ Tip the tool <span class="opt">— optional</span></div>
-    <p class="tip-p" data-ja="このスキャナーは無料・読み取り専用です。役に立ったら運営費のチップを歓迎します。SOL・ORE・SKR を下記へどうぞ。">This scanner is free and read-only. If it helped you recover a stuck NFT, a tip keeps it running — <b>SOL, ORE or SKR</b> all welcome:</p>
-    <div class="tip-addr"><code id="tipAddr">shamanchef.sol</code><button type="button" class="btn-ghost tip-copy" onclick="try{navigator.clipboard.writeText(document.getElementById('tipAddr').textContent);}catch(e){}var b=this,o=b.textContent;b.textContent='Copied ✓';setTimeout(function(){b.textContent=o;},1800);">Copy address</button></div>
   </div>
 
   <div id="consoleSec" class="sec hidden">

@@ -100,7 +100,7 @@ const ddNav = (sub, active, extra = "") =>
   `<div class="dn-bar" style="position:sticky;top:0;z-index:72;background:rgba(10,10,15,.94);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-bottom:1px solid rgba(201,151,58,.18);display:flex;align-items:center;gap:16px;padding:11px 20px;flex-wrap:wrap;font-family:'Cinzel',serif;">` +
   `<a href="/" style="display:flex;align-items:center;gap:11px;text-decoration:none;color:#efe6d2;"><img src="/dd-mark.jpg" alt="Degen Dojo" style="width:40px;height:40px;border-radius:9px;object-fit:cover;display:block;box-shadow:0 0 0 1px rgba(201,151,58,.35);" onerror="this.style.display='none'"/>` +
   `<div style="text-align:left;"><b style="font-family:'Cinzel',serif;font-size:15px;letter-spacing:.16em;display:block;color:#efe6d2;">DEGEN DOJO</b><small style="font-family:'Cinzel',serif;font-size:9px;letter-spacing:.26em;color:#a99a7e;">${sub}</small></div></a>` +
-  `<nav class="dn-links" style="display:flex;gap:8px;flex-wrap:wrap;"><a href="#" class="dn-connect" onclick="var b=this.closest('.dn-bar').querySelector('.dn-extra button');if(b)b.click();return false;" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#e8b84b;border:1px solid rgba(201,151,58,.5);background:rgba(201,151,58,.12);">🔑 Connect</a>${navPill("/", "⌂ Store", active === "store")}${navPill("/market", "🛒 Market", active === "market")}${navPill("/launch", "🚀 Launch", active === "launch")}${navPill("/list", "🏷 List", active === "list")}${navPill("/play", "▶ Play", active === "play")}${navPill("/mine", "⛏ Mine", active === "mine")}${navPill("/pot", "🏆 Pot", active === "pot")}${navPill("/become-a-preacher", "📣 Preacher", active === "preacher")}</nav><span class="dn-extra">${extra}</span>` +
+  `<nav class="dn-links" style="display:flex;gap:8px;flex-wrap:wrap;"><a href="#" class="dn-connect" onclick="var b=this.closest('.dn-bar').querySelector('.dn-extra button');if(b)b.click();return false;" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#e8b84b;border:1px solid rgba(201,151,58,.5);background:rgba(201,151,58,.12);">🔑 Connect</a>${navPill("/", "⌂ Store", active === "store")}${navPill("/market", "🛒 Market", active === "market")}${navPill("/launch", "🚀 Launch", active === "launch")}${navPill("/list", "🏷 List", active === "list")}${navPill("/play", "▶ Play", active === "play")}${navPill("/mine", "⛏ Mine", active === "mine")}${navPill("/pot", "🏆 Pot", active === "pot")}${navPill("/become-a-preacher", "📣 Preacher", active === "preacher")}${navPill("/sweep", "🧹 Sweep", active === "sweep")}</nav><span class="dn-extra">${extra}</span>` +
   `<button class="dn-ham" type="button" aria-label="Menu" onclick="var n=this.closest('.dn-bar').querySelector('.dn-links');if(n)n.classList.toggle('dn-open');">☰</button>` +
   `</div>`;   // Market = browse/buy any collection; Launch = mining-drip launchpad (preview); List = sell your Degen
 const walletBtnHtml = `<button id="dojoNavWallet" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#0a0814;background:linear-gradient(135deg,#c8962a,#8b6018);border:none;padding:9px 16px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;">Connect wallet</button>`;
@@ -419,7 +419,10 @@ copyFileSync(`${ROOT}/scripts/store-wallets.html`, `${OUT}/reserve/index.html`);
 // add ["store-burn.html", "burn", "BURN"] back to the list below when the owner opens burning. Same nav + wallet as /list.
 copyFileSync(`${ROOT}/scripts/dojo-card-tx.js`, `${OUT}/dojo-card-tx.js`);   // repair (ORE + ddfix memos) / burn (BurnV1) txs
 copyFileSync(`${ROOT}/scripts/dojo-qr.js`, `${OUT}/dojo-qr.js`);             // inline QR encoder for Solana Pay links
-for (const [src, dir, label] of [["store-repair.html", "repair", "REPAIR"]]) {
+// Dojo Sweep (/sweep, alias /claim): free — empty token accounts, burnable NFTs, Magic Eden bid escrow, staking; txs built + simulated in the browser
+copyFileSync(`${ROOT}/scripts/dojo-burn.js`, `${OUT}/dojo-burn.js`);     // shared burn + close + tip logic (/sweep and the miner's burn mode, /mine?burn=1)
+copyFileSync(`${ROOT}/scripts/dojo-sweep.js`, `${OUT}/dojo-sweep.js`);
+for (const [src, dir, label] of [["store-repair.html", "repair", "REPAIR"], ["store-sweep.html", "sweep", "SWEEP"]]) {
   mkdirSync(`${OUT}/${dir}`, { recursive: true });
   copyFileSync(`${ROOT}/scripts/${src}`, `${OUT}/${dir}/index.html`);
   const fp = `${OUT}/${dir}/index.html`;
@@ -502,6 +505,8 @@ writeFileSync(`${OUT}/_redirects`,
   // loads that collection's name/tip wallet/25 NFTs from /api/miner?slug=.
   "/m/*  /mine.html  200\n" +
   "/wallets  /reserve/  301\n/wallets/*  /reserve/  301\n" +
+  // Dojo Sweep's short alias on the STORE only (nothing here used /claim; degendojo.xyz/claim is the main site's gallery)
+  "/claim  /sweep  301\n/claim/*  /sweep  301\n" +
   // Shelves retired → send any old links to the store home so nothing 404s.
   "/shelves  /  301\n" +
   "/shelves-100  /  301\n" +
@@ -542,6 +547,8 @@ writeFileSync(
     "/mine",
     "  Cache-Control: public, max-age=0, must-revalidate",
     "/mine/vault",
+    "  Cache-Control: public, max-age=0, must-revalidate",
+    "/mine/burn",
     "  Cache-Control: public, max-age=0, must-revalidate",
     "/whitelabel",
     "  Cache-Control: public, max-age=0, must-revalidate",
@@ -624,7 +631,7 @@ execSync("npm install --omit=dev --no-audit --no-fund", { cwd: OUT, stdio: "inhe
     // hydration (an HTML-injected bar flashes then vanishes). We only need wallet-picker.js
     // loaded so window.DojoWalletPicker exists for the wallet-bridge → ONE shared session
     // across the store. Load it in <head> so it's ready before React hydrates.
-    for (const rel of ["mine.html", "mine/vault.html", "whitelabel.html", "create.html"]) {
+    for (const rel of ["mine.html", "mine/vault.html", "mine/burn.html", "whitelabel.html", "create.html"]) {
       const p = `${OUT}/${rel}`;
       if (!existsSync(p)) continue;
       let h = readFileSync(p, "utf8");
@@ -633,7 +640,7 @@ execSync("npm install --omit=dev --no-audit --no-fund", { cwd: OUT, stdio: "inhe
         writeFileSync(p, h);
       }
     }
-    console.log("  /mine + /mine/vault + /whitelabel + /create + _next chunks copied; wallet-picker.js injected (React renders the nav).");
+    console.log("  /mine (+ burn mode) + /mine/vault + /mine/burn (→ /mine?burn=1) + /whitelabel + /create + _next chunks copied; wallet-picker.js injected (React renders the nav).");
   } else {
     console.log("  ! ORE miner export not found at degen-dojo-ore/out — /mine will 404.");
     console.log("    Build it first: in degen-dojo-ore set output:'export'+images.unoptimized, `npx next build`.");

@@ -3,7 +3,7 @@
 // listing, INCLUDING Magic Eden AMM/MMM pools — which Magic Eden's own public API can't build
 // (pool fulfills need ME's cosigner, which only ME's or an aggregator's backend supplies).
 //
-//   GET /api/tensorbuy?mint=<asset>&buyer=<wallet>&maxPrice=<sol>[&owner=<holder>][&royaltyPct=<0-100>]
+//   GET /api/tensorbuy?mint=<asset>&buyer=<wallet>&maxPrice=<sol>[&owner=<holder>]
 //     → { txBase64, versioned:true, totalCost }   (client swaps ORE→SOL then signs+sends this)
 //     → 501 { needKey:true } when TENSOR_API_KEY isn't set
 //
@@ -59,7 +59,6 @@ export default async (request) => {
   const buyer = url.searchParams.get("buyer") || "";
   const maxPrice = Number(url.searchParams.get("maxPrice")) || 0;
   let owner = url.searchParams.get("owner") || "";
-  const royaltyPct = url.searchParams.get("royaltyPct");
   const key = process.env.TENSOR_API_KEY;
   if (!key) return json({ error: "Tensor API key not configured on the store.", needKey: true }, 501);
   if (!B58.test(mint) || !B58.test(buyer) || maxPrice <= 0) return json({ error: "bad mint/buyer/maxPrice" }, 400);
@@ -75,7 +74,9 @@ export default async (request) => {
 
     // Tensor's maxPrice is in LAMPORTS (it was sent in SOL, so every buy was refused as "over max price").
     const q = new URLSearchParams({ buyer, mint, owner, maxPrice: String(Math.ceil(maxPrice * 1e9)), blockhash });
-    if (royaltyPct != null && royaltyPct !== "") q.set("optionalRoyaltyPct", String(royaltyPct));
+    // Always the FULL creator royalty. optionalRoyaltyPct is a share OF the royalty (0-100), not the royalty
+    // itself — the client used to send 13 (= 13% of 13%), and it must never be the buyer's choice.
+    q.set("optionalRoyaltyPct", "100");
     const r = await fetch(`${TENSOR}?${q.toString()}`, { headers: { "x-tensor-api-key": key, accept: "application/json" } });
     const text = await r.text();
     if (!r.ok) return json({ error: "Tensor returned " + r.status, detail: text.slice(0, 300) }, 502);

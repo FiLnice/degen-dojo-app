@@ -140,10 +140,14 @@
       { programId: PK(M2_PROGRAM), data: exData, keys: [a(buyer, true, true), a(buyer, true, true), a(seller, false, true), a(PK(ME_NOTARY), false, false), a(srcOwner, false, false), a(srcTok, false, true), a(buyerTok, false, true), a(mint, false, false), a(meta, false, true), a(PK(ME_AH), false, false), a(PK(ME_FEE), false, true), a(sellerTS, false, true), a(buyerTS, false, true), a(buyerEscrow, false, true), a(bRef, false, true), a(sRef, false, true), a(PK(TMP_ID), false, false), a(edOf(mint), false, false), a(PK(AUTH_ID), false, false), a(ruleSet, false, false), a(trOf(mint, srcTok), false, true), a(trOf(mint, buyerTok), false, true), a(SYSVAR_INSTRUCTIONS_PUBKEY, false, false), a(PK(ATA_ID), false, false), a(PK(TOKEN_ID), false, false), a(SystemProgram.programId, false, false), a(SYSVAR_RENT_PUBKEY, false, false)].concat((listing.creators || []).map(function (c) { return a(PK(c), false, true); })) },
     ];
   }
-  function waitForConfirm(signature) {
+  // rawB64 (optional) = the signed transaction we broadcast ourselves: it is RE-SENT every ~4.5 s while we wait, the
+  // way Solana apps keep a transaction alive when the network drops it (live 2026-10-27: a pre-signed buy sent once
+  // never landed after its swap had — the buyer was left with SOL and a page stuck on "Confirming…").
+  function waitForConfirm(signature, rawB64) {
     var tries = 0;
     return new Promise(function (resolve, reject) {
       (function loop() {
+        if (rawB64 && tries > 0 && tries % 3 === 0) rpcCall('sendTransaction', [rawB64, { skipPreflight: true, maxRetries: 0, encoding: 'base64' }]).catch(function () {});
         rpcCall('getSignatureStatuses', [[signature]]).then(function (st) {
           var s = st.value && st.value[0];
           if (s && s.err) return reject(new Error('The transaction failed on chain.'));
@@ -153,6 +157,26 @@
         }).catch(function () { if (++tries > 40) reject(new Error('confirm failed')); else setTimeout(loop, 1500); });
       })();
     });
+  }
+  // The pre-signed buy after a landed swap: broadcast, keep re-sending until it confirms, and on any failure say the
+  // token is now SOL in the wallet (never silently leave the buyer with SOL and a stuck page).
+  function sendBuyAfterSwap(sBuy, currency, onState) {
+    onState && onState('Buying your NFT…');
+    var raw = b64(sBuy);
+    // preflightCommitment 'confirmed': the swap only just confirmed, so a 'finalized' preflight wouldn't see its SOL yet.
+    return rpcCall('sendTransaction', [raw, { skipPreflight: false, preflightCommitment: 'confirmed', maxRetries: 3, encoding: 'base64' }]).then(function (buySig) {
+      onState && onState('Confirming…');
+      return waitForConfirm(buySig, raw).then(function () { return buySig; });
+    }).catch(afterSwapFail(currency));
+  }
+  // After a swap HAS landed, a failed buy must say so plainly: the token is now SOL in the wallet. (Buy again would swap
+  // again — the store is pay-in-ORE — so don't promise otherwise.) A timeout may still land, so it gets its own wording.
+  function afterSwapFail(currency) {
+    return function (e) {
+      var m = (e && e.message) || String(e);
+      if (/Timed out/i.test(m)) throw new Error('Your ' + currency + ' was swapped to SOL and the purchase was sent, but it hasn\'t confirmed yet. Check your wallet in a minute before trying again: if the NFT isn\'t there, the SOL is. Nothing is lost.');
+      throw new Error('Your ' + currency + ' was swapped to SOL, but the purchase didn\'t go through (' + m.replace(/\.$/, '') + '). Nothing is lost: that SOL is in your wallet. Swap it back to ' + currency + ', or use it to buy on Magic Eden.');
+    };
   }
   // Sign with the wallet, then broadcast through OUR RPC (Helius) instead of the wallet's own
   // sender — some wallets (e.g. Jupiter) broadcast via wallet-api.jup.ag, which intermittently 500s.
@@ -256,12 +280,8 @@
         var sBuy = signed[1] instanceof Uint8Array ? signed[1] : new Uint8Array(signed[1]);
         onState && onState('Swapping ' + currency + ' → SOL…');
         return rpcCall('sendTransaction', [b64(sSwap), { skipPreflight: true, maxRetries: 3, encoding: 'base64' }]).then(function (swapSig) {
-          return waitForConfirm(swapSig).then(function () {
-            onState && onState('Buying your NFT…');
-            return rpcCall('sendTransaction', [b64(sBuy), { skipPreflight: false, maxRetries: 3, encoding: 'base64' }]).then(function (buySig) {
-              onState && onState('Confirming…');
-              return waitForConfirm(buySig).then(function () { return buySig; });
-            });
+          return waitForConfirm(swapSig, b64(sSwap)).then(function () {
+            return sendBuyAfterSwap(sBuy, currency, onState);
           });
         });
       }, function (signErr) {
@@ -283,12 +303,8 @@
           var sBuy = signed[1] instanceof Uint8Array ? signed[1] : new Uint8Array(signed[1]);
           onState && onState('Swapping ' + currency + ' → SOL…');
           return rpcCall('sendTransaction', [b64(sSwap), { skipPreflight: true, maxRetries: 3, encoding: 'base64' }]).then(function (swapSig) {
-            return waitForConfirm(swapSig).then(function () {
-              onState && onState('Buying your NFT…');
-              return rpcCall('sendTransaction', [b64(sBuy), { skipPreflight: false, maxRetries: 3, encoding: 'base64' }]).then(function (buySig) {
-                onState && onState('Confirming…');
-                return waitForConfirm(buySig).then(function () { return buySig; });
-              });
+            return waitForConfirm(swapSig, b64(sSwap)).then(function () {
+              return sendBuyAfterSwap(sBuy, currency, onState);
             });
           });
         }, function (signErr) {
@@ -457,13 +473,12 @@
   // Tensor AGGREGATOR buy — builds a buy tx for ANY listing, including Magic Eden AMM/MMM pools that
   // ME's own public API can't build (pool fulfills need ME's cosigner, which Tensor's backend supplies).
   // Returns the deserialized tx, or null if Tensor has no key / can't build it. No side effects → safe
-  // as a pre-flight before swapping. maxPrice/royalty come from the resolved/fallback listing.
+  // as a pre-flight before swapping. maxPrice comes from the resolved/fallback listing; the server always asks for the full royalty.
   function fetchTensorBuyTx(opts, listing) {
     var url = (opts.rpcUrl || '/api/rpc').replace(/\/rpc(\?|$)/, '/tensorbuy$1');
     var maxPrice = ((listing.priceAllIn || listing.price) * 1.05).toFixed(6);   // 5% headroom over all-in
     var qs = '?mint=' + encodeURIComponent(opts.mint) + '&buyer=' + encodeURIComponent(opts.adapter.pubkey) + '&maxPrice=' + maxPrice;
     if (listing.seller) qs += '&owner=' + encodeURIComponent(listing.seller);
-    if (listing.royaltyBps != null) qs += '&royaltyPct=' + Math.round(listing.royaltyBps / 100);
     return fetch(url + qs).then(function (r) { return r.json().then(function (j) { return { status: r.status, j: j }; }); })
       .then(function (res) {
         if (res.status === 501 || (res.j && res.j.needKey)) return null;

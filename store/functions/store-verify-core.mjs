@@ -244,6 +244,7 @@ function txFacts(tx) {
   return { memos, signers: signersOf(tx), blockTime: tx.blockTime || null, memoRef: refFromTx(tx),
     plain: plainPayment(tx), tipMemo: memos.includes(TIP_MEMO), minerTip: minerTipPayment(tx),
     minerSignup: memos.some((m) => m.startsWith("ddminer:")),   // a branded-miner setup fee (store-miner-core) — never a coin buy / tip
+    sweep: memos.some((m) => m.startsWith("ddsweep:")),         // a Dojo Sweep fee or tip (ddsweep:fee / :tip / :unstake) — never a coin buy / Pot tip
     repair: memos.some((m) => m.startsWith("ddfix:")),          // a card repair (the Dojo Keeper's) — never a coin buy / tip
     market: allKeys(tx).some((k) => MARKETPLACES.has(k)),       // lists a marketplace program (used or not) — the Keeper's royalty
     // the price quote this payment names in its own signed memo (DD-11)
@@ -269,6 +270,7 @@ function paymentIn(tx, currency, wallet, signers = signersOf(tx)) {
 export function classifyPayment(tx) {
   const f = txFacts(tx);
   if (f.minerSignup) return { f, reject: "this payment is a branded-miner setup fee (ddminer memo), not a coin purchase or tip" };
+  if (f.sweep) return { f, reject: "this is a Dojo Sweep fee or tip (ddsweep memo), not a coin purchase or a Pot tip" };
   if (f.market) return { f, reject: "a marketplace transaction is not a coin purchase or a Dojo tip" };
   if (f.repair) return { f, reject: "a card repair payment (ddfix memo) is not a coin purchase or a Dojo tip — the Dojo Keeper handles it" };
   if (f.plain && f.tipMemo) return { f, route: "tip" };
@@ -286,7 +288,7 @@ export async function inspectPayment(sig, currency, wallet = TREASURY) {
   if (!tx || tx.meta?.err) return null;
   const f = txFacts(tx);
   return { ...paymentIn(tx, currency, wallet, f.signers), signers: f.signers, blockTime: f.blockTime, memoRef: f.memoRef, quoteId: f.quoteId,
-    plain: f.plain, tipMemo: f.tipMemo, minerTip: f.minerTip, minerSignup: f.minerSignup, repair: f.repair, market: f.market };
+    plain: f.plain, tipMemo: f.tipMemo, minerTip: f.minerTip, minerSignup: f.minerSignup, repair: f.repair, market: f.market, sweep: f.sweep };
 }
 
 // how much of `currency` the given wallet (default TREASURY) GAINED in tx `sig` (null → tx missing/failed)

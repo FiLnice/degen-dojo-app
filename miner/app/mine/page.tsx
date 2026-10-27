@@ -20,12 +20,13 @@ import {
   estimateRounds,
   SQUARES,
   EXECUTOR_FEE_LAMPORTS,
-  refMemoIx,
   oreTransferIx,
   ataFor,
   ORE_DECIMALS,
 } from "@/lib/ore";
 import { COLLECTION_NAME, TIP_WALLET, TIP_ENABLED, DEGENS_URL, DEGENS_INLINE_JSON } from "@/lib/config";
+import { recordTip, dojoFeeIxs, dojoFeeOf, type TipCurrency } from "@/lib/minerTip";
+import { BurnMode } from "./BurnMode";
 
 type GridDegen = { name: string; image: string; mint?: string };
 
@@ -60,63 +61,6 @@ function hostedSlugFromLocation(): string | null {
 type Hosted = { slug: string; state: "loading" | "ok" | "missing" };
 type HostedConfig = { name: string; tipWallet: string; degens: GridDegen[] };
 
-// ─── Preacher referral on tips (Degen Dojo miner only) ───────────────────────
-const REF_RE = /^[a-zA-Z0-9_-]{2,32}$/;
-function readRef(): string | null {
-  try {
-    const q = new URLSearchParams(window.location.search).get("ref");
-    // the store's host-only referral cookie, read through wallet-picker.js (loaded before this app on /mine)
-    const dojoRef = (window as unknown as { DojoRef?: { code?: () => string | null } }).DojoRef;
-    const raw = q || (dojoRef?.code ? dojoRef.code() || "" : "");
-    return raw && REF_RE.test(raw) ? raw.toLowerCase() : null;
-  } catch {
-    return null;
-  }
-}
-type TipCurrency = "SOL" | "ORE";
-const PRICE_MINT: Record<TipCurrency, string> = {
-  SOL: "So11111111111111111111111111111111111111112",
-  ORE: "oreoU2P8bN6jkk3jbaiVxYnG1dCXcYxwhwyK9jSybcp",
-};
-async function usdPrice(currency: TipCurrency): Promise<number> {
-  const mint = PRICE_MINT[currency];
-  try {
-    const ctl = new AbortController();
-    const t = setTimeout(() => ctl.abort(), 3000);
-    const j = await (await fetch(`https://lite-api.jup.ag/price/v3?ids=${mint}`, { signal: ctl.signal })).json();
-    clearTimeout(t);
-    const p = Number(j?.[mint]?.usdPrice);
-    return p > 0 ? p : 0;
-  } catch {
-    return 0;
-  }
-}
-/** Best effort: log a confirmed tip to the store's ledger (with the preacher ref, if any).
- *  Never throws, never blocks mining — an untrusted hint the backend re-verifies on-chain. */
-async function recordTip(sig: string, buyer: string, tipAmount: number, currency: TipCurrency): Promise<void> {
-  try {
-    const px = await usdPrice(currency);
-    await fetch("/api/coinbuy", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      keepalive: true,
-      body: JSON.stringify({
-        sig,
-        buyer,
-        kind: "tip",
-        coins: 0,
-        currency,
-        tokenAmount: tipAmount,
-        usd: px ? Math.round(tipAmount * px * 100) / 100 : 0,
-        ref: readRef(),
-        ts: Date.now(),
-      }),
-    });
-  } catch {
-    /* best effort */
-  }
-}
-
 export default function MinePage() {
   const { publicKey, connected, disconnect, embedded } = useWallet();
   const { board, round, lastWinner, miner, automation, motherlode, balance, secondsLeft, phase, error, connection, refresh } =
@@ -138,8 +82,22 @@ export default function MinePage() {
   const [tipCur, setTipCur] = useState<TipCurrency>("SOL");
   const [oreTipOk, setOreTipOk] = useState(false);
   const [oreBal, setOreBal] = useState(0);
+  // Burn to Mine is a MODE of this page (the Degen Dojo miner only): the grid becomes the wallet's burnable NFTs.
+  // ?burn=1 opens it directly (/mine/burn and Dojo Sweep's "Burn & Mine ORE" land here); the URL follows the mode.
+  const [burnMode, setBurnMode] = useState(false);
+  const showBurn = (on: boolean) => {
+    setBurnMode(on);
+    const u = new URL(window.location.href);
+    if (on) u.searchParams.set("burn", "1");
+    else u.searchParams.delete("burn");
+    window.history.replaceState(window.history.state, "", u.pathname + u.search + u.hash);
+    window.scrollTo({ top: 0 });
+  };
 
   useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("burn") === "1") void Promise.resolve().then(() => setBurnMode(true));
+  }, []);
   useEffect(() => {
     const slug = hostedSlugFromLocation();
     if (slug) {
@@ -223,7 +181,8 @@ export default function MinePage() {
   const hasLeftoverSol = claimableSol > 0 || needsCheckpoint;
   const walletSol = balance != null ? sol(balance) : null;
 
-  const estSetupRounds = estimateRounds(deposit, amount);
+  // in lamports, like the automation's own numbers below (estimateRounds counts the executor fee in lamports)
+  const estSetupRounds = estimateRounds(Math.floor(deposit * LAMPORTS_PER_SOL), Math.floor(amount * LAMPORTS_PER_SOL));
   const autoBalance = automation ? sol(automation.balance) : 0;
   const autoPerTile = automation ? sol(automation.amount) : 0;
   const estLeftRounds = automation ? estimateRounds(automation.balance, automation.amount) : 0;
@@ -254,7 +213,10 @@ export default function MinePage() {
       alive = false;
     };
   }, [connection, publicKey, busy]);
-  const oreTipShort = TIP_ENABLED && tipCur === "ORE" && tip > 0 && tip > oreBal;
+  // The Degen Dojo miner charges the 1% Dojo fee on the deposit (lib/minerTip); a branded /m/<slug> miner keeps its optional tip.
+  const dojoFee = !hosted;
+  const feeSol = dojoFee ? dojoFeeOf(Math.floor(deposit * LAMPORTS_PER_SOL)) / LAMPORTS_PER_SOL : 0;
+  const oreTipShort = !!hosted && TIP_ENABLED && tipCur === "ORE" && tip > 0 && tip > oreBal;
   // The bot needs one full round (25 tiles) PLUS its fee in the balance — less and ORE's first deploy just closes it.
   const minDeposit = amount * SQUARES + EXECUTOR_FEE;
   const canStartAuto = connected && amount > 0 && deposit >= minDeposit && !busy && hostedReady && !oreTipShort;
@@ -273,29 +235,29 @@ export default function MinePage() {
         reload: true,
       }),
     ];
+    const buyer = publicKey.toBase58();
+    if (dojoFee) {
+      // the 1% Dojo fee rides in this same Automate transaction (+ the referring preacher's ddref memo), and is logged
+      // for the store's minetip ledger exactly like the old tip was
+      const fee = dojoFeeIxs(publicKey, Math.floor(deposit * LAMPORTS_PER_SOL), tipWallet);
+      ixs.push(...fee.ixs);
+      const sig = await submit("Start auto-mining", ixs);
+      if (sig && fee.feeLamports > 0) void recordTip(sig, buyer, fee.feeLamports / LAMPORTS_PER_SOL, "SOL");
+      return;
+    }
+    // branded /m/<slug> miner: its optional tip to the collection's own wallet, unchanged
     const oreTip = tipCur === "ORE" && oreTipOk;
     const tipLamports = TIP_ENABLED && tip > 0 && !oreTip ? Math.floor(tip * LAMPORTS_PER_SOL) : 0;
     const tipOreRaw = TIP_ENABLED && tip > 0 && oreTip ? BigInt(Math.round(tip * 10 ** ORE_DECIMALS)) : 0n;
     if (tipLamports > 0 || tipOreRaw > 0n) {
-      // hosted → the collection's own wallet; default → the Degen Dojo treasury
       ixs.push(
         tipOreRaw > 0n
           ? oreTransferIx(publicKey, tipWallet, tipOreRaw) // ORE from the player's ORE account to the tip wallet's
           : SystemProgram.transfer({ fromPubkey: publicKey, toPubkey: tipWallet, lamports: tipLamports }),
       );
-      // The preacher who referred this miner is written INTO the tip tx as a signed memo (default miner only —
-      // hosted /m/<slug> tips go to the collection's wallet, nothing of ours to share).
-      const ref = hosted ? null : readRef();
-      if (ref) ixs.push(refMemoIx(ref));
+      // (no preacher memo: a hosted tip goes to the collection's wallet — nothing of ours to share or record)
     }
-    const buyer = publicKey.toBase58();
-    const sig = await submit("Start auto-mining", ixs);
-    // Credit the preacher who referred this miner — ONLY for tips to Degen Dojo (the default
-    // miner). Hosted /m/<slug> tips go to that collection's wallet, so there's nothing of ours to share.
-    if (sig && !hosted) {
-      if (tipOreRaw > 0n) void recordTip(sig, buyer, Number(tipOreRaw) / 10 ** ORE_DECIMALS, "ORE");
-      else if (tipLamports > 0) void recordTip(sig, buyer, tipLamports / LAMPORTS_PER_SOL, "SOL");
-    }
+    await submit("Start auto-mining", ixs);
   }
   const onStopAuto = () => publicKey && submit("Stop & withdraw", [stopAutomationIx(publicKey)]);
   function onClaimSol() {
@@ -346,12 +308,18 @@ export default function MinePage() {
           </div>
         )}
 
-        {/* Desktop: Degens left, info + auto-miner right */}
+        {burnMode && !hosted ? (
+          <BurnMode connection={connection} automation={automation} motherlode={motherlode} busy={busy} submit={submit} onBack={() => showBurn(false)} />
+        ) : (
+        /* Desktop: Degens left, info + auto-miner right */
         <div className="space-y-4 lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:grid-rows-[auto_auto_auto_1fr] lg:items-start lg:gap-x-6 lg:gap-y-4 lg:space-y-0">
           {/* Vault link — full width, shows the uORE / ×90% / rORE breakdown */}
           <div className="lg:col-start-2 lg:row-start-1">
             <Link
               href="/mine/vault"
+              // the static export writes this nested route's prefetch file under a different name than the client
+              // asks for (404 in the console) — a plain navigation needs no prefetch
+              prefetch={false}
               className="flex w-full items-center justify-between gap-2 rounded-lg border border-sky-600/30 bg-sky-600/10 px-3 py-2 text-sky-300 transition-colors hover:bg-sky-600/20"
             >
               <span className="inline-flex items-center gap-1.5 text-xs font-medium">
@@ -519,7 +487,18 @@ export default function MinePage() {
                       <span className="text-slate-400">Est. rounds</span>
                       <span className="font-semibold text-emerald-300">~{estSetupRounds}</span>
                     </div>
-                    {TIP_ENABLED && (
+                    {dojoFee && (
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between rounded bg-slate-950/60 px-3 py-2 text-xs">
+                          <span className="text-slate-400">Dojo fee 1%</span>
+                          <span className="inline-flex items-center gap-1 font-medium text-slate-200">
+                            {feeSol.toFixed(6)} <SolIcon className="size-3" />
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500">1% Dojo fee — same as ORE takes. Paid only when it works.</p>
+                      </div>
+                    )}
+                    {!dojoFee && TIP_ENABLED && (
                       <div className="flex items-center justify-between gap-2">
                         <label className="text-xs text-slate-400">Tip {collectionName} (optional)</label>
                         <div className="flex items-center gap-1.5">
@@ -559,7 +538,11 @@ export default function MinePage() {
                         : deposit < minDeposit
                           ? `Deposit ≥ ${(Math.ceil(minDeposit * 1e6) / 1e6).toFixed(6)} SOL (1 round + bot fee)`
                           : (
-                              tipCur === "ORE" && oreTipOk && tip > 0 ? (
+                              dojoFee ? (
+                                <>
+                                  Start auto-mining ({(deposit + feeSol).toFixed(4)} <SolIcon className="size-3.5" />)
+                                </>
+                              ) : tipCur === "ORE" && oreTipOk && tip > 0 ? (
                                 <>
                                   Start auto-mining ({deposit.toFixed(4)} <SolIcon className="size-3.5" /> + {tip.toFixed(4)}{" "}
                                   <OreIcon className="size-3.5" />)
@@ -596,9 +579,19 @@ export default function MinePage() {
 
           {/* Footer */}
           <div className="pt-1 lg:col-start-2 lg:row-start-4">
+            {!hosted && (
+              <button
+                type="button"
+                onClick={() => showBurn(true)}
+                className="mb-2 flex w-full flex-col items-center rounded-lg border border-red-500/50 bg-gradient-to-r from-red-950/60 to-amber-950/50 px-3 py-2.5 text-amber-200 transition-colors hover:from-red-900/60 hover:to-amber-900/50"
+              >
+                <span className="text-sm font-semibold">🔥 Burn to Mine</span>
+                <span className="text-[11px] text-slate-400">burn NFTs you don&apos;t want, mine ORE with the SOL</span>
+              </button>
+            )}
             {/* One even 2×2 grid: every button the same size, the collection CTA first. */}
             <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-500">
-              <Link href="/whitelabel" className={`${FOOT_BTN} border-amber-600/60 bg-amber-950/30 text-amber-300 hover:bg-amber-900/40`}>
+              <Link href="/whitelabel" prefetch={false} className={`${FOOT_BTN} border-amber-600/60 bg-amber-950/30 text-amber-300 hover:bg-amber-900/40`}>
                 <Pickaxe className="size-3.5 shrink-0" /> add your collection on the grid
               </Link>
               <button onClick={() => setShowHow(true)} className={`${FOOT_BTN} border-slate-800 bg-slate-900/40 hover:bg-slate-800 hover:text-slate-300`}>
@@ -615,6 +608,7 @@ export default function MinePage() {
             </div>
           </div>
         </div>
+        )}
       </div>
       <HowItWorksModal open={showHow} onClose={() => setShowHow(false)} />
       </main>

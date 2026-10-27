@@ -34,6 +34,8 @@
 /m/*  /mine.html  200
 /wallets  /reserve/  301
 /wallets/*  /reserve/  301
+/claim  /sweep  301
+/claim/*  /sweep  301
 /shelves  /  301
 /shelves-100  /  301
 /shelves-100.html  /  301

@@ -132,7 +132,7 @@ function syncWallet(){
 // Fallback connect used by the "List for ORE" button when nobody's connected yet.
 function conn(){ if(window.DojoWalletPicker) DojoWalletPicker.pick().then(a=>{ window.DOJO_WALLET=a; window.dispatchEvent(new Event('dojo-wallet-change')); }).catch(()=>{}); }
 window.addEventListener('dojo-wallet-change', syncWallet);
-window.addEventListener('load',function(){ loadPrices(); setInterval(loadPrices,60000); loadListings(); if(window.DOJO_WALLET) syncWallet(); });   // the ORE minimum tracks SOL live
+window.addEventListener('load',function(){ loadPrices(); setInterval(function(){ if(!document.hidden) loadPrices(); },60000); loadListings(); if(window.DOJO_WALLET) syncWallet(); });   // the ORE minimum tracks SOL live
 
 async function loadPrices(){ try{const j=await(await fetch('https://lite-api.jup.ag/price/v3?ids=oreoU2P8bN6jkk3jbaiVxYnG1dCXcYxwhwyK9jSybcp,SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3,So11111111111111111111111111111111111111112')).json();
   PRICES.ORE=j['oreoU2P8bN6jkk3jbaiVxYnG1dCXcYxwhwyK9jSybcp']?.usdPrice||0;PRICES.SKR=j['SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3']?.usdPrice||0;PRICES.SOL=j['So11111111111111111111111111111111111111112']?.usdPrice||0;paint();}catch(e){} }

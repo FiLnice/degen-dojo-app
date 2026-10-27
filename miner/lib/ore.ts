@@ -301,8 +301,9 @@ export function estimateRounds(
   balanceLamports: bigint | number,
   perTileLamports: bigint | number,
   executorFeeLamports: bigint | number = EXECUTOR_FEE_LAMPORTS,
+  tiles: number = SQUARES, // tiles deployed per round (Burn-to-Mine presets use 10 / 15 / 25)
 ): number {
-  const balance = Number(balanceLamports), stake = Number(perTileLamports) * SQUARES, fee = Number(executorFeeLamports);
+  const balance = Number(balanceLamports), stake = Number(perTileLamports) * tiles, fee = Number(executorFeeLamports);
   if (!(stake > 0) || balance < stake + fee) return 0;
   return 1 + Math.floor((balance - stake - fee) / (stake * ORE_HOUSE_TAX + fee));
 }
@@ -449,25 +450,37 @@ export function oreTransferIx(from: PublicKey, to: PublicKey, amount: bigint): T
 // AutomateV2 data (what the official SDK sends) = [0] + amount(8) + deposit(8) + fee(8) + mask(8) + strategy(1) + reload(8)
 // + conditions(24) = 66B. The conditions are left at the program's defaults — no production-cost cap, motherlode 0..65535 ORE,
 // no solo/split preference — so it behaves exactly like the old 42-byte Automate (which the program still accepts).
+/** Automate V2 conditions (ore api/src/state/automation.rs). Deploy is SKIPPED for a round when the motherlode is
+ *  strictly above maxMotherlode or below minMotherlode (whole ORE, u16). soloTiles / splitTiles are read only by the
+ *  RANDOM strategy after the first deploy: up to N squares from the round's solo / split groups (distribution mask).
+ *  maxProductionCost (lamports per ORE) is stored but not checked by deploy today. */
+export type AutomationConditions = { maxProductionCost?: bigint; minMotherlode?: number; maxMotherlode?: number; splitTiles?: number; soloTiles?: number };
+export const STRATEGY_RANDOM = 0, STRATEGY_PREFERRED = 1;
 function automateData(p: {
   amount: bigint;
   deposit: bigint;
   fee: bigint;
   mask: number;
   reload: boolean;
+  strategy?: number;
+  conditions?: AutomationConditions;
 }): Uint8Array {
+  const c = p.conditions || {};
+  const u16 = (v: number | undefined, d: number) => Math.max(0, Math.min(0xffff, Math.floor(v ?? d)));
   const d = new Uint8Array(66);
   d[0] = 0; // Automate discriminator
   d.set(u64le(p.amount), 1);
   d.set(u64le(p.deposit), 9);
   d.set(u64le(p.fee), 17);
   d.set(u64le(BigInt(p.mask >>> 0)), 25);
-  d[33] = 1; // strategy = Preferred (use provided mask)
+  d[33] = p.strategy ?? STRATEGY_PREFERRED; // default Preferred (use the provided mask)
   d.set(u64le(p.reload ? 1 : 0), 34);
-  d.set(u64le(0xffff_ffff_ffff_ffffn), 42); // conditions.max_production_cost = u64::MAX
-  // min_motherlode u16 = 0 @ 50
-  d.set([0xff, 0xff], 52); // max_motherlode u16 = u16::MAX
-  // split_tiles, solo_tiles u16 = 0 @ 54/56, _buffer u64 = 0 @ 58
+  d.set(u64le(c.maxProductionCost ?? 0xffff_ffff_ffff_ffffn), 42); // conditions.max_production_cost (default u64::MAX)
+  const le16 = (v: number, at: number) => d.set([v & 0xff, (v >> 8) & 0xff], at);
+  le16(u16(c.minMotherlode, 0), 50); // min_motherlode (default 0)
+  le16(u16(c.maxMotherlode, 0xffff), 52); // max_motherlode (default u16::MAX)
+  le16(u16(c.splitTiles, 0), 54); // split_tiles
+  le16(u16(c.soloTiles, 0), 56); // solo_tiles · _buffer u64 = 0 @ 58
   return d;
 }
 
@@ -483,6 +496,8 @@ export function automateIx(p: {
   feeLamports: bigint;
   squares: boolean[];
   reload: boolean;
+  strategy?: number;
+  conditions?: AutomationConditions;
 }): TransactionInstruction {
   let mask = 0;
   for (let i = 0; i < SQUARES; i++) if (p.squares[i]) mask |= 1 << i;
@@ -494,7 +509,7 @@ export function automateIx(p: {
       meta(minerPda(p.signer), false, true),
       meta(SYSTEM_PROGRAM, false, false),
     ],
-    automateData({ amount: p.amountLamports, deposit: p.depositLamports, fee: p.feeLamports, mask, reload: p.reload }),
+    automateData({ amount: p.amountLamports, deposit: p.depositLamports, fee: p.feeLamports, mask, reload: p.reload, strategy: p.strategy, conditions: p.conditions }),
   );
 }
 

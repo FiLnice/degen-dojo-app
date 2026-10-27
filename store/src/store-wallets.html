@@ -399,6 +399,7 @@ const FLOW = [
   { id: 'coins', label: 'Coin buys', keys: ['coins'], tip: 'Game coins bought with ORE, SKR, SOL or USDC (purchases the store verified).' },
   { id: 'mining', label: 'Mining tips', keys: ['mining'], tip: 'Tips players add when they auto-mine ORE on the Dojo miner.' },
   { id: 'tips', label: 'Tips & direct', keys: ['tips', 'direct'], tip: 'Dojo Pot tips plus anything anyone sends straight to the Reserve.' },
+  { id: 'sweep', label: 'Sweep fees & tips', keys: ['sweep'], tip: 'Dojo Sweep’s 1% fee on closes and burns, its 0.01 ORE GemFarm rescue fee, and any tips sent from Sweep (memo ddsweep:…).' },
 ];
 async function loadFlow(px, tok) {
   let j;

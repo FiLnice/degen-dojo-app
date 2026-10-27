@@ -12,6 +12,8 @@
   Cache-Control: public, max-age=0, must-revalidate
 /mine/vault
   Cache-Control: public, max-age=0, must-revalidate
+/mine/burn
+  Cache-Control: public, max-age=0, must-revalidate
 /whitelabel
   Cache-Control: public, max-age=0, must-revalidate
 /create

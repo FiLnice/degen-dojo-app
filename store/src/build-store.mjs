@@ -35,9 +35,8 @@ const CARDLESS_MINTS = (() => {
   } catch { return []; }
 })();
 const CARDLESS_SET = new Set(CARDLESS_MINTS);
-// Nov 2 (owner 2026-10-24): the Demons + Oni Senseis join Degen Dojo as cards. From the Nov 1 build (or NEW_LABELS=1) their
-// listings stay in the data; the page drops them from CARDLESS_MINTS from Nov 2 (or ?labels=new) and shows their card.
-const NEWLBL = process.env.NEW_LABELS === "1" || Date.now() >= Date.UTC(2026, 10, 1);
+// Nov 2 (owner 2026-10-24): the Demons + Oni Senseis join Degen Dojo as cards. Their listings always stay in the data;
+// the page drops them from CARDLESS_MINTS from Nov 2 (or ?labels=new) and shows their card.
 const DEMON_RACES = new Set(["demons", "oni senseis"]);
 const DEMON_MINTS = (() => {
   try {
@@ -104,7 +103,8 @@ const slim = {
   floorPriceAllIn: data.floorPriceAllIn,
   sources: data.sources,
   characters: data.characters || [],
-  listings: data.listings.filter((l) => !CARDLESS_SET.has(l.mint) || (NEWLBL && DEMON_SET.has(l.mint))).map((l) => ({
+  // Demons always in the data: the page hides them (CARDLESS_MINTS) until Nov 2 by itself, so no re-upload then.
+  listings: data.listings.filter((l) => !CARDLESS_SET.has(l.mint) || DEMON_SET.has(l.mint)).map((l) => ({
     mint: l.mint, name: l.name, image: l.image, attributes: l.attributes,
     externalUrl: l.externalUrl || "",
     source: l.source, price: l.price, priceAllIn: l.priceAllIn,

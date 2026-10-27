@@ -177,18 +177,22 @@ export function useOreGame(pollMs = 12000): OreGameState {
     }
   }, [connection]);
 
-  // Measure once on mount, then re-measure every 2 min (cheap; well under the RPC budget).
+  // Measure once on mount, then re-measure every 2 min (cheap; well under the RPC budget). Hidden tabs skip it.
   useEffect(() => {
     measureSlotMs();
-    const id = setInterval(measureSlotMs, 120000);
+    const id = setInterval(() => { if (!document.hidden) measureSlotMs(); }, 120000);
     return () => clearInterval(id);
   }, [measureSlotMs]);
 
-  // Poll on-chain state.
+  // Poll on-chain state — only while the tab is visible: background tabs on one connection all count against the
+  // store proxy's per-IP limit (live 2026-10-26: the owner's own open tabs got his IP rate-limited). Coming back
+  // to the tab refreshes at once.
   useEffect(() => {
     refresh();
-    const id = setInterval(refresh, pollMs);
-    return () => clearInterval(id);
+    const id = setInterval(() => { if (!document.hidden) refresh(); }, pollMs);
+    const onVisible = () => { if (!document.hidden) refresh(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { clearInterval(id); document.removeEventListener("visibilitychange", onVisible); };
   }, [refresh, pollMs]);
 
   // Smooth 1s countdown, resynced by each poll.

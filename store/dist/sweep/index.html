@@ -1,0 +1,339 @@
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dojo Sweep — get back SOL hiding in your wallet | Degen Dojo</title>
+<meta name="description" content="Find the SOL hiding in any Solana wallet — empty token accounts, NFTs you don't want, forgotten Magic Eden bids — and get it back in one click. 1% Dojo fee, paid only when it works.">
+<link rel="icon" href="/icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Teko:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#100c08;--pan:#1b1510;--pan2:#241d15;--line:#3a2f22;--gold:#e8b84b;--goldd:#c8962a;--ink:#ece4d6;--ink2:#f6efe2;--mut:#9c8f7d;--grn:#7bb26a;--red:#c1443a;--amber:#d9a441;}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(1000px 500px at 50% -10%,#20180f,#100c08 60%);color:var(--ink);font-family:Inter,system-ui,sans-serif}
+.wrap{max-width:1100px;margin:0 auto;padding:22px 16px 60px}
+h1{font-family:Teko;font-weight:700;font-size:40px;margin:0;line-height:1;background:linear-gradient(180deg,#f4e2b4,var(--gold));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+h2{font-family:Cinzel,serif;font-size:15px;letter-spacing:.06em;margin:0 0 6px;color:var(--ink2)}
+.sub{color:var(--mut);font-size:13.5px;margin:6px 0 16px;max-width:720px;line-height:1.5}
+.card{background:var(--pan);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px;min-width:0}
+.rules{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.rule{background:var(--pan);border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center}
+.rule b{display:block;font-family:Teko;font-size:24px;line-height:1.05;color:var(--ink2)}
+.rule span{font-size:12px;color:var(--mut)}
+label{font-size:12px;color:var(--mut);letter-spacing:.04em}
+.in{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap}
+.in input{flex:1;min-width:0;background:#0d0a06;border:1px solid #4a3c26;border-radius:9px;color:var(--ink);font-size:14px;padding:10px 12px;font-family:ui-monospace,Menlo,Consolas,monospace}
+.btn{background:linear-gradient(135deg,var(--goldd),#8b6018);border:none;color:#0a0814;font-family:Cinzel,serif;font-weight:700;font-size:12px;letter-spacing:.05em;padding:10px 16px;border-radius:9px;cursor:pointer;white-space:normal;text-align:center}
+.btn:disabled{opacity:.45;cursor:default}
+.btn.ghost{background:transparent;color:var(--gold);border:1px solid rgba(201,151,58,.5);font-family:Inter;font-weight:600}
+.btn.burn{background:linear-gradient(135deg,#c1443a,#7d221b);color:#fff}
+.mini{font-size:11.5px;color:var(--gold);background:transparent;border:1px solid rgba(201,151,58,.45);border-radius:7px;padding:4px 9px;cursor:pointer;font-family:Inter}
+.total{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap}
+.big{font-family:Teko;font-size:46px;line-height:.95;color:var(--ink2)}
+.big small{font-size:22px;color:var(--gold)}
+.sec-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.amt{font-family:Teko;font-size:26px;color:var(--gold);line-height:1}
+.fine{color:var(--mut);font-size:12.5px;line-height:1.55}
+.muted{color:var(--mut);font-size:13px}
+.ok{color:var(--grn)}.err{color:#e58b80}.warn{color:var(--amber)}
+.grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;align-items:start;margin-top:10px}
+.nft{position:relative;border:1px solid var(--line);border-radius:11px;background:var(--pan2);overflow:hidden;cursor:pointer;min-width:0}
+.nft.sel{outline:2px solid var(--red);outline-offset:1px}
+.nft.off{opacity:.45;cursor:default}
+.nft img,.nft .ph{width:100%;aspect-ratio:1/1;object-fit:cover;display:block;background:#0d0a06}
+.nft .ph{display:flex;align-items:center;justify-content:center;color:var(--mut);font-size:11px}
+.nft .meta{padding:7px 8px}
+.nft .nm{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nft .co{font-size:10.5px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nft .rent{font-family:Teko;font-size:16px;color:var(--gold);line-height:1}
+.nft .tick{position:absolute;top:7px;left:7px;width:22px;height:22px;border-radius:6px;border:2px solid #fff;background:rgba(0,0,0,.45)}
+.nft.sel .tick{background:var(--red);border-color:var(--red)}
+.nft.sel .tick::after{content:"✓";color:#fff;font-weight:700;font-size:14px;position:absolute;left:4px;top:0}
+.tag{position:absolute;top:7px;right:7px;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 6px;border-radius:999px;background:var(--amber);color:#1a1206}
+.why{font-size:10.5px;color:#e58b80;margin-top:2px}
+.confirm{border:1px solid rgba(193,68,58,.6);background:rgba(193,68,58,.08);border-radius:11px;padding:12px;margin-top:12px}
+.steps{margin:8px 0 0 18px;padding:0;font-size:13px;line-height:1.6}
+.kv{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0}
+.kv code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;color:#d8ccb4;background:var(--pan2);border:1px solid var(--line);border-radius:7px;padding:5px 8px;word-break:break-all}
+details summary{cursor:pointer;color:var(--gold);font-size:12.5px;margin-top:8px}
+.list{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;color:#cbbfa8;max-height:180px;overflow:auto;margin-top:6px;line-height:1.6;word-break:break-all}
+@media(max-width:860px){.grid{grid-template-columns:repeat(3,minmax(0,1fr))}.rules{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.rules{grid-template-columns:1fr}.big{font-size:40px}}
+</style>
+
+<style>.dn-ham{display:none}.dn-connect{display:none}.dn-extra{margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}@media(max-width:640px){.dn-bar{gap:10px!important;padding:10px 14px!important;}.dn-extra{display:none!important;}.dn-connect{display:block!important;}.dn-ham{display:flex!important;align-items:center;justify-content:center;width:44px;height:44px;border-radius:10px;cursor:pointer;background:rgba(201,151,58,.12);border:1px solid rgba(201,151,58,.45);color:#e8b84b;font-size:22px;line-height:1;margin-left:auto;flex:0 0 auto;}.dn-links{position:absolute!important;top:calc(100% - 2px);right:10px;min-width:214px;flex-direction:column!important;align-items:stretch;gap:5px!important;background:rgba(12,10,18,.98);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(201,151,58,.4);border-radius:12px;padding:9px;box-shadow:0 16px 36px rgba(0,0,0,.6);display:none!important;z-index:80;}.dn-links.dn-open{display:flex!important;}.dn-links a{text-align:left;font-size:13px!important;padding:11px 13px!important;}}</style><div class="dn-bar" style="position:sticky;top:0;z-index:72;background:rgba(10,10,15,.94);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-bottom:1px solid rgba(201,151,58,.18);display:flex;align-items:center;gap:16px;padding:11px 20px;flex-wrap:wrap;font-family:'Cinzel',serif;"><a href="/" style="display:flex;align-items:center;gap:11px;text-decoration:none;color:#efe6d2;"><img src="/dd-mark.jpg" alt="Degen Dojo" style="width:40px;height:40px;border-radius:9px;object-fit:cover;display:block;box-shadow:0 0 0 1px rgba(201,151,58,.35);" onerror="this.style.display='none'"/><div style="text-align:left;"><b style="font-family:'Cinzel',serif;font-size:15px;letter-spacing:.16em;display:block;color:#efe6d2;">DEGEN DOJO</b><small style="font-family:'Cinzel',serif;font-size:9px;letter-spacing:.26em;color:#a99a7e;">SWEEP</small></div></a><nav class="dn-links" style="display:flex;gap:8px;flex-wrap:wrap;"><a href="#" class="dn-connect" onclick="var b=this.closest('.dn-bar').querySelector('.dn-extra button');if(b)b.click();return false;" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#e8b84b;border:1px solid rgba(201,151,58,.5);background:rgba(201,151,58,.12);">🔑 Connect</a><a href="/" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">⌂ Store</a><a href="/market" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">🛒 Market</a><a href="/launch" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">🚀 Launch</a><a href="/list" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">🏷 List</a><a href="/play" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">▶ Play</a><a href="/mine" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">⛏ Mine</a><a href="/pot" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">🏆 Pot</a><a href="/become-a-preacher" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">📣 Preacher</a><a href="/sweep" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#e8b84b;border:1px solid rgba(201,151,58,.6);background:rgba(201,151,58,.14);">🧹 Sweep</a></nav><span class="dn-extra"><button id="dojoNavWallet" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#0a0814;background:linear-gradient(135deg,#c8962a,#8b6018);border:none;padding:9px 16px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;">Connect wallet</button></span><button class="dn-ham" type="button" aria-label="Menu" onclick="var n=this.closest('.dn-bar').querySelector('.dn-links');if(n)n.classList.toggle('dn-open');">☰</button></div>
+<div class="wrap">
+  <h1>🧹 Dojo Sweep</h1>
+  <div class="sub">Find the SOL hiding in any Solana wallet — empty token accounts, NFTs you don’t want, forgotten Magic Eden bids — and get it back in one click, plus NFTs stuck in staking. <b>1% Dojo fee — same as ORE takes. Paid only when it works.</b></div>
+
+  <div class="rules">
+    <div class="rule"><b>Empty accounts</b><span>every empty token account holds ~0.002 SOL of rent</span></div>
+    <div class="rule"><b>Spam &amp; dead NFTs</b><span>burning one gives back its rent (~0.007 SOL)</span></div>
+    <div class="rule"><b>Marketplace bids</b><span>SOL left in your Magic Eden bidding wallet (escrow)</span></div>
+    <div class="rule"><b>Stuck staking</b><span>GemFarm NFTs back to your wallet · soft stakes revoked</span></div>
+  </div>
+
+  <div class="card">
+    <label for="wallet">WALLET TO CHECK</label>
+    <div class="in"><input id="wallet" placeholder="Paste any Solana wallet address" autocomplete="off" spellcheck="false">
+      <button class="btn" id="scan">Scan</button>
+      <button class="btn ghost" id="useConnected" hidden>Use connected wallet</button></div>
+    <div id="msg" class="muted" style="margin-top:10px">Scanning is read-only. To sweep, connect the wallet you scanned (top right).</div>
+  </div>
+
+  <div id="results"></div>
+
+  <div class="fine">Everything is built in your browser and tested (simulated) before your wallet sees it — you approve every transaction in your own wallet, and nothing is sent without that. Closing an empty account only removes the empty shell: whatever token it held is already gone. Burning is permanent. Your Degen Dojo, Demon Dojo and TETO NFTs are never offered for burning. The 1% Dojo fee rides inside each transaction (to shamanchef.sol) and is shown before you sign.</div>
+</div>
+
+<script src="/buffer.js"></script>
+<script>window.Buffer=window.Buffer||(window.buffer&&window.buffer.Buffer);</script>
+<script src="/web3.js"></script>
+<script src="/dojo-burn.js"></script>
+<script src="/dojo-sweep.js"></script>
+<script src="/dojo-swap.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"'`]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '`': '&#96;' }[c]));
+const isB58 = (m) => /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(String(m || ''));
+const short = (a) => a.slice(0, 4) + '…' + a.slice(-4);
+const net = (l) => l - Math.floor(l * DojoBurn.FEE_BPS / 10000);   // what comes back after the 1% Dojo fee
+const SOL = (l, d) => (Number(l || 0) / 1e9).toLocaleString(undefined, { minimumFractionDigits: d == null ? 4 : d, maximumFractionDigits: d == null ? 4 : d });
+// thumbnails through an image proxy: a spam NFT's own host never sees the visitor, and huge files stay small
+const thumb = (u) => { try { const x = new URL(String(u || '')); return x.protocol === 'https:' ? 'https://wsrv.nl/?url=' + encodeURIComponent(x.href) + '&w=240&h=240&fit=cover&output=webp' : ''; } catch (e) { return ''; } };
+let OWNER = null, SCAN = null, SEL = new Set(), BUSY = false, SCANNING = false;
+// one paced client for the whole page (≤ 2 in flight, ≤ 4 a second, retries 429/5xx with backoff — DojoBurn.makeRpc)
+const rpc = DojoBurn.makeRpc('/api/rpc', { onRetry: () => { const m = $('msg'); if (SCANNING && m && !/busy, retrying/.test(m.textContent)) m.textContent = (m.textContent || 'Reading wallet…') + ' (busy, retrying)'; } });
+const connected = () => (window.DOJO_WALLET && window.DOJO_WALLET.pubkey) || null;
+const mine = () => !!OWNER && connected() === OWNER;
+function syncConnected() { const c = connected(); $('useConnected').hidden = !c; if (c && !$('wallet').value) { $('wallet').value = c; lookup(c); } else if (SCAN) render(); }
+window.addEventListener('dojo-wallet-change', syncConnected);
+window.addEventListener('load', () => { syncConnected(); const q = new URLSearchParams(location.search).get('wallet'); if (q && isB58(q)) { $('wallet').value = q; lookup(q); } });
+$('useConnected').onclick = () => { const c = connected(); if (c) { $('wallet').value = c; lookup(c); } };
+$('scan').onclick = () => lookup($('wallet').value.trim());
+$('wallet').addEventListener('keydown', (e) => { if (e.key === 'Enter') lookup($('wallet').value.trim()); });
+
+async function lookup(addr, note) {
+  if (BUSY) return;
+  if (!isB58(addr)) { $('msg').textContent = 'That doesn’t look like a Solana wallet address.'; return; }
+  BUSY = true; SCANNING = true; $('scan').disabled = true; $('results').innerHTML = ''; SEL = new Set();
+  try {
+    SCAN = await DojoSweep.scan(rpc, addr, (s) => { $('msg').textContent = s; });
+    OWNER = addr; $('msg').innerHTML = note || ''; render();
+  } catch (e) { $('msg').textContent = 'Couldn’t read that wallet right now (' + e.message + '). Try again in a minute.'; }
+  BUSY = false; SCANNING = false; $('scan').disabled = false;
+}
+
+function render() {
+  const s = SCAN; if (!s) return;
+  const sure = s.emptyLamports + s.escrow.lamports, burnables = s.nfts.filter((c) => c.burnable);
+  const connectHint = mine() ? '' : '<div class="fine warn" style="margin-top:8px">To sweep, connect <b>' + esc(short(OWNER)) + '</b> (top right). Anyone can scan; only the wallet’s owner can sweep it.</div>';
+  let html = '<div class="card"><div class="fine">' + esc(short(OWNER)) + ' can get back about</div><div class="total"><div class="big">' + SOL(sure) + ' <small>SOL</small></div>'
+    + (s.nftLamports ? '<div class="fine" style="padding-bottom:6px">+ up to <b>' + SOL(s.nftLamports) + ' SOL</b> more by burning NFTs you don’t want</div>' : '') + '</div>'
+    + (!sure && !s.nftLamports && !s.unread ? '<div class="fine" style="margin-top:6px">Nothing to sweep — this wallet is clean. ✨</div>' : '')
+    + (s.unread ? '<div class="fine warn" style="margin-top:8px">Some items couldn’t be read (the network was busy) — the rest is below. <button class="mini" id="rescan">Refresh</button></div>' : '') + connectHint + '</div>';
+
+  // empty token accounts
+  if (s.empties.length || s.skipped.length) {
+    html += '<div class="card"><div class="sec-h"><h2>Empty token accounts (' + s.empties.length + ')</h2><div class="amt">+' + SOL(s.emptyLamports) + ' SOL</div></div>'
+      + '<div class="fine">Leftovers of tokens you sold, swapped or sent away — each still holds its rent. Closing them sends that SOL back to you.</div>'
+      + (s.empties.length ? '<div style="margin-top:12px"><button class="btn" id="closeBtn"' + (mine() ? '' : ' disabled') + '>Close ' + s.empties.length + ' empty account' + (s.empties.length === 1 ? '' : 's') + ' — get back ' + SOL(net(s.emptyLamports)) + ' SOL</button><div class="fine" style="margin-top:4px">after the 1% Dojo fee (' + SOL(s.emptyLamports - net(s.emptyLamports), 5) + ' SOL)</div></div><div id="closeMsg" class="fine" style="margin-top:8px"></div>' : '')
+      + '<details><summary>Show the accounts</summary><div class="list">' + s.empties.map((e) => esc(e.pubkey) + ' · ' + SOL(e.lamports, 6)).join('<br>')
+      + (s.skipped.length ? '<br><span class="warn">Left alone (' + s.skipped.length + '):</span><br>' + s.skipped.map((e) => esc(e.pubkey) + ' — ' + esc(e.reason)).join('<br>') : '') + '</div></details></div>';
+  }
+
+  // marketplace bidding wallets: Magic Eden escrow (read here) · Lucky Buy + other marketplaces (pointers only: their
+  // accounts can't be found without wide program scans, so they're named, not read)
+  const otherBids = '<div class="fine" style="margin-top:8px">SOL can also sit in other marketplaces’ bidding wallets (Tensor and others): withdraw it from that marketplace’s own wallet panel. On Magic Eden, check <b>Lucky Buy</b> in the same panel too.</div>';
+  if (s.escrow.lamports > 0) {
+    html += '<div class="card"><div class="sec-h"><h2>Magic Eden bidding wallet</h2><div class="amt">' + SOL(s.escrow.lamports) + ' SOL</div></div>'
+      + '<div class="fine">Magic Eden keeps the SOL for your offers in a bidding wallet (escrow). <b>' + SOL(s.escrow.lamports) + ' SOL</b> sits there for this wallet. If you have no live offers, it’s yours to take back — free, on Magic Eden:</div>'
+      + '<ol class="steps"><li><a href="https://magiceden.io" target="_blank" rel="noopener" style="color:var(--gold)">Magic Eden</a> → open your wallet panel (top right) → <b>Details</b> → <b>Escrow</b> → <b>Withdraw</b>.</li></ol>'
+      + '<div class="fine" style="margin-top:6px">A live offer is backed by this SOL — cancelling the offer is what frees it. Escrow address: <code style="font-size:11px">' + esc(s.escrow.address) + '</code></div>' + otherBids + '</div>';
+  } else {
+    html += '<div class="card"><div class="sec-h"><h2>Marketplace bidding wallets</h2><div class="amt">' + (s.escrow.unread ? '?' : '0 SOL') + '</div></div>'
+      + (s.escrow.unread ? '<div class="fine warn">The Magic Eden bidding wallet couldn’t be read just now — Refresh to try again.</div>' : '')
+      + '<div class="fine">' + (s.escrow.unread ? 'To check it yourself' : 'Nothing in this wallet’s Magic Eden bidding wallet (escrow). If you ever need it') + ': Magic Eden → open your wallet panel (top right) → <b>Details</b> → <b>Escrow</b> → <b>Withdraw</b>.</div>' + otherBids + '</div>';
+  }
+
+  // staked NFTs: GemFarm (unstake here) · soft-staked (Revoke) · held by another program (shown, no action)
+  if ((s.farms && s.farms.length) || s.soft.length || s.locked.length) {
+    const when = (t) => new Date(t * 1000).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+    const sol$ = (u) => 'https://solscan.io/account/' + encodeURIComponent(u);
+    html += '<div class="card"><div class="sec-h"><h2>Staked NFTs</h2></div><div class="fine">NFTs that a staking program still holds or controls.</div>';
+    (s.farms || []).forEach((f, i) => {
+      const st = f.status, thumbs = f.mints.slice(0, 12).map((m) => { const im = thumb(m.image); return '<div class="nft off" style="cursor:default;opacity:1" title="' + esc(m.name) + '">' + (im ? '<img loading="lazy" src="' + esc(im) + '" alt="">' : '<div class="ph">no image</div>') + '<div class="meta"><div class="nm">' + esc(m.name) + '</div></div></div>'; }).join('');
+      const fee = 'Rescue fee: <b>' + DojoSweep.RESCUE_FEE_ORE + ' ORE</b>, paid only when the NFTs come back' + (f.feeLamports ? ' · the farm itself charges ' + SOL(f.feeLamports) + ' SOL to unstake' : '');
+      let act = '';
+      if (st.kind === 'ready') act = '<button class="btn" data-gem="' + i + '"' + (mine() ? '' : ' disabled') + '>Unstake &amp; withdraw ' + f.mints.length + ' NFT' + (f.mints.length === 1 ? '' : 's') + '</button><div class="fine" style="margin-top:6px">' + fee + '.</div>';
+      else if (st.kind === 'start') act = '<button class="btn" data-gem="' + i + '"' + (mine() ? '' : ' disabled') + '>Start unstake</button><div class="fine" style="margin-top:6px">This farm has a cooldown of ' + Math.ceil(f.cooldown / 60) + ' min: step 1 starts it (free), then come back to withdraw. ' + fee + '.</div>';
+      else if (st.kind === 'cooldown') act = '<div class="fine warn">Cooling down — withdraw available after <b>' + esc(when(st.until)) + '</b>.</div>';
+      else if (st.kind === 'locked') act = '<div class="fine warn">Locked by the farm’s minimum staking period until <b>' + esc(when(st.until)) + '</b>.</div>';
+      html += '<div style="border-top:1px solid var(--line);margin-top:12px;padding-top:12px"><div class="fine"><b style="color:var(--ink)">GemFarm</b> · farm <a href="' + sol$(f.farm) + '" target="_blank" rel="noopener" style="color:var(--gold)">' + esc(short(f.farm)) + ' ↗</a> · ' + f.mints.length + ' NFT' + (f.mints.length === 1 ? '' : 's') + ' staked</div>'
+        + '<div class="grid">' + thumbs + '</div><div style="margin-top:10px">' + act + '</div><div id="gemMsg' + i + '" class="fine" style="margin-top:6px"></div></div>';
+    });
+    if (s.soft.length) html += '<div style="border-top:1px solid var(--line);margin-top:12px;padding-top:12px"><div class="fine"><b style="color:var(--ink)">Soft-staked (' + s.soft.length + ')</b> — in your wallet, but another program has permission to move them. Revoking takes that permission back (free). If one is a marketplace listing, revoking cancels the listing.</div>'
+      + '<div class="list" style="max-height:110px">' + s.soft.map((c) => esc(c.name) + ' · delegate ' + esc(short(c.delegate || ''))).join('<br>') + '</div>'
+      + '<div style="margin-top:10px"><button class="btn ghost" id="revokeBtn"' + (mine() ? '' : ' disabled') + '>Revoke ' + s.soft.length + '</button></div><div id="revokeMsg" class="fine" style="margin-top:6px"></div></div>';
+    if (s.locked.length) html += '<div style="border-top:1px solid var(--line);margin-top:12px;padding-top:12px"><div class="fine"><b style="color:var(--ink)">Held by another program (' + s.locked.length + ')</b> — not unstakable here (custom staking program). Use that project’s own site, or check the program on Solscan:</div><div class="list" style="max-height:140px">'
+      + s.locked.map((c) => esc(c.name) + ' — ' + (c.program ? 'staked in program <a href="' + sol$(c.program) + '" target="_blank" rel="noopener" style="color:var(--gold)">' + esc(short(c.program)) + ' ↗</a>' : c.byWallet ? 'frozen by wallet ' + esc(short(c.delegate)) : 'frozen (no delegate)')).join('<br>') + '</div></div>';
+    html += '</div>';
+  }
+
+  // NFTs
+  if (s.nfts.length) {
+    const selLamports = burnables.filter((c) => SEL.has(c.mint)).reduce((t, c) => t + c.lamports, 0);
+    html += '<div class="card"><div class="sec-h"><h2>NFTs you could burn (' + burnables.length + ')</h2><div class="amt">up to +' + SOL(s.nftLamports) + ' SOL</div></div>'
+      + '<div class="fine">Spam and dead-project NFTs still hold rent. Tick the ones you don’t want — <b>burning destroys them for good</b> and sends their rent back to you. Likely spam is shown first. Nothing is ticked for you.</div>'
+      + '<div class="grid">' + s.nfts.map((c) => {
+        const img = thumb(c.image), on = SEL.has(c.mint);
+        return '<div class="nft' + (on ? ' sel' : '') + (c.burnable ? '' : ' off') + '" data-mint="' + esc(c.mint) + '" title="' + esc(c.name) + '">'
+          + (img ? '<img loading="lazy" src="' + esc(img) + '" alt="">' : '<div class="ph">no image</div>')
+          + (c.burnable ? '<span class="tick"></span>' : '') + (c.burnable && c.junk >= 3 ? '<span class="tag">likely spam</span>' : '')
+          + '<div class="meta"><div class="nm">' + esc(c.name) + '</div><div class="co">' + esc(c.collectionName || (c.collection ? short(c.collection) : 'no verified collection')) + (c.pnft ? ' · pNFT' : '') + '</div>'
+          + (c.burnable ? '<div class="rent">+' + SOL(c.lamports) + ' SOL</div>' : '<div class="why">' + esc(c.reason) + '</div>') + '</div></div>';
+      }).join('') + '</div>'
+      + '<div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="btn burn" id="burnBtn"' + (mine() && SEL.size ? '' : ' disabled') + '>Burn ' + SEL.size + ' selected — get back ~' + SOL(net(selLamports)) + ' SOL</button>'
+      + '<button class="btn" id="burnMineBtn"' + (mine() && SEL.size ? '' : ' disabled') + ' title="Pick a mining setting and confirm on the miner — nothing is burned before that">🔥 Burn &amp; ⛏ Mine ORE</button>'
+      + (SEL.size ? '<button class="mini" id="clearSel">Clear selection</button>' : '') + '</div>'
+      + '<div class="fine" style="margin-top:6px">🔥 Burn &amp; ⛏ Mine ORE takes the ticked NFTs to the miner: you pick a mining setting there and confirm — the SOL that comes back goes into ORE auto-mining. Mining is a chance: rounds can lose.</div>'
+      + '<div id="burnConfirm"></div><div id="burnMsg" class="fine" style="margin-top:8px"></div></div>';
+  }
+  $('results').innerHTML = html;
+  document.querySelectorAll('[data-gem]').forEach((b) => { b.onclick = () => sweepGem(Number(b.dataset.gem)); });
+  const rb = $('revokeBtn'); if (rb) rb.onclick = () => sweepRevokes();
+  const cb = $('closeBtn'); if (cb) cb.onclick = () => sweepCloses();
+  const bb = $('burnBtn'); if (bb) bb.onclick = () => askBurn();
+  const bm = $('burnMineBtn'); if (bm) bm.onclick = () => burnAndMine();
+  const rs = $('rescan'); if (rs) rs.onclick = () => lookup(OWNER);
+  const cs = $('clearSel'); if (cs) cs.onclick = () => { SEL.clear(); render(); };
+}
+
+// 🔥 Burn & ⛏ Mine ORE: hand the ticked NFTs to the miner's burn mode (/mine?burn=1) through sessionStorage — never the
+// URL. The miner re-checks every one against the connected wallet, and burns nothing until the user confirms there.
+const BURN2MINE_KEY = 'dd:burn2mine';
+function burnAndMine() {
+  const mints = SCAN.nfts.filter((c) => c.burnable && SEL.has(c.mint)).map((c) => c.mint);
+  if (!mints.length || !mine()) return;
+  try { sessionStorage.setItem(BURN2MINE_KEY, JSON.stringify({ owner: OWNER, mints, at: Date.now() })); } catch (e) { /* storage blocked: the miner opens with nothing ticked */ }
+  const ref = new URLSearchParams(location.search).get('ref');
+  location.href = '/mine?burn=1' + (ref ? '&ref=' + encodeURIComponent(ref) : '');
+}
+
+// a dead thumbnail (spam hosts vanish) shows the "no image" tile instead of a broken image
+document.addEventListener('error', (e) => {
+  const im = e.target; if (!im || im.tagName !== 'IMG' || !im.closest('.nft')) return;
+  const ph = document.createElement('div'); ph.className = 'ph'; ph.textContent = 'no image'; im.replaceWith(ph);
+}, true);
+document.addEventListener('click', (e) => {
+  const t = e.target.closest('.nft[data-mint]');
+  if (t && !t.classList.contains('off') && !BUSY) { const m = t.dataset.mint; SEL.has(m) ? SEL.delete(m) : SEL.add(m); render(); }
+});
+
+// sign every planned transaction (one approval where the wallet can batch), send, confirm
+async function signSendConfirm(batches, out, who) {
+  const a = window.DOJO_WALLET;
+  const txs = await DojoSweep.finalize(rpc, who || OWNER, batches);
+  const sigs = [];
+  let signed = null;
+  if (txs.length > 1 && typeof a.signAll === 'function') {
+    out.textContent = 'Approve ' + txs.length + ' transactions in your wallet…';
+    try { signed = await a.signAll(txs); } catch (e) { if (!/cannot sign multiple/i.test(e.message || '')) throw e; }
+  }
+  if (signed) {
+    for (let i = 0; i < signed.length; i++) { out.textContent = 'Sending ' + (i + 1) + ' of ' + signed.length + '…';
+      sigs.push(await rpc('sendTransaction', [Buffer.from(signed[i]).toString('base64'), { encoding: 'base64', maxRetries: 3 }])); }
+  } else {
+    for (let i = 0; i < txs.length; i++) { out.textContent = 'Approve ' + (i + 1) + ' of ' + txs.length + ' in your wallet…';
+      const r = await a.signAndSendTransaction(txs[i]); sigs.push(r.signature || r); }
+  }
+  out.textContent = 'Confirming…';
+  let done = 0, failed = 0;
+  for (let k = 0; k < 40 && done + failed < sigs.length; k++) {
+    const st = await rpc('getSignatureStatuses', [sigs]); done = 0; failed = 0;
+    ((st && st.value) || []).forEach((s) => { if (s && (s.confirmationStatus === 'confirmed' || s.confirmationStatus === 'finalized')) { if (s.err) failed++; else done++; } });
+    if (done + failed < sigs.length) await new Promise((r) => setTimeout(r, 1500));
+  }
+  return { sigs, done, failed };
+}
+
+async function sweepCloses() {
+  if (!mine() || BUSY) return;
+  const out = $('closeMsg'), btn = $('closeBtn'); BUSY = true; btn.disabled = true;
+  try {
+    const plan = await DojoSweep.planCloses(rpc, OWNER, SCAN.empties, (s) => { out.textContent = s; });
+    if (!plan.batches.length) throw new Error('none of these accounts can be closed right now' + (plan.dropped[0] ? ' (' + plan.dropped[0].reason + ')' : ''));
+    const lam = plan.batches.reduce((t, b) => t + b.lamports, 0);
+    const r = await signSendConfirm(plan.batches, out);
+    out.innerHTML = '<span class="ok">✓ ' + r.done + ' of ' + r.sigs.length + ' transaction' + (r.sigs.length === 1 ? '' : 's') + ' confirmed — about ' + SOL(lam) + ' SOL is back in your wallet (after the 1% Dojo fee).</span>'
+      + (r.failed ? ' <span class="err">' + r.failed + ' failed.</span>' : '') + (plan.dropped.length ? ' <span class="warn">' + plan.dropped.length + ' account(s) couldn’t be closed.</span>' : '')
+      + ' <a href="https://solscan.io/tx/' + esc(encodeURIComponent(r.sigs[0])) + '" target="_blank" rel="noopener" style="color:var(--gold)">Solscan ↗</a>';
+    BUSY = false; const note = out.innerHTML; setTimeout(() => lookup(OWNER, note), 2500);
+  } catch (e) { out.innerHTML = '<span class="err">' + esc((e && e.message) || 'Failed.') + '</span>'; BUSY = false; btn.disabled = false; }
+}
+
+// GemFarm: the next step for one farm — start unstake (cooldown farms), or unstake + withdraw (free); NFTs that didn't
+// fit the first transaction are withdrawn right after it lands
+async function sweepGem(i) {
+  const f = SCAN.farms[i], out = $('gemMsg' + i), btn = document.querySelector('[data-gem="' + i + '"]');
+  if (!mine() || BUSY || !f) return;
+  BUSY = true; btn.disabled = true;
+  try {
+    out.textContent = 'Checking with the farm…';
+    const plan = await DojoSweep.planGemFarm(rpc, OWNER, f);
+    if (plan.needOre) {   // the rescue costs 0.01 ORE and this wallet's ORE account holds less: nothing is built
+      out.innerHTML = '<span class="warn">Rescue costs ' + DojoSweep.RESCUE_FEE_ORE + ' ORE — get ORE</span> (you have ' + (+plan.oreHave).toFixed(4) + ') '
+        + (window.DojoSwap ? '<button class="mini" id="gemOre' + i + '">Get ORE</button>' : '');
+      const g = $('gemOre' + i); if (g) g.onclick = () => DojoSwap.open({ needOre: Math.ceil(plan.needOre * 1e4) / 1e4 });
+      BUSY = false; btn.disabled = false; return;
+    }
+    if (plan.error) throw new Error('Can’t be unstaked here: ' + plan.error + ' — farm ' + f.farm);
+    out.textContent = plan.kind === 'start' ? 'Approve step 1 (start unstake) in your wallet…' : 'Approve in your wallet: unstake + withdraw (+ ' + plan.feeOre + ' ORE rescue fee)…';
+    const r1 = await signSendConfirm(plan.batches, out);
+    if (!r1.done) throw new Error('The transaction didn’t confirm — check your wallet’s activity.');
+    let note = plan.kind === 'start' ? '<span class="ok">✓ Unstake started — the farm’s cooldown is running. Come back after it to withdraw.</span>' : '<span class="ok">✓ Unstaked — ' + plan.batches[0].items.length + ' NFT' + (plan.batches[0].items.length === 1 ? '' : 's') + ' back in your wallet.</span>';
+    if (plan.kind !== 'start' && plan.rest.length) {
+      out.textContent = 'Withdrawing the other ' + plan.rest.length + '…';
+      const more = await DojoSweep.planGemWithdraws(rpc, OWNER, f, plan.rest);
+      if (more.batches.length) { const r2 = await signSendConfirm(more.batches, out); note += ' <span class="ok">+ ' + more.batches.reduce((t, b) => t + b.items.length, 0) + ' more (' + r2.done + ' of ' + r2.sigs.length + ' confirmed).</span>'; }
+      if (more.dropped.length) note += ' <span class="warn">' + more.dropped.length + ' couldn’t be withdrawn: ' + esc(more.dropped[0].reason) + '</span>';
+    }
+    if (plan.skipRewards) note += ' <span class="fine">(the farm’s rewards couldn’t be settled, so they were skipped)</span>';
+    BUSY = false; setTimeout(() => lookup(OWNER, note), 2500);
+  } catch (e) { out.innerHTML = '<span class="err">' + esc((e && e.message) || 'Failed.') + '</span> <a href="https://solscan.io/account/' + esc(encodeURIComponent(f.farm)) + '" target="_blank" rel="noopener" style="color:var(--gold)">farm on Solscan ↗</a>'; BUSY = false; btn.disabled = false; }
+}
+async function sweepRevokes() {
+  if (!mine() || BUSY) return;
+  const out = $('revokeMsg'), btn = $('revokeBtn'); BUSY = true; btn.disabled = true;
+  try {
+    const plan = await DojoSweep.planRevokes(rpc, OWNER, SCAN.soft);
+    if (!plan.batches.length) throw new Error('nothing could be revoked' + (plan.dropped[0] ? ' (' + plan.dropped[0].reason + ')' : ''));
+    const r = await signSendConfirm(plan.batches, out);
+    const note = '<span class="ok">✓ Revoked — ' + r.done + ' of ' + r.sigs.length + ' transaction' + (r.sigs.length === 1 ? '' : 's') + ' confirmed.</span>';
+    BUSY = false; setTimeout(() => lookup(OWNER, note), 2500);
+  } catch (e) { out.innerHTML = '<span class="err">' + esc((e && e.message) || 'Failed.') + '</span>'; BUSY = false; btn.disabled = false; }
+}
+
+function askBurn() {
+  const items = SCAN.nfts.filter((c) => c.burnable && SEL.has(c.mint)); if (!items.length || !mine()) return;
+  $('burnConfirm').innerHTML = '<div class="confirm"><b class="err">⚠ Burning is permanent.</b><div class="fine" style="margin:6px 0">These ' + items.length + ' NFT' + (items.length === 1 ? '' : 's') + ' will be destroyed forever — they can’t be recovered or sold afterwards:</div>'
+    + '<div class="list" style="max-height:120px">' + items.map((c) => esc(c.name) + (c.collectionName ? ' · ' + esc(c.collectionName) : '')).join('<br>') + '</div>'
+    + '<label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:13px;color:var(--ink)"><input type="checkbox" id="burnSure"> I understand — burn them forever</label><div class="fine" style="margin-top:6px">1% Dojo fee on the SOL that comes back, in the same transaction.</div>'
+    + '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn burn" id="burnGo" disabled>Burn ' + items.length + ' forever</button><button class="mini" id="burnCancel">Cancel</button></div></div>';
+  $('burnSure').onchange = () => { $('burnGo').disabled = !$('burnSure').checked; };
+  $('burnCancel').onclick = () => { $('burnConfirm').innerHTML = ''; };
+  $('burnGo').onclick = () => sweepBurns(items);
+}
+
+async function sweepBurns(items) {
+  if (!mine() || BUSY) return;
+  const out = $('burnMsg'); BUSY = true; $('burnGo').disabled = true; $('burnBtn').disabled = true;
+  try {
+    const plan = await DojoSweep.planBurns(rpc, OWNER, items, (s) => { out.textContent = s; });
+    if (!plan.batches.length) throw new Error('none of these can be burned' + (plan.dropped[0] ? ' (' + plan.dropped[0].item.name + ': ' + plan.dropped[0].reason + ')' : ''));
+    const lam = plan.batches.reduce((t, b) => t + b.lamports, 0);
+    const r = await signSendConfirm(plan.batches, out);
+    out.innerHTML = '<span class="ok">✓ Burned — about ' + SOL(lam) + ' SOL is back in your wallet, after the 1% Dojo fee (' + r.done + ' of ' + r.sigs.length + ' transaction' + (r.sigs.length === 1 ? '' : 's') + ' confirmed).</span>'
+      + (r.failed ? ' <span class="err">' + r.failed + ' failed.</span>' : '')
+      + (plan.dropped.length ? '<br><span class="warn">Not burned (' + plan.dropped.length + '): ' + plan.dropped.map((d) => esc(d.item.name) + ' — ' + esc(d.reason)).join('; ') + '</span>' : '');
+    $('burnConfirm').innerHTML = ''; BUSY = false; const note = out.innerHTML; setTimeout(() => lookup(OWNER, note), 2500);
+  } catch (e) { out.innerHTML = '<span class="err">' + esc((e && e.message) || 'Failed.') + '</span>'; BUSY = false; const g = $('burnGo'); if (g) g.disabled = !($('burnSure') && $('burnSure').checked); $('burnBtn').disabled = false; }
+}
+
+</script>
+<script src="/dojo-credits.js"></script><script src="/dojo-wallet.js"></script><script src="/dojo-profile.js"></script><script src="/mwa.js"></script><script src="/wallet-picker.js"></script><script>/*navwallet-wire*/(function(){var b=document.getElementById('dojoNavWallet');if(!b)return;var A=null,sh=function(p){return p.slice(0,4)+'\u2026'+p.slice(-4);};var G="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#0a0814;background:linear-gradient(135deg,#c8962a,#8b6018);border:none;padding:9px 16px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;",C="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#e8b84b;background:rgba(201,151,58,.12);border:1px solid rgba(201,151,58,.5);padding:9px 14px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;";function set(a){A=a;window.DOJO_WALLET=a||null;window.dispatchEvent(new Event('dojo-wallet-change'));if(a){b.textContent='\u25ce '+sh(a.pubkey);b.setAttribute('style',C);}else{b.textContent='Connect wallet';b.setAttribute('style',G);}document.querySelectorAll('.dn-connect').forEach(function(x){x.textContent=a?'\u25ce '+sh(a.pubkey):'\ud83d\udd11 Connect';});}window.dojoNavSetWallet=set;b.onclick=function(){if(A){var dc=function(){try{A.disconnect&&A.disconnect();}catch(e){}set(null);};if(window.DojoProfile)DojoProfile.menu(b,A.pubkey,dc);else dc();return;}if(window.DojoWalletPicker)DojoWalletPicker.pick().then(set).catch(function(){});};if(window.DojoWalletPicker&&DojoWalletPicker.autoConnect)DojoWalletPicker.autoConnect().then(function(a){if(a&&!A)set(a);});})();</script>

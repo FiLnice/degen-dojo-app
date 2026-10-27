@@ -2309,7 +2309,7 @@ loadPrices();
 // Pull the LIVE book so new listings appear (not just the deploy-time snapshot); if that fails,
 // fall back to verifying the snapshot against the chain (drops anything already sold).
 setTimeout(async () => { const ok = await loadLiveTower(); if (!ok) refreshListings(); }, 500);
-setInterval(loadLiveTower, 60000);   // keep the tower current on its own — re-scans every minute
+setInterval(function () { if (!document.hidden) loadLiveTower(); }, 60000);   // keep the tower current on its own — re-scans every minute (visible tabs only)
 // Re-render when crossing the mobile breakpoint so floors re-page at 3 or 5.
 let wasPer = perFloor();
 addEventListener('resize', () => { const p = perFloor(); if (p !== wasPer) { wasPer = p; render(); } });

@@ -53,8 +53,24 @@ const sendOk = (c, n) => c?.method !== "sendTransaction" ||
 // getProgramAccounts is pinned to M2 AND must be a narrow lookup: at least one memcmp filter whose bytes are
 // a full base58 pubkey (the resolver matches the listing's mint at offset 112). A filter-less or dataSize-only
 // scan would dump the whole M2 program (hundreds of thousands of accounts) on our key.
+// Dojo Sweep (/sweep) — two more narrow lookups, each exactly [account-type discriminator @0, ONE wallet/vault key]:
+//   GemFarm FARM program: the wallet's own Farmer accounts (identity @40)
+//   GemBank BANK program: one vault's GemDepositReceipts (vault @8) — which NFTs it holds
+// Any other filter, offset or count is refused, so neither can be widened into a scan of the program.
+const GEMFARM = "farmL4xeBFVXJqtfxCzU9b28QACM7E2W2ctT6epAjvE", GEMBANK = "bankHHdqMuaaST4qQk6mkzxGeKPHWmqdgor6Gs8r88m";
+const FARMER_DISC = "jXX2LSteZVk", GDR_DISC = "cugAXF7JS7L";   // base58 of sha256("account:Farmer" / "account:GemDepositReceipt")[0..8]
+const memcmpIs = (x, offset, ok) => !!x && Object.keys(x).length === 1 && !!x.memcmp && x.memcmp.offset === offset &&
+  (x.memcmp.encoding ?? "base58") === "base58" && ok(x.memcmp.bytes);
+const sliceOk = (s) => s == null || (Number.isInteger(s.offset) && Number.isInteger(s.length) && s.offset >= 0 && s.length >= 0 && s.length <= 256 && Object.keys(s).length === 2);
+const narrowGpa = (c, prog, disc, offset) => {
+  const o = c?.params?.[1] || {}, f = o.filters;
+  return c?.params?.[0] === prog && Array.isArray(f) && f.length === 2 && memcmpIs(f[0], 0, (b) => b === disc) && memcmpIs(f[1], offset, isKey) &&
+    sliceOk(o.dataSlice) && Object.keys(o).every((k) => ["filters", "encoding", "dataSlice", "commitment"].includes(k));
+};
 const gpaOk = (c) => {
   if (c?.method !== "getProgramAccounts") return true;
+  if (c?.params?.[0] === GEMFARM) return narrowGpa(c, GEMFARM, FARMER_DISC, 40);
+  if (c?.params?.[0] === GEMBANK) return narrowGpa(c, GEMBANK, GDR_DISC, 8);
   if (c?.params?.[0] !== M2_PROGRAM) return false;
   const f = c?.params?.[1]?.filters;
   if (!Array.isArray(f) || f.length < 1 || f.length > 4) return false;
@@ -120,7 +136,7 @@ let breakerUntil = 0;
 
 export default async (request) => {
   if (request.method !== "POST") return new Response("POST only", { status: 405 });
-  const blocked = limited(request, "rpc", 240); if (blocked) return blocked;   // 240 calls / minute / IP (pages batch their reads)
+  const blocked = limited(request, "rpc", 480); if (blocked) return blocked;   // 480 calls / minute / IP (pages batch their reads; a household shares one IP)
 
   // Accept either name: the store historically used SOLANA_RPC, the standalone miner uses
   // HELIUS_RPC. Reading both means whichever the Netlify site has set just works (this was the
@@ -201,5 +217,7 @@ export default async (request) => {
   });
 };
 
-// Netlify platform rate limit (global, per IP + domain) — one of the site's 2 code-defined rules (Free/Personal plan).
-export const config = { path: "/api/rpc", rateLimit: { windowLimit: 300, windowSize: 60, aggregateBy: ["ip", "domain"] } };
+// No Netlify platform rate-limit rule here any more (2026-10-26): tripping it repeatedly got the owner's own home IP
+// blocked at Netlify's edge (connections dropped to BOTH sites for ~15 min). The per-IP limiter inside the function
+// (limited(), 480/min) still guards the Helius key and answers with a normal 429 JSON the pages back off from.
+export const config = { path: "/api/rpc" };
