@@ -42,11 +42,10 @@ import { casUpdate, readWithEtag, putIfNew, putIfMatch, CasError } from "./store
 
 export const SOL_MINT = "So11111111111111111111111111111111111111112";
 export const SLOTS_AHEAD = 300;   // finalized + 300 ≈ 1–2 min ahead of the chain tip (slots run ~0.2–0.4 s; round 1 measured 56 s)
-// Winner count scales with the pot: a fat pot (> BIG_POT_SOL) splits among more winners to
-// feel winnable; a small pot stays one big grab-attention prize.
-export const BIG_POT_SOL = 10;
-export const WINNERS_BIG = 5, WINNERS_SMALL = 1;
-export function winnerCount(potSol) { return potSol > BIG_POT_SOL ? WINNERS_BIG : WINNERS_SMALL; }
+// Every week 5 winners (owner 2026-10-27), whatever the pot — paid in tiers 40 / 25 / 15 / 10 / 10% by pick order
+// (store-payout-core PRIZE_TIERS). With fewer entrants the unfilled ranks' shares roll into next week's Pot.
+export const WINNERS = 5;
+export function winnerCount() { return WINNERS; }
 
 const ADDR_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 export const sha256 = (buf) => createHash("sha256").update(buf).digest("hex");
@@ -327,7 +326,7 @@ export async function drawRound({ potSolOverride = 0, winnersOverride = 0, now =
   if (!st.result) {
     const potFromLedger = st.solPrice > 0 && st.pot.usd > 0 ? +(st.pot.usd / st.solPrice).toFixed(4) : 0;
     const potSol = st.potSolOverride || potFromLedger;
-    const nWinners = st.winnersOverride || winnerCount(potSol);
+    const nWinners = Math.min(WINNERS, st.winnersOverride || WINNERS);   // the old ?winners= override can only lower it (5 tiers)
     const winners = pickWinners(seed, st.blockhash, entries, nWinners);
     st = await setOnce(store, round, { phase: "result", result: { ...pub, status: "drawn", seed, blockSlot: st.blockSlot, blockhash: st.blockhash, potSol,
       potUsd: +st.pot.usd.toFixed(2), potBreakdown: st.pot.routes, nWinners, totalTickets, entrants: entries.length, entriesHash: entriesHash(entries),

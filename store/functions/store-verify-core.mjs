@@ -58,14 +58,15 @@
 // COSIGNER_PUBKEY, TEAM_WALLETS: our own wallets, which can never be a paying customer).
 import { randomBytes } from "node:crypto";
 import { getStore } from "@netlify/blobs";
-import { addToPot, splitGame } from "./store-pot-core.mjs";
+import { addToPot, splitGame, splitCoinbuy } from "./store-pot-core.mjs";
 import { casUpdate, readWithEtag, putIfNew, putIfMatch, pushId } from "./store-cas-core.mjs";
 import { refFromTx, memosOf, TIP_MEMO } from "./store-ref-core.mjs";
 import { lockPreacherShare } from "./store-preacher-core.mjs";
 import { creditTotals } from "./store-keeper-core.mjs";
 import { MARKETPLACES } from "./store-royalty-core.mjs";
-// Routes (2026-10-23): "coinbuy" and a referred "minetip" split 22% Pot / 22% Reserve / 12% ops / 44% preacher pool
-// (store-pot-core splitGame, preacher share locked here); a "minetip" with no preacher stays 100% Reserve; "tip" (a Dojo
+// Routes: "coinbuy" (2026-10-27) splits Reserve 12% / ops 12% / the preacher's tier share / the Pot the rest (store-pot-core
+// splitCoinbuy: Pot 76% unreferred … 32% at a 44% tier; the preacher share is locked here); a "minetip" (the 1% mining fee)
+// goes 100% to the Reserve since 2026-10-27, with or without a ddref memo (records verified before keep their split); "tip" (a Dojo
 // Pot tip with the ddtip memo) stays 100% Pot. The Reserve and ops
 // parts are booked into the Keeper totals (Blobs "keeper"), the same ledger the royalties and repairs use.
 
@@ -482,13 +483,19 @@ async function verifyOne(store, key, rec, etag, { strictReject, reattribute }) {
     const coins = route === "coinbuy" ? coinsForUsd(usd) : 0;
     if (route === "coinbuy" && !(coins > 0)) return reject(`dust: $${usd.toFixed(2)} < $1`);
     // lock the preacher's share NOW (their fighters at this moment); an RPC failure throws → the cron retries later
-    const lock = await lockPreacherShare({ ref: pay.memoRef, buyer });
+    // Mining fees (minetip, incl. Burn to Mine's deposit fee) earn NO preacher share since 2026-10-27 (owner): the ddref memo
+    // stays on the record for attribution stats only. Preachers earn from coin purchases. Records locked before keep their share.
+    const lock = route === "minetip" ? { code: null, wallet: null, pct: 0, why: "mining fees earn no preacher share (2026-10-27)" }
+      : await lockPreacherShare({ ref: pay.memoRef, buyer });
     // a mining tip with NO preacher stays 100% in the Reserve — no Pot, no ops share (owner 2026-10-23)
-    const sp = route === "minetip" && !(lock.pct > 0) ? { pot: 0n, ops: 0n, preacher: 0n, reserve: BigInt(pay.gainRaw) } : splitGame(pay.gainRaw, lock.pct);
-    const split = { v: 3, currency, dec: Math.round(Math.log10(DEC[currency])), gainRaw: String(pay.gainRaw),
+    // coin buys: the 2026-10-27 split (Pot takes the unused preacher pool); mining fees: 100% Reserve (owner 2026-10-27 —
+    // no Pot, no ops, no preacher, memo or not)
+    const sp = route === "coinbuy" ? splitCoinbuy(pay.gainRaw, lock.pct)
+      : route === "minetip" ? { pot: 0n, ops: 0n, preacher: 0n, reserve: BigInt(pay.gainRaw) } : splitGame(pay.gainRaw, lock.pct);
+    const split = { v: route === "coinbuy" ? 4 : 3, currency, dec: Math.round(Math.log10(DEC[currency])), gainRaw: String(pay.gainRaw),
       pot: String(sp.pot), reserve: String(sp.reserve), ops: String(sp.ops), preacher: String(sp.preacher),
       preacherPct: lock.pct, ref: lock.code, preacherWallet: lock.wallet || null, ...(lock.tier ? { tier: lock.tier } : {}), ...(lock.why ? { why: lock.why } : {}) };
-    const frac = Number(sp.pot) / Number(pay.gainRaw);   // = 0.22 up to rounding dust
+    const frac = Number(sp.pot) / Number(pay.gainRaw);   // coin buy 0.32–0.76 (up to rounding dust) · mining fee 0
     plan = { route, coins, potUsd: usd * frac, potNative: Number(sp.pot) / DEC[currency], split };
   }
   // One payment, one product: the branded-miner setup fee is paid to the same treasury, and its signup

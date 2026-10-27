@@ -2,8 +2,9 @@
 // payout engine, so every screen and every payout agree on what a preacher is owed.
 //
 // What a preacher earns on (owner's call, 2026-10-23) — GAMES + MINING TIPS ONLY, tier share = 28/36/44%:
-//   coin pack → tier share of the whole verified pack     (the pack splits 22% Pot · 22% Reserve · 12% ops ·
-//   mining tip → tier share of the whole verified tip      44% preacher pool — see store-pot-core.mjs splitGame)
+//   coin pack → tier share of the whole verified pack     (2026-10-27: Reserve 12% · ops 12% · tier share · Pot the rest
+//                                                            — store-pot-core.mjs splitCoinbuy)
+//   mining tip → tier share of the whole verified tip      (22% Pot · 22% Reserve · 12% ops · 44% pool — splitGame)
 // The share is LOCKED when verify-core verifies the payment (lockPreacherShare: the preacher's fighters held for
 // 7+ days at that moment; self-referral / no linked wallet → 0) and stored on the record as `split`; the unused part of the
 // 44% pool went to the Reserve right then, so a payout pays exactly the locked amount.

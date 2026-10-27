@@ -1,18 +1,23 @@
 {
   "name": "Degen Dojo",
   "short_name": "Degen Dojo",
-  "description": "The full Degen Dojo world on Solana — collect and trade fighters in the marketplace, play four games for the provably-fair weekly Dojo Pot, mine ORE, and earn as a Preacher. Own it all inside one app.",
+  "description": "Degen Dojo on Solana: trade fighter NFTs in ORE, play 3 games and 2 arenas for the provably-fair weekly Dojo Pot (a free coin every week), mine ORE on the 25-tile grid, Burn to Mine your spare NFTs, and claim back SOL from empty accounts.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0d0b0a",
   "theme_color": "#c9973a",
-  "categories": ["games", "entertainment", "shopping"],
+  "categories": [
+    "games",
+    "entertainment",
+    "shopping"
+  ],
   "icons": [
     { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     { "src": "/icon-192-maskable.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
     { "src": "/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
-  ]
+  ],
+  "id": "/"
 }

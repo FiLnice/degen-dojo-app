@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Privacy — Degen Dojo</title>
+<meta name="description" content="What the Degen Dojo store and app process, what they don't, and who else is involved. No names, no emails, no trackers — wallets sign on your device.">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Teko:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#100c08;--pan:#1b1510;--line:#3a2f22;--gold:#e8b84b;--ink:#ece4d6;--ink2:#f6efe2;--mut:#9c8f7d;}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(1000px 500px at 50% -10%,#20180f,#100c08 60%);background-color:#100c08;color:var(--ink);font-family:Inter,system-ui,sans-serif}
+.wrap{max-width:820px;margin:0 auto;padding:22px 16px 60px}
+h1{font-family:Teko;font-weight:700;font-size:40px;margin:0;background:linear-gradient(180deg,#f4e2b4,var(--gold));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+h2{font-family:Teko;font-weight:600;font-size:24px;color:var(--ink2);margin:0 0 6px;letter-spacing:.02em}
+.sub{color:var(--mut);font-size:13.5px;margin:2px 0 18px;line-height:1.5}
+.card{background:var(--pan);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:14px}
+p,li{font-size:14px;line-height:1.6;color:var(--ink)}
+ul{margin:6px 0 0;padding-left:20px}
+li{margin-bottom:4px}
+b{color:var(--ink2)}
+a{color:var(--gold)}
+.fine{color:var(--mut);font-size:12.5px;line-height:1.55}
+</style>
+</head>
+<body>
+<div id="ddnav-mount"></div>
+<div class="wrap">
+  <h1>Privacy</h1>
+  <div class="sub">Degen Dojo store &amp; app (store.degendojo.xyz, degendojo.xyz and the Degen Dojo Seeker app) · last updated 27 October 2026</div>
+
+  <div class="card">
+    <h2>The short version</h2>
+    <ul>
+      <li>We never ask for your name, email, phone number or ID. There is no account to create — your wallet is your login.</li>
+      <li>Your wallet signs everything <b>on your device</b>. We never see, store or ask for private keys or seed phrases.</li>
+      <li>No ads, no analytics or tracking scripts, and we don't sell or share data with anyone for marketing.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>What we process</h2>
+    <ul>
+      <li><b>Your public wallet address</b>, when you connect a wallet — to show your NFTs, coins and balances, and to build the transactions you ask for.</li>
+      <li><b>Transactions you sign.</b> They are built and checked (simulated) in your browser and sent to the Solana network. Like everything on Solana, they are public on-chain.</li>
+      <li><b>Game and store records keyed by your wallet address</b>, kept on our server: your coin balance, plays and weekly Dojo Pot chances, verified coin purchases, free-coin claims (weekly and Seeker), Preacher referrals and payouts. These are needed to run the games and pay prizes, and the Pot draw publishes wallet addresses with their chances so anyone can verify it.</li>
+      <li><b>A sign-in session.</b> Signing a free message proves you own the wallet; the resulting session token lives in your browser for up to 12 hours.</li>
+      <li><b>Your IP address</b>, briefly, to rate-limit requests and stop abuse. Our hosting provider (Netlify) also handles it as part of serving the site.</li>
+      <li><b>Your browser's local storage</b> holds conveniences such as filters, tabs, language, your session token and pending purchases. One cookie (<code>dd_ref</code>) remembers a Preacher's referral code if you arrived through their link.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>Services we use</h2>
+    <p>To show NFTs, prices and images and to settle trades, the pages talk to these services. Each receives what a normal web request carries (such as your IP address) plus the public data needed for that request — usually a wallet address, an NFT address or a transaction:</p>
+    <ul>
+      <li><b>Netlify</b> — hosting and our server functions and storage.</li>
+      <li><b>Helius</b> — Solana RPC and NFT data (through our own proxy).</li>
+      <li><b>Magic Eden</b> and <b>Tensor</b> — marketplace listings, floor prices and buy transactions.</li>
+      <li><b>Jupiter</b> — token prices and swaps (e.g. ORE ↔ SOL).</li>
+      <li><b>wsrv.nl</b> — image resizing; <b>Arweave, Irys and IPFS gateways</b> and our own storage — NFT images.</li>
+      <li><b>Google Fonts</b> — the page fonts.</li>
+      <li>Your <b>wallet app</b> (e.g. Phantom, Solflare, Jupiter, Seed Vault on Seeker) — when you connect or sign. Seeker Connect, if you choose it, relays the wallet connection through a public relay.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>Keeping and deleting</h2>
+    <p>On-chain transactions are permanent and public — no one can delete them. Our server records are kept as long as they are needed to run the games, pay prizes and keep the Pot verifiable. You can clear your browser's local storage at any time; it signs you out and forgets your preferences.</p>
+  </div>
+
+  <div class="card">
+    <h2>Contact</h2>
+    <p>Questions about privacy: reach us on <a href="https://x.com/DegenDojoArt" target="_blank" rel="noopener">X (@DegenDojoArt)</a> or in the <a href="https://discord.gg/FwgpnZPzMq" target="_blank" rel="noopener">Degen Dojo Discord</a>.</p>
+    <p class="fine">See also the <a href="/terms/">Terms of Use</a> and the <a href="https://degendojo.xyz/license/">License</a>. If this page changes, the date above changes with it.</p>
+  </div>
+</div>
+</body></html>

@@ -262,6 +262,10 @@ export type OreAutomation = {
   fee: bigint; // executor fee per round (lamports)
   reload: boolean; // auto-reload winnings back into balance
   active: boolean; // has a funded balance
+  strategy: number; // STRATEGY_RANDOM (0) | STRATEGY_PREFERRED (1)
+  soloTiles: number; // RANDOM: tiles a round from the solo group (0 = unset)
+  splitTiles: number; // RANDOM: tiles a round from the split group (0 = unset)
+  tiles: number; // tiles staked per round — what the balance actually pays for (the mask, or solo + split)
 };
 
 export function decodeAutomation(data: Uint8Array): OreAutomation {
@@ -271,9 +275,18 @@ export function decodeAutomation(data: Uint8Array): OreAutomation {
   const balance = v.getBigUint64(48, true);
   // executor @ 56..88
   const fee = v.getBigUint64(88, true);
-  // strategy @ 96, mask @ 104
+  const strategy = Number(v.getBigUint64(96, true));
+  const mask = v.getBigUint64(104, true);
   const reload = v.getBigUint64(112, true) > 0n;
-  return { amount, balance, fee, reload, active: balance > 0n };
+  // conditions (newer 160-byte accounts): max_production_cost u64 @136, min/max motherlode u16 @144/@146,
+  // split_tiles u16 @148, solo_tiles u16 @150 — e.g. a "10 solo" miner reads solo_tiles = 10
+  const long = data.byteLength >= 152;
+  const splitTiles = long ? v.getUint16(148, true) : 0;
+  const soloTiles = long ? v.getUint16(150, true) : 0;
+  let maskTiles = 0;
+  for (let m = mask; m > 0n; m >>= 1n) maskTiles += Number(m & 1n);
+  const tiles = strategy === 0 && soloTiles + splitTiles > 0 ? soloTiles + splitTiles : maskTiles || 25;
+  return { amount, balance, fee, reload, active: balance > 0n, strategy, soloTiles, splitTiles, tiles };
 }
 
 export async function readAutomation(

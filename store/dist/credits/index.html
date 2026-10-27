@@ -111,14 +111,16 @@ h1{font-family:"Teko",sans-serif;font-weight:700;font-size:clamp(38px,8vw,66px);
   <div class="strip">
     <div class="stat"><div class="k">Your coins</div><div class="v">🪙 <span id="balV">0</span></div></div>
     <div class="stat"><div class="k">Plays left</div><div class="v" id="playsV">0</div></div>
-    <div class="stat"><div class="k">Into the pot / buy</div><div class="v" id="potPctV">22<small>%</small></div></div>
+    <div class="stat"><div class="k">Into the pot / buy</div><div class="v" id="potPctV">32–76<small>%</small></div></div>
   </div>
   <!-- coins live on the server: a connected wallet sees them by address (peek); signing in (one free signature, 12h) is for playing; Seeker owners get one free coin -->
   <div class="acct">
     <button class="acct-btn" id="signInBtn" type="button" onclick="connectForBalance()">🔑 Connect your wallet to see your coins</button>
+    <button class="acct-btn" id="freeBtn" type="button" onclick="claimFreeCoin(this)">🎁 Free weekly coin — claim</button>
     <button class="acct-btn" id="seekerBtn" type="button" onclick="claimSeekerCoin(this)">📱 Seeker owner? Claim your free coin</button>
   </div>
   <div class="acct-msg" id="seekerMsg"></div>
+  <div class="acct-msg">No purchase necessary — free every week: 1 coin per Seeker (SGT) or per wallet 30+ days old.</div>
   <div class="buystat" id="buyStatus" style="display:none"></div>
 
   <div class="pays" id="pays">
@@ -126,18 +128,19 @@ h1{font-family:"Teko",sans-serif;font-weight:700;font-size:clamp(38px,8vw,66px);
     <button class="pay" data-cur="SKR" onclick="setPay('SKR')"><img class="tok" id="skrIco" src="" alt=""> SKR</button>
     <button class="pay" data-cur="SOL" onclick="setPay('SOL')"><img class="tok" id="solIco" src="" alt=""> SOL</button>
   </div>
+  <div style="text-align:center;font-size:12.5px;color:var(--mut);margin:2px 0 10px">Pay with ORE — <a href="/mine" style="color:var(--gold)">⛏ mine it on /mine</a></div>
 
   <div class="packs" id="packs"></div>
 
   <div class="potnote">
-    <span class="pill" id="potPill">22%</span>
-    <span>of every coin purchase flows straight into the <b>Dojo Pot</b> — the prize the <b>top 25 players each week</b> are raffled to win. The more everyone plays, the bigger the pot.</span>
+    <span class="pill" id="potPill">32–76%</span>
+    <span>of every coin purchase flows straight into the <b>Dojo Pot</b> — <b>76%</b> when no preacher referred you, at least <b>32%</b> always. <b>5 winners every week</b> share it: 40 / 25 / 15 / 10 / 10%. The more everyone plays, the bigger the pot.</span>
   </div>
 
   <div class="how">
     <div class="c"><h3>Buy once, play anywhere</h3><p>Coins work across <b>Degen Duel</b>, <b>Dojo Flip</b>, <b>Teto Wars</b>, <b>Cluck-Fu</b> and <b>Cock Brawl</b>. No per-game top-ups, no juggling tokens mid-game.</p></div>
     <div class="c"><h3>Pay in what you hold</h3><p>Buy with <b>ORE</b>, <b>SKR</b> or <b>SOL</b> — priced live and swapped to settle. Same rails the store already uses.</p></div>
-    <div class="c"><h3>Play to earn raffle chances</h3><p>You never win money directly — a <b>win</b> = 3 raffle chances (a Degen Duel win 2), a <b>play</b> = 1, and playing all 5 games in the same week = <b>+5 bonus</b>. Hold <b>5+ Degen Dojo fighters</b> and every chance counts <b>2×</b>. Every week the Dojo Pot is drawn among chance-holders, provably fair, and chances start fresh. <b>22%</b> of every coin pack goes into the pot.</p></div>
+    <div class="c"><h3>Play to earn raffle chances</h3><p>You never win money directly — a <b>win</b> = 3 raffle chances (a Degen Duel win 2), a <b>play</b> = 1, and playing all 5 games in the same week = <b>+5 bonus</b>. Hold <b>5+ Degen Dojo fighters</b> and every chance counts <b>2×</b>. Every week the Dojo Pot is drawn among chance-holders — <b>5 winners</b>, provably fair — and chances start fresh. <b>32–76%</b> of every coin pack goes into the pot.</p></div>
   </div>
 
   <div class="games">
@@ -179,7 +182,7 @@ const PACKS = [
   { credits: 10, bonus: 0, usd: 10, tag: 'Popular' },
   { credits: 25, bonus: 0, usd: 25, tag: 'Best value', best: true },   // owner 2026-10-27: 3/5/10/25 only, no bonus coins
 ];
-const POT_PCT = 22;                 // share of every purchase that feeds the Dojo Pot (store-pot-core POT_FRAC)
+const POT_PCT_MIN = 32, POT_PCT_MAX = 76;   // a purchase's Pot share: 76% unreferred … 32% with a 44% preacher (store-pot-core splitCoinbuy)
 const PRICES = { SOL:null, ORE:null, SKR:null };
 let CUR = 'ORE';
 const PENDING_KEY = 'dojo_pending_buys';   // payments sent but not yet confirmed credited (re-sent + watched on revisit)
@@ -222,6 +225,24 @@ async function signInForBalance(){
   catch(e){ const m=String(e.message||e); if(!/cancel|reject|declin|denied|closed/i.test(m)) toast(m.slice(0,70)); }
 }
 // Seeker owners: one free coin per Seeker device — the SERVER checks the Seeker Genesis Token.
+// Free weekly coin (no purchase necessary): one per weekly Pot round — per Seeker Genesis Token, or per wallet 30+ days old.
+function freeDays(t){ const d=Math.max(0,Math.ceil((t-Date.now())/864e5)); return d<=1?'1 day':d+' days'; }
+function paintFree(st){
+  const b=$('freeBtn'); if(!b) return;
+  const f=st&&st.free;
+  if(f&&f.claimed){ b.disabled=true; b.textContent='🎁 Free coin claimed — next one in '+freeDays(f.nextAt); }
+}
+function claimFreeCoin(btn){
+  const msg=$('seekerMsg');
+  if(!window.DojoWallet){ msg.textContent='Wallet still loading — one moment.'; return; }
+  btn.disabled=true; msg.className='acct-msg'; msg.textContent='Sign in with your wallet — then we check this week’s free coin…';
+  DojoWallet.claimFree().then(r=>{
+    btn.disabled=false; msg.className='acct-msg'+(r.ok?' ok':'');
+    msg.textContent = (r.tooNew && r.eligibleAt) ? r.message+' Yours qualifies on '+new Date(r.eligibleAt).toLocaleDateString()+'.' : r.message;
+    if(r.ok || r.already) paintFree({ free:{ claimed:true, nextAt:r.nextAt } });
+    renderBalance();
+  });
+}
 function claimSeekerCoin(btn){
   const msg=$('seekerMsg');
   if(!window.DojoWallet){ msg.textContent='Wallet still loading — one moment.'; return; }
@@ -402,9 +423,9 @@ async function loadPrices(){
 
 // init
 $('oreIco').src = ICON.ORE; $('skrIco').src = ICON.SKR; $('solIco').src = ICON.SOL;
-$('potPctV').innerHTML = POT_PCT + '<small>%</small>'; $('potPill').textContent = POT_PCT + '%';
+$('potPctV').innerHTML = POT_PCT_MIN + '–' + POT_PCT_MAX + '<small>%</small>'; $('potPill').textContent = POT_PCT_MIN + '–' + POT_PCT_MAX + '%';
 renderBalance(); renderPacks(); loadPrices();
-if(window.DojoWallet) DojoWallet.on(renderBalance);
+if(window.DojoWallet){ DojoWallet.on(renderBalance); DojoWallet.on(paintFree); }
 window.addEventListener('dojo-coins-change', renderBalance);
 window.addEventListener('dojo-wallet-change', () => { _peek.at = 0; renderBalance(); });   // a wallet just connected → read its coins
 // payments from an earlier visit that weren't confirmed yet: re-send (write-once server-side) + watch

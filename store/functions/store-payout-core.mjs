@@ -5,7 +5,7 @@
 //
 //   cronTick()          weekly state machine: commit → draw → build plan → notify (+ resumes a
 //                       payment settlement a crashed call left in "paying")
-//   buildPlan(round)    winners (equal split of the round's pot snapshot, per token) +
+//   buildPlan(round)    winners (5 ranks, 40/25/15/10/10% of the round's pot snapshot, per token; unfilled ranks → next week) +
 //                       preachers (owed ≥ MIN_PREACHER_PAYOUT_USD) + fraud flags
 //   quoteSwaps(round)   SERVER-side Jupiter quote for the SOL/USDC shares → the exact ORE each payee
 //                       gets is recorded in the plan's manifest (the browser never says what's due)
@@ -188,14 +188,49 @@ export function potTotals(snap) {
   for (const r of Object.values(snap?.routes || {})) { t.sol += +r.sol || 0; t.ore += +r.ore || 0; t.skr += +r.skr || 0; }
   return t;
 }
+// Weekly prize tiers (owner 2026-10-27): 1st 40% · 2nd 25% · 3rd 15% · 4th 10% · 5th 10% of the round's pot, per token.
+// Rank = the provably-fair pick order (store-draw-core pickWinners). The shares are fixed per rank — a rank nobody filled
+// (fewer than 5 entrants) rolls into next week's Pot (unfilledShares + rollUnfilled), it is never shared out.
+export const PRIZE_TIERS = [40n, 25n, 15n, 10n, 10n];
+// Integer split of `total` base units over the 5 ranks: floor(total × pct / 100) each, the rounding dust to 1st. Sum === total.
+export function tierSplit(total) {
+  total = big(total);
+  const out = PRIZE_TIERS.map((p) => (total * p) / 100n);
+  out[0] += total - out.reduce((a, b) => a + b, 0n);
+  return out;
+}
+const drawnWinners = (pub) => (pub?.winners || []).filter((w) => ADDR_RE.test(w.wallet || "")).slice(0, PRIZE_TIERS.length);
+const potRaw = (snap) => { const t = potTotals(snap); return { ORE: toRaw(t.ore, "ORE"), SKR: toRaw(t.skr, "SKR"), SOL: toRaw(t.sol, "SOL") }; };
 export function winnerPayees(pub, snap) {
-  const ws = (pub?.winners || []).filter((w) => ADDR_RE.test(w.wallet || ""));
+  const ws = drawnWinners(pub);
   if (!ws.length) return [];
-  const t = potTotals(snap);
-  const sp = { ORE: splitEqual(toRaw(t.ore, "ORE"), ws.length), SKR: splitEqual(toRaw(t.skr, "SKR"), ws.length), SOL: splitEqual(toRaw(t.sol, "SOL"), ws.length) };
-  const usd = (+snap?.usd || 0) / ws.length;
-  return ws.map((w, i) => ({ id: "w:" + w.wallet, kind: "winner", wallet: w.wallet, label: w.name || w.wallet, tickets: w.tickets || 0,
-    usd: +usd.toFixed(2), pay: { ORE: S(snap ? sp.ORE[i] : 0n), SKR: S(snap ? sp.SKR[i] : 0n), SOL: S(snap ? sp.SOL[i] : 0n), USDC: "0" } }));
+  const raw = potRaw(snap), sp = { ORE: tierSplit(raw.ORE), SKR: tierSplit(raw.SKR), SOL: tierSplit(raw.SOL) };
+  const usdAll = +snap?.usd || 0;
+  return ws.map((w, i) => ({ id: "w:" + w.wallet, kind: "winner", rank: i + 1, pct: Number(PRIZE_TIERS[i]), wallet: w.wallet, label: w.name || w.wallet, tickets: w.tickets || 0,
+    usd: +(usdAll * Number(PRIZE_TIERS[i]) / 100).toFixed(2), pay: { ORE: S(snap ? sp.ORE[i] : 0n), SKR: S(snap ? sp.SKR[i] : 0n), SOL: S(snap ? sp.SOL[i] : 0n), USDC: "0" } }));
+}
+// The shares of the ranks nobody filled this round (fewer than 5 winners drawn): what rolls into next week's Pot.
+// null when all 5 ranks were drawn, or when there's no snapshot (no entrants → the draw kept the whole pot already).
+export function unfilledShares(pub, snap) {
+  const n = drawnWinners(pub).length;
+  if (!snap || !n || n >= PRIZE_TIERS.length) return null;
+  const raw = potRaw(snap), out = { ranks: [], pct: 0, usd: 0, ORE: "0", SKR: "0", SOL: "0" };
+  for (const c of ["ORE", "SKR", "SOL"]) out[c] = S(tierSplit(raw[c]).slice(n).reduce((a, b) => a + b, 0n));
+  for (let i = n; i < PRIZE_TIERS.length; i++) { out.ranks.push(i + 1); out.pct += Number(PRIZE_TIERS[i]); }
+  out.usd = +((+snap.usd || 0) * out.pct / 100).toFixed(2);
+  return out;
+}
+// Add a plan's unfilled shares to the live Pot — once per round: a create-only marker in Blobs "payouts"
+// (unfilled:r<n>) is written after the adds, and each add is id-guarded (unfilled:r<n>:<cur>), so a plan rebuilt
+// later or a retry after a crash never adds them twice.
+export async function rollUnfilled(round, plan) {
+  const u = plan?.unfilled;
+  if (!u) return null;
+  if (await payStore().get("unfilled:r" + round)) return { already: true };
+  const curs = ["ORE", "SKR", "SOL"].filter((c) => big(u[c]) > 0n);
+  for (const c of curs) await addToPot({ usd: (u.usd || 0) / curs.length, currency: c, native: fromRaw(big(u[c]), c), route: "rollover", id: `unfilled:r${round}:${c}` });
+  await putIfNew(payStore(), "unfilled:r" + round, { round, ranks: u.ranks, pct: u.pct, at: Date.now() });
+  return { rolled: curs };
 }
 export function preacherPayees(rows, minUsd = num("MIN_PREACHER_PAYOUT_USD", 1)) {
   const payees = [], skipped = [];
@@ -300,7 +335,8 @@ export async function checkPreachers(preachers, records, { within = budget(Date.
   return flags;
 }
 // (h) the pot ledger's coin-pack + tip totals for the round vs the verified records in its window.
-// Records verified since 2026-10-23 carry their exact Pot share (split.pot: 22% of a coin buy / mining tip);
+// Records verified since 2026-10-23 carry their exact Pot share (split.pot — a coin buy: 22% until 2026-10-27, then 32–76%;
+// a mining tip: 22% when referred until 10-27, 0 since);
 // a Dojo Pot tip is 100%; older records (no split) used 65% of a coin pack and 100% of any tip.
 export function checkPotLedger(snap, prevClosedAt, records, tol = 0.01) {
   if (!snap) return [];
@@ -372,6 +408,7 @@ export async function buildPlan(round, { budgetMs = 20e3, excluded = [], now = D
       totalTickets: pub.totalTickets, entrants: pub.entrants, drawnAt: pub.drawnAt, potRolledOver: !!pub.potRolledOver,
       statusUrl: storeUrl() + "/api/draw?action=status" },
     pot: snap ? { usd: +(+snap.usd || 0).toFixed(2), routes: snap.routes, totals: potTotals(snap), since: snap.since, closedAt: snap.closedAt } : null,
+    tiers: PRIZE_TIERS.map(Number), unfilled: unfilledShares(pub, snap),
     payees, excluded: excluded.filter((id) => payees.some((p) => p.id === id)), flags,
     mints: MINTS, decimals: DEC,
   };
@@ -414,6 +451,8 @@ export async function buildAndStore(round, opts = {}) {
   const saved = etag ? await putIfMatch(payStore(), "round:" + round, plan, etag) : await putIfNew(payStore(), "round:" + round, plan);
   if (!saved) throw new DrawError(`round ${round}'s plan changed while it was being rebuilt — reload and try again`, 409);
   if (plan.round >= (await latestPlanRound())) await payStore().set("latest", String(plan.round));
+  // the ranks nobody filled (fewer than 5 entrants) → next week's Pot, once (marker + id-guarded adds)
+  if (plan.unfilled) await rollUnfilled(round, plan);
   // Preachers are owed EVERYTHING unpaid, so the newest plan carries them. Drop unpaid preacher
   // payees from older unpaid plans, or paying both plans would pay the same records twice.
   const { blobs } = await payStore().list({ prefix: "round:" });
@@ -946,7 +985,7 @@ export function weeklyStatement({ now = Date.now(), reserve = null, viaPreacher 
   const IN = [
     { key: "royalties", label: "Marketplace royalties", note: "sales on Magic Eden, Tensor and our store", ...amt(src.royalties) },
     { key: "coins", label: "Game-coin buys", ...amt(src.coins) },
-    { key: "mineRef", label: "Mining tips via a preacher", note: "the preacher's share is paid out below", ...amt(via) },
+    { key: "mineRef", label: "Mining tips via a preacher (locked before 27 Oct 2026)", note: "the preacher's share is paid out below", ...amt(via) },
     { key: "mineNoRef", label: "Mining tips, no preacher", note: "100% Reserve", ...amt(minus(src.mining, via)) },
     { key: "potTips", label: "Pot tips", note: "100% to the Pot", ...amt(src.tips) },
     { key: "repairs", label: "Card repairs", note: nCards ? nCards + " card" + (nCards === 1 ? "" : "s") + " × 0.01 ORE" : "", ...amt(repairIn) },
@@ -967,7 +1006,7 @@ export function weeklyStatement({ now = Date.now(), reserve = null, viaPreacher 
   const OUT = [];
   OUT.push(group("winners", plan ? "Pot winners — round " + plan.round : "Pot winners", "this week's draw", winnerLines,
     { none: winnerLines.length ? null : (drawNote || (plan && plan.status === "paid" ? "Round " + plan.round + " is already paid ✓" : "No draw to pay right now")), swapNote: swapped(winnerLines) ? "SOL / USDC parts are swapped to ORE in the same batch" : null }));
-  OUT.push(group("preachers", "Preacher shares", "28–44% of the coin buys and mining tips they brought in", preacherLines,
+  OUT.push(group("preachers", "Preacher shares", "28–44% of the coin buys they brought in (mining tips locked before 27 Oct 2026 still pay)", preacherLines,
     { none: preacherLines.length ? null : "No preacher is owed $1 or more", swapNote: swapped(preacherLines) ? "SOL / USDC parts are swapped to ORE in the same batch" : null }));
   const refundLines = (keeper.refundsDue || []).map((r) => { const a = clean({ [MINTS.ORE]: fromRaw(r.raw, "ORE") }); return { to: r.payer, amounts: a, usd: usd(a), note: ((r.mints || []).length || 0) + " card(s) paid after the Mint cap was full" }; });
   OUT.push(group("refunds", "Repair refunds", "repairs paid when every Mint spot was taken", refundLines, { none: refundLines.length ? null : "None" }));

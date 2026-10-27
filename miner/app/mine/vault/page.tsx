@@ -97,6 +97,13 @@ export default function VaultPage() {
           </button>
         )}
 
+        {/* mining → coins: claimed ORE buys game coins on the store (owner 2026-10-27); only inside the store's miner */}
+        {embedded && (
+          <a href="/credits" className="block text-center text-sm font-medium text-amber-200 hover:text-amber-100">
+            Use your ORE → 🪙 buy game coins
+          </a>
+        )}
+
         <p className="text-center text-[11px] text-stone-500">
           Claiming charges a small ORE protocol fee (a 10% cut on unrefined ORE, shared with other miners).
         </p>

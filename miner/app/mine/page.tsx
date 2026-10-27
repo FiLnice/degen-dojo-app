@@ -185,7 +185,8 @@ export default function MinePage() {
   const estSetupRounds = estimateRounds(Math.floor(deposit * LAMPORTS_PER_SOL), Math.floor(amount * LAMPORTS_PER_SOL));
   const autoBalance = automation ? sol(automation.balance) : 0;
   const autoPerTile = automation ? sol(automation.amount) : 0;
-  const estLeftRounds = automation ? estimateRounds(automation.balance, automation.amount) : 0;
+  const estLeftRounds = automation ? estimateRounds(automation.balance, automation.amount, automation.fee || undefined, automation.tiles) : 0;
+  const autoTilesLabel = !automation ? "" : automation.soloTiles && !automation.splitTiles ? `${automation.tiles} solo` : automation.splitTiles && !automation.soloTiles ? `${automation.tiles} split` : String(automation.tiles);
   // A hosted miner must have loaded ITS tip wallet before anything can be sent — never the default.
   const hostedReady = !hosted || hosted.state === "ok";
   // ORE tip availability (tip wallet must already hold an ORE account) + the player's own ORE balance
@@ -431,7 +432,7 @@ export default function MinePage() {
                         label="Per tile"
                         value={
                           <>
-                            {autoPerTile} <SolIcon className="inline size-3" /> × 25
+                            {autoPerTile} <SolIcon className="inline size-3" /> × {autoTilesLabel}
                           </>
                         }
                       />

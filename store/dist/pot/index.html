@@ -78,11 +78,13 @@
         <th style="text-align:right;padding:10px 8px">ORE</th>
       </tr></thead>
       <tbody id="ledgerBody">
-        <tr data-route="coinbuy"><td style="padding:11px 8px"><b>🪙 Coin purchases</b><div style="color:var(--mut);font-size:12px"><span id="potPct">22%</span> of every coin pack bought with SOL / SKR / ORE</div></td><td class="rv" data-c="sol">—</td><td class="rv" data-c="skr">—</td><td class="rv" data-c="ore">—</td></tr>
+        <tr data-route="coinbuy"><td style="padding:11px 8px"><b>🪙 Coin purchases</b><div style="color:var(--mut);font-size:12px"><span id="potPct">32–76%</span> of every coin pack bought with SOL / SKR / ORE (76% when no preacher referred the buyer)</div></td><td class="rv" data-c="sol">—</td><td class="rv" data-c="skr">—</td><td class="rv" data-c="ore">—</td></tr>
         <tr data-route="game"><td style="padding:11px 8px"><b>🎮 Game entries</b><div style="color:var(--mut);font-size:12px">1 coin per play of Flip · Teto · Duel — a slice routes to the pot</div></td><td class="rv" data-c="sol">—</td><td class="rv" data-c="skr">—</td><td class="rv" data-c="ore">—</td></tr>
         <tr data-route="cluck"><td style="padding:11px 8px"><b>🐔 Cluck-Fu sweep</b><div style="color:var(--mut);font-size:12px">the last <b>1/8</b> of every chicken-race pot</div></td><td class="rv" data-c="sol">—</td><td class="rv" data-c="skr">—</td><td class="rv" data-c="ore">—</td></tr>
-        <tr data-route="minetip"><td style="padding:11px 8px"><b>⛏️ ORE mining tips</b><div style="color:var(--mut);font-size:12px"><b>22%</b> of every mining tip that comes through a preacher&rsquo;s link (SOL or ORE) &mdash; tips with no preacher go to the Reserve</div></td><td class="rv" data-c="sol">—</td><td class="rv" data-c="skr">—</td><td class="rv" data-c="ore">—</td></tr>
+        <tr data-route="minetip"><td style="padding:11px 8px"><b>⛏️ ORE mining fees</b><div style="color:var(--mut);font-size:12px">since 27 Oct 2026 the 1% mining fee goes to the Reserve &mdash; this row only shows earlier referred tips</div></td><td class="rv" data-c="sol">—</td><td class="rv" data-c="skr">—</td><td class="rv" data-c="ore">—</td></tr>
         <tr data-route="shelves"><td style="padding:11px 8px"><b>🛒 Shelves tips</b><div style="color:var(--mut);font-size:12px">optional tips when buying an NFT from the shelves</div></td><td class="rv" data-c="sol">—</td><td class="rv" data-c="skr">—</td><td class="rv" data-c="ore">—</td></tr>
+        <tr data-route="seed"><td style="padding:11px 8px"><b>🌱 Seeded by Degen Dojo</b><div style="color:var(--mut);font-size:12px">Degen Dojo&rsquo;s own ORE added to this week&rsquo;s prize</div></td><td class="rv" data-c="sol">—</td><td class="rv" data-c="skr">—</td><td class="rv" data-c="ore">—</td></tr>
+        <tr data-route="rollover"><td style="padding:11px 8px"><b>↩ Rolled over</b><div style="color:var(--mut);font-size:12px">prize shares nobody won last week (fewer than 5 players, or a winner disqualified)</div></td><td class="rv" data-c="sol">—</td><td class="rv" data-c="skr">—</td><td class="rv" data-c="ore">—</td></tr>
         <tr data-route="tip"><td style="padding:11px 8px"><b>🎁 Dojo Pot tips</b><div style="color:var(--mut);font-size:12px"><b>100%</b> — tips sent straight to the Pot from the coins &amp; rescue pages</div></td><td class="rv" data-c="sol">—</td><td class="rv" data-c="skr">—</td><td class="rv" data-c="ore">—</td></tr>
       </tbody>
       <tfoot><tr style="border-top:1px solid rgba(201,151,58,.4);font-family:'Teko',sans-serif;font-size:17px;color:var(--gold-l)">
@@ -100,15 +102,15 @@
     #ledgerBody .rv.zero{color:var(--mut)}
   </style>
 
-  <h2>Where every coin pack &amp; mining tip goes</h2>
+  <h2>Where every coin pack goes</h2>
   <div class="card">
     <ul class="steps">
-      <li><b>22%</b> → this weekly <b>Pot</b> — players win it back in the draw.</li>
-      <li><b>22%</b> → the <a href="/reserve/" style="color:var(--gold-l)">Degen Dojo Reserve</a>.</li>
-      <li><b>44%</b> → the <b>preacher</b> who brought the player in: <b>28%</b> Wanderer · <b>36%</b> Disciple · <b>44%</b> Sensei (by fighters held). Whatever their tier doesn’t take — or all 44% when nobody referred the player — goes to the Reserve.</li>
+      <li><b>12%</b> → the <a href="/reserve/" style="color:var(--gold-l)">Degen Dojo Reserve</a>.</li>
       <li><b>12%</b> → running the Dojo (hosting, tools, the team).</li>
+      <li><b>28 / 36 / 44%</b> → the <b>preacher</b> who brought the player in (Wanderer · Disciple · Sensei, by fighters held).</li>
+      <li><b>Everything else → this weekly Pot</b>: <b>76%</b> when nobody referred the player, at least <b>32%</b> always — players win it back in the draw.</li>
     </ul>
-    <p class="fine" style="margin-top:10px">A mining tip that comes <b>without</b> a preacher goes <b>100%</b> to the Reserve.</p>
+    <p class="fine" style="margin-top:10px">The <b>1% mining fee</b> (auto-mining and Burn to Mine) goes <b>100%</b> to the Reserve — it feeds neither the Pot nor preachers.</p>
     <p class="fine" style="margin-top:10px">Marketplace royalties no longer feed the Pot: every royalty is split <b>88%</b> to the collection’s Card Vault · <b>12%</b> to running the Dojo. <a href="/become-a-preacher" style="color:var(--gold-l)">Become a preacher ↗</a></p>
   </div>
 
@@ -118,6 +120,7 @@
       <li>Connect your wallet and <b>play any game</b> — every play mints you <b>1 chance</b> 🎟 in this week's pot.</li>
       <li><b>Win</b> and you earn more: a win in Cluck-Fu, Cock Brawl or Dojo Flip is worth <b>3 chances</b>, a Degen Duel win <b>2</b> (it's a skill game), and a loss still gives 1.</li>
       <li>Chances stack all week. The more you play, the bigger your slice of the draw.</li>
+      <li><b>No purchase necessary</b> — free every week: <b>1 coin per Seeker (SGT) or per wallet 30+ days old</b>. Claim it on the <a href="/play" style="color:var(--gold-l)">Play</a> or <a href="/credits" style="color:var(--gold-l)">coins</a> page and play it like any other coin.</li>
     </ul>
     <div style="margin-top:12px"><span class="chip">1 play = 1 chance</span><span class="chip">win = up to 3 chances</span><span class="chip">chances stack</span></div>
   </div>
@@ -126,8 +129,9 @@
   <div class="card">
     <ul class="steps">
       <li>Winners are drawn <b>weighted by chances</b> — more chances, better odds — but every entry can win.</li>
-      <li>The pot splits among <b>multiple winners</b>; a bigger pot pays <b>more winners</b> so it always feels winnable.</li>
-      <li>Payouts land straight in your wallet. Unclaimed dust rolls into next week.</li>
+      <li><b>5 winners every week</b>, paid in tiers: <b>1st 40% · 2nd 25% · 3rd 15% · 4th 10% · 5th 10%</b> of the pot, in ORE.</li>
+      <li>Fewer than 5 players? The ranks nobody filled <b>roll into next week's pot</b> — as does the share of any winner disqualified by the payout checks.</li>
+      <li>Payouts land straight in your wallet.</li>
     </ul>
   </div>
 
@@ -157,7 +161,7 @@
     if(t!=null) document.getElementById('ticketN').textContent = Number(t).toLocaleString();
     if(s.winners!=null) document.getElementById('winnerN').textContent = s.winners;
     if(s.nextDraw) document.getElementById('nextDraw').textContent = s.nextDraw;
-    if(s.potPct!=null) document.getElementById('potPct').textContent = s.potPct+'%';
+    if(s.potPct!=null) document.getElementById('potPct').textContent = (s.potPctMin!=null ? s.potPctMin+'–' : '')+s.potPct+'%';
     // Per-route ledger: s.routes = { <route>: { sol, skr, ore } }
     var routes = s.routes || {};
     var tot={sol:0,skr:0,ore:0};
@@ -168,6 +172,8 @@
         var v=r[c]; if(v!=null && isFinite(v)){ tot[c]+=Number(v); cell.textContent=fmt(v); cell.classList.toggle('zero',Number(v)===0); }
       });
     });
+    var seed = +((routes.seed||{}).ore) || 0;
+    if(seed>0){ var sub=document.getElementById('potSub'); if(sub) sub.textContent = '🌱 Seeded by Degen Dojo · ' + (Math.round(seed*1000)/1000) + ' ORE' + (s.potUsd>0 ? ' · ≈ $'+Number(s.potUsd).toLocaleString(undefined,{maximumFractionDigits:2}) : ''); }
     if(s.routes){ document.getElementById('totSol').textContent=fmt(tot.sol); document.getElementById('totSkr').textContent=fmt(tot.skr); document.getElementById('totOre').textContent=fmt(tot.ore); }
   }).catch(function(){ /* keeps the “—” placeholders; page is still a full explainer */ });
 })();

@@ -31,7 +31,14 @@
 //          with a permanent delegate, so it is soulbound in practice — keying by mint holds either
 //          way) and the wallet is marked too (no second SGT, same wallet).
 //
-// Env: SESSION_SECRET (≥ 32 chars; no fallback — fails closed, see store-session-core.mjs). SOLANA_RPC for the Seeker check.
+//   POST {action:"free", token}
+//        → the FREE WEEKLY COIN (owner 2026-10-27 — the "no purchase necessary" way into the weekly Pot): one coin per
+//          weekly round. A Seeker owner gets it per Seeker Genesis Token (one per DEVICE per round, however many wallets —
+//          no wallet-age check); anyone else per wallet whose first on-chain transaction is 30+ days old (anti-sybil).
+//          One per wallet per round either way. Free coins add NOTHING to the Pot and earn no preacher cut.
+//
+// Env: SESSION_SECRET (≥ 32 chars; no fallback — fails closed, see store-session-core.mjs). SOLANA_RPC for the Seeker
+// and wallet-age checks.
 import { limited } from "./store-ratelimit-core.mjs";
 import { getStore } from "@netlify/blobs";
 import { getStrong } from "./store-verify-core.mjs";
@@ -43,6 +50,7 @@ import { POOL as FLIP_POOL } from "./flip-pool.mjs";
 import { dealHands, statsFromDigest, playRound, freshState, winnerOf, simulateV2, DUEL_V2, STATS_TAG } from "./dojo-duel-engine.mjs";
 import { DUEL_POOL } from "./duel-pool.mjs";
 import { ticketRound, ticketKey, mintedInSnapshot, PLAY_TTL_MS, ROUND_GRACE_MS } from "./store-draw-core.mjs";
+import { lastDrawTime } from "./store-payout-core.mjs";
 
 const GAMES = new Set(["duel", "flip", "teto", "cluck", "brawl"]);
 // Grand slam (+5, once per draw round): PLAY all five games in the same round, win or lose — it
@@ -220,6 +228,47 @@ export async function findSeekerGenesisMints(wallet, rpc = solanaRpc) {
   return out;
 }
 
+// ── free weekly coin ─────────────────────────────────────────────────────────
+const FREE_COINS = 1;
+const FREE_AGE_MS = 30 * 24 * 3600e3;   // a wallet's first transaction must be at least this old
+const AGE_PAGES = 5;                    // getSignaturesForAddress pages of 1,000 (newest first) we read at most
+const AGE_RECHECK_MS = 3600e3;          // a "too new" verdict with no known first transaction is re-checked after an hour
+const nextDrawAt = (now = Date.now()) => lastDrawTime(now) + 7 * 24 * 3600e3;
+
+// Is `wallet` old enough for the free weekly coin? Signatures come newest first, so the first one older than 30 days
+// settles it. Reading AGE_PAGES full pages that are ALL newer than 30 days means 5,000+ transactions in a month: faking
+// that costs a farm wallet ≥ 0.025 SOL in fees — far more than one free coin is worth — and it is what an active ORE
+// auto-miner looks like, so such a busy wallet counts as eligible. A wallet with no transactions is not eligible.
+// Throws on RPC failure (→ 503, never a wrong "too new"). `rpc` / `now` are injectable for tests.
+export async function walletAgeVerdict(wallet, rpc = solanaRpc, now = Date.now()) {
+  let before = null, oldest = null;
+  for (let page = 0; page < AGE_PAGES; page++) {
+    const sigs = await rpc("getSignaturesForAddress", [wallet, { limit: 1000, ...(before ? { before } : {}) }]);
+    if (!Array.isArray(sigs)) throw new Error("bad signatures response");
+    for (const x of sigs) if (x && x.blockTime && x.blockTime * 1000 <= now - FREE_AGE_MS) return { eligible: true };
+    if (!sigs.length) break;
+    const last = sigs[sigs.length - 1];
+    if (last.blockTime) oldest = last.blockTime * 1000;
+    if (sigs.length < 1000) break;   // that was the wallet's first transaction
+    before = last.signature;
+    if (page === AGE_PAGES - 1) return { eligible: true, busy: true };
+  }
+  return oldest ? { eligible: false, firstAt: oldest, eligibleAt: oldest + FREE_AGE_MS } : { eligible: false, firstAt: null, eligibleAt: null };
+}
+// The verdict, cached per wallet in Blobs "free-claims" (age:<wallet>): "eligible" never expires (a wallet only gets
+// older); "too new" is reused until the day it becomes eligible (or an hour, for a wallet with no transactions yet).
+async function cachedAgeVerdict(fstore, wallet, now = Date.now()) {
+  const key = "age:" + wallet;
+  try {
+    const c = await fstore.get(key, { type: "json" });
+    if (c?.eligible) return c;
+    if (c && !c.eligible && (c.eligibleAt ? now < c.eligibleAt : now - (c.at || 0) < AGE_RECHECK_MS)) return c;
+  } catch {}
+  const v = await walletAgeVerdict(wallet, solanaRpc, now);
+  try { await fstore.setJSON(key, { ...v, at: now }); } catch {}
+  return v;
+}
+
 const CORS = { "access-control-allow-origin": "*", "access-control-allow-methods": "POST, OPTIONS", "access-control-allow-headers": "content-type" };
 
 export default async (request) => {
@@ -251,7 +300,10 @@ export default async (request) => {
   if (r.action === "me") {
     const coins = await getCoins(balances, wallet);
     const t = await getStrong(getStore("tickets"), ticketKey(await ticketRound(), wallet));   // this round's chances
-    return json({ ok: true, wallet, coins, tickets: t?.tickets || 0, wins: t?.wins || 0, plays: t?.plays || 0, grandSlam: !!t?.grandSlam });
+    const round = await ticketRound();
+    const freeClaimed = !!(await getStrong(getStore("free-claims"), `r${round}:w:${wallet}`));
+    return json({ ok: true, wallet, coins, tickets: t?.tickets || 0, wins: t?.wins || 0, plays: t?.plays || 0, grandSlam: !!t?.grandSlam,
+      free: { claimed: freeClaimed, nextAt: nextDrawAt() } });
   }
 
   try {
@@ -418,6 +470,48 @@ export default async (request) => {
     return json({ ok: true, won, awarded, grandSlam, holder2x: mult > 1, tickets: cur.tickets, seed: rec.seed, winUnverified: !!rec.unverified,
       ...(late ? { late: true, note: "finished in a later round than it was started in — counted as a play (1 chance), not a win" } : {}),
       ...(rec.winner != null ? { winner: rec.winner } : {}) });
+  }
+
+  if (r.action === "free") {
+    // wallet comes ONLY from the verified session token above. One free coin per weekly round (the round tickets mint
+    // into): per Seeker Genesis Token for Seeker owners (no age check), else per wallet 30+ days old. Create-only
+    // markers make every claim single-use; nothing here touches the Pot ledger or any preacher.
+    if (!process.env.SOLANA_RPC) return json({ error: "The free-coin check is offline right now — try again later" }, 503);
+    const fstore = getStore("free-claims");
+    const round = await ticketRound(), now = Date.now(), nextAt = nextDrawAt(now);
+    const wkey = `r${round}:w:${wallet}`;
+    if (await getStrong(fstore, wkey)) return json({ ok: false, already: true, round, nextAt, error: "You already took this week's free coin." }, 409);
+    // 1) a Seeker: its SGT, once per round (a Seeker on another wallet this round can't claim it again)
+    let mints = null, sgt = null, via = null;
+    try { mints = await findSeekerGenesisMints(wallet); } catch { mints = null; }   // RPC trouble → try the age path
+    for (const m of (mints || []).slice().sort()) {
+      if (await putIfNew(fstore, `r${round}:sgt:${m}`, { wallet, ts: now })) { sgt = m; via = "seeker"; break; }
+    }
+    // 2) otherwise the wallet's age
+    if (!via) {
+      let v;
+      try { v = await cachedAgeVerdict(fstore, wallet, now); }
+      catch { return json({ error: "Couldn't reach Solana to check your wallet — try again in a moment." }, 503); }
+      if (!v.eligible) {
+        if (mints && mints.length) return json({ ok: false, already: true, round, nextAt, error: "This Seeker already took this week's free coin on another wallet." }, 409);
+        return json({ ok: false, tooNew: true, eligibleAt: v.eligibleAt || null,
+          error: v.eligibleAt ? "Your wallet must be 30+ days old for the free weekly coin." : "Your wallet needs some on-chain history (30+ days) for the free weekly coin." }, 403);
+      }
+      via = "age";
+    }
+    // 3) one per wallet per round — losing a race releases the SGT we took
+    if (!(await putIfNew(fstore, wkey, { via, sgt, ts: now }))) {
+      if (sgt) await fstore.delete(`r${round}:sgt:${sgt}`);
+      return json({ ok: false, already: true, round, nextAt, error: "You already took this week's free coin." }, 409);
+    }
+    // 4) credit (idempotent per round) — balance only: no Pot share, no preacher cut, no tickets
+    const id = "free:" + round;
+    const { value: bal } = await casUpdate(balances, "bal:" + wallet, (b) => {
+      const v = b || { coins: 0 };
+      if ((v.applied || []).includes(id)) return undefined;
+      return { ...v, coins: (v.coins || 0) + FREE_COINS, applied: pushId(v.applied, id, 50), updatedAt: Date.now() };
+    });
+    return json({ ok: true, claimed: FREE_COINS, coins: bal.coins, via, round, nextAt });
   }
 
   if (r.action === "seeker") {

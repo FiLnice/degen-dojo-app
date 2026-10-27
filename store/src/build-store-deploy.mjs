@@ -423,7 +423,7 @@ copyFileSync(`${ROOT}/scripts/dojo-qr.js`, `${OUT}/dojo-qr.js`);             // 
 // Dojo Sweep (/sweep, alias /claim): free — empty token accounts, burnable NFTs, Magic Eden bid escrow, staking; txs built + simulated in the browser
 copyFileSync(`${ROOT}/scripts/dojo-burn.js`, `${OUT}/dojo-burn.js`);     // shared burn + close + tip logic (/sweep and the miner's burn mode, /mine?burn=1)
 copyFileSync(`${ROOT}/scripts/dojo-sweep.js`, `${OUT}/dojo-sweep.js`);
-for (const [src, dir, label] of [["store-repair.html", "repair", "REPAIR"], ["store-sweep.html", "sweep", "SWEEP"]]) {
+for (const [src, dir, label] of [["store-repair.html", "repair", "REPAIR"], ["store-sweep.html", "sweep", "SWEEP"], ["store-privacy.html", "privacy", "PRIVACY"], ["store-terms.html", "terms", "TERMS"]]) {   // /privacy + /terms: the dApp-store / app listing pages
   mkdirSync(`${OUT}/${dir}`, { recursive: true });
   copyFileSync(`${ROOT}/scripts/${src}`, `${OUT}/${dir}/index.html`);
   const fp = `${OUT}/${dir}/index.html`;

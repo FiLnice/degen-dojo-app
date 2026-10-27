@@ -38,6 +38,8 @@
 //   POST {action:'keeper-ops-moved', sig}            → verify the Treasury → OPS_WALLET transfer and book it
 //   POST {action:'keeper-refunds-paid', sigs, payer} → verify the Treasury's ORE refunds (repairs over the Mint cap)
 //   POST {action:'keeper-set-mint-cap', cap}         → change the Mint cap NOW (no redeploy); logged with time + IP.
+//   POST {action:'seed-pot', ore, id}                → add Degen Dojo's own ORE to the CURRENT round's Pot (route "seed",
+//        valued at today's ORE price, idempotent per id; ≤ SEED_ORE_MAX per action). Shown on /pot as "Seeded by Degen Dojo".
 //        Payments already received keep the cap that was in force when they were paid.
 //   POST {action:'keeper-redecide', sig}             → decide a SKIPPED Treasury payment again with today's rules + data
 //        (listed on the desk with its reason: a DAS outage, a junk coin record, …); a booked one is never re-decided
@@ -51,7 +53,9 @@ import { limited } from "./store-ratelimit-core.mjs";
 import { adminRequestOk } from "./store-session-core.mjs";
 import { getStore } from "@netlify/blobs";
 import { getPlan, latestPlanRound, buildAndStore, setExcluded, recordPayment, quoteSwaps, settlePayment, openFlags, duplicatePreachers, reservedWallets, weeklyStatement, recordSwap, setReviewed, sendBlocked, MINTS } from "./store-payout-core.mjs";
-import { latestRound, getPublic, DrawError } from "./store-draw-core.mjs";
+import { latestRound, getPublic, DrawError, oreUsd } from "./store-draw-core.mjs";
+import { seedPot, getPot as getPotLedger } from "./store-pot-core.mjs";
+import { CasError } from "./store-cas-core.mjs";
 import { keeperSummary, recordClaimsPaid, recordBurned, markRepairsApplied, conversionQuote, recordConversion, scanTreasury, opsMoveQuote, recordOpsMove, recordRefundsPaid, setMintCap, repairActivitySince, redecide, convertHeld, KeeperError } from "./store-keeper-core.mjs";
 import { getPot } from "./store-pot-core.mjs";
 
@@ -183,11 +187,15 @@ export default async (request) => {
       const ip = request.headers.get("x-nf-client-connection-ip") || request.headers.get("x-forwarded-for") || null;
       return json({ ok: true, ...(await setMintCap(body.cap, { ip })), keeper: await keeperSummary() });
     }
+    if (body.action === "seed-pot") {
+      const pot = await seedPot({ ore: body.ore, id: body.id, oreUsdPrice: await oreUsd() });
+      return json({ ok: true, seededOre: Number(body.ore), pot: pot || (await getPotLedger()) });
+    }
     if (body.action === "keeper-redecide") return json({ ok: true, ...(await redecide(String(body.sig || "").trim())), keeper: await keeperSummary() });
     if (body.action === "keeper-held-convert") return json({ ok: true, ...(await convertHeld(Array.isArray(body.mints) ? body.mints.map(String) : [])), keeper: await keeperSummary() });
     return json({ error: "unknown action" }, 400);
   } catch (e) {
-    if (e instanceof DrawError || e instanceof KeeperError) return json({ error: e.message }, e.status);
+    if (e instanceof DrawError || e instanceof KeeperError || e instanceof CasError) return json({ error: e.message }, e.status || 500);
     return json({ error: String(e?.message || e) }, 500);
   }
 };

@@ -11,6 +11,7 @@
  *   await DojoWallet.signIn()                       // connect (reuses the store's connected wallet) + prove ownership
  *   await DojoWallet.refresh()                      // pull {coins, tickets}
  *   await DojoWallet.claimSeeker()                  // Seeker owners: one free coin per Seeker device
+ *   await DojoWallet.claimFree()                    // the free weekly coin (per Seeker SGT, or per wallet 30+ days old)
  *   DojoWallet.on(state => renderCoins(state.coins))   // subscribe to changes
  *
  * API base: same-origin by default. If a game is hosted off the store, set
@@ -69,7 +70,7 @@
     signedIn: function () { return !!(W.token && W.wallet && (!W.exp || W.exp > Date.now())); },
 
     on: function (fn) { listeners.push(fn); try { fn(W.state()); } catch (e) {} return function () { listeners = listeners.filter(function (x) { return x !== fn; }); }; },
-    state: function () { return { wallet: W.wallet, coins: W.coins, tickets: W.tickets, wins: W.wins, plays: W.plays, grandSlam: W.grandSlam, signedIn: W.signedIn(), loaded: W.loaded }; },
+    state: function () { return { wallet: W.wallet, coins: W.coins, tickets: W.tickets, wins: W.wins, plays: W.plays, grandSlam: W.grandSlam, free: W.free || null, signedIn: W.signedIn(), loaded: W.loaded }; },
     _fire: function () {
       var s = W.state(); listeners.forEach(function (fn) { try { fn(s); } catch (e) {} });
       try { window.dispatchEvent(new Event('dojo-coins-change')); } catch (e) {}   // dojo-credits.js repaints every coin readout
@@ -126,7 +127,7 @@
       if (!W.signedIn()) return W.state();
       try {
         var m = await api('/api/play', { action: 'me', token: W.token });
-        W.coins = m.coins; W.tickets = m.tickets; W.wins = m.wins; W.plays = m.plays; W.grandSlam = m.grandSlam; W.loaded = true;
+        W.coins = m.coins; W.tickets = m.tickets; W.wins = m.wins; W.plays = m.plays; W.grandSlam = m.grandSlam; W.free = m.free || null; W.loaded = true;
       } catch (e) { if (e.status === 401) W.signOut(); throw e; }
       W._fire(); return W.state();
     },
@@ -183,6 +184,24 @@
         if (e && e.status === 401) { W.signOut(); return { ok: false, message: 'Your session expired — tap again to sign in.' }; }
         if (cancelled(e)) return { ok: false, message: 'Sign-in cancelled.' };
         return { ok: false, already: !!(e.body && e.body.already), noSeeker: !!(e.body && e.body.noSeeker), message: clean(e) || 'Could not claim — try again.' };
+      }
+    },
+
+    /** The FREE WEEKLY COIN (the no-purchase-necessary way into the Pot): one per weekly round — per Seeker Genesis Token
+     *  for Seeker owners, else per wallet whose first transaction is 30+ days old. The server decides; resolves
+     *  {ok, message, coins?, already?, tooNew?, nextAt?, eligibleAt?}. */
+    claimFree: async function () {
+      try {
+        if (!W.signedIn()) await W.signIn();
+        var r = await api('/api/play', { action: 'free', token: W.token });
+        W.coins = r.coins; W.free = { claimed: true, nextAt: r.nextAt }; W.loaded = true; W._fire();
+        return { ok: true, message: '🎁 +' + r.claimed + ' free coin — see you next week!', coins: r.coins, nextAt: r.nextAt };
+      } catch (e) {
+        if (e && e.status === 401) { W.signOut(); return { ok: false, message: 'Your session expired — tap again to sign in.' }; }
+        if (cancelled(e)) return { ok: false, message: 'Sign-in cancelled.' };
+        var b = (e && e.body) || {};
+        if (b.already) W.free = { claimed: true, nextAt: b.nextAt };
+        return { ok: false, already: !!b.already, tooNew: !!b.tooNew, nextAt: b.nextAt || null, eligibleAt: b.eligibleAt || null, message: clean(e) || 'Could not claim — try again.' };
       }
     },
   };

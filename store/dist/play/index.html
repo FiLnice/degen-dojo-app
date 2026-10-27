@@ -64,10 +64,12 @@ h1{font-family:'Cinzel',serif;font-weight:900;font-size:clamp(28px,5vw,42px);tex
     <span style="font-family:'Teko',sans-serif;font-size:19px;color:var(--gold-l);padding:7px 16px;border:1px solid var(--border);border-radius:10px">🪙 <b data-dc-credits>0</b> coins</span>
     <a href="/credits" style="color:#0a0814;background:linear-gradient(135deg,#c8962a,#8b6018);font-family:'Cinzel',serif;font-size:12px;font-weight:700;letter-spacing:.06em;padding:10px 18px;border-radius:10px;text-decoration:none">＋ Buy coins</a>
   </div>
-  <!-- Seeker owners: one free coin per Seeker phone (server checks the wallet's Seeker Genesis Token) -->
+  <!-- Free weekly coin (no purchase necessary) + the one-time Seeker welcome coin — the server checks both -->
   <div style="text-align:center;margin:-16px 0 30px">
+    <button id="freeBtn" type="button" onclick="claimFreeCoin(this)" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--gold-l);background:rgba(201,151,58,.08);border:1px solid rgba(201,151,58,.45);padding:9px 16px;border-radius:9px;cursor:pointer;margin:0 4px 6px">🎁 Free weekly coin — claim</button>
     <button id="seekerBtn" type="button" onclick="claimSeekerCoin(this)" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--gold-l);background:rgba(201,151,58,.08);border:1px solid rgba(201,151,58,.45);padding:9px 16px;border-radius:9px;cursor:pointer">📱 Seeker owner? Claim your free coin</button>
     <div id="seekerMsg" style="font-size:13px;color:var(--mut);margin-top:8px;min-height:18px"></div>
+    <div style="font-size:12px;color:var(--mut);margin-top:2px">No purchase necessary — free every week: 1 coin per Seeker (SGT) or per wallet 30+ days old.</div>
   </div>
 
   <div class="sectitle">🥷 Games <small>pure skill</small></div>
@@ -101,6 +103,24 @@ h1{font-family:'Cinzel',serif;font-weight:900;font-size:clamp(28px,5vw,42px);tex
 // Seeker free coin — kept in its own <script> (the store build strips the wallet block above).
 // Sign-in (one free signature) → the SERVER checks this wallet for a Seeker Genesis Token and
 // credits one coin per Seeker device, once. We only show what the server answers.
+// Free weekly coin: one per weekly Pot round — per Seeker Genesis Token, or per wallet 30+ days old. The server decides.
+function freeDays(t){ var d=Math.max(0,Math.ceil((t-Date.now())/864e5)); return d<=1?'1 day':d+' days'; }
+function paintFree(st){
+  var b=document.getElementById('freeBtn'); if(!b) return;
+  var f=st&&st.free;
+  if(f&&f.claimed){ b.disabled=true; b.style.opacity='.6'; b.style.cursor='default'; b.textContent='🎁 Free coin claimed — next one in '+freeDays(f.nextAt); }
+}
+function claimFreeCoin(btn){
+  var msg=document.getElementById('seekerMsg');
+  if(!window.DojoWallet){ msg.textContent='Wallet still loading — one moment.'; return; }
+  btn.disabled=true; msg.style.color=''; msg.textContent='Sign in with your wallet — then we check this week’s free coin…';
+  DojoWallet.claimFree().then(function(r){
+    btn.disabled=false; msg.textContent=r.message; msg.style.color = r.ok ? '#7bb26a' : '';
+    if(r.ok || r.already) paintFree({ free:{ claimed:true, nextAt:r.nextAt } });
+    else if(r.tooNew && r.eligibleAt) msg.textContent = r.message + ' Yours qualifies on ' + new Date(r.eligibleAt).toLocaleDateString() + '.';
+  });
+}
+(function waitWallet(n){ if(window.DojoWallet&&DojoWallet.on){ DojoWallet.on(paintFree); return; } if(n<40) setTimeout(function(){ waitWallet(n+1); },250); })(0);
 function claimSeekerCoin(btn){
   var msg=document.getElementById('seekerMsg');
   if(!window.DojoWallet){ msg.textContent='Wallet still loading — one moment.'; return; }

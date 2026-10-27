@@ -587,8 +587,8 @@
       return '<tr class="' + (exd ? 'ex' : '') + '">' + cells + '<td>' + act + '</td></tr>';
     }
     h += '<div class="card"><h2>Winners (' + Wn.length + ')</h2>' + (Wn.length ? '<table><tr><th>Wallet</th><th class="num">Tickets</th><th class="num">ORE</th><th class="num">SKR</th><th class="num">SOL → ORE</th><th class="num">≈ USD</th><th></th></tr>' +
-      Wn.map(function (x) { return row(x, '<td>' + acct(x.wallet) + (x.label && x.label !== x.wallet ? ' <span class="msg">' + esc(x.label) + '</span>' : '') + '</td><td class="num">' + x.tickets + '</td><td class="num">' + ui(x.pay.ORE, 'ORE') + '</td><td class="num">' + ui(x.pay.SKR, 'SKR') + '</td><td class="num">' + ui(x.pay.SOL, 'SOL') + '</td><td class="num">$' + (x.usd || 0).toFixed(2) + '</td>'); }).join('') + '</table>'
-      : '<div class="msg">No winners this round (no tickets) — the pot carries over to next week.</div>') + '</div>';
+      Wn.map(function (x) { return row(x, '<td>' + (x.rank ? '<b>' + ['1st','2nd','3rd','4th','5th'][x.rank - 1] + '</b> · ' + x.pct + '% · ' : '') + acct(x.wallet) + (x.label && x.label !== x.wallet ? ' <span class="msg">' + esc(x.label) + '</span>' : '') + '</td><td class="num">' + x.tickets + '</td><td class="num">' + ui(x.pay.ORE, 'ORE') + '</td><td class="num">' + ui(x.pay.SKR, 'SKR') + '</td><td class="num">' + ui(x.pay.SOL, 'SOL') + '</td><td class="num">$' + (x.usd || 0).toFixed(2) + '</td>'); }).join('') + '</table>'
+      : '<div class="msg">No winners this round (no tickets) — the pot carries over to next week.</div>') + (p.unfilled ? '<div class="msg">Ranks ' + p.unfilled.ranks.join(', ') + ' had nobody (' + p.unfilled.pct + '% of the pot) — rolled into next week\'s pot.</div>' : '') + '</div>';
     h += '<div class="card"><h2>Preachers (' + Pr.length + ')</h2>' + (Pr.length ? '<table><tr><th>Code</th><th>Wallet</th><th>Tier</th><th class="num">Records</th><th class="num">ORE</th><th class="num">SKR</th><th class="num">SOL → ORE</th><th class="num">USDC → ORE</th><th class="num">Owed USD</th><th></th></tr>' +
       Pr.map(function (x) { return row(x, '<td>' + esc(x.code) + '</td><td>' + acct(x.wallet) + '</td><td>' + esc(x.tier || '') + (x.share ? ' ' + Math.round(x.share * 100) + '%' : '') + '</td><td class="num">' + x.sigs.length + '</td><td class="num">' + ui(x.pay.ORE, 'ORE') + '</td><td class="num">' + ui(x.pay.SKR, 'SKR') + '</td><td class="num">' + ui(x.pay.SOL, 'SOL') + '</td><td class="num">' + ui(x.pay.USDC, 'USDC') + '</td><td class="num">$' + (x.usd || 0).toFixed(2) + '</td>'); }).join('') + '</table>'
       : '<div class="msg">No preacher is owed ≥ $1 right now.</div>') + '</div>';
@@ -638,7 +638,7 @@
     var t = KP.totals || {}, due = KP.claimsDue || [], burn = KP.toBurn || [], rep = KP.repairsPending || [], on = !!KP.burnEnabled;
     var refunds = KP.refundsDue || [], ops = KP.ops || {}, mc = KP.mint || null, pools = KP.pools || {};
     var h = '<div class="card"><h2>Dojo Keeper — the books</h2><div class="msg">Royalties and repairs split 88% collection Card Vault · 12% ops. ' +
-      'Coin buys and referred mining tips split 22% Pot · 22% Reserve · 12% ops · 44% preacher pool (what the preacher\'s tier doesn\'t take → Reserve); a mining tip with no preacher is 100% Reserve. ' +
+      'Coin buys (since 27 Oct 2026) split 12% Reserve · 12% ops · the preacher\'s tier share (28/36/44%) · the rest to the Pot (76% with no preacher); the 1% mining fee is 100% Reserve (mining tips locked before still pay their preacher). ' +
       (on ? 'Burning is OPEN: a burned card is paid its equal share of its collection\'s Card Vault, in stORE. ' : 'Burning is OFF (BURN_ENABLED not set): the Card Vaults fill silently and nothing about them is shown publicly. ') +
       'Treasury reader: ' + (KP.scan.pending ? KP.scan.pending + ' transaction(s) still to read' : KP.scan.gaps ? 'older history still being read' : 'up to date') + (KP.scan.at ? ' (' + new Date(KP.scan.at).toLocaleString() + ')' : '') + ' <button class="small" id="kscan">Read now</button></div>' +
       '<dl style="margin-top:10px"><dt>Reserve</dt><dd>' + amtList(t.reserve) + '</dd><dt>Ops (12%)</dt><dd>' + amtList(t.ops) + '</dd><dt>Direct (tips beyond repairs)</dt><dd>' + amtList(t.direct) + '</dd>' +
@@ -648,6 +648,8 @@
       '<div class="bar"><textarea id="kconvsigs" rows="2" style="flex:1;min-width:220px;font:12px monospace" placeholder="transaction signature(s)"></textarea> <button id="kconvbook">Book it</button><span class="msg" id="kconvmsg"></span></div></div>';
     h += '<div class="card"><h2>Card Vaults (88% of every royalty + repair, per collection)</h2><table><tr><th>Collection</th><th>Pool</th><th class="num">Eligible NFTs (shares)</th><th class="num">One share (Mint; Framed = 2)</th><th class="num">Claimed</th></tr>' +
       Object.keys(pools).map(function (n) { var p = pools[n] || {}; return '<tr><td>' + esc(n) + '</td><td>' + amtList(p.pool) + '</td><td class="num">' + (p.eligible == null ? '?' : p.eligible + ' (' + p.shares + ')') + '</td><td class="num">' + esc((p.perShare || {}).store || '0') + ' stORE ($' + (+((p.perShare || {}).usd) || 0).toFixed(2) + ')</td><td class="num">' + (p.claimed || 0) + '</td></tr>'; }).join('') + '</table></div>';
+    h += '<div class="card"><h2>Seed the Pot</h2><div class="msg">Add Degen Dojo\'s own ORE to <b>this week\'s</b> prize (e.g. 1 ORE at launch, while the Pot is empty). No transfer now — it is paid from the Treasury with the prize, and /pot shows it as "Seeded by Degen Dojo".</div>' +
+      '<div class="bar"><input id="seedore" type="number" min="0.01" max="25" step="0.01" value="1" style="width:110px"> ORE <button id="seedbtn">Seed the Pot</button><span class="msg" id="seedmsg"></span></div></div>';
     h += '<div class="card"><h2>Mint cap</h2>' + (mc ? '<div class="msg">' + mc.mintCount + ' Mint cards (Mint/Framed + repairs granted) of a cap of <b>' + mc.mintCap + '</b> — <b>' + mc.mintSpotsLeft + '</b> spot(s) left. Lowering it only closes repairs for later payments; it never downgrades a Mint card.</div>' : '<div class="msg">Mint count unavailable right now.</div>') +
       '<div class="bar"><input id="kcap" type="number" min="1" step="1" value="' + (mc ? mc.mintCap : '') + '" style="width:110px"> <button id="kcapsave">Save Mint cap</button><span class="msg" id="kcapmsg"></span></div>' +
       ((KP.mintCapHistory || []).length ? '<div class="msg">Changes: ' + KP.mintCapHistory.slice().reverse().map(function (x) { return new Date(x.at).toLocaleString() + ' ' + x.prev + '→' + x.cap; }).join(' · ') + '</div>' : '') + '</div>';
@@ -702,6 +704,17 @@
       api({ action: 'keeper-held-convert', mints: KP.held.map(function (x) { return x.mint; }) }).then(function (j) {
         KP = j.keeper; renderKeeper(); alert('Claims made: ' + j.converted.length + (j.refused.length ? ' · not converted: ' + j.refused.map(function (r) { return short(r.mint) + ' (' + r.reason + ')'; }).join(', ') : ''));
       }).catch(function (e) { $('kheldmsg').textContent = '✖ ' + e.message; b.disabled = false; });
+    };
+    if ($('seedbtn')) $('seedbtn').onclick = function () {
+      var v = parseFloat($('seedore').value), b = this;
+      if (!(v > 0)) { $('seedmsg').textContent = 'Enter an ORE amount.'; return; }
+      if (!confirm('Add ' + v + ' ORE of Degen Dojo\'s own to this week\'s Pot? It shows on /pot as "Seeded by Degen Dojo" and is paid out from the Treasury with the prize.')) return;
+      b.disabled = true; $('seedmsg').textContent = 'Seeding…';
+      var id = 'seed' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+      api({ action: 'seed-pot', ore: v, id: id }).then(function (j) {
+        var p = j.pot || {}, r = (p.routes || {}).seed || {};
+        $('seedmsg').textContent = 'Seeded ' + v + ' ORE — this week\'s seed is now ' + (+r.ore || 0) + ' ORE (pot ≈ $' + (+p.usd || 0).toFixed(2) + ').'; b.disabled = false;
+      }).catch(function (e) { $('seedmsg').textContent = '✖ ' + e.message; b.disabled = false; });
     };
     if ($('kcapsave')) $('kcapsave').onclick = function () {
       var v = parseInt($('kcap').value, 10), b = this;

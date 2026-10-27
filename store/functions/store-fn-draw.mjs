@@ -30,7 +30,7 @@
 // Env: ADMIN_KEY (gates commit/draw), SOLANA_RPC (a Solana RPC URL).
 // Tickets come from the "tickets" Blobs store, written ONLY by /api/play (store-fn-play.mjs).
 import { limited } from "./store-ratelimit-core.mjs";
-import { getPot, POT_FRAC } from "./store-pot-core.mjs";
+import { getPot, POT_PCT_MAX, POT_PCT_MIN } from "./store-pot-core.mjs";
 import { commitRound, drawRound, latestRound, getPublic, publicEntries, solUsd, oreUsd, DrawError } from "./store-draw-core.mjs";
 import { adminRequestOk } from "./store-session-core.mjs";
 
@@ -62,7 +62,7 @@ export default async (request) => {
     return json({
       round, latestRound: latest, draw: pub,
       potSol: sp ? +(pot.usd / sp).toFixed(4) : null, potOre: op ? +(pot.usd / op).toFixed(4) : null, potUsd: +pot.usd.toFixed(2),
-      potPct: Math.round(POT_FRAC * 100), routes: pot.routes, solPrice: sp, orePrice: op,
+      potPct: POT_PCT_MAX, potPctMin: POT_PCT_MIN, routes: pot.routes, solPrice: sp, orePrice: op,
     });
   }
 

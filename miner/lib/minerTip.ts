@@ -22,7 +22,8 @@ export function readRef(): string | null {
 // ─── The Dojo fee on auto-mining (owner 2026-10-27; replaces the Degen Dojo miner's optional tip) ─────────────
 // 1% of the deposit, ALWAYS, routed exactly like the old mining tip: a SOL transfer to the tip wallet (the Reserve) inside
 // the Automate transaction — so it is paid only if that lands — plus the preacher's signed "ddref:<code>" memo when one
-// referred this miner, so the store's minetip split (store-verify-core) still pays preachers; no preacher → 100% Reserve.
+// referred this miner — kept for attribution only: since 2026-10-27 the store books every mining fee 100% to the Reserve
+// (store-verify-core), memo or not; preachers earn from coin purchases.
 // Not on branded /m/<slug> miners: they keep their own optional tip to the collection's wallet.
 // the fee math itself lives in lib/dojoFee.ts (import-free, shared with lib/burnMine.ts)
 export { DOJO_FEE_BPS, dojoFeeOf, depositWithin } from "@/lib/dojoFee";

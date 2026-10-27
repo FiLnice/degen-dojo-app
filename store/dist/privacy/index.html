@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Privacy — Degen Dojo</title>
+<meta name="description" content="What the Degen Dojo store and app process, what they don't, and who else is involved. No names, no emails, no trackers — wallets sign on your device.">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Teko:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#100c08;--pan:#1b1510;--line:#3a2f22;--gold:#e8b84b;--ink:#ece4d6;--ink2:#f6efe2;--mut:#9c8f7d;}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(1000px 500px at 50% -10%,#20180f,#100c08 60%);background-color:#100c08;color:var(--ink);font-family:Inter,system-ui,sans-serif}
+.wrap{max-width:820px;margin:0 auto;padding:22px 16px 60px}
+h1{font-family:Teko;font-weight:700;font-size:40px;margin:0;background:linear-gradient(180deg,#f4e2b4,var(--gold));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+h2{font-family:Teko;font-weight:600;font-size:24px;color:var(--ink2);margin:0 0 6px;letter-spacing:.02em}
+.sub{color:var(--mut);font-size:13.5px;margin:2px 0 18px;line-height:1.5}
+.card{background:var(--pan);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:14px}
+p,li{font-size:14px;line-height:1.6;color:var(--ink)}
+ul{margin:6px 0 0;padding-left:20px}
+li{margin-bottom:4px}
+b{color:var(--ink2)}
+a{color:var(--gold)}
+.fine{color:var(--mut);font-size:12.5px;line-height:1.55}
+</style>
+</head>
+<body>
+<style>.dn-ham{display:none}.dn-connect{display:none}.dn-extra{margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}@media(max-width:640px){.dn-bar{gap:10px!important;padding:10px 14px!important;}.dn-extra{display:none!important;}.dn-connect{display:block!important;}.dn-ham{display:flex!important;align-items:center;justify-content:center;width:44px;height:44px;border-radius:10px;cursor:pointer;background:rgba(201,151,58,.12);border:1px solid rgba(201,151,58,.45);color:#e8b84b;font-size:22px;line-height:1;margin-left:auto;flex:0 0 auto;}.dn-links{position:absolute!important;top:calc(100% - 2px);right:10px;min-width:214px;flex-direction:column!important;align-items:stretch;gap:5px!important;background:rgba(12,10,18,.98);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(201,151,58,.4);border-radius:12px;padding:9px;box-shadow:0 16px 36px rgba(0,0,0,.6);display:none!important;z-index:80;}.dn-links.dn-open{display:flex!important;}.dn-links a{text-align:left;font-size:13px!important;padding:11px 13px!important;}}</style><div class="dn-bar" style="position:sticky;top:0;z-index:72;background:rgba(10,10,15,.94);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-bottom:1px solid rgba(201,151,58,.18);display:flex;align-items:center;gap:16px;padding:11px 20px;flex-wrap:wrap;font-family:'Cinzel',serif;"><a href="/" style="display:flex;align-items:center;gap:11px;text-decoration:none;color:#efe6d2;"><img src="/dd-mark.jpg" alt="Degen Dojo" style="width:40px;height:40px;border-radius:9px;object-fit:cover;display:block;box-shadow:0 0 0 1px rgba(201,151,58,.35);" onerror="this.style.display='none'"/><div style="text-align:left;"><b style="font-family:'Cinzel',serif;font-size:15px;letter-spacing:.16em;display:block;color:#efe6d2;">DEGEN DOJO</b><small style="font-family:'Cinzel',serif;font-size:9px;letter-spacing:.26em;color:#a99a7e;">PRIVACY</small></div></a><nav class="dn-links" style="display:flex;gap:8px;flex-wrap:wrap;"><a href="#" class="dn-connect" onclick="var b=this.closest('.dn-bar').querySelector('.dn-extra button');if(b)b.click();return false;" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#e8b84b;border:1px solid rgba(201,151,58,.5);background:rgba(201,151,58,.12);">🔑 Connect</a><a href="/" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">⌂ Store</a><a href="/market" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">🛒 Market</a><a href="/list" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">🏷 List</a><a href="/play" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">▶ Play</a><a href="/mine" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">⛏ Mine</a><a href="/sweep" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">💰 Claim</a><a href="/launch" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">🚀 Launch</a><a href="/pot" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">🏆 Pot</a><a href="/become-a-preacher" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">📣 Preacher</a></nav><span class="dn-extra"><button id="dojoNavWallet" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#0a0814;background:linear-gradient(135deg,#c8962a,#8b6018);border:none;padding:9px 16px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;">Connect wallet</button></span><button class="dn-ham" type="button" aria-label="Menu" onclick="var n=this.closest('.dn-bar').querySelector('.dn-links');if(n)n.classList.toggle('dn-open');">☰</button></div>
+<div class="wrap">
+  <h1>Privacy</h1>
+  <div class="sub">Degen Dojo store &amp; app (store.degendojo.xyz, degendojo.xyz and the Degen Dojo Seeker app) · last updated 27 October 2026</div>
+
+  <div class="card">
+    <h2>The short version</h2>
+    <ul>
+      <li>We never ask for your name, email, phone number or ID. There is no account to create — your wallet is your login.</li>
+      <li>Your wallet signs everything <b>on your device</b>. We never see, store or ask for private keys or seed phrases.</li>
+      <li>No ads, no analytics or tracking scripts, and we don't sell or share data with anyone for marketing.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>What we process</h2>
+    <ul>
+      <li><b>Your public wallet address</b>, when you connect a wallet — to show your NFTs, coins and balances, and to build the transactions you ask for.</li>
+      <li><b>Transactions you sign.</b> They are built and checked (simulated) in your browser and sent to the Solana network. Like everything on Solana, they are public on-chain.</li>
+      <li><b>Game and store records keyed by your wallet address</b>, kept on our server: your coin balance, plays and weekly Dojo Pot chances, verified coin purchases, free-coin claims (weekly and Seeker), Preacher referrals and payouts. These are needed to run the games and pay prizes, and the Pot draw publishes wallet addresses with their chances so anyone can verify it.</li>
+      <li><b>A sign-in session.</b> Signing a free message proves you own the wallet; the resulting session token lives in your browser for up to 12 hours.</li>
+      <li><b>Your IP address</b>, briefly, to rate-limit requests and stop abuse. Our hosting provider (Netlify) also handles it as part of serving the site.</li>
+      <li><b>Your browser's local storage</b> holds conveniences such as filters, tabs, language, your session token and pending purchases. One cookie (<code>dd_ref</code>) remembers a Preacher's referral code if you arrived through their link.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>Services we use</h2>
+    <p>To show NFTs, prices and images and to settle trades, the pages talk to these services. Each receives what a normal web request carries (such as your IP address) plus the public data needed for that request — usually a wallet address, an NFT address or a transaction:</p>
+    <ul>
+      <li><b>Netlify</b> — hosting and our server functions and storage.</li>
+      <li><b>Helius</b> — Solana RPC and NFT data (through our own proxy).</li>
+      <li><b>Magic Eden</b> and <b>Tensor</b> — marketplace listings, floor prices and buy transactions.</li>
+      <li><b>Jupiter</b> — token prices and swaps (e.g. ORE ↔ SOL).</li>
+      <li><b>wsrv.nl</b> — image resizing; <b>Arweave, Irys and IPFS gateways</b> and our own storage — NFT images.</li>
+      <li><b>Google Fonts</b> — the page fonts.</li>
+      <li>Your <b>wallet app</b> (e.g. Phantom, Solflare, Jupiter, Seed Vault on Seeker) — when you connect or sign. Seeker Connect, if you choose it, relays the wallet connection through a public relay.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>Keeping and deleting</h2>
+    <p>On-chain transactions are permanent and public — no one can delete them. Our server records are kept as long as they are needed to run the games, pay prizes and keep the Pot verifiable. You can clear your browser's local storage at any time; it signs you out and forgets your preferences.</p>
+  </div>
+
+  <div class="card">
+    <h2>Contact</h2>
+    <p>Questions about privacy: reach us on <a href="https://x.com/DegenDojoArt" target="_blank" rel="noopener">X (@DegenDojoArt)</a> or in the <a href="https://discord.gg/FwgpnZPzMq" target="_blank" rel="noopener">Degen Dojo Discord</a>.</p>
+    <p class="fine">See also the <a href="/terms/">Terms of Use</a> and the <a href="https://degendojo.xyz/license/">License</a>. If this page changes, the date above changes with it.</p>
+  </div>
+</div>
+<script src="/dojo-credits.js"></script><script src="/dojo-wallet.js"></script><script src="/dojo-profile.js"></script><script src="/mwa.js"></script><script src="/wallet-picker.js"></script><script>/*navwallet-wire*/(function(){var b=document.getElementById('dojoNavWallet');if(!b)return;var A=null,sh=function(p){return p.slice(0,4)+'\u2026'+p.slice(-4);};var G="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#0a0814;background:linear-gradient(135deg,#c8962a,#8b6018);border:none;padding:9px 16px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;",C="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#e8b84b;background:rgba(201,151,58,.12);border:1px solid rgba(201,151,58,.5);padding:9px 14px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;";function set(a){A=a;window.DOJO_WALLET=a||null;window.dispatchEvent(new Event('dojo-wallet-change'));if(a){b.textContent='\u25ce '+sh(a.pubkey);b.setAttribute('style',C);}else{b.textContent='Connect wallet';b.setAttribute('style',G);}document.querySelectorAll('.dn-connect').forEach(function(x){x.textContent=a?'\u25ce '+sh(a.pubkey):'\ud83d\udd11 Connect';});}window.dojoNavSetWallet=set;b.onclick=function(){if(A){var dc=function(){try{A.disconnect&&A.disconnect();}catch(e){}set(null);};if(window.DojoProfile)DojoProfile.menu(b,A.pubkey,dc);else dc();return;}if(window.DojoWalletPicker)DojoWalletPicker.pick().then(set).catch(function(){});};if(window.DojoWalletPicker&&DojoWalletPicker.autoConnect)DojoWalletPicker.autoConnect().then(function(a){if(a&&!A)set(a);});})();</script></body></html>

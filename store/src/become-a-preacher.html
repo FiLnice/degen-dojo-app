@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Become a Preacher — Degen Dojo</title>
-<meta name="description" content="Spread the Degen Dojo and earn 28%, 36% or 44% (by fighters held) of every game-coin pack and ORE mining tip you refer. Hold a fighter to enter the ORE pot." />
+<meta name="description" content="Spread the Degen Dojo and earn 28%, 36% or 44% (by fighters held) of every game-coin purchase you refer — your link lasts 30 days." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Inter:wght@300;400;500;600&family=Noto+Serif+JP:wght@400;700;900&family=Teko:wght@500;600;700&display=swap" rel="stylesheet" />
@@ -139,23 +139,22 @@ h1{text-align:center;font-family:'Cinzel',serif;font-size:clamp(28px,5vw,44px);f
 <div class="wrap">
   <div class="eyebrow">布教者 · The Preachers</div>
   <h1>Spread the word. Earn the cut.</h1>
-  <p class="lede">Anyone can preach the dojo — share your link, and every <b>game-coin</b> pack and <b>ORE mining tip</b> that comes through it earns you a
-     cut. The buyer pays nothing extra. <span class="jp">布教者</span>
-     Hold more fighters, earn a bigger cut — up to <b>44%</b> — and unlock the <b>ORE pot</b> that only holders can win.</p>
+  <p class="lede">Anyone can preach the dojo — share your link, and every <b>game-coin</b> purchase that comes through it earns you a
+     cut — your referral lasts 30 days. The buyer pays nothing extra. <span class="jp">布教者</span>
+     Hold more fighters, earn a bigger cut — up to <b>44%</b>. Holding <b>5+</b> fighters also doubles your chances in the weekly Dojo Pot when you play.</p>
 
   <div class="sect">The cut you earn</div>
-  <div class="sectsub">Hold more fighters, earn a bigger cut — and unlock the ORE pot. Verified against your live holdings.</div>
+  <div class="sectsub">Hold more fighters, earn a bigger cut. Verified against your live holdings.</div>
   <div class="tiers">
     <div class="tier g0"><div class="tlabel">Wanderer</div><div class="tpct">28%</div><div class="tof">of what you refer</div>
-      <div class="thold">0–1 fighters 🚶</div><div class="pot no">✕ not in the ORE pot</div></div>
+      <div class="thold">0–1 fighters 🚶</div><div class="pot yes">✓ weekly Pot · 1× chances</div></div>
     <div class="tier g1"><div class="tlabel">Disciple</div><div class="tpct">36%</div><div class="tof">of what you refer</div>
-      <div class="thold">Hold <b>2–4</b> fighters ⚔️</div><div class="pot yes">✓ ORE pot · 1× entries</div></div>
+      <div class="thold">Hold <b>2–4</b> fighters ⚔️</div><div class="pot yes">✓ weekly Pot · 1× chances</div></div>
     <div class="tier g5"><div class="tlabel">Sensei</div><div class="tpct">44%</div><div class="tof">of what you refer</div>
-      <div class="thold">Hold <b>5+</b> or a <b>Mythic</b> 🥋</div><div class="pot yes">✓ ORE pot · <b>2×</b> entries</div></div>
+      <div class="thold">Hold <b>5+</b> or a <b>Mythic</b> 🥋</div><div class="pot yes">✓ weekly Pot · <b>2×</b> chances with 5+</div></div>
   </div>
-  <div class="egg">Example — someone mines through your link and tips <b>0.25 SOL</b>.
-     A <b>Sensei</b> keeps <b>0.11</b> (44%), a <b>Disciple</b> <b>0.09</b> (36%), a <b>Wanderer</b> <b>0.07</b> (28%).<br>
-     They buy a <b>10 ORE</b> coin pack → a Sensei keeps <b>4.4 ORE</b>, a Disciple <b>3.6</b>, a Wanderer <b>2.8</b>.</div>
+  <div class="egg">Example — someone opens your link and buys a <b>10 ORE</b> coin pack → a Sensei keeps <b>4.4 ORE</b> (44%), a Disciple <b>3.6</b> (36%), a Wanderer <b>2.8</b> (28%).
+     What your tier doesn't take goes to the weekly Pot. (Mining fees don't pay preachers.)</div>
 
   <!-- connect → dashboard -->
   <div class="claim">
@@ -188,7 +187,9 @@ h1{text-align:center;font-family:'Cinzel',serif;font-size:clamp(28px,5vw,44px);f
         <div class="mc"><div class="k">Referrals</div><div class="v" id="mCount">—</div><div class="s" id="mHeld">—</div></div>
       </div>
 
-      <div class="potbox">
+      <!-- The opt-in "ORE pot" panel is hidden (2026-10-27): no draw or payout reads its opt-ins — the real prize is the
+           weekly Dojo Pot (/pot), entered by playing. The elements stay so the dashboard script keeps working. -->
+      <div class="potbox" style="display:none">
         <div class="ph"><div class="torii">⛩️</div>
           <div><div class="pt">This cycle's pot</div><div class="pa" id="potAmt">—</div></div>
           <div class="pcta"><button class="optbtn" id="optBtn" onclick="optIn()">I'm in — enter this cycle ✍️</button></div></div>
@@ -200,7 +201,7 @@ h1{text-align:center;font-family:'Cinzel',serif;font-size:clamp(28px,5vw,44px);f
       </div>
 
       <div class="feed">
-        <div class="fh">Coming in — coin packs &amp; mining tips through your link</div>
+        <div class="fh">Coming in — coin packs through your link</div>
         <div id="feed"></div>
       </div>
     </div>
@@ -209,15 +210,15 @@ h1{text-align:center;font-family:'Cinzel',serif;font-size:clamp(28px,5vw,44px);f
   <div class="sect">How a preacher earns</div>
   <div class="sectsub"></div>
   <div class="steps">
-    <div class="step"><div class="num">01</div><div class="st">Share your link</div><div class="sd">Post it, DM it, put it in your bio. Anyone who opens it is tagged to you for 30 days — their game-coin packs and ORE mining tips earn you a cut.</div></div>
-    <div class="step"><div class="num">02</div><div class="st">They grab coins or tip while mining</div><div class="sd">When a referral <b>buys game coins</b> or <b>tips while mining ORE</b>, you get your tier share — <b>28%, 36% or 44%</b> — of the whole amount. The buyer never pays extra: every coin pack and referred mining tip splits 22% to the weekly Pot · 22% to the Reserve · 12% to running the Dojo · 44% to the preacher pool, and your cut comes out of that 44% (what your tier doesn't take goes to the Reserve). NFT sales don't pay preachers — royalties go to the collection's Card Vault and the Reserve.</div></div>
+    <div class="step"><div class="num">01</div><div class="st">Share your link</div><div class="sd">Post it, DM it, put it in your bio. Anyone who opens it is tagged to you for 30 days — their game-coin purchases earn you a cut.</div></div>
+    <div class="step"><div class="num">02</div><div class="st">They buy game coins</div><div class="sd">When a referral <b>buys game coins</b>, you get your tier share — <b>28%, 36% or 44%</b> — of the whole purchase. The buyer never pays extra: every coin pack splits 12% to the Reserve · 12% to running the Dojo · your tier share · and <b>the rest to the weekly Pot</b> (what your tier doesn't take goes to the Pot, so the players win it). Mining fees and NFT sales don't pay preachers — the 1% mining fee goes to the Reserve, royalties to the collection's Card Vault and the Reserve.</div></div>
     <div class="step"><div class="num">03</div><div class="st">You get paid weekly</div><div class="sd">Earnings pool and pay out weekly, in the token that came in — what your referral paid with (ORE, SKR or SOL). Every tip and coin purchase is verified on-chain before a cent moves; buying through your own link never counts.</div></div>
   </div>
 
   <div class="fine">
-    You earn on the coin packs and mining tips <b>you refer</b> — a referral program, not passive income for holding. Your cut is set by the fighters
-    you have held for at least 7 days when each payment is verified (and locked in for that payment). The <b>ORE pot</b> is a prize you win by opting in and staying active, never a dividend you're owed;
-    entries come from real activity (your coin buys &amp; what you refer), with a 2× multiplier for holding 5+, so it can't be farmed by splitting a wallet.
+    You earn on the coin purchases <b>you refer</b> (for 30 days per referral) — a referral program, not passive income for holding. Your cut is set by the fighters
+    you have held for at least 7 days when each payment is verified (and locked in for that payment). The weekly <b>Dojo Pot</b> is a prize draw you enter by playing, never a dividend you're owed; chances come from
+    your plays, ×2 when you hold 5+ fighters.
     Fees never add a charge to the buyer. <span id="demoNote"></span>
   </div>
 </div>

@@ -9,15 +9,28 @@
 import { getStore } from "@netlify/blobs";
 import { casUpdate, readWithEtag, putIfMatch, putIfNew, pushId, CasError } from "./store-cas-core.mjs";
 
-// Games economics (owner, 2026-10-23) — every verified coin buy AND every mining tip splits:
-//   22% the Pot · 22% the Reserve · 12% operations · 44% preacher pool (the referring preacher's tier takes
-//   28 / 36 / 44% of the WHOLE payment; whatever the tier doesn't take, or all 44% when nobody referred, → Reserve).
-// Exception: a mining tip with NO preacher goes 100% to the Reserve (no Pot, no ops) — store-verify-core.mjs.
+// COIN PURCHASES (owner, 2026-10-27 — splitCoinbuy): Reserve 12% · operations 12% · the referring preacher's tier share
+//   (28 / 36 / 44% of the WHOLE payment) · the POT gets everything else — the preacher pool's unused part now feeds the
+//   Pot, not the Reserve. No preacher → Pot 76%; tier 28% → 48%; 36% → 40%; 44% → 32%. The Pot absorbs rounding dust.
+// MINING FEES (minetip — the 1% miner fee, incl. Burn to Mine's deposit fee): 100% to the Reserve since 2026-10-27 (owner),
+//   no Pot, no ops, no preacher share, with or without a ddref memo — store-verify-core.mjs. (2026-10-23 → 10-27 a referred
+//   tip split 22% Pot / 22% Reserve / 12% ops / 44% pool via splitGame; those records keep their locked split.)
+// Every verified record stores its exact parts (`split`), so older records keep accounting the way they were booked.
 // Royalties never feed the Pot any more (88% Card Vault / 12% ops — store-keeper-core.mjs).
-export const POT_FRAC = 0.22;             // the Pot's share of a coin buy / mining tip (what /pot shows as "potPct")
+export const POT_FRAC = 0.22;             // history: the Pot's share under splitGame (referred mining tips 10-23 → 10-27)
+export const POT_PCT_MAX = 76, POT_PCT_MIN = 32;   // a coin buy's Pot share: 76% unreferred … 32% with a 44% preacher
 export const LEGACY_POT_FRAC = 0.65;      // records verified before 2026-10-23 (no `split`) gave the Pot 65%
-export const GAME_SPLIT = { pot: 22n, ops: 12n, preacherPool: 44n };   // percent; the Reserve gets the rest
-// Exact split of a raw token amount (BigInt). `preacherPct` = the locked tier share (0, 28, 36 or 44).
+export const COINBUY_SPLIT = { reserve: 12n, ops: 12n, preacherPool: 44n };   // percent; the Pot gets the rest
+// Exact split of a coin purchase's raw token amount (BigInt). `preacherPct` = the locked tier share (0, 28, 36 or 44).
+// The four parts always sum to `raw` (the Pot takes the remainder, incl. rounding dust).
+export function splitCoinbuy(raw, preacherPct = 0) {
+  raw = BigInt(raw);
+  const pct = BigInt(Math.max(0, Math.min(Number(COINBUY_SPLIT.preacherPool), Math.round(Number(preacherPct) || 0))));
+  const reserve = (raw * COINBUY_SPLIT.reserve) / 100n, ops = (raw * COINBUY_SPLIT.ops) / 100n, preacher = (raw * pct) / 100n;
+  return { pot: raw - reserve - ops - preacher, ops, preacher, reserve };
+}
+export const GAME_SPLIT = { pot: 22n, ops: 12n, preacherPool: 44n };   // percent; the Reserve gets the rest (history / fallback only)
+// Exact split under the 2026-10-23 rules (referred mining tips until 10-27; now only a defensive fallback in verify-core). `preacherPct` = the locked tier share (0, 28, 36 or 44).
 // The Reserve absorbs the preacher pool's unused part and all rounding dust, so the four parts always sum to `raw`.
 export function splitGame(raw, preacherPct = 0) {
   raw = BigInt(raw);
@@ -31,7 +44,7 @@ const KEY = "current";
 // signature twice. Carried across the weekly reset. Long-term idempotency is the callers' own
 // per-signature records; this window only has to cover minutes.
 const APPLIED_MAX = 1000;
-const ROUTES = ["coinbuy", "minetip", "royalty", "tip", "cluck", "game", "shelves", "other"];   // "royalty": history only (retired 2026-10-23)
+const ROUTES = ["coinbuy", "minetip", "royalty", "tip", "cluck", "game", "shelves", "seed", "rollover", "other"];   // "royalty": history only (retired 2026-10-23)
 const curKey = (c) => ({ SOL: "sol", ORE: "ore", SKR: "skr" }[c] || null);
 
 function zero() {
@@ -98,6 +111,19 @@ export async function addToPot({ usd = 0, currency = null, native = 0, route = "
   });
   const { applied, ...out } = normalize(value);
   return out;
+}
+
+// Degen Dojo's own ORE added to the CURRENT round's prize (owner 2026-10-27 — the first rounds start with no pot).
+// Admin-only (/api/payouts action "seed-pot"). Valued at today's ORE price like every other ORE contribution, so it is
+// part of the prize the draw snapshots, and archived + reset with the round like everything else. No transfer happens:
+// payouts are paid from the Treasury by the owner anyway. `id` makes a double click / retry a no-op.
+export const SEED_ORE_MAX = 25;   // per seed action — a typo guard; seed again for more
+export async function seedPot({ ore, id, oreUsdPrice }) {
+  ore = Number(ore);
+  if (!(ore > 0) || ore > SEED_ORE_MAX) throw new CasError(`seed between 0 and ${SEED_ORE_MAX} ORE`, 400);
+  if (!/^[A-Za-z0-9_-]{8,64}$/.test(String(id || ""))) throw new CasError("bad seed id", 400);
+  if (!(oreUsdPrice > 0)) throw new CasError("no ORE price right now — try again in a minute", 503);
+  return addToPot({ usd: ore * oreUsdPrice, currency: "ORE", native: ore, route: "seed", id: "seed:" + id });
 }
 
 // Run on a draw: snapshot the pot to the round's archive and reset to zero so next week
