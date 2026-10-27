@@ -121,12 +121,17 @@
     });
     return by;
   }
-  function coreHold(a) {
-    var p = a.plugins || {}, hit = null;
+  /** A FreezeDelegate / PermanentFreezeDelegate plugin with frozen = true (on an asset, or on a Core collection). */
+  function pluginFrozen(a) {
+    var p = (a && a.plugins) || {}, hit = null;
     Object.keys(p).forEach(function (k) {
       var n = k.replace(/_/g, '').toLowerCase(), x = p[k];
       if (!hit && (n === 'freezedelegate' || n === 'permanentfreezedelegate') && x && x.data && x.data.frozen) hit = { by: (x.authority && x.authority.address) || null };
     });
+    return hit;
+  }
+  function coreHold(a) {
+    var hit = pluginFrozen(a);
     if (!hit && a.ownership && a.ownership.frozen) hit = { by: a.ownership.delegate || null };
     return hit;
   }
@@ -265,15 +270,23 @@
         var j = judge(a); if (!j) return;
         var held = coreHold(a), lent = held ? null : coreDelegated(a, owner);
         cores.push({ mint: a.id, core: true, name: j.name, image: j.image, collection: j.g ? j.g.group_value : null, collectionName: '', floorKey: j.fk || a.id, floorSol: null, pnft: false,
-          junk: j.junk, reason: j.why || (held && !held.by ? 'frozen by its project' : null) || (lent ? 'listed or delegated somewhere' : null), coreHeld: !!(held && held.by), delegate: held ? held.by : lent, frozen: !!held });
+          junk: j.junk, reason: j.why || (held && !held.by ? 'Frozen by its project — can’t be burned' : null) || (lent ? 'listed or delegated somewhere' : null), coreHeld: !!(held && held.by), delegate: held ? held.by : lent, frozen: !!held });
       });
       if (its.length < CORE_LIMIT) break;
     }
     // collection names: one batch per 100 distinct collections (usually a single call); cosmetic, so a failure is ignored
-    var colls = chunks(Object.keys(collOf), 100);
+    var colls = chunks(Object.keys(collOf), 100), collFrozen = {};
     for (var cc = 0; cc < colls.length; cc++) {
-      try { var cb = await rpc('getAssetBatch', { ids: colls[cc] }); (cb || []).forEach(function (a) { if (a && a.id) collOf[a.id] = String((a.content && a.content.metadata && a.content.metadata.name) || ''); }); } catch (e) { /* names stay blank */ }
+      try {
+        var cb = await rpc('getAssetBatch', { ids: colls[cc] });
+        (cb || []).forEach(function (a) {
+          if (!a || !a.id) return;
+          collOf[a.id] = String((a.content && a.content.metadata && a.content.metadata.name) || '');
+          if (pluginFrozen(a)) collFrozen[a.id] = 1;   // the whole collection is frozen (soulbound)
+        });
+      } catch (e) { /* names stay blank */ }
     }
+    cores.forEach(function (c) { if (c.collection && collFrozen[c.collection] && !c.reason) c.reason = 'Frozen by its collection (soulbound) — can’t be burned'; });
     cands.concat(cores).forEach(function (c) { if (c.collection) c.collectionName = collOf[c.collection] || ''; });
     // exact rent per NFT: token account + metadata + edition (+ token record) — only master editions are offered (a print
     // edition needs its master's accounts to burn); a pNFT's token record also says whether it is locked (staked) or listed
@@ -313,10 +326,14 @@
       var cg = chunks(cores, 100);
       for (var k = 0; k < cg.length; k++) {
         try {
-          var cm = await rpc('getMultipleAccounts', [cg[k].map(function (c) { return c.mint; }), { encoding: 'base64', dataSlice: { offset: 0, length: 0 } }]);
+          var cm = await rpc('getMultipleAccounts', [cg[k].map(function (c) { return c.mint; }), { encoding: 'base64', dataSlice: { offset: 0, length: 1 } }]);
           ((cm && cm.value) || []).forEach(function (v, j) {
             var c = cg[k][j];
             if (!v || v.owner !== CORE) return;   // gone since DAS indexed it
+            // mpl-core Key: 0 Uninitialized (a burned stub) · 1 AssetV1 · 2 HashedAssetV1 (compressed — burning needs a compression proof) · 5 CollectionV1
+            var key = v.data && v.data[0] ? b64(v.data[0])[0] : null;
+            if (key === 0) return;   // a 1-byte Uninitialized stub: already burned (DAS can lag) — nothing to offer
+            if (key === 2 && !c.reason) c.reason = 'Compressed Core NFT — can’t be burned here';
             c.lamports = Math.max(0, v.lamports - keep1); c.burnable = !c.reason; cands.push(c);
           });
         } catch (e) { miss(cg[k].length); }
@@ -399,6 +416,81 @@
     var l = (sim.logs || []).filter(function (x) { return /Error|failed|Program log: /.test(x) && !/consumed/.test(x); }).slice(-1)[0] || '';
     return (l.replace(/^Program log: /, '').replace(/^Program \w+ /, '').slice(0, 120)) || JSON.stringify(sim.err).slice(0, 120);
   };
+
+  // ── Can it really be burned? (owner 2026-10-27) ──────────────────────────────────────────────────────────────────
+  // A project can block a burn in ways a scan can't see (an Oracle plugin, a soulbound collection…). After the list
+  // renders, every remaining candidate's burn is SIMULATED (nothing signed) in packed batches through the paced client; a
+  // failing batch is narrowed down (the failing instruction when the error names it, halves otherwise) and the NFT gets
+  // "Can't burn" with the program's reason. Kept per wallet for the page session. An account-level error (e.g. the wallet
+  // has no SOL for the fee) stops the check without marking anything — that says nothing about the NFTs.
+  // mpl-core error codes (programs/mpl-core/src/error.rs, main, 2026-10-27)
+  var CORE_ERRORS = ['InvalidSystemProgram', 'DeserializationError', 'SerializationError', 'PluginsNotInitialized', 'PluginNotFound', 'NumericalOverflow',
+    'IncorrectAccount', 'IncorrectAssetHash', 'InvalidPlugin', 'InvalidAuthority', 'AssetIsFrozen', 'MissingCompressionProof', 'CannotMigrateMasterWithSupply',
+    'CannotMigratePrints', 'CannotBurnCollection', 'PluginAlreadyExists', 'NumericalOverflowError', 'AlreadyCompressed', 'AlreadyDecompressed',
+    'InvalidCollection', 'MissingUpdateAuthority', 'MissingNewOwner', 'MissingSystemProgram', 'NotAvailable', 'InvalidAsset', 'MissingCollection',
+    'NoApprovals', 'CannotRedelegate', 'InvalidPluginSetting', 'ConflictingAuthority', 'InvalidLogWrapperProgram', 'ExternalPluginAdapterNotFound',
+    'ExternalPluginAdapterAlreadyExists', 'MissingAsset', 'MissingExternalPluginAdapterAccount', 'OracleCanRejectOnly', 'RequiresLifecycleCheck',
+    'DuplicateLifecycleChecks', 'InvalidOracleAccountData', 'UninitializedOracleAccount', 'MissingSigner', 'InvalidPluginOperation',
+    'CollectionMustBeEmpty', 'TwoDataSources', 'UnsupportedOperation', 'NoDataSources', 'InvalidPluginAdapterTarget', 'CannotAddDataSection',
+    'PermanentDelegatesPreventMove', 'InvalidExecutePda', 'AgentIdentityMustSign', 'GroupMustBeEmpty', 'DuplicateEntry', 'GroupVectorFull',
+    'GroupNestingDepthExceeded', 'InconsistentGroupRelationship'];
+  var burnChecks = {};   // owner → { mint: '' (burns) | reason (can't) } for this page session
+  function cantReason(sim) {
+    var m = (sim.logs || []).join('\n').match(new RegExp('Program ' + CORE + ' failed: custom program error: (0x[0-9a-f]+)'));
+    if (m) { var n = CORE_ERRORS[parseInt(m[1], 16)]; return 'Can’t burn — the project blocks it (' + (n || m[1]) + ')'; }
+    return 'Can’t burn — the project blocks it (' + reasonOf(sim) + ')';
+  }
+  function markCant(c, why) { c.burnable = false; c.cantBurn = true; c.reason = why; }
+  async function checkBurns(rpc, owner, out, onUpdate) {
+    var memo = burnChecks[owner] || (burnChecks[owner] = {}), t0 = Date.now(), sims = 0, failed = 0, stopped = null;
+    var all = out.nfts.filter(function (c) { return c.burnable; }), todo = [];
+    all.forEach(function (c) { if (c.mint in memo) { if (memo[c.mint]) { markCant(c, memo[c.mint]); failed++; } } else todo.push(c); });
+    var mk = function (items) { return budget(burnUnits(items)).concat(items.map(function (c) { return burnIxOf(owner, c); })); };
+    var roomFor = function (items, next) { return items.length < 12 && items.concat([next]).filter(function (x) { return !x.core; }).length <= 3; };
+    var sim1 = async function (items) {
+      sims++;
+      var r = await simulate(rpc, owner, mk(items));
+      if (r.err && (typeof r.err === 'string' || !r.err.InstructionError)) stopped = stopped || (typeof r.err === 'string' ? r.err : JSON.stringify(r.err).slice(0, 80));
+      return r;
+    };
+    var bad = function (c, sim) { var why = cantReason(sim); markCant(c, why); memo[c.mint] = why; failed++; };
+    var run = async function (items) {
+      if (!items.length || stopped) return;
+      var r = await sim1(items);
+      if (stopped) return;
+      if (!r.err) { items.forEach(function (c) { memo[c.mint] = ''; }); return; }
+      var at = failedIndex(r.err) - (mk(items).length - items.length);   // the burn instruction that failed (after the budget ixs)
+      if (items.length === 1) {
+        var c = items[0];
+        // a Token Metadata NFT whose verified collection NFT is gone burns without it (planBurns does the same)
+        if (c.collection && !c.core && c._coll !== false) { var c2 = Object.assign({}, c, { _coll: false }), r2 = await sim1([c2]); if (stopped) return; if (!r2.err) { memo[c.mint] = ''; return; } }
+        bad(c, r); return;
+      }
+      if (at >= 0 && at < items.length) {   // the ones before it burned fine in this run; the culprit alone; the rest again
+        items.slice(0, at).forEach(function (x) { memo[x.mint] = ''; });
+        if (items[at].collection && !items[at].core) await run([items[at]]); else bad(items[at], r);
+        await run(items.slice(at + 1));
+        return;
+      }
+      var h = items.length >> 1;
+      await run(items.slice(0, h)); await run(items.slice(h));
+    };
+    var queue = todo.slice();
+    try {
+      while (queue.length && !stopped) {
+        var items = [];
+        while (queue.length && roomFor(items, queue[0]) && sizeOf(owner, mk(items.concat([queue[0]]))) <= TX_MAX) items.push(queue.shift());
+        if (!items.length) { queue.shift(); continue; }   // too big to burn alone: planBurns says so at review time
+        await run(items);
+        if (onUpdate) onUpdate({ sims: sims, failed: failed, left: queue.length, total: todo.length });
+      }
+    } catch (e) { stopped = stopped || ('check interrupted: ' + ((e && e.message) || e)); }
+    out.nftLamports = out.nfts.filter(function (c) { return c.burnable; }).reduce(function (t, c) { return t + c.lamports; }, 0);
+    var res = { sims: sims, failed: failed, checked: all.length, ms: Date.now() - t0, stopped: stopped };
+    out.burnCheck = res;
+    if (onUpdate) onUpdate(res);
+    return res;
+  }
 
   /** Plan the close transactions: as many closes per tx as fit, each simulated; an account whose close fails is dropped
    *  (with the reason) and its batch rebuilt. → { batches: [{ items, ixs, lamports, units }], dropped: [{ item, reason }] } */
@@ -502,6 +594,7 @@
     metaOf: metaOf, editionOf: editionOf, tokenRecordOf: tokenRecordOf, KEEP: KEEP, TX_MAX: TX_MAX,
     FLOOR_MAX: FLOOR_MAX, floorHigh: floorHigh, floorUnknownVerified: floorUnknownVerified, visibleNfts: visibleNfts, junkPicks: junkPicks, attachFloors: attachFloors,
     rawImageOk: rawImageOk, coreDelegated: coreDelegated, KEEP_AUTH: KEEP_AUTH, KEEP_CREATOR: KEEP_CREATOR,
+    checkBurns: checkBurns, pluginFrozen: pluginFrozen, CORE_ERRORS: CORE_ERRORS, _resetBurnChecks: function () { burnChecks = {}; },
     useFloors: function (fn) { floorsFetch = fn || null; }, setFloorsUrl: function (u) { FLOORS_URL = u || '/api/floors'; },
     // the small helpers Dojo Sweep's staking code builds on
     _: { PK: PK, pda: pda, utf8: utf8, Buf: Buf, b64: b64, rdU64: rdU64, keyAt: keyAt, u64le: u64le, acct: acct, ix: ix, budget: budget, compile: compile,

@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import * as web3 from "@solana/web3.js";
 import { Buffer } from "buffer";
 
-export type BurnNft = { mint: string; name: string; image: string; collectionName: string; collection: string | null; lamports: number; burnable: boolean; junk: number; reason: string | null; pnft: boolean; core?: boolean; floorSol?: number | null };   // core: a Metaplex Core NFT (mint = its asset address)
+export type BurnNft = { mint: string; name: string; image: string; collectionName: string; collection: string | null; lamports: number; burnable: boolean; junk: number; reason: string | null; pnft: boolean; core?: boolean; floorSol?: number | null; cantBurn?: boolean };   // core: a Metaplex Core NFT (mint = its asset address)
 export type ScanOut = { nfts: BurnNft[]; empties: unknown[]; emptyLamports: number; unread: number; calls: number | null; ms: number; floors?: { groups: number; calls: number; unknown: number; unknownVerified?: number; degraded?: boolean; high: number; ms: number } };
 export type Batch = { ixs: unknown[]; items: BurnNft[]; lamports: number };
 export type Plan = { batches: Batch[]; dropped: { item: BurnNft; reason: string }[] };
@@ -22,6 +22,9 @@ export type DojoBurnApi = {
   floorHigh: (n: BurnNft) => boolean;
   visibleNfts: (list: BurnNft[], showAll: boolean, degraded?: boolean) => BurnNft[];   // degraded floors: unknown-floor verified collections hidden too
   rawImageOk: (url: string) => boolean;   // the original image may load only from a storage network
+  // after the scan: simulate every burnable NFT's burn (nothing signed); a project-blocked one becomes burnable:false + reason
+  checkBurns: (rpc: Rpc, owner: string, out: ScanOut, onUpdate?: (u: { sims: number; failed: number; left?: number; total?: number }) => void) =>
+    Promise<{ sims: number; failed: number; checked: number; ms: number; stopped: string | null }>;
   junkPicks: (list: BurnNft[]) => BurnNft[];
 };
 

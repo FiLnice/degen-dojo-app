@@ -320,12 +320,12 @@ export default function MinePage() {
               // the static export writes this nested route's prefetch file under a different name than the client
               // asks for (404 in the console) — a plain navigation needs no prefetch
               prefetch={false}
-              className="flex w-full items-center justify-between gap-2 rounded-lg border border-sky-600/30 bg-sky-600/10 px-3 py-2 text-sky-300 transition-colors hover:bg-sky-600/20"
+              className="flex w-full items-center justify-between gap-2 rounded-lg border border-red-500/50 bg-gradient-to-r from-red-950/60 to-amber-950/50 px-3 py-2 text-amber-200 transition-colors hover:from-red-900/60 hover:to-amber-900/50"
             >
               <span className="inline-flex items-center gap-1.5 text-xs font-medium">
                 <OreIcon className="size-3.5" /> Vault ↗
               </span>
-              <span className="text-right text-[10px] leading-tight text-stone-300">
+              <span className="text-right text-[10px] leading-tight text-amber-100/80">
                 {vaultUnrefined.toFixed(2)} uORE · {vaultRefined.toFixed(2)} rORE
               </span>
             </Link>
@@ -426,7 +426,7 @@ export default function MinePage() {
                 {automation?.active ? (
                   <>
                     <div className="space-y-1 rounded-md bg-stone-950/60 p-3 text-xs">
-                      <Row label="Status" value={<span className="text-emerald-300">Auto-mining ✓</span>} />
+                      <Row label="Status" value={<span className="font-semibold text-amber-300">Auto-mining ✓</span>} />
                       <Row
                         label="Per tile"
                         value={
@@ -469,7 +469,7 @@ export default function MinePage() {
                         value={amountStr}
                         onChange={(e) => setAmountStr(e.target.value)}
                         inputMode="decimal"
-                        className="w-24 rounded border border-stone-700 bg-stone-950 px-2 py-1 text-right text-sm text-stone-100 tabular-nums outline-none focus:border-sky-500"
+                        className="w-24 rounded border border-stone-700 bg-stone-950 px-2 py-1 text-right text-sm text-stone-100 tabular-nums outline-none focus:border-amber-500"
                       />
                     </div>
                     <div className="flex items-center justify-between gap-2">
@@ -480,12 +480,12 @@ export default function MinePage() {
                         value={depositStr}
                         onChange={(e) => setDepositStr(e.target.value)}
                         inputMode="decimal"
-                        className="w-24 rounded border border-stone-700 bg-stone-950 px-2 py-1 text-right text-sm text-stone-100 tabular-nums outline-none focus:border-sky-500"
+                        className="w-24 rounded border border-stone-700 bg-stone-950 px-2 py-1 text-right text-sm text-stone-100 tabular-nums outline-none focus:border-amber-500"
                       />
                     </div>
                     <div className="flex items-center justify-between rounded bg-stone-950/60 px-3 py-2 text-xs">
                       <span className="text-stone-400">Est. rounds</span>
-                      <span className="font-semibold text-emerald-300">~{estSetupRounds}</span>
+                      <span className="font-semibold text-stone-100">~{estSetupRounds}</span>
                     </div>
                     {dojoFee && (
                       <div className="space-y-1">
@@ -510,7 +510,7 @@ export default function MinePage() {
                                   type="button"
                                   onClick={() => setTipCur(c)}
                                   aria-pressed={tipCur === c}
-                                  className={`px-2 py-1 font-semibold ${tipCur === c ? "bg-sky-600/30 text-sky-200" : "text-stone-400 hover:text-stone-200"}`}
+                                  className={`px-2 py-1 font-semibold ${tipCur === c ? "bg-amber-600/30 text-amber-200" : "text-stone-400 hover:text-stone-200"}`}
                                 >
                                   {c}
                                 </button>
@@ -523,7 +523,7 @@ export default function MinePage() {
                             inputMode="decimal"
                             placeholder="0"
                             aria-label={`Tip in ${tipCur}`}
-                            className="w-24 rounded border border-stone-700 bg-stone-950 px-2 py-1 text-right text-sm text-stone-100 tabular-nums outline-none focus:border-sky-500"
+                            className="w-24 rounded border border-stone-700 bg-stone-950 px-2 py-1 text-right text-sm text-stone-100 tabular-nums outline-none focus:border-amber-500"
                           />
                         </div>
                       </div>

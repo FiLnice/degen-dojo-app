@@ -51,6 +51,7 @@ label{font-size:12px;color:var(--mut);letter-spacing:.04em}
 .seg{display:inline-flex;gap:4px;flex-wrap:wrap}
 .seg .mini.on{background:rgba(232,184,75,.18);color:var(--ink2)}
 .redl{color:#ff9c8f}
+.tag.no{background:#3a2f22;color:var(--mut)}
 .tag{position:absolute;top:7px;right:7px;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 6px;border-radius:999px;background:var(--amber);color:#1a1206}
 .why{font-size:10.5px;color:#e58b80;margin-top:2px}
 .confirm{border:1px solid rgba(193,68,58,.6);background:rgba(193,68,58,.08);border-radius:11px;padding:12px;margin-top:12px}
@@ -105,6 +106,20 @@ const SOL = (l, d) => (Number(l || 0) / 1e9).toLocaleString(undefined, { minimum
 const thumb = (u) => { try { const x = new URL(String(u || '')); return x.protocol === 'https:' ? 'https://wsrv.nl/?url=' + encodeURIComponent(x.href) + '&w=240&h=240&fit=cover&output=webp' : ''; } catch (e) { return ''; } };
 let OWNER = null, SCAN = null, SEL = new Set(), BUSY = false, SCANNING = false;
 let SHOW_ALL = false;   // burn list: "Floor below 0.05 SOL" (default) | "Show all"
+let CHECK = null;       // the background "can it really be burned?" check for the current scan (DojoBurn.checkBurns)
+// After the list renders, every burnable NFT's burn is simulated in the background (nothing signed); the ones a project
+// blocks turn into greyed "Can't burn" tiles and leave the selection. No re-render while a confirmation is open.
+function startBurnCheck(scan, addr) {
+  if (!scan || !scan.nfts.some((c) => c.burnable)) return;
+  CHECK = { scan, left: null };
+  const quiet = () => BUSY || !!($('burnConfirm') && $('burnConfirm').innerHTML);
+  DojoBurn.checkBurns(rpc, addr, scan, (u) => {
+    if (SCAN !== scan) return;
+    if (u.left != null) CHECK = { scan, left: u.left };
+    scan.nfts.forEach((c) => { if (!c.burnable) SEL.delete(c.mint); });
+    if (!quiet()) render();
+  }).catch(() => {}).finally(() => { if (SCAN === scan) { CHECK = null; if (!quiet()) render(); } });
+}
 const FLOOR_MAX = DojoBurn.FLOOR_MAX;
 const floorTxt = (v) => (v >= 10 ? v.toFixed(1) : v >= 0.1 ? v.toFixed(2) : v.toFixed(3)).replace(/\.?0+$/, '');
 // one paced client for the whole page (≤ 2 in flight, ≤ 4 a second, retries 429/5xx with backoff — DojoBurn.makeRpc)
@@ -124,7 +139,7 @@ async function lookup(addr, note) {
   BUSY = true; SCANNING = true; $('scan').disabled = true; $('results').innerHTML = ''; SEL = new Set();
   try {
     SCAN = await DojoSweep.scan(rpc, addr, (s) => { $('msg').textContent = s; });
-    OWNER = addr; $('msg').innerHTML = note || ''; render();
+    OWNER = addr; $('msg').innerHTML = note || ''; render(); startBurnCheck(SCAN, addr);
   } catch (e) { $('msg').textContent = 'Couldn’t read that wallet right now (' + e.message + '). Try again in a minute.'; }
   BUSY = false; SCANNING = false; $('scan').disabled = false;
 }
@@ -189,21 +204,24 @@ function render() {
   if (s.nfts.length) {
     // floor guard (owner 2026-10-27): by default an NFT whose collection floor is >= FLOOR_MAX SOL isn't shown (or ticked)
     const degraded = !!(s.floors && s.floors.degraded);
-    const shown = DojoBurn.visibleNfts(s.nfts, SHOW_ALL, degraded), hidden = s.nfts.length - shown.length;
+    const shown = DojoBurn.visibleNfts(s.nfts, SHOW_ALL, degraded).slice().sort((a, b) => b.burnable - a.burnable), hidden = s.nfts.length - shown.length;
+    const cant = s.nfts.filter((c) => !c.burnable).length, checking = !!(CHECK && CHECK.scan === s);
     const shownBurn = shown.filter((c) => c.burnable), selLamports = burnables.filter((c) => SEL.has(c.mint)).reduce((t, c) => t + c.lamports, 0);
     html += '<div class="card"><div class="sec-h"><h2>NFTs you could burn (' + shownBurn.length + ')</h2><div class="amt">up to +' + SOL(shownBurn.reduce((t, c) => t + c.lamports, 0)) + ' SOL</div></div>'
       + '<div class="fine">Spam and dead-project NFTs still hold rent. Tick the ones you don’t want — <b>burning destroys them for good</b> and sends their rent back to you. Likely spam is shown first. Nothing is ticked for you.</div>'
       + '<div style="margin:10px 0 2px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span class="seg"><button class="mini' + (SHOW_ALL ? '' : ' on') + '" id="floorLow">Floor below ' + FLOOR_MAX + ' SOL</button><button class="mini' + (SHOW_ALL ? ' on' : '') + '" id="floorAll">Show all</button></span>'
       + (!SHOW_ALL && hidden ? '<span class="fine">' + hidden + ' hidden — their collection floor is ' + FLOOR_MAX + ' SOL or more' + (degraded ? ', or couldn’t be checked' : ' (worth more listed than burned)') + '</span>' : '') + '</div>'
       + (degraded ? '<div class="fine warn" style="margin-bottom:6px">⚠ Floor prices couldn’t be checked for ' + s.floors.unknownVerified + ' collection' + (s.floors.unknownVerified === 1 ? '' : 's') + ' right now — their NFTs are under Show all until they can be. Spam without a collection stays here.</div>' : '')
+      + (checking ? '<div class="fine" style="margin-bottom:6px">Checking which of these can really be burned' + (CHECK.left ? ' (' + CHECK.left + ' left)' : '') + '…</div>'
+        : cant ? '<div class="fine" style="margin-bottom:6px">' + cant + ' can’t be burned — their project blocks it, or they’re frozen. They’re greyed at the end.</div>' : '')
       + '<div class="fine" style="margin-bottom:8px">Staked somewhere off-chain? Some projects track staking on their own servers — the NFT looks free here, and burning it ends that stake.</div>'
       + '<div class="grid">' + shown.map((c) => {
         const img = thumb(c.image), on = SEL.has(c.mint), hi = DojoBurn.floorHigh(c);
         const fl = !c.burnable ? '' : hi ? '<span class="fl hi">Floor ' + floorTxt(c.floorSol) + ' SOL</span><div class="worth">worth more listed than burned</div>'
           : c.floorSol != null ? '<span class="fl">Floor ' + floorTxt(c.floorSol) + ' SOL</span>' : '<span class="fl">floor unknown</span>';
-        return '<div class="nft' + (on ? ' sel' : '') + (c.burnable ? '' : ' off') + (hi ? ' hiflo' : '') + '" data-mint="' + esc(c.mint) + '" title="' + esc(c.name) + '">'
+        return '<div class="nft' + (on ? ' sel' : '') + (c.burnable ? '' : ' off') + (hi ? ' hiflo' : '') + '" data-mint="' + esc(c.mint) + '" title="' + esc(c.name + (c.burnable ? '' : ' — ' + (c.reason || 'can’t be burned'))) + '">'
           + (img ? '<img loading="lazy" src="' + esc(img) + '" alt="">' : '<div class="ph">no image</div>')
-          + (c.burnable ? '<span class="tick"></span>' : '') + (c.burnable && c.junk >= 3 ? '<span class="tag">likely spam</span>' : '')
+          + (c.burnable ? '<span class="tick"></span>' : '<span class="tag no">Can’t burn</span>') + (c.burnable && c.junk >= 3 ? '<span class="tag">likely spam</span>' : '')
           + '<div class="meta"><div class="nm">' + esc(c.name) + '</div><div class="co">' + esc(c.collectionName || (c.collection ? short(c.collection) : 'no verified collection')) + (c.pnft ? ' · pNFT' : c.core ? ' · Core' : '') + '</div>'
           + (c.burnable ? '<div class="rent">+' + SOL(c.lamports) + ' SOL</div>' + fl : '<div class="why">' + esc(c.reason) + '</div>') + '</div></div>';
       }).join('') + '</div>'

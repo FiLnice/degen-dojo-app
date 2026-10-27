@@ -72,6 +72,8 @@ export function BurnMode({ connection, automation, motherlode, miner, busy, subm
   const [done, setDone] = useState<string>("");
   const [pendingMine, setPendingMine] = useState<{ s2: Sizing; back: number; expected: number } | null>(null); // step 2 numbers grew: second click
   const [rescan, setRescan] = useState(0); // "Refresh" after a partly-read scan
+  const [checking, setChecking] = useState<number | null>(null); // background burn check: NFTs left (-1 = starting), null = idle
+  const [cantInfo, setCantInfo] = useState(""); // the reason of a tapped can't-burn tile (phones have no hover)
   const sweepPicks = useRef<{ owner: string; mints: string[] } | null>(null); // kept so a Refresh re-ticks them
 
   const owner = publicKey ? publicKey.toBase58() : viewWallet;
@@ -120,6 +122,20 @@ export function BurnMode({ connection, automation, motherlode, miner, busy, subm
         if (!alive || !s) return;
         setScan(s);
         setStep("");
+        // the background "can it really be burned?" check (simulations only, nothing signed): a project-blocked NFT turns
+        // into a greyed can't-burn tile and leaves the selection
+        if (s.nfts.some((n) => n.burnable)) {
+          setChecking(-1);
+          void api
+            .checkBurns(rpc, owner, s, (u) => {
+              if (!alive) return;
+              setScan({ ...s, nfts: s.nfts.slice() });
+              setSel((cur) => new Set([...cur].filter((m) => s.nfts.some((n) => n.mint === m && n.burnable))));
+              setChecking(u.left != null ? u.left : null); // the final result carries no "left"
+            })
+            .catch(() => {})
+            .finally(() => alive && setChecking(null));
+        }
         // NFTs ticked on /sweep: keep only the ones still in THIS wallet and burnable here; the rest are dropped
         const picks = takeBurnPicks() || (sweepPicks.current?.owner === owner ? sweepPicks.current : null);
         if (picks) {
@@ -139,6 +155,7 @@ export function BurnMode({ connection, automation, motherlode, miner, busy, subm
   }, [api, owner, rescan]);
 
   const burnables = useMemo(() => (scan ? scan.nfts.filter((n) => n.burnable) : []), [scan]);
+  const cantList = useMemo(() => (scan ? scan.nfts.filter((n) => !n.burnable) : []), [scan]); // greyed at the end, never selectable
   // floor guard (owner 2026-10-27): a collection floor ≥ FLOOR_MAX SOL is worth more listed than burned — hidden by default,
   // never bulk-picked, named in red if ticked by hand
   const FLOOR_MAX = api?.FLOOR_MAX ?? 0.05;
@@ -416,6 +433,7 @@ export function BurnMode({ connection, automation, motherlode, miner, busy, subm
                 {hiddenCount} hidden — their collection floor is {FLOOR_MAX} SOL or more{degraded ? ", or couldn't be checked" : " (worth more listed than burned)"}.
               </div>
             )}
+            {checking != null && <div className="mb-2 text-xs text-stone-400">Checking which of these can really be burned{checking > 0 ? ` (${checking} left)` : ""}…</div>}
             {degraded && (
               <div className="mb-2 rounded-lg border border-amber-700/40 bg-amber-950/20 p-2 text-xs text-amber-200">
                 ⚠ Floor prices couldn&apos;t be checked for {scan.floors?.unknownVerified ?? "some"} collections right now — their NFTs are under Show all until they can be. Spam
@@ -481,6 +499,36 @@ export function BurnMode({ connection, automation, motherlode, miner, busy, subm
                 <button className="rounded-md border border-stone-700 px-3 py-1 disabled:opacity-40" disabled={page >= pages - 1} onClick={() => setPage(page + 1)}>
                   Next ›
                 </button>
+              </div>
+            )}
+            {cantList.length > 0 && (
+              <div className="mt-4">
+                <div className="mb-1.5 text-xs text-stone-500">
+                  Can&apos;t burn ({cantList.length}) — their project blocks it, or they&apos;re frozen. Tap one for the reason.
+                </div>
+                <div className="grid grid-cols-6 gap-1.5 sm:grid-cols-8 md:grid-cols-10 xl:grid-cols-12">
+                  {cantList.map((n) => {
+                    const im = thumb(n.image);
+                    return (
+                      <button
+                        key={n.mint}
+                        type="button"
+                        aria-disabled="true"
+                        onClick={() => setCantInfo(`${n.name} — ${n.reason || "can't be burned"}`)}
+                        title={`${n.name} — ${n.reason || "can't be burned"}`}
+                        className="relative aspect-square cursor-not-allowed overflow-hidden rounded-md bg-stone-900 opacity-40 ring-1 ring-stone-800"
+                      >
+                        {im && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={im} alt="" loading="lazy" onError={(e) => (e.currentTarget.style.display = "none")} className="absolute inset-0 size-full object-cover grayscale" />
+                        )}
+                        <span className="absolute left-0.5 top-0.5 rounded bg-stone-800/90 px-1 text-[7px] font-bold uppercase text-stone-300">can&apos;t burn</span>
+                        <span className="absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/85 to-transparent px-1 pb-0.5 pt-2 text-left text-[8px] text-stone-200">{n.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {cantInfo && <div className="mt-1.5 text-xs text-stone-400">{cantInfo}</div>}
               </div>
             )}
           </div>

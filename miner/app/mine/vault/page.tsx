@@ -31,21 +31,21 @@ export default function VaultPage() {
   return (
     <>
       <StoreNav />
-      <main className="min-h-screen px-5 py-10">
+      <main className="mine-cave min-h-screen px-5 py-10">
       <div className="mx-auto max-w-lg space-y-6">
         <Link
           href="/mine"
-          className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-200"
+          className="inline-flex items-center gap-1.5 text-sm text-stone-400 hover:text-amber-200"
         >
           <ArrowLeft className="size-4" /> Back to mining
         </Link>
 
         <header className="space-y-2 text-center">
-          <div className="inline-flex items-center gap-2 rounded-full border border-sky-600/30 bg-sky-600/10 px-3 py-1 text-xs text-sky-300">
+          <div className="inline-flex items-center gap-2 rounded-full border border-red-500/50 bg-gradient-to-r from-red-950/60 to-amber-950/50 px-3 py-1 text-xs text-amber-200">
             <OreIcon className="size-3.5" /> uORE Vault
           </div>
-          <h1 className="text-2xl font-semibold text-slate-100">Claim your uORE</h1>
-          <p className="mx-auto max-w-sm text-sm text-slate-400">
+          <h1 className="text-2xl font-semibold text-stone-100">Claim your uORE</h1>
+          <p className="mx-auto max-w-sm text-sm text-stone-400">
             uORE you&apos;ve mined across rounds settles here.
           </p>
         </header>
@@ -56,12 +56,12 @@ export default function VaultPage() {
           </div>
         )}
 
-        <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-6 text-center">
-          <div className="text-[11px] uppercase tracking-wide text-slate-500">You&apos;ll receive</div>
-          <div className="mt-1 text-4xl font-bold tabular-nums text-emerald-300">
-            {claimableOre.toFixed(4)} <span className="text-lg text-slate-400">ORE</span>
+        <div className="rounded-xl border border-red-500/50 bg-gradient-to-r from-red-950/60 to-amber-950/50 p-6 text-center">
+          <div className="text-[11px] uppercase tracking-wide text-stone-500">You&apos;ll receive</div>
+          <div className="mt-1 text-4xl font-bold tabular-nums text-amber-300">
+            {claimableOre.toFixed(4)} <span className="text-lg text-stone-400">ORE</span>
           </div>
-          <div className="mt-2 text-xs text-slate-500">
+          <div className="mt-2 text-xs text-stone-500">
             {unrefined.toFixed(4)} uORE × 90% + {refined.toFixed(4)} rORE
           </div>
         </div>
@@ -70,7 +70,7 @@ export default function VaultPage() {
           <div className="h-12" />
         ) : !connected ? (
           <div className="flex flex-col items-center gap-2">
-            <p className="text-sm text-slate-400">Connect your wallet to view and claim your uORE.</p>
+            <p className="text-sm text-stone-400">Connect your wallet to view and claim your uORE.</p>
             {embedded ? (
               <button
                 onClick={select}
@@ -88,8 +88,8 @@ export default function VaultPage() {
             disabled={!!busy || claimableOre <= 0}
             className={`inline-flex w-full items-center justify-center gap-2 rounded-lg px-5 py-3 text-sm font-medium transition-colors ${
               busy || claimableOre <= 0
-                ? "cursor-not-allowed bg-slate-800 text-slate-500"
-                : "bg-sky-600 text-white hover:bg-sky-500"
+                ? "cursor-not-allowed bg-stone-800 text-stone-500"
+                : "bg-gradient-to-br from-amber-500 to-amber-700 font-semibold text-black hover:brightness-110"
             }`}
           >
             {busy && <Loader2 className="size-4 animate-spin" />}
@@ -97,7 +97,7 @@ export default function VaultPage() {
           </button>
         )}
 
-        <p className="text-center text-[11px] text-slate-600">
+        <p className="text-center text-[11px] text-stone-500">
           Claiming charges a small ORE protocol fee (a 10% cut on unrefined ORE, shared with other miners).
         </p>
       </div>
