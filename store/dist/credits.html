@@ -39,6 +39,12 @@ h1{font-family:"Teko",sans-serif;font-weight:700;font-size:clamp(38px,8vw,66px);
 .acct-msg.ok{color:var(--green);}
 .buystat{background:var(--bg2);border:1px solid var(--gold-dim);border-radius:12px;padding:12px 16px;margin:10px auto 4px;max-width:640px;text-align:center;font-size:14px;line-height:1.5;color:var(--ink);word-break:break-word;}
 .buystat a{color:var(--gold);}
+/* payment in flight: a turning hourglass + "step n/3" so the ~15 s on-chain wait never looks frozen */
+.buystat .hg{display:inline-block;animation:dcHg 1.6s ease-in-out infinite;margin-right:4px}
+@keyframes dcHg{0%,40%{transform:rotate(0)}50%,90%{transform:rotate(180deg)}100%{transform:rotate(360deg)}}
+.buystat .stp{display:block;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);opacity:.75;margin-bottom:2px}
+.buystat .secs{opacity:.7;font-variant-numeric:tabular-nums}
+button.buy:disabled{opacity:.45;cursor:wait}
 
 /* currency toggle */
 .pays{display:flex;gap:8px;justify-content:center;margin:22px 0 6px;flex-wrap:wrap;}
@@ -188,7 +194,7 @@ let CUR = 'ORE';
 const PENDING_KEY = 'dojo_pending_buys';   // payments sent but not yet confirmed credited (re-sent + watched on revisit)
 
 const $ = id => document.getElementById(id);
-const dp = { ORE:2, SKR:0, SOL:3 };
+const dp = { ORE:4, SKR:0, SOL:3 };   // ORE ≈ $170: 2 decimals showed $3 as "0.02" (≈$3.44); 4 shows 0.0174
 const tok = c => `<img class="tok" src="${ICON[c]}" alt="${c}">`;
 
 // Coins live on the SERVER (DojoWallet) — this page never credits a balance itself.
@@ -275,7 +281,7 @@ async function watchPurchase(sig){
   if(watching[sig]) return; watching[sig]=true;
   const st=$('buyStatus'); st.style.display='';
   const short = esc(sig.slice(0,8)+'…'+sig.slice(-6));
-  st.innerHTML = '⏳ <b>Payment sent</b> — coins appear after the on-chain check (about a minute). Tx <code>'+short+'</code>';
+  stage(3, ' <b>Payment sent ✓</b> — adding your coins after our on-chain check (runs every minute, usually 1–2 min). Tx <code>'+short+'</code>', true);
   const t0 = Date.now();
   while(Date.now()-t0 < 3*60*1000){
     await new Promise(r=>setTimeout(r, 8000));
@@ -316,7 +322,7 @@ function renderPacks(){
       ${p.bonus?`<div class="bonus">+${p.bonus} bonus</div>`:''}
       <div class="price">${tok(CUR)} ${fmtTok(t)}</div>
       <div class="usd">≈ $${p.usd}</div>
-      <button class="buy" onclick="buy(${i})">Buy</button>
+      <button class="buy" onclick="buy(${i})"${buying?' disabled':''}>Buy</button>
     </div>`;
   }).join('');
 }
@@ -346,12 +352,30 @@ async function connectWallet(){
   const b=$('connectBtn'); if(b) b.textContent = '✓ '+WALLET.pubkey.slice(0,4)+'…'+WALLET.pubkey.slice(-4);
   return WALLET;
 }
+// One visible status for the whole payment (owner 2026-10-28: "it took like 15 seconds… I was not sure what was
+// happening"): numbered steps, a turning hourglass and a live seconds counter while we wait on the wallet / the chain.
+var stageT = null;   // var: watchPurchase can resume a pending buy before this line runs
+function stage(n, html, spin){
+  const st = $('buyStatus'); st.style.display = '';
+  clearInterval(stageT); stageT = null;
+  const t0 = Date.now();
+  st.innerHTML = (n ? '<span class="stp">Step '+n+' of 3</span>' : '') + (spin ? '<span class="hg">⏳</span>' : '') + html + (spin ? ' <span class="secs" id="stSecs">0 s</span>' : '');
+  if(spin) stageT = setInterval(() => { const s = $('stSecs'); if(s) s.textContent = Math.round((Date.now()-t0)/1000) + ' s'; else { clearInterval(stageT); stageT = null; } }, 1000);
+}
+var buying = false;   // (var: the pack grid can render before this line runs) a payment is in flight — one at a time, so nobody pays twice
+function lockBuys(on){ buying = !!on; document.querySelectorAll('button.buy').forEach(b => { b.disabled = buying; }); }
 async function buy(i){
+  if(buying) return;
+  lockBuys(true);
+  try{ await buyFlow(i); } finally { lockBuys(false); }   // step 3 keeps ticking: its counter stops itself when the banner changes
+}
+async function buyFlow(i){
   const WALLET = window.DOJO_WALLET;   // the shared store session (nav wallet button / autoConnect)
   const p = PACKS[i];   // the server quote below sets the exact amount — no client price needed to buy
   if(!WALLET){ toast('Connect your wallet first'); const nb=document.getElementById('dojoNavWallet'); if(nb) nb.click(); return; }
   try{
     if(WALLET.pubkey === TREASURY){ toast('That’s the treasury wallet — a self-payment isn’t a real purchase. Connect a different wallet.'); return; }
+    stage(0, ' Locking your price…', true);
     await loadWeb3();
     // lock the price NOW: the server's quote fixes the exact token amount for this pack (valid 5 minutes)
     const cur = CUR;
@@ -360,9 +384,8 @@ async function buy(i){
       const qr = await fetch('/api/coinbuy', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ action:'quote', wallet: WALLET.pubkey, currency: cur, usd: p.usd }) });
       q = await qr.json();
       if(!qr.ok || !q.quoteId || !/^\d+$/.test(q.tokenRaw||'') || q.currency !== cur || q.treasury !== TREASURY) throw new Error(q.error || 'Could not lock a price — try again');
-    }catch(e){ toast(String(e.message||e).slice(0,70)); return; }
-    const st=$('buyStatus'); st.style.display='';
-    st.innerHTML = '🔒 Price locked: <b>'+esc(q.tokenAmount)+' '+esc(cur)+'</b> ≈ $'+(+q.usd||0)+' → <b>'+(+q.coins||0)+' coin'+(q.coins===1?'':'s')+'</b> · pay within 5 minutes';
+    }catch(e){ stage(0, '⚠ '+esc(String(e.message||e).slice(0,70))+' — nothing was charged.'); return; }
+    const locked = '🔒 <b>'+esc(q.tokenAmount)+' '+esc(cur)+'</b> ≈ $'+(+q.usd||0)+' → <b>'+(+q.coins||0)+' coin'+(q.coins===1?'':'s')+'</b>';
     const { Connection, PublicKey, VersionedTransaction, TransactionMessage, SystemProgram, TransactionInstruction } = web3;
     const conn = new Connection(RPC, 'confirmed');
     const buyer = new PublicKey(WALLET.pubkey), dest = new PublicKey(TREASURY);
@@ -390,20 +413,22 @@ async function buy(i){
     if(window.DojoRef) ixs = window.DojoRef.withRef(web3, ixs);
     const { blockhash } = await conn.getLatestBlockhash();
     const msg = new TransactionMessage({ payerKey:buyer, recentBlockhash:blockhash, instructions:ixs }).compileToV0Message();
-    toast('Approve in your wallet…');
-    const sig = await WALLET.signAndSendTransaction(new VersionedTransaction(msg).serialize());
-    toast('Confirming payment…');
-    try{ await conn.confirmTransaction(sig.signature || sig, 'confirmed'); }catch(_){ /* ws confirm may not run over the /api/rpc proxy — fine, the backend re-verifies the payment on-chain */ }
+    stage(1, ' Approve the payment in your wallet — '+locked+' <span class="secs">(price held 5 min)</span>', true);
+    let sig;
+    try{ sig = await WALLET.signAndSendTransaction(new VersionedTransaction(msg).serialize()); }
+    catch(e){ const m = String(e&&e.message||e); stage(0, /cancel|reject|declin|denied|closed/i.test(m) ? '✋ Payment cancelled — nothing was charged.' : '⚠ The wallet didn\'t send the payment — nothing was charged. '+esc(m.slice(0,80))); return; }
+    stage(2, ' Payment sent — waiting for Solana to confirm it (usually 5–20 s)…', true);
+    // capped at 45 s so step 2 never spins forever — the backend re-verifies the payment on-chain either way
+    try{ await Promise.race([ conn.confirmTransaction(sig.signature || sig, 'confirmed'), new Promise(r => setTimeout(r, 45000)) ]); }catch(_){ /* ws confirm may not run over the /api/rpc proxy — fine, same re-verify */ }
     // Record the purchase (an untrusted hint — the server re-reads the tx on-chain and credits coins
     // from what the treasury ACTUALLY received). No local credit: the balance moves when the server says so.
     const sigStr = String(sig.signature || sig);
-    if(!SIG_RE.test(sigStr)){ toast('Your wallet returned an unexpected result — check its activity before paying again'); return; }
+    if(!SIG_RE.test(sigStr)){ stage(0, '⚠ Your wallet returned an unexpected result — check its activity before paying again.'); return; }
     const rec = { sig: sigStr, buyer: WALLET.pubkey, coins: q.coins, currency: cur, tokenAmount: +q.tokenAmount, usd: q.usd, quoteId: q.quoteId, ref: getRef(), ts: Date.now() };
     setPending(pendingList().concat([rec]));            // survives a closed tab — re-sent + watched on the next visit
     recordBuy(rec);
-    toast('Payment sent — coins appear after the on-chain check (about a minute)');
     watchPurchase(sigStr);
-  }catch(e){ console.error(e); toast(e.message ? e.message.slice(0,60) : 'Purchase cancelled'); }
+  }catch(e){ console.error(e); stage(0, '⚠ '+esc(e.message ? e.message.slice(0,80) : 'Purchase cancelled')); }
 }
 
 let toastT;

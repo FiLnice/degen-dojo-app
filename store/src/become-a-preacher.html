@@ -317,7 +317,7 @@ function renderDash(st){
   if(st.links){ $('link1').value=st.links.store; }
   if(st.code){ $('codeIn').value=st.code; }
   // the tier counts fighters held for 7+ days (heldLive = what the wallet holds right now)
-  const live=st.heldLive!=null?st.heldLive:st.held, wait=live>st.held&&st.nextCountsAt?` · ${live-st.held} more count from ${new Date(st.nextCountsAt).toLocaleDateString()}`:'';
+  const pend=st.holdPending||0, live=st.heldLive!=null?st.heldLive:st.held, soon=live-st.held-pend, wait=(soon>0&&st.nextCountsAt?` · ${soon} more count from ${new Date(st.nextCountsAt).toLocaleDateString()}`:'')+(pend?` · checking how long you've held ${pend} more — reload in a moment`:'');
   $('who').textContent=`Connected · ${st.wallet.slice(0,4)}…${st.wallet.slice(-4)} · holds ${live} fighter${live===1?'':'s'} (${st.held} held ${st.holdDays||7}+ days count)${wait}`;
   $('tierName').textContent=`${st.tier} — ${Math.round(st.share*100)}% cut`;
   $('mVol').textContent='$'+nf(st.volumeUsd,2);
@@ -340,7 +340,7 @@ function renderDash(st){
           : '$'+nf(s.usd,2)+' → $'+nf(s.earnUsd,2)}</span>
         <span class="fp ${s.paid?'paid':'pend'}">${s.paid?'paid':s.verified?'pending':'checking'}</span>
         <span class="ft">${s.ts?new Date(s.ts).toLocaleDateString():''}</span></div>`).join('')
-    : '<div class="empty">Nothing yet — share your link; coin packs and miner tips appear here live.</div>';
+    : '<div class="empty">Nothing yet — share your link; coin packs appear here live.</div>';
 }
 async function saveCode(){
   const want=$('codeIn').value.trim(); const m=$('ceMsg');

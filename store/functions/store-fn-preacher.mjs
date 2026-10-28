@@ -353,7 +353,7 @@ export default async (request) => {
     items.sort((a, b) => (b.ts || 0) - (a.ts || 0));
     return json({
       ok: true, code: display, links: linksFor(display), wallet, held, mythic, tier: tierName(held, mythic), share,
-      heldLive: hs.live, holdDays: HOLD_DAYS, nextCountsAt: hs.nextAt || null,
+      heldLive: hs.live, holdDays: HOLD_DAYS, nextCountsAt: hs.nextAt || null, holdPending: hs.pending || 0,
       salesCount: items.length, nftSales: items.filter((s) => s.kind === "nft").length, nftUsd,
       volumeUsd, buyUsd, earnedUsd: owedUsd,
       pendingUsd, paidUsd, paidSol,

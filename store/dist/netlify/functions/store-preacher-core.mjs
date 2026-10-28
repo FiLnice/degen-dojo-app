@@ -52,14 +52,24 @@ export async function lockPreacherShare({ ref, buyer }) {
   const wallet = await getStore("preacher-codes").get("code:" + code, { type: "text" });
   if (!wallet) return { code, wallet: null, pct: 0, why: "code has no linked wallet" };
   if (wallet === buyer) return { code, wallet, pct: 0, why: "self-referral" };
-  const { count, mythic, live } = await seasonedHeld(wallet);   // fighters held ≥ HOLD_DAYS days
+  const { count, mythic, live, pending } = await seasonedHeld(wallet);   // fighters held ≥ HOLD_DAYS days
+  // some fighters' arrival dates weren't read yet (time budget): never lock a tier from a partial count — retry later
+  if (pending) throw new Error(`preacher holdings still being read (${pending} left) — retry`);
   return { code, wallet, pct: tierPct(count, mythic), tier: tierName(count, mythic), held: count, heldLive: live };
 }
 
-// throws on an RPC/HTTP error — an outage must never read as "holds 0 fighters" (that would lock a low tier)
+// throws on an RPC/HTTP error — an outage must never read as "holds 0 fighters" (that would lock a low tier).
+// A 429 (rate limit) is retried a few times with backoff first; still limited after that → throw like any outage.
+const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 async function das(method, params) {
-  const r = await fetch(process.env.SOLANA_RPC, { method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) });
+  let r;
+  for (let attempt = 0; ; attempt++) {
+    r = await fetch(process.env.SOLANA_RPC, { method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) });
+    if (r.status !== 429 || attempt >= 4) break;
+    const ra = +r.headers?.get?.("retry-after");
+    await sleep(Math.min(2000, ra > 0 ? ra * 1000 : 300 * (attempt + 1)));
+  }
   if (!r.ok) throw new Error("rpc http " + r.status);
   const j = await r.json();
   if (j.error || j.result == null) throw new Error((j.error && j.error.message) || method + " returned nothing");
@@ -96,27 +106,99 @@ const holds = () => getStore("preacher-holds");
 export async function markNewPreacher(wallet) {
   try { await holds().set("new:" + wallet, String(Date.now()), { onlyIfNew: true }); } catch {}
 }
-// Fighters this preacher has held for ≥ HOLD_DAYS days → { count, mythic, live, liveMythic, nextAt }.
-// Every look records when each fighter was first seen in the wallet (a fighter that leaves and comes back starts
-// over). Throws on an RPC failure, like ddHeld — an outage must never lock a low tier.
+// When did each of these fighters ARRIVE in this wallet? (owner 2026-10-28: a long-time holder must not wait 7 days just
+// because we looked for the first time.) The wallet's current token account for a mint is opened when the fighter
+// arrives — a pNFT transfer moves it into a fresh account, and our metadata updates never touch the holder's account —
+// so that account's OLDEST signature is the arrival. → { times: { [mint]: ms | null }, pending: [mints not read in time] }
+// null = no on-chain answer (no token account found / no dated signature) → the caller falls back to the old rule.
+// A token account with SIG_PAGES_MAX full pages of activity is old by any measure → counted as held long enough.
+// Throws on an RPC failure (never read an outage as "just arrived").
+const TOKEN_PROGRAM = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
+const SIG_PAGE = 1000, SIG_PAGES_MAX = 3, ARRIVAL_CONCURRENCY = 3, ARRIVAL_BUDGET_MS = 4000;   // a look stays well inside the 10 s function limit
+// signature reads start at most every ARRIVAL_GAP_MS (~6–7 a second) so a 95-fighter wallet doesn't trip the RPC rate limit
+const ARRIVAL_GAP_MS = 150;
+let arrivalSlot = 0;
+async function arrivalPace() {
+  const now = Date.now(), at = Math.max(now, arrivalSlot);
+  arrivalSlot = at + ARRIVAL_GAP_MS;
+  if (at > now) await sleep(at - now);
+}
+async function oldestSignatureTime(address, now) {
+  let before = null, oldest = null;
+  for (let p = 0; p < SIG_PAGES_MAX; p++) {
+    await arrivalPace();
+    const sigs = await das("getSignaturesForAddress", [address, { limit: SIG_PAGE, ...(before ? { before } : {}) }]);
+    for (const x of sigs || []) if (x && x.blockTime) oldest = oldest == null ? x.blockTime * 1000 : Math.min(oldest, x.blockTime * 1000);
+    if (!Array.isArray(sigs) || sigs.length < SIG_PAGE) return oldest;   // reached the account's first transaction
+    before = sigs[sigs.length - 1].signature;
+  }
+  return Math.min(oldest ?? now, now - HOLD_DAYS * DAY);
+}
+export async function arrivalTimes(wallet, mints, now = Date.now(), budgetMs = +process.env.PREACHER_ARRIVAL_BUDGET_MS || ARRIVAL_BUDGET_MS) {
+  const times = {}, pending = [];
+  if (!mints.length) return { times, pending };
+  const res = await das("getTokenAccountsByOwner", [wallet, { programId: TOKEN_PROGRAM }, { encoding: "jsonParsed" }]);
+  const acct = {};
+  for (const v of res?.value || []) {
+    const info = v?.account?.data?.parsed?.info, amt = info?.tokenAmount;
+    if (info?.mint && amt && amt.amount === "1" && +amt.decimals === 0) acct[info.mint] = v.pubkey;
+  }
+  const todo = [];
+  for (const m of mints) { if (acct[m]) todo.push(m); else times[m] = null; }
+  const stopAt = Date.now() + budgetMs;
+  let i = 0;
+  const worker = async () => {
+    while (i < todo.length) {
+      if (Date.now() > stopAt) return;                // out of time — the rest are read on the next look
+      const m = todo[i++];
+      times[m] = await oldestSignatureTime(acct[m], now);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(ARRIVAL_CONCURRENCY, todo.length) }, worker));
+  for (const m of todo) if (!(m in times)) pending.push(m);
+  return { times, pending };
+}
+
+// Fighters this preacher has held for ≥ HOLD_DAYS days → { count, mythic, live, liveMythic, nextAt, pending }.
+// Each fighter's start date is recorded once per wallet: its on-chain ARRIVAL in this wallet (arrivalTimes); only when
+// the chain has no answer, the old rule (a pre-rule preacher's first look is grandfathered, otherwise "now"). A fighter
+// that leaves and comes back starts over. `pending` = fighters whose arrival wasn't read within the time budget: they
+// don't count yet and are read on the next look. Throws on an RPC failure — an outage must never lock a low tier.
 export async function seasonedHeld(wallet, now = Date.now()) {
   const live = await ddAssets(wallet);
   const isNew = !!(await holds().get("new:" + wallet, { type: "text" }).catch(() => null));
+  // `chk` = fighters whose arrival was already read on-chain. Everything else is read now — new fighters AND ones first
+  // recorded by the old "first look" rule (a long-time holder who opened the desk before this fix kept "from today"
+  // dates); the earlier of the saved date and the real arrival wins.
+  const chkd = (await holds().get("h:" + wallet, { type: "json" }).catch(() => null))?.chk || {};
+  const need = live.map((a) => a.id).filter((id) => id && !chkd[id]);
+  const { times, pending } = need.length ? await arrivalTimes(wallet, need, now) : { times: {}, pending: [] };
+  const later = new Set(pending);
   const { value } = await casUpdate(holds(), "h:" + wallet, (cur) => {
     const grand = !cur && !isNew && now < HOLD_GRANDFATHER_UNTIL;   // a preacher from before the rule: today's fighters count already
-    const seen = {};
-    for (const a of live) seen[a.id] = cur?.seen?.[a.id] ?? (grand ? now - HOLD_DAYS * DAY : now);
-    const same = cur && Object.keys(cur.seen || {}).length === live.length && live.every((a) => cur.seen[a.id] === seen[a.id]);
-    return same ? undefined : { seen, at: now, ...(grand ? { grandfatheredAt: now } : cur?.grandfatheredAt ? { grandfatheredAt: cur.grandfatheredAt } : {}) };
+    const seen = {}, chk = {};
+    for (const a of live) {
+      const prev = cur?.seen?.[a.id];
+      if (cur?.chk?.[a.id]) { if (prev != null) seen[a.id] = prev; chk[a.id] = 1; continue; }
+      if (later.has(a.id)) { if (prev != null) seen[a.id] = prev; continue; }   // not read yet — next look
+      const arrived = times[a.id], fallback = prev ?? (grand ? now - HOLD_DAYS * DAY : now);
+      seen[a.id] = arrived != null ? Math.min(now, arrived, fallback) : fallback;
+      chk[a.id] = 1;
+    }
+    const eq = (x = {}, y = {}) => Object.keys(x).length === Object.keys(y).length && Object.keys(x).every((k) => x[k] === y[k]);
+    const same = cur && eq(cur.seen, seen) && eq(cur.chk, chk);
+    return same ? undefined : { seen, chk, at: now, ...(grand ? { grandfatheredAt: now } : cur?.grandfatheredAt ? { grandfatheredAt: cur.grandfatheredAt } : {}) };
   });
-  const seen = value?.seen || {}, cutoff = now - HOLD_DAYS * DAY;
-  let count = 0, mythic = false, nextAt = null;
+  const seen = value?.seen || {}, chk = value?.chk || {}, cutoff = now - HOLD_DAYS * DAY;
+  let count = 0, mythic = false, nextAt = null, unread = 0;
   for (const a of live) {
-    const t = seen[a.id] ?? now;
+    if (!chk[a.id]) unread++;                                         // arrival not read yet — never lock a tier on it
+    const t = seen[a.id];
+    if (t == null) continue;
     if (t <= cutoff) { count++; if (a.mythic) mythic = true; }
     else nextAt = Math.min(nextAt ?? Infinity, t + HOLD_DAYS * DAY);
   }
-  return { count, mythic, live: live.length, liveMythic: live.some((a) => a.mythic), nextAt };
+  return { count, mythic, live: live.length, liveMythic: live.some((a) => a.mythic), nextAt, pending: unread };
 }
 
 // Every coin-pack / tip record (Blobs "coin-purchases", written by /api/coinbuy, verified by verify-core).
