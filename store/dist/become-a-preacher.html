@@ -162,7 +162,7 @@ h1{text-align:center;font-family:'Cinzel',serif;font-size:clamp(28px,5vw,44px);f
       <h2>Your preacher desk</h2>
       <p>Connect your wallet and sign one line to prove it's yours — no funds move. We mint your referral link, read how many
          fighters you hold to set your tier, and open your live dashboard.</p>
-      
+      <button class="bigbtn" id="connectBtn" onclick="start()">Connect &amp; open my desk</button>
       <div class="err" id="err"></div>
     </div>
 
@@ -172,7 +172,7 @@ h1{text-align:center;font-family:'Cinzel',serif;font-size:clamp(28px,5vw,44px);f
       <div class="rsub" id="tierSub">Your link is live. Share it anywhere.</div>
 
       <div class="linkbox"><input id="link1" readonly /><button onclick="copy('link1')">Copy my link</button></div>
-      <div class="rsub" style="margin:-4px 0 2px;">One link — it works across the <b>store, games and the miner</b>. Anyone who opens it is yours for 30 days.</div>
+      <div class="rsub" style="margin:-4px 0 2px;">Anyone who opens your link is yours for 30 days — you earn on the <b>game-coin packs</b> they buy.</div>
       <div class="codeedit">
         <span class="cetag">degendojo.xyz/preacher/</span>
         <input id="codeIn" maxlength="20" placeholder="your-code" spellcheck="false" />
@@ -243,8 +243,10 @@ let WADAPTER=null;   // Wallet-Standard adapter from the shared picker (all wall
 // which proves ownership and can't be skipped).
 (async function preachAutoConnect(){
   try{ for(let i=0;i<25 && !window.DojoWalletPicker;i++) await new Promise(r=>setTimeout(r,150));
-    if(window.DojoWalletPicker && DojoWalletPicker.autoConnect){ const a=await DojoWalletPicker.autoConnect(); if(a){ WADAPTER=a; window.DOJO_WALLET=a; paintNavWallet(a.pubkey); } } }catch(e){}
+    if(window.DojoWalletPicker && DojoWalletPicker.autoConnect){ const a=await DojoWalletPicker.autoConnect(); if(a){ WADAPTER=a; window.DOJO_WALLET=a; paintNavWallet(a.pubkey); deskBtnLabel(); } } }catch(e){}
 })();
+// The desk button reads by state: already connected (store-wide session) → just sign; otherwise connect + sign.
+function deskBtnLabel(){ const cb=$('connectBtn'); if(cb) cb.textContent=WADAPTER?'✍️ Open my desk — sign once':'Connect & open my desk'; }
 // Top-bar wallet button: connected → the same profile / disconnect menu as every other page;
 // not connected → start() (connect + sign the ownership message).
 function navWalletClick(){
@@ -283,7 +285,7 @@ async function start(){
     const st=await post({action:'stats',token:AUTH.token});
     renderDash(st);
     $('claimStart').style.display='none'; $('dash').classList.add('show');
-  }catch(e){ $('err').textContent=e.message||String(e); if(cb){ cb.disabled=false; cb.textContent='Connect & open my desk'; } }
+  }catch(e){ $('err').textContent=e.message||String(e); if(cb){ cb.disabled=false; deskBtnLabel(); } }
 }
 async function post(body){
   const r=await fetch(API,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});

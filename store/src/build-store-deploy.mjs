@@ -325,13 +325,13 @@ applyNavWire("play/index.html", /<header class="top">[\s\S]*?<\/header>/, "PLAY"
     writeFileSync(fp, h);
   } catch {} }
 // Preacher: put the wallet button in the nav (runs the preacher's own connect+sign flow start()),
-// and REMOVE the central "Connect & open my desk" button. No generic wire — start() drives it.
+// and KEEP the central desk button: a visitor who arrives already connected has no other way to sign and open the
+// desk (the nav button then opens the profile menu). The page labels it by state. No generic wire — start() drives it.
 { const fp = `${OUT}/become-a-preacher.html`;
   try { let h = readFileSync(fp, "utf8");
     const preachWallet = walletBtnHtml.replace('id="dojoNavWallet"', 'id="preachNavWallet" onclick="navWalletClick()"');
     if (!h.includes("/dojo-profile.js")) h = h.replace('<script src="/wallet-picker.js"', '<script src="/dojo-profile.js"></script><script src="/wallet-picker.js"');
     if (STORENAV_RE.test(h)) h = h.replace(STORENAV_RE, ddNav("PREACHER", "preacher", preachWallet));
-    h = h.replace(/<button class="bigbtn" id="connectBtn"[\s\S]*?<\/button>/, "");
     writeFileSync(fp, h);
   } catch {} }
 // Credits/coins page shipped with the OLD static store nav (Store/Shelves/Play/Preacher) — swap it
@@ -592,9 +592,10 @@ writeFileSync(
     "",
     // TREASURY_PUBKEY / TREASURY_WALLET are PUBLIC on-chain addresses (a receive wallet is not a
     // secret), but Netlify's secrets scanner flags any env-var value that lands in built files.
-    // Exempt just those two keys so the deploy stops failing; nothing sensitive is exposed.
+    // Exempt only public-address keys (also OPERATOR_PUBKEYS and PREACHER_RESERVED_WALLETS, the owner wallets allowed
+    // to claim reserved preacher codes) so the deploy stops failing; nothing sensitive is exposed.
     "[build.environment]",
-    '  SECRETS_SCAN_OMIT_KEYS = "TREASURY_PUBKEY,TREASURY_WALLET,OPERATOR_PUBKEYS"',
+    '  SECRETS_SCAN_OMIT_KEYS = "TREASURY_PUBKEY,TREASURY_WALLET,OPERATOR_PUBKEYS,PREACHER_RESERVED_WALLETS"',
     "",
   ].join("\n"),
 );

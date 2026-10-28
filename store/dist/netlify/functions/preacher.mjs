@@ -67,7 +67,9 @@ function ownOrigin(request) {
 // The exact text the wallet signs (SIWS layout, so wallets that understand it warn on a foreign site). The same
 // fields go to the wallet's solana:signIn when it has one (the wallet then builds this text and checks the domain).
 export function preachFields({ domain, wallet, act, code = "", nonce, iso, expIso }) {
-  const what = act === "setCode" ? `change my referral code to "${code}"` : "open my preacher desk (my link, my stats, the pot opt-in)";
+  // no double quotes: the SIWS statement grammar doesn't allow them, and Phantom then refuses the whole sign-in
+  // ("invalid formatting"); codes are [A-Za-z0-9_-], all allowed as-is
+  const what = act === "setCode" ? `change my referral code to ${code}` : "open my preacher desk (my link, my stats, the pot opt-in)";
   return { domain, address: wallet, statement: `Degen Dojo preacher: ${what}. This is free and never a transaction.`, uri: `https://${domain}/become-a-preacher`,
     version: "1", chainId: "mainnet", nonce, issuedAt: iso, expirationTime: expIso, requestId: `${act}${act === "setCode" ? ":" + code : ""}` };
 }
