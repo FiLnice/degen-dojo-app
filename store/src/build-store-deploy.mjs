@@ -195,6 +195,8 @@ copyFileSync(`${ROOT}/scripts/store-payout-core.mjs`, `${OUT}/netlify/functions/
 copyFileSync(`${ROOT}/scripts/store-notify.mjs`, `${OUT}/netlify/functions/store-notify.mjs`);           // Telegram / Discord (no-op if unset)
 copyFileSync(`${ROOT}/scripts/store-fn-payout-cron.mjs`, `${OUT}/netlify/functions/payout-cron.mjs`);    // every 10 min: weekly commit → draw → plan → notify
 copyFileSync(`${ROOT}/scripts/store-fn-payouts.mjs`, `${OUT}/netlify/functions/payouts.mjs`);            // /api/payouts (ADMIN_KEY)
+copyFileSync(`${ROOT}/scripts/store-raffle-core.mjs`, `${OUT}/netlify/functions/store-raffle-core.mjs`);  // Burn Raffle: tickets from burns, pot, weekly draw
+copyFileSync(`${ROOT}/scripts/store-fn-raffle.mjs`, `${OUT}/netlify/functions/raffle.mjs`);              // /api/raffle — status, burn reports, draw records
 // Anti-cheat backbone: wallet sign-in + server-authoritative play lifecycle.
 // Coins live server-side (credited only by verify.mjs on a confirmed purchase);
 // tickets are minted only by play.mjs after it recomputes the outcome itself.
@@ -423,7 +425,11 @@ copyFileSync(`${ROOT}/scripts/dojo-qr.js`, `${OUT}/dojo-qr.js`);             // 
 // Dojo Sweep (/sweep, alias /claim): free — empty token accounts, burnable NFTs, Magic Eden bid escrow, staking; txs built + simulated in the browser
 copyFileSync(`${ROOT}/scripts/dojo-burn.js`, `${OUT}/dojo-burn.js`);     // shared burn + close + tip logic (/sweep and the miner's burn mode, /mine?burn=1)
 copyFileSync(`${ROOT}/scripts/dojo-sweep.js`, `${OUT}/dojo-sweep.js`);
-for (const [src, dir, label] of [["store-repair.html", "repair", "REPAIR"], ["store-sweep.html", "sweep", "SWEEP"], ["store-privacy.html", "privacy", "PRIVACY"], ["store-terms.html", "terms", "TERMS"]]) {   // /privacy + /terms: the dApp-store / app listing pages
+copyFileSync(`${ROOT}/scripts/dojo-raffle.js`, `${OUT}/dojo-raffle.js`);   // Burn Raffle (/raffle): burns + the freed rent → raffle wallet + ddraffle memo, one tx
+copyFileSync(`${ROOT}/scripts/dojo-gift.js`, `${OUT}/dojo-gift.js`);       // "Add to the prize" (/raffle) + the raffle's gift payouts (/payouts): transfers of any asset
+// Degen Dojo card numbers (#123) for the raffle's burn list — fetched by /raffle only when the wallet holds a card
+writeFileSync(`${OUT}/dd-nums.json`, JSON.stringify(JSON.parse(readFileSync(`${ROOT}/scripts/mint-to-num.json`, "utf8"))));
+for (const [src, dir, label] of [["store-repair.html", "repair", "REPAIR"], ["store-sweep.html", "sweep", "SWEEP"], ["store-raffle.html", "raffle", "RAFFLE"], ["store-privacy.html", "privacy", "PRIVACY"], ["store-terms.html", "terms", "TERMS"]]) {   // /privacy + /terms: the dApp-store / app listing pages
   mkdirSync(`${OUT}/${dir}`, { recursive: true });
   copyFileSync(`${ROOT}/scripts/${src}`, `${OUT}/${dir}/index.html`);
   const fp = `${OUT}/${dir}/index.html`;
@@ -486,6 +492,7 @@ writeFileSync(`${OUT}/_redirects`,
   "/api/verify  /.netlify/functions/verify  200\n" +
   "/api/draw  /.netlify/functions/draw  200\n" +
   "/api/payouts  /.netlify/functions/payouts  200\n" +
+  "/api/raffle  /.netlify/functions/raffle  200\n" +
   "/api/auth  /.netlify/functions/auth  200\n" +
   "/api/vault  /.netlify/functions/vault  200\n" +
   "/api/repair  /.netlify/functions/repair  200\n" +

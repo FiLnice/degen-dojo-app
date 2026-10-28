@@ -148,13 +148,17 @@ export function classify(tx, wallet) {
   // Sweep fees & tips: Dojo Sweep's 1% fee and 0.01 ORE rescue fee (memo ddsweep:fee, owner 2026-10-27) and older
   // ddsweep:tip / ddsweep:unstake — their own bucket, never coins, Pot tips or royalties
   if (memos.some((m) => m.startsWith("ddsweep:"))) return { src: "sweep", d };
+  // Burn Raffle burns (memo ddraffle:<round>, store-raffle-core): 88% is the raffle's prize, 12% the Reserve's
+  if (memos.some((m) => m.startsWith("ddraffle:"))) return { src: "raffle", d };
+  // Burn Raffle gifts (memo ddpot:<round>): 100% the raffle's prize
+  if (memos.some((m) => m.startsWith("ddpot:"))) return { src: "gifts", d };
   const src = memos.some((m) => m === TIP_MEMO || m.startsWith(TIP_MEMO)) ? "tips"
     : market ? "royalties" : ran.has(ORE_PROGRAM) ? "mining" : "coins";
   return { src, d };
 }
 
 function aggregate(state, now) {
-  const sources = { royalties: {}, coins: {}, mining: {}, tips: {}, sweep: {}, direct: {}, team: {}, out: {} };
+  const sources = { royalties: {}, coins: {}, mining: {}, tips: {}, sweep: {}, raffle: {}, gifts: {}, direct: {}, team: {}, out: {} };
   const payouts = [];   // every payout of the week, newest first: { s: signature, t, d: net change, to: [{ a, m, v }] }
   for (const [s, it] of Object.entries(state.items)) {
     if (!it.c || now - it.t > WEEK_MS || !sources[it.c.src]) continue;   // "internal" moves aren't shown

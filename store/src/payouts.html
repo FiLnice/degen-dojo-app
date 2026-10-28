@@ -96,19 +96,21 @@
     <div id="view"></div>
     <div id="keeper"></div>
   </details>
+  <div id="rgifts"></div>
 </main>
 <script src="/buffer.js"></script>
 <script>window.Buffer = window.Buffer || (window.buffer && window.buffer.Buffer);</script>
 <script src="/web3.js"></script>
 <script src="/wallet-picker.js"></script>
 <script src="/payout-tx.js"></script>
+<script src="/dojo-gift.js"></script>
 <script>
 (function () {
   var $ = function (id) { return document.getElementById(id); };
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
   var T = window.DojoPayoutTx, W3 = function () { return window.solanaWeb3; };
   var MINTS = T.MINTS, DEC = T.DEC, STORE_MINT = T.STORE, SOLM = MINTS.SOL;
-  var V = null, KP = null, STMT = null, ADAPTER = null, BUSY = false, REVIEWED = false;
+  var V = null, KP = null, STMT = null, GF = null, ADAPTER = null, BUSY = false, REVIEWED = false;
   // raw amounts are BigInt / decimal strings (exact); Number() here is for DISPLAY only
   var ui = function (raw, c, dp) { return (Number(T.B(raw)) / Math.pow(10, DEC[c])).toLocaleString('en-US', { maximumFractionDigits: dp == null ? (c === 'ORE' ? 5 : c === 'SOL' ? 4 : 2) : dp }); };
   var short = function (w) { return w ? w.slice(0, 4) + '…' + w.slice(-4) : '—'; };
@@ -149,7 +151,8 @@
     return ' <span class="msg">· Market fee account: ' + esc((+FEE.sol).toLocaleString('en-US', { maximumFractionDigits: 4 })) + ' SOL</span>' +
       (FEE.low ? ' <span class="pill warn">⚠ top it up above ' + esc(FEE.lowBelowSol) + ' SOL' + (FEE.feeAccount ? ' (' + acct(FEE.feeAccount) + ')' : '') + ' — store sales fail when it runs dry</span>' : '');
   }
-  function reloadAll() { loadFee(); return Promise.all([loadView(), loadKeeper(), loadStatement()]); }
+  function loadGifts() { return getJ('?gifts=1').then(function (j) { GF = j; renderGifts(); }).catch(function (e) { $('rgifts').innerHTML = '<div class="card err">Raffle gifts: ' + esc(e.message) + '</div>'; }); }
+  function reloadAll() { loadFee(); return Promise.all([loadView(), loadKeeper(), loadStatement(), loadGifts()]); }
   function load() {
     if (!key()) { $('status').textContent = 'Enter the key first.'; return; }
     $('status').textContent = 'Reading this week (the Treasury\'s latest transactions)…';
@@ -196,6 +199,7 @@
       (afterKeys.length ? afterKeys.map(function (m) { return li(kname(m), '', esc(fmtAmt(st.after[m], m)), px[m] ? st.after[m] * px[m] : 0); }).join('') : '<li class="msg">The Treasury\'s balances aren\'t read yet.</li>') + '</ul>' +
       '<div class="why" style="margin-top:10px">Of that, set aside:</div><ul class="lines">' +
       li('Pot — next draw\'s prize', '', amts(st.pot.amounts), st.pot.usd) +
+      (st.rafflePot && Object.keys(st.rafflePot.amounts || {}).length ? li('Burn Raffle — round ' + esc(st.rafflePot.round || '') + '\'s prize', 'SOL parts are swapped to ORE when paid', amts(st.rafflePot.amounts), st.rafflePot.usd) : '') +
       (st.vaults || []).map(function (v) { return li('Card Vault — ' + v.name, v.nfts != null ? v.nfts + ' NFTs share it when burning opens' : '', amts(v.amounts), v.usd); }).join('') +
       (st.opsWaiting ? li('Operations share (waits for OPS_WALLET)', '', amts(st.opsWaiting.amounts), st.opsWaiting.usd) : '') +
       '</ul><div class="free"><span>Free Reserve</span><b>' + usdS(st.reserveFreeUsd) + '</b></div></section></div>';
@@ -233,7 +237,7 @@
   // the next round starts. plans[round] = that round's swaps done / payees done / signatures.
   function weekKey() { return 'dd_week_' + (KP ? KP.treasury : ''); }
   function curRound() { return (V && V.plan && V.plan.round) || 0; }
-  function planP(P, r) { r = r || curRound(); P.plans[r] = P.plans[r] || { swaps: {}, doneIds: {}, sigs: [] }; return P.plans[r]; }
+  function planP(P, r) { r = r || curRound(); P.plans[r] = P.plans[r] || { swaps: {}, doneIds: {}, sigs: [] }; P.plans[r].giftDone = P.plans[r].giftDone || {}; return P.plans[r]; }
   function weekProg() {
     var P = null; try { P = JSON.parse(localStorage.getItem(weekKey()) || 'null'); } catch (e) {}
     P = P || {}; P.plans = P.plans || {}; P.pending = P.pending || {}; P.done = P.done || {}; P.recorded = P.recorded || {}; P.receipts = P.receipts || []; P.migrated = P.migrated || {};
@@ -315,7 +319,7 @@
     var swapsInBatch = false;
     // 1) the round's winners + preachers
     var plan = V && V.plan, PP = plan ? planP(P, plan.round) : null;
-    if (want('plan') && plan && plan.status !== 'paid' && plan.status !== 'paying' && T.payable(plan, PP.doneIds).length) {
+    if (want('plan') && plan && plan.status !== 'paid' && plan.status !== 'paying' && (T.payable(plan, PP.doneIds).length || T.giftsForPlan(plan, null, PP.giftDone).length)) {
       if (flagsNow().length && !REVIEWED) throw new Error('Tick "I reviewed the flags" first.');
       var buckets = T.swapBuckets(plan, PP.doneIds), toSwap = [];
       var sameIds = function (s, b) { return s && s.ids.slice().sort().join() === b.parts.map(function (x) { return x.id; }).sort().join(); };
@@ -341,6 +345,17 @@
         parts.push({ key: 'plan-pack-' + i, kind: 'planPack', round: plan.round, ids:pk.transfers.map(function (t) { return t.id; }).filter(function (v, j, a) { return a.indexOf(v) === j; }), phase: 2,
           label: 'Winners & preachers ' + (i + 1) + '/' + packs.length, tx: pk.tx, expect: { kind: 'transfers', transfers: pk.transfers, afterSwap: planFromSwap } });
       });
+      // the Burn Raffle winners' gift prizes (tokens / NFTs donors gave) — Treasury → winner, built by dojo-gift.js
+      var gl = T.giftsForPlan(plan, null, PP.giftDone);
+      if (gl.length) {
+        var DG = window.DojoGift, pm = gl.filter(function (g) { return g.kind === 'pnft'; }).map(function (g) { return g.mint; });
+        if (pm.length) { var rsx = await DG.ruleSets(rpcCall, w3, pm); gl.forEach(function (g) { if (g.kind === 'pnft') g.ruleSet = rsx[g.mint] || null; }); }
+        DG.pack({ W3: w3, payer: payer, blockhash: bh, items: gl, cuPrice: 20000 }).forEach(function (pk, i, all) {
+          parts.push({ key: 'plan-gift-' + i, kind: 'planGift', round: plan.round, keys: pk.items.map(function (g) { return g.key; }), phase: 2,
+            label: 'Raffle gift prizes ' + (i + 1) + '/' + all.length, tx: pk.tx,
+            expect: { kind: 'gifts', gifts: pk.items.map(function (g) { return { to: g.to, kind: g.kind, mint: g.mint, raw: g.raw, program: g.program }; }) } });
+        });
+      }
     }
     // 2) the Card Vault + Reserve shares → stORE (server quote per currency)
     var convInBatch = false;
@@ -394,6 +409,7 @@
       var e = p.expect;
       if (e.kind === 'swap') { add(need, e.spendMint, T.B(e.spendMax)); add(made, e.getMint, T.B(e.getMin)); }
       (e.transfers || []).forEach(function (t) { add(need, t.mint, T.B(t.amount)); nAtas++; });
+      (e.gifts || []).forEach(function (g) { if (g.kind !== 'core') { add(need, g.mint, g.kind === 'token' ? T.B(g.raw) : 1n); nAtas++; } });   // Core assets: the test run checks them
       (e.sol || []).forEach(function (s) { add(need, SOLM, T.B(s.lamports)); });
     });
     add(need, SOLM, BigInt(nAtas) * 2039280n + BigInt(parts.length) * 30000n + 3000000n);   // possible new token accounts + fees + swap deposits
@@ -408,15 +424,16 @@
   function landed(P, sig, meta) {
     delete P.pending[sig];
     P.done[sig] = meta;
-    if (meta.kind === 'planSwap' || meta.kind === 'planPack') {
+    if (meta.kind === 'planSwap' || meta.kind === 'planPack' || meta.kind === 'planGift') {
       var pp = planP(P, meta.round);
       if (meta.kind === 'planSwap') pp.swaps[meta.cur] = sig;
       (meta.ids || []).forEach(function (id) { pp.doneIds[id] = sig; });
+      (meta.keys || []).forEach(function (k) { pp.giftDone[k] = sig; });   // gift prizes are tracked per item, apart from the ORE
       if (pp.sigs.indexOf(sig) < 0) pp.sigs.push(sig);
     }
   }
   // which parts must wait: a payment of that kind landed but the store hasn't verified it yet (re-paying would double-pay)
-  var PART_OF = { planSwap: 'plan', planPack: 'plan', refund: 'refunds', ops: 'ops', conv: 'convert', burn: 'claims', claims: 'claims' };
+  var PART_OF = { planSwap: 'plan', planPack: 'plan', planGift: 'plan', refund: 'refunds', ops: 'ops', conv: 'convert', burn: 'claims', claims: 'claims' };
   function blockedParts(P) { var b = {}; Object.keys(P.done).forEach(function (s) { if (!P.recorded[s]) b[PART_OF[P.done[s].kind]] = true; }); return b; }
   // tell the store about every landed transaction it hasn't verified yet (each check is idempotent server-side)
   async function recordAll(P) {
@@ -443,7 +460,7 @@
     // swaps first: pin each landed swap on the server (a no-op when it already is)
     for (var sw of of('planSwap')) await reportSwap(P.done[sw].round || curRound(), P.done[sw].cur, sw);
     // each round's payout is verified with ALL its signatures (swaps + transfers)
-    var pl = of('planSwap').concat(of('planPack')), rounds = {};
+    var pl = of('planSwap').concat(of('planPack'), of('planGift')), rounds = {};
     pl.forEach(function (s) { rounds[P.done[s].round || curRound()] = true; });
     for (var rr of Object.keys(rounds)) {
       var pp = planP(P, +rr), mine = pl.filter(function (s) { return String(P.done[s].round || curRound()) === rr; });
@@ -507,7 +524,7 @@
         var sent = [];
         for (var x of batch) {
           var sig = signed ? await relay(signed[x.i]).catch(function (e) { throw new Error(x.p.label + ': ' + e.message); }) : (await ADAPTER.signAndSendTransaction(x.p.tx)).signature;
-          var meta = { kind: x.p.kind, label: x.p.label, round: x.p.round, cur: x.p.cur, ids: x.p.ids, mints: x.p.mints, at: Date.now() };
+          var meta = { kind: x.p.kind, label: x.p.label, round: x.p.round, cur: x.p.cur, ids: x.p.ids, keys: x.p.keys, mints: x.p.mints, at: Date.now() };
           P.pending[sig] = meta; saveProg(P);
           P.receipts.push({ sig: sig, label: x.p.label, text: x.p.text, at: Date.now() }); saveProg(P); renderReceipts();
           wlog('Sent ' + esc(x.p.label) + ' ' + txl(sig));
@@ -589,6 +606,12 @@
     h += '<div class="card"><h2>Winners (' + Wn.length + ')</h2>' + (Wn.length ? '<table><tr><th>Wallet</th><th class="num">Tickets</th><th class="num">ORE</th><th class="num">SKR</th><th class="num">SOL → ORE</th><th class="num">≈ USD</th><th></th></tr>' +
       Wn.map(function (x) { return row(x, '<td>' + (x.rank ? '<b>' + ['1st','2nd','3rd','4th','5th'][x.rank - 1] + '</b> · ' + x.pct + '% · ' : '') + acct(x.wallet) + (x.label && x.label !== x.wallet ? ' <span class="msg">' + esc(x.label) + '</span>' : '') + '</td><td class="num">' + x.tickets + '</td><td class="num">' + ui(x.pay.ORE, 'ORE') + '</td><td class="num">' + ui(x.pay.SKR, 'SKR') + '</td><td class="num">' + ui(x.pay.SOL, 'SOL') + '</td><td class="num">$' + (x.usd || 0).toFixed(2) + '</td>'); }).join('') + '</table>'
       : '<div class="msg">No winners this round (no tickets) — the pot carries over to next week.</div>') + (p.unfilled ? '<div class="msg">Ranks ' + p.unfilled.ranks.join(', ') + ' had nobody (' + p.unfilled.pct + '% of the pot) — rolled into next week\'s pot.</div>' : '') + '</div>';
+    var Rf = p.payees.filter(function (x) { return x.kind === 'raffle'; }), RR = (p.raffle && p.raffle.rounds) || [];
+    if (Rf.length || RR.length) h += '<div class="card"><h2>Burn Raffle winners (' + Rf.length + ')</h2><div class="msg">Raffle round' + (RR.length === 1 ? ' ' : 's ') + esc(RR.join(', ')) + ' — drawn provably fair from the rent holders burned (<a href="/api/raffle?action=round&round=' + esc(RR[0] || '') + '" target="_blank" rel="noopener">public record</a> · <a href="/raffle" target="_blank" rel="noopener">/raffle</a>).</div>' +
+      (Rf.length ? '<table><tr><th>Wallet</th><th class="num">Tickets</th><th class="num">ORE</th><th class="num">SOL → ORE</th><th>Gift prizes</th><th class="num">≈ USD</th><th></th></tr>' +
+      Rf.map(function (x) { return row(x, '<td>r' + esc(x.raffleRound) + ' · <b>' + ['1st','2nd','3rd','4th','5th'][x.rank - 1] + '</b> · ' + x.pct + '% · ' + acct(x.wallet) + '</td><td class="num">' + x.tickets + '</td><td class="num">' + ui(x.pay.ORE, 'ORE') + '</td><td class="num">' + ui(x.pay.SOL, 'SOL') + '</td><td>' + bonusHtml(x.pay.bonus) + '</td><td class="num">$' + (x.usd || 0).toFixed(2) + '</td>'); }).join('') + '</table>' : '') +
+      ((p.raffle && p.raffle.hiddenGifts && p.raffle.hiddenGifts.length) ? '<div class="warnc">Hidden after the draw, so left out of this payout (still in the Treasury — yours to decide): ' + p.raffle.hiddenGifts.map(function (g) { return esc(g.title || short(g.mint)) + ' (r' + esc(g.round) + ' ' + ['1st','2nd','3rd','4th','5th'][g.rank - 1] + ')'; }).join(' · ') + '</div>' : '') +
+      '<div class="msg">Excluding a raffle winner puts their prize (and gift prizes) back into the raffle\'s open round when this plan is paid.</div></div>';
     h += '<div class="card"><h2>Preachers (' + Pr.length + ')</h2>' + (Pr.length ? '<table><tr><th>Code</th><th>Wallet</th><th>Tier</th><th class="num">Records</th><th class="num">ORE</th><th class="num">SKR</th><th class="num">SOL → ORE</th><th class="num">USDC → ORE</th><th class="num">Owed USD</th><th></th></tr>' +
       Pr.map(function (x) { return row(x, '<td>' + esc(x.code) + '</td><td>' + acct(x.wallet) + '</td><td>' + esc(x.tier || '') + (x.share ? ' ' + Math.round(x.share * 100) + '%' : '') + '</td><td class="num">' + x.sigs.length + '</td><td class="num">' + ui(x.pay.ORE, 'ORE') + '</td><td class="num">' + ui(x.pay.SKR, 'SKR') + '</td><td class="num">' + ui(x.pay.SOL, 'SOL') + '</td><td class="num">' + ui(x.pay.USDC, 'USDC') + '</td><td class="num">$' + (x.usd || 0).toFixed(2) + '</td>'); }).join('') + '</table>'
       : '<div class="msg">No preacher is owed ≥ $1 right now.</div>') + '</div>';
@@ -609,10 +632,57 @@
     if ($('rev')) $('rev').onchange = function () { setReviewed(this.checked); };
     wireOnly();
   }
+  // a raffle winner's gift prizes (pay.bonus): token amounts + NFT names
+  function bonusHtml(b) {
+    b = b || []; if (!b.length) return '<span class="msg">—</span>';
+    return b.map(function (x) { return x.kind === 'token' ? esc((Number(T.B(x.raw)) / Math.pow(10, x.decimals || 0)).toLocaleString('en-US', { maximumFractionDigits: 6 })) + ' ' + esc(x.symbol || short(x.mint))
+      : '🖼 ' + esc(x.title || short(x.mint)) + (x.kind === 'core' ? ' <span class="msg">Core</span>' : x.kind === 'pnft' ? ' <span class="msg">pNFT</span>' : ''); }).join(' · ');
+  }
+
+  // ================= Raffle gifts: the owner's review + direct gifts =================
+  var gthumb = function (u) { try { var x = new URL(String(u || '')); return x.protocol === 'https:' ? 'https://wsrv.nl/?url=' + encodeURIComponent(x.href) + '&w=96&h=96&fit=cover&output=webp' : ''; } catch (e) { return ''; } };
+  function giftLine(it, buttons) {
+    var img = gthumb(it.image), what = it.kind === 'token'
+      ? esc((Number(T.B(it.raw)) / Math.pow(10, it.decimals || 0)).toLocaleString('en-US', { maximumFractionDigits: 6 })) + ' <b>' + esc(it.symbol || short(it.mint)) + '</b>' + (it.title ? ' <span class="msg">' + esc(it.title) + '</span>' : '')
+      : '<b>' + esc(it.title || short(it.mint)) + '</b> <span class="msg">' + esc(it.kind === 'core' ? 'Core NFT' : it.kind === 'pnft' ? 'pNFT' : 'NFT') + (it.collection ? ' · ' + esc(it.collectionName || short(it.collection)) : ' · no verified collection') + '</span>';
+    return '<tr><td style="width:56px">' + (img ? '<img src="' + esc(img) + '" alt="" style="width:48px;height:48px;border-radius:6px;object-fit:cover">' : '') + '</td><td>' + what + '<div class="msg">' + acct(it.mint) + ' · from ' + esc(it.dname || '') + ' ' + acct(it.donor) + ' · ' + txl(it.sig) +
+      (it.round ? ' · round ' + esc(it.round) : '') + (it.why ? ' · ' + esc(it.why) : '') + '</div></td><td style="white-space:nowrap">' + buttons + '</td></tr>';
+  }
+  function renderGifts() {
+    if (!GF) return;
+    var b = function (id, op, label) { return '<button class="small" data-gift="' + esc(id) + '" data-op="' + op + '">' + label + '</button> '; };
+    var h = '<div class="card"><h2>Raffle gifts — waiting for your review (' + GF.pending.length + ')</h2><div class="msg">Gifts to the Burn Raffle\'s prize (no tickets, 100% for the winners). SOL, ORE, SKR, USDC, Jupiter-verified tokens and Degen Dojo / Demon Dojo NFTs show at once; everything else waits here. <b>Approve</b> adds it to the open round (' + esc(GF.round) + '); <b>Approve + trust</b> also lets future gifts of that collection (or token) show at once; <b>Hide</b> keeps it off the page and out of every prize.</div>' +
+      (GF.pending.length ? '<table>' + GF.pending.map(function (it) { return giftLine(it, b(it.id, 'approve', 'Approve') + b(it.id, 'trust', 'Approve + trust') + b(it.id, 'hide', 'Hide')); }).join('') + '</table>' : '<div class="msg">Nothing waiting.</div>') + '</div>';
+    h += '<div class="card"><h2>Register a direct gift</h2><div class="msg">Someone sent SOL, tokens or NFTs straight to shamanchef.sol (the Treasury) for the raffle, without the page? Paste the transaction — it joins the open round and shows at once (you registered it). Refused: transfers from our own wallets, anything already booked (a burn, a page gift, a coin buy, any "dd…" memo, a marketplace sale), a Degen Dojo card (that\'s a burn claim), a repeat.</div>' +
+      '<div class="bar"><input id="dgsig" placeholder="transaction signature" style="flex:1;min-width:220px;font:12px monospace"> <input id="dgname" placeholder="donor name (optional)" maxlength="24" style="width:170px"> <button id="dgbtn">Register gift</button><span class="msg" id="dgmsg"></span></div></div>';
+    var shown = GF.shown.slice(0, 40), hidden = GF.hidden.slice(0, 20);
+    h += '<div class="card"><h2>Shown gifts (' + GF.shown.length + ')</h2>' + (shown.length ? '<table>' + shown.map(function (it) { return giftLine(it, b(it.id, 'hide', 'Hide')); }).join('') + '</table>' : '<div class="msg">None yet.</div>') + '</div>';
+    if (hidden.length) h += '<div class="card"><h2>Hidden gifts (' + GF.hidden.length + ')</h2><table>' + hidden.map(function (it) { return giftLine(it, b(it.id, 'approve', it.drawnRound ? 'Un-hide (back in its winner\'s payout)' : 'Approve after all')); }).join('') + '</table></div>';
+    if ((GF.rejected || []).length) h += '<div class="card"><h2>Gift transactions not counted (' + GF.rejected.length + ')</h2><div class="msg">' + GF.rejected.map(function (r) { return txl(r.sig) + ' — ' + esc(r.why); }).join('<br>') + '</div></div>';
+    $('rgifts').innerHTML = h;
+    Array.prototype.forEach.call(document.querySelectorAll('[data-gift]'), function (bt) {
+      bt.onclick = function () {
+        var op = bt.getAttribute('data-op');
+        if (op === 'trust' && !confirm('Approve this gift AND let every future gift of its ' + (bt.closest('tr').textContent.indexOf('NFT') >= 0 ? 'collection' : 'token') + ' show at once?')) return;
+        bt.disabled = true;
+        api({ action: 'raffle-gift', id: bt.getAttribute('data-gift'), op: op }).then(function (j) { GF = j.gifts; renderGifts(); }).catch(function (e) { alert(e.message); bt.disabled = false; });
+      };
+    });
+    if ($('dgbtn')) $('dgbtn').onclick = function () {
+      var sig = ($('dgsig').value || '').trim(), nm = ($('dgname').value || '').trim(), bt = this;
+      if (!sig) { $('dgmsg').textContent = 'Paste the transaction signature.'; return; }
+      if (nm && !/^[A-Za-z0-9 _-]{1,24}$/.test(nm)) { $('dgmsg').textContent = 'Name: up to 24 letters, digits, spaces, _ or -.'; return; }
+      bt.disabled = true; $('dgmsg').textContent = 'Checking the transaction…';
+      api({ action: 'raffle-direct-gift', sig: sig, name: nm || null }).then(function (j) { GF = j.gifts; renderGifts(); $('dgmsg').textContent = '✓ Registered in round ' + j.gift.round + ' (' + j.gift.shown + ' item' + (j.gift.shown === 1 ? '' : 's') + (+j.gift.sol ? ' + SOL' : '') + (+j.gift.ore ? ' + ORE' : '') + ').'; })
+        .catch(function (e) { $('dgmsg').textContent = '✖ ' + e.message; bt.disabled = false; });
+    };
+  }
+
   function whoLabel(who) {
     if (who === 'plan') return 'plan';
     var x = V.plan && V.plan.payees.filter(function (p) { return p.id === who; })[0];
-    if (x) return (x.kind === 'winner' ? 'winner ' + short(x.wallet) : 'preacher ' + x.code);
+    if (x) return (x.kind === 'winner' ? 'winner ' + short(x.wallet) : x.kind === 'raffle' ? 'raffle r' + x.raffleRound + ' winner ' + short(x.wallet) : 'preacher ' + x.code);
+    if (/^rf:/.test(who)) { var rp = who.split(':'); return 'raffle r' + rp[1] + ' winner ' + short(rp[2] || ''); }
     return /^p:/.test(who) ? 'preacher ' + who.slice(2) : short(who.replace(/^w:/, ''));
   }
   function potHtml(pot) {
@@ -650,6 +720,8 @@
       Object.keys(pools).map(function (n) { var p = pools[n] || {}; return '<tr><td>' + esc(n) + '</td><td>' + amtList(p.pool) + '</td><td class="num">' + (p.eligible == null ? '?' : p.eligible + ' (' + p.shares + ')') + '</td><td class="num">' + esc((p.perShare || {}).store || '0') + ' stORE ($' + (+((p.perShare || {}).usd) || 0).toFixed(2) + ')</td><td class="num">' + (p.claimed || 0) + '</td></tr>'; }).join('') + '</table></div>';
     h += '<div class="card"><h2>Seed the Pot</h2><div class="msg">Add Degen Dojo\'s own ORE to <b>this week\'s</b> prize (e.g. 1 ORE at launch, while the Pot is empty). No transfer now — it is paid from the Treasury with the prize, and /pot shows it as "Seeded by Degen Dojo".</div>' +
       '<div class="bar"><input id="seedore" type="number" min="0.01" max="25" step="0.01" value="1" style="width:110px"> ORE <button id="seedbtn">Seed the Pot</button><span class="msg" id="seedmsg"></span></div></div>';
+    h += '<div class="card"><h2>Seed the Burn Raffle</h2><div class="msg">Add Degen Dojo\'s own ORE to the Burn Raffle\'s <b>open round</b> (e.g. 0.1 ORE to start it). Same as the Pot: no transfer now — the winners are paid from the Treasury. The pot\'s ORE value decides the winners: ≤ 1 ORE → 1 · ≤ 3 → 3 · more → 5.</div>' +
+      '<div class="bar"><input id="rseedore" type="number" min="0.01" max="25" step="0.01" value="0.1" style="width:110px"> ORE <button id="rseedbtn">Seed the raffle</button><span class="msg" id="rseedmsg"></span></div></div>';
     h += '<div class="card"><h2>Mint cap</h2>' + (mc ? '<div class="msg">' + mc.mintCount + ' Mint cards (Mint/Framed + repairs granted) of a cap of <b>' + mc.mintCap + '</b> — <b>' + mc.mintSpotsLeft + '</b> spot(s) left. Lowering it only closes repairs for later payments; it never downgrades a Mint card.</div>' : '<div class="msg">Mint count unavailable right now.</div>') +
       '<div class="bar"><input id="kcap" type="number" min="1" step="1" value="' + (mc ? mc.mintCap : '') + '" style="width:110px"> <button id="kcapsave">Save Mint cap</button><span class="msg" id="kcapmsg"></span></div>' +
       ((KP.mintCapHistory || []).length ? '<div class="msg">Changes: ' + KP.mintCapHistory.slice().reverse().map(function (x) { return new Date(x.at).toLocaleString() + ' ' + x.prev + '→' + x.cap; }).join(' · ') + '</div>' : '') + '</div>';
@@ -716,6 +788,17 @@
         $('seedmsg').textContent = 'Seeded ' + v + ' ORE — this week\'s seed is now ' + (+r.ore || 0) + ' ORE (pot ≈ $' + (+p.usd || 0).toFixed(2) + ').'; b.disabled = false;
       }).catch(function (e) { $('seedmsg').textContent = '✖ ' + e.message; b.disabled = false; });
     };
+    if ($('rseedbtn')) $('rseedbtn').onclick = function () {
+      var v = parseFloat($('rseedore').value), b = this;
+      if (!(v > 0)) { $('rseedmsg').textContent = 'Enter an ORE amount.'; return; }
+      if (!confirm('Add ' + v + ' ORE of Degen Dojo\'s own to the Burn Raffle\'s open round? It is paid out from the Treasury with the raffle prize.')) return;
+      b.disabled = true; $('rseedmsg').textContent = 'Seeding…';
+      var id = 'rseed' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+      api({ action: 'seed-raffle', ore: v, id: id }).then(function (j) {
+        var r = j.raffle || {};
+        $('rseedmsg').textContent = 'Seeded ' + v + ' ORE — round ' + (j.round || r.round) + '\'s pot is now ≈ ' + ((r.pot && r.pot.potOre) || 0) + ' ORE (' + (r.winners || 1) + ' winner' + (r.winners === 1 ? '' : 's') + ').'; b.disabled = false;
+      }).catch(function (e) { $('rseedmsg').textContent = '✖ ' + e.message; b.disabled = false; });
+    };
     if ($('kcapsave')) $('kcapsave').onclick = function () {
       var v = parseInt($('kcap').value, 10), b = this;
       if (!(v > 0)) { $('kcapmsg').textContent = 'Enter a whole number.'; return; }
@@ -740,7 +823,7 @@
   };
   $('key').addEventListener('keydown', function (e) { if (e.key === 'Enter') load(); });
   $('round').addEventListener('keydown', function (e) { if (e.key === 'Enter') load(); });
-  $('forget').onclick = function () { $('key').value = ''; V = null; KP = null; STMT = null; $('view').innerHTML = ''; $('keeper').innerHTML = ''; $('stmt').innerHTML = ''; };
+  $('forget').onclick = function () { $('key').value = ''; V = null; KP = null; STMT = null; GF = null; $('view').innerHTML = ''; $('keeper').innerHTML = ''; $('stmt').innerHTML = ''; $('rgifts').innerHTML = ''; };
   if (window.DojoWalletPicker) window.DojoWalletPicker.autoConnect().then(function (a) { if (a) { ADAPTER = a; if (V) render(); if (KP) renderKeeper(); if (STMT) renderStatement(); } });
   if (key()) load();
 })();

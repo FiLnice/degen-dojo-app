@@ -7,15 +7,22 @@
 //   • the drawn round has no payout plan → build it (winners + preachers + fraud flags), store it
 //     in Blobs "payouts" round:<n>, and notify Telegram/Discord with a link to /payouts
 //   • once a week: sweep expired sign-in nonces, old one-time markers and the legacy ticket sink (sweepTick)
+//   • the Burn Raffle (store-raffle-core raffleTick) on the same schedule, FIRST: commit at draw time, draw once its
+//     target slot is final — the week's payout plan waits for it (up to RAFFLE_WAIT_MS) so its winners are in the batch
 // It never sends money and holds no key: the owner pays from /payouts with their own wallet.
 // A paid plan is never rebuilt. Needs SOLANA_RPC (+ optional TELEGRAM_* / DISCORD_WEBHOOK_URL).
-import { cronTick, sweepTick } from "./store-payout-core.mjs";
+import { cronTick, sweepTick, lastDrawTime, CATCHUP_MS } from "./store-payout-core.mjs";
+import { raffleTick } from "./store-raffle-core.mjs";
 import { scanTreasury } from "./store-keeper-core.mjs";
 import { notify } from "./store-notify.mjs";
 
 export default async () => {
   if (!process.env.SOLANA_RPC) return;   // not configured yet — nothing to do
   const t0 = Date.now();
+  try {
+    const rt = await raffleTick({ week: lastDrawTime(t0), catchupMs: CATCHUP_MS });
+    if (rt.step !== "raffle-idle") console.log("raffle:", JSON.stringify(rt));
+  } catch (e) { console.log("raffle error:", String(e?.message || e)); }
   try {
     const r = await cronTick({ budgetMs: 20e3 });
     console.log("payout-cron:", JSON.stringify(r));

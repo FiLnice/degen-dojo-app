@@ -33,8 +33,8 @@
   function u32le(v) { var b = new Uint8Array(4), dv = new DataView(b.buffer); dv.setUint32(0, v >>> 0, true); return b; }
   function cat() { var n = 0, i, o = 0; for (i = 0; i < arguments.length; i++) n += arguments[i].length; var out = new Uint8Array(n); for (i = 0; i < arguments.length; i++) { out.set(arguments[i], o); o += arguments[i].length; } return out; }
 
-  function ataAddress(W3, owner, mint) {
-    return W3.PublicKey.findProgramAddressSync([new W3.PublicKey(owner).toBytes(), new W3.PublicKey(TOKEN).toBytes(), new W3.PublicKey(mint).toBytes()], new W3.PublicKey(ATA))[0];
+  function ataAddress(W3, owner, mint, program) {
+    return W3.PublicKey.findProgramAddressSync([new W3.PublicKey(owner).toBytes(), new W3.PublicKey(program || TOKEN).toBytes(), new W3.PublicKey(mint).toBytes()], new W3.PublicKey(ATA))[0];
   }
   function meta(W3, k, s, w) { return { pubkey: new W3.PublicKey(k), isSigner: !!s, isWritable: !!w }; }
   function ix(W3, programId, keys, data) { return new W3.TransactionInstruction({ programId: new W3.PublicKey(programId), keys: keys, data: bytes(data) }); }
@@ -96,6 +96,20 @@
       var ore = B(p.pay.ORE) + B(swapOre && swapOre[p.id]), skr = B(p.pay.SKR);
       if (ore > 0n) out.push({ id: p.id, owner: p.wallet, cur: 'ORE', mint: MINTS.ORE, decimals: DEC.ORE, amount: ore });
       if (skr > 0n) out.push({ id: p.id, owner: p.wallet, cur: 'SKR', mint: MINTS.SKR, decimals: DEC.SKR, amount: skr });
+    });
+    return out;
+  }
+  // Burn Raffle gift prizes still to send (pay.bonus of the unpaid payees) → [{ key, id, to, kind, mint, raw, decimals,
+  // program, collection, title }] for dojo-gift.js; `done` = gift keys an earlier attempt already sent (key = payee id + mint)
+  function giftsForPlan(plan, skipIds, done) {
+    var out = [];
+    payable(plan, skipIds).forEach(function (p) {
+      ((p.pay && p.pay.bonus) || []).forEach(function (b) {
+        var key = p.id + ':' + b.mint;
+        if (done && done[key]) return;
+        out.push({ key: key, id: p.id, to: p.wallet, kind: b.kind, mint: b.mint, raw: b.kind === 'token' ? String(b.raw) : '1', decimals: Number(b.decimals) || 0,
+          program: b.program || (b.kind === 'core' ? null : TOKEN), collection: b.collection || null, title: b.title || b.symbol || '' });
+      });
     });
     return out;
   }
@@ -171,13 +185,18 @@
   //               'swap'      : expect.spendMint / spendMax (raw; SOL = lamports) and getMint / getMin (raw) — the
   //                              swap program is opaque, so the TEST RUN decides: spends ≤ spendMax, gets ≥ getMin
   //               'burns'     : expect.burns [{mint}] — Token Metadata BurnV1 of exactly these cards
+  //               'gifts'     : expect.gifts [{to, kind: token|nft|pnft|core, mint, raw, program}] — a Burn Raffle winner's gift
+  //                              prizes (dojo-gift.js builds them): TransferChecked of exactly these tokens / NFTs (+ the
+  //                              winner's token account), Token Metadata Transfer V1 of exactly these pNFTs, Core TransferV1 of
+  //                              exactly these assets — and the test run shows each one arriving, Core assets owned by the winner
   // Always: the Treasury pays the fee; only known programs; no Approve / SetAuthority / closing of Treasury token
   // accounts (also checked on the simulated account state, so a hidden inner call can't do it either); no other
   // Treasury token account is written; the network fee stays under 0.01 SOL.
   // → { ok: true, simulated, text: 'Checked: … ✓' } — or throws Error('Refused: …') and nothing gets signed.
   var JUP = 'JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4', TOKEN22 = 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb';
   var MEMO1 = 'Memo1UhkJRfHyvLMcVucJwxXeuD728EqVDDwQDxFMNo', MEMO2 = 'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr';
-  var STORE = 'storenSbvkfzircixnaosc5CbzNZVrHJ6S3EKrS1yqR';
+  var STORE = 'storenSbvkfzircixnaosc5CbzNZVrHJ6S3EKrS1yqR', CORE = 'CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d';
+  var TOKEN_RECORD_ALLOW = 2000000n;   // a pNFT gift: Token Metadata opens the winner's token record (≈ 1.06–1.45M lamports) from the Treasury
   var NAME = {}; NAME[MINTS.ORE] = 'ORE'; NAME[MINTS.SKR] = 'SKR'; NAME[MINTS.USDC] = 'USDC'; NAME[MINTS.SOL] = 'SOL'; NAME[STORE] = 'stORE';
   var DECM = {}; DECM[MINTS.ORE] = 11; DECM[STORE] = 11; DECM[MINTS.SKR] = 6; DECM[MINTS.USDC] = 6; DECM[MINTS.SOL] = 9;
   var ATA_RENT = 2039280n, MAX_FEE_LAMPORTS = 10000000n;   // a token account's rent · the network-fee cap (0.01 SOL)
@@ -223,7 +242,8 @@
   async function inspect(o) {
     var W3 = o.W3, rpc = o.rpc, tx = o.tx, signer = o.signer, e = o.expect || {}, kind = e.kind;
     var refuse = function (why) { throw new Error('Refused: ' + why); };
-    if (['transfers', 'swap', 'burns'].indexOf(kind) < 0) refuse('no check is defined for this transaction');
+    if (['transfers', 'swap', 'burns', 'gifts'].indexOf(kind) < 0) refuse('no check is defined for this transaction');
+    var pays = kind === 'transfers' || kind === 'gifts';
     var msg = tx.message;
     if (msg.staticAccountKeys[0].toBase58() !== signer) refuse('the network fee would not be paid by the Treasury ' + signer.slice(0, 4) + '…');
     // every account the tx uses (lookup tables resolved) and which of them it writes
@@ -245,9 +265,21 @@
     var allowed = {}; [SYS, TOKEN, TOKEN22, ATA, CB, MEMO1, MEMO2].forEach(function (x) { allowed[x] = 1; });
     if (kind === 'swap') allowed[JUP] = 1;
     if (kind === 'burns') allowed[TM] = 1;
+    if (kind === 'gifts') { allowed[TM] = 1; allowed[CORE] = 1; }
     var wsol = ataAddress(W3, signer, MINTS.SOL).toBase58();
     var okMints = {}, closable = {};
     var expT = (e.transfers || []).map(function (t) { return { owner: t.owner, mint: t.mint, amount: B(t.amount), src: ataAddress(W3, signer, t.mint).toBase58(), dst: ataAddress(W3, t.owner, t.mint).toBase58(), seen: false }; });
+    // gifts: tokens + Token Metadata NFTs move by TransferChecked (program-aware token accounts), pNFTs by Transfer V1, Core by TransferV1
+    var gifts = kind === 'gifts' ? (e.gifts || []) : [];
+    gifts.forEach(function (g) {
+      if (g.kind !== 'token' && g.kind !== 'nft') return;
+      expT.push({ owner: g.to, mint: g.mint, amount: g.kind === 'nft' ? 1n : B(g.raw), src: ataAddress(W3, signer, g.mint, g.program).toBase58(), dst: ataAddress(W3, g.to, g.mint, g.program).toBase58(), seen: false });
+      if (g.kind === 'nft') closable[ataAddress(W3, signer, g.mint, g.program).toBase58()] = 1;
+    });
+    var expP = gifts.filter(function (g) { return g.kind === 'pnft'; }).map(function (g) { return { owner: g.to, mint: g.mint, amount: 1n, src: ataAddress(W3, signer, g.mint, g.program).toBase58(), dst: ataAddress(W3, g.to, g.mint, g.program).toBase58(), seen: false }; });
+    var expC = gifts.filter(function (g) { return g.kind === 'core'; }).map(function (g) { return { owner: g.to, asset: g.mint, seen: false }; });
+    if (gifts.length !== expT.length - (e.transfers || []).length + expP.length + expC.length) refuse('a gift of an unknown kind');
+    expP.forEach(function (p) { okMints[p.mint] = 1; closable[p.src] = 1; });   // Token Metadata may close the Treasury's emptied pNFT account
     var expS = (e.sol || []).map(function (s) { return { to: s.to, lamports: B(s.lamports), seen: false }; });
     var expB = (e.burns || []).map(function (b) { return { mint: b.mint, token: ataAddress(W3, signer, b.mint).toBase58(), seen: false }; });
     expT.forEach(function (t) { okMints[t.mint] = 1; });
@@ -278,8 +310,8 @@
       if (prog === ATA) {
         if (d.length && d[0] !== 0 && d[0] !== 1) refuse(where + 'an unexpected token-account instruction');
         if (acc[0] !== signer) refuse(where + 'someone else pays for a new token account');
-        if (ataAddress(W3, acc[2], acc[3]).toBase58() !== acc[1]) refuse(where + 'it opens a token account that is not the owner\'s standard one');
-        if (kind === 'transfers' && !expT.some(function (x) { return x.dst === acc[1]; })) refuse(where + 'it opens a token account for ' + acc[2].slice(0, 4) + '…, who is not paid here');
+        if (ataAddress(W3, acc[2], acc[3], acc[5] === TOKEN22 ? TOKEN22 : TOKEN).toBase58() !== acc[1]) refuse(where + 'it opens a token account that is not the owner\'s standard one');
+        if (pays && !expT.some(function (x) { return x.dst === acc[1]; })) refuse(where + 'it opens a token account for ' + acc[2].slice(0, 4) + '…, who is not paid here');
         if (kind === 'swap' && acc[2] !== signer) refuse(where + 'the swap opens a token account for another wallet');
         if (kind === 'burns') refuse(where + 'a burn never opens token accounts');
         return;
@@ -287,7 +319,7 @@
       if (prog === TOKEN || prog === TOKEN22) {
         var op = d[0];
         if (op === 12 || op === 3) {
-          if (kind !== 'transfers') refuse(where + 'a direct token transfer inside a ' + kind);
+          if (!pays) refuse(where + 'a direct token transfer inside a ' + kind);
           var src = acc[0], mintT = op === 12 ? acc[1] : null, dst = op === 12 ? acc[2] : acc[1], auth = op === 12 ? acc[3] : acc[2], amt = u64At(d, 1);
           var x = expT.filter(function (y) { return !y.seen && y.src === src && y.dst === dst && y.amount === amt && (!mintT || y.mint === mintT); })[0];
           if (!x || auth !== signer) refuse(where + 'a token transfer that does not match the plan (amount or recipient changed)');
@@ -302,6 +334,22 @@
         if (op === 4 || op === 13) refuse(where + 'it would let another wallet spend Treasury tokens (Approve)');
         if (op === 6) refuse(where + 'it would change who controls a token account (SetAuthority)');
         refuse(where + 'a token instruction a payment never needs (#' + op + ')');
+      }
+      if (prog === TM && kind === 'gifts') {
+        // Transfer V1 { amount: 1 } of a planned pNFT: from the Treasury's own account, the Treasury the authority and payer
+        if (!(d[0] === 49 && d[1] === 0) || u64At(d, 2) !== 1n) refuse(where + 'a Token Metadata instruction that is not a 1-NFT transfer');
+        if (acc[1] !== signer || acc[9] !== signer || acc[10] !== signer) refuse(where + 'an NFT transfer the Treasury doesn\'t own, authorise and pay for');
+        var pp = expP.filter(function (y) { return !y.seen && y.mint === acc[4] && y.src === acc[0] && y.owner === acc[3] && y.dst === acc[2]; })[0];
+        if (!pp) refuse(where + 'it sends ' + acc[4].slice(0, 4) + '… to ' + acc[3].slice(0, 4) + '…, which this payout does not say');
+        pp.seen = true; return;
+      }
+      if (prog === CORE) {
+        // TransferV1 of a planned Core asset to its winner; the Treasury pays and is the authority (or none → the payer)
+        if (kind !== 'gifts' || d[0] !== 14) refuse(where + 'a Core instruction that is not a transfer');
+        if (acc[2] !== signer || (acc[3] !== signer && acc[3] !== CORE)) refuse(where + 'a Core transfer the Treasury doesn\'t pay for and authorise');
+        var cc = expC.filter(function (y) { return !y.seen && y.asset === acc[0] && y.owner === acc[4]; })[0];
+        if (!cc) refuse(where + 'it sends the Core asset ' + String(acc[0]).slice(0, 4) + '… somewhere this payout does not say');
+        cc.seen = true; return;
       }
       if (prog === TM) {
         if (!(d[0] === 41 && d[1] === 0)) refuse(where + 'a Token Metadata instruction that is not a burn');
@@ -325,7 +373,8 @@
       }
     });
     if (kind === 'swap' && !jupN) refuse('there is no swap in this transaction');
-    var missing = expT.filter(function (x) { return !x.seen; }).length + expS.filter(function (x) { return !x.seen; }).length + expB.filter(function (x) { return !x.seen; }).length;
+    var missing = expT.filter(function (x) { return !x.seen; }).length + expS.filter(function (x) { return !x.seen; }).length + expB.filter(function (x) { return !x.seen; }).length +
+      expP.filter(function (x) { return !x.seen; }).length + expC.filter(function (x) { return !x.seen; }).length;
     if (missing) refuse(missing + ' planned payment(s) are missing from the transaction');
     var limit = BigInt(cuLimit != null ? cuLimit : 200000 * Math.max(1, nIx));
     var fee = (cuPrice * limit + 999999n) / 1000000n + 5000n * BigInt(msg.header.numRequiredSignatures);
@@ -334,7 +383,11 @@
 
     // what it says it does, in plain words
     var said;
-    if (kind === 'transfers') {
+    if (kind === 'gifts') {
+      var gw = {}; gifts.forEach(function (g) { gw[g.to] = 1; });
+      var nT = gifts.filter(function (g) { return g.kind === 'token'; }).length, nN = gifts.length - nT, ngw = Object.keys(gw).length;
+      said = 'sends ' + andList([nT ? nT + ' gift token amount' + (nT === 1 ? '' : 's') : '', nN ? nN + ' gift NFT' + (nN === 1 ? '' : 's') : ''].filter(Boolean)) + ' to ' + ngw + ' raffle winner' + (ngw === 1 ? '' : 's');
+    } else if (kind === 'transfers') {
       var byMint = sumBy(expT, 'mint', 'amount'), parts = Object.keys(byMint).map(function (m) { return fmtRaw(byMint[m], m); });
       var solOut = expS.reduce(function (a, s) { return a + s.lamports; }, 0n); if (solOut > 0n) parts.push(fmtRaw(solOut, MINTS.SOL));
       var who = {}; expT.forEach(function (t) { who[t.owner] = 1; }); expS.forEach(function (s) { who[s.to] = 1; });
@@ -347,7 +400,9 @@
     var watch = [signer], addW = function (k) { if (watch.indexOf(k) < 0) watch.push(k); };
     Object.keys(writable).forEach(function (k) { if (mine[k]) addW(k); });
     if (kind === 'swap') { addW(ataAddress(W3, signer, e.getMint).toBase58()); if (e.spendMint !== MINTS.SOL) addW(ataAddress(W3, signer, e.spendMint).toBase58()); addW(wsol); }
-    expT.forEach(function (t) { addW(t.dst); });
+    expT.forEach(function (t) { addW(t.dst); if (kind === 'gifts') addW(t.src); });
+    expP.forEach(function (p) { addW(p.dst); addW(p.src); });
+    expC.forEach(function (c) { addW(c.asset); });
     expS.forEach(function (s) { addW(s.to); });
     if (watch.length > 64) refuse('too many accounts to check in one test run');
     var pre = ((await rpc('getMultipleAccounts', [watch, { encoding: 'base64' }])) || {}).value || [];
@@ -361,11 +416,17 @@
     }
     var post = sv.accounts || [];
     // SOL the Treasury really spends = its own lamports + its wrapped-SOL account's lamports, before vs after
-    var delta = {}, solSpent = 0n, newAtas = 0, got = {};
+    var delta = {}, solSpent = 0n, newAtas = 0, got = {}, coreOwner = {};
+    var isCore = {}; expC.forEach(function (c) { isCore[c.asset] = 1; });
     for (var w = 0; w < watch.length; w++) {
       var addr = watch[w], a0 = pre[w], a1 = post[w];
       if (addr === signer || addr === wsol) solSpent += B(a0 ? a0.lamports : 0) - B(a1 ? a1.lamports : 0);
       if (addr === signer) continue;
+      if (isCore[addr]) {   // a Core asset (AssetV1: key 1, then its owner) — not a token account
+        var cd = a1 && a1.data ? b64bytes(Array.isArray(a1.data) ? a1.data[0] : a1.data) : null;
+        coreOwner[addr] = cd && cd.length >= 33 && cd[0] === 1 ? new W3.PublicKey(cd.subarray(1, 33)).toBase58() : null;
+        continue;
+      }
       var t0 = tokAcct(W3, a0), t1 = tokAcct(W3, a1);
       var ours = !!mine[addr] || (t0 && t0.owner === signer) || (t1 && t1.owner === signer);
       if (ours) {
@@ -386,14 +447,15 @@
       var t = ii.parsed && ii.parsed.type, info = (ii.parsed && ii.parsed.info) || {};
       if (/^(approve|approveChecked|setAuthority)$/.test(t || '') && (mine[info.source] || mine[info.account] || info.owner === signer || info.authority === signer)) refuse('a hidden ' + t + ' on a Treasury account');
     }); });
-    if (kind === 'transfers') {
-      var outBy = sumBy(expT, 'mint', 'amount');
+    if (pays) {
+      var outs = expT.concat(expP), outBy = sumBy(outs, 'mint', 'amount');
       Object.keys(delta).forEach(function (m) { if (delta[m] !== -(outBy[m] || 0n)) refuse('the test run moves ' + fmtRaw(delta[m] < 0n ? -delta[m] : delta[m], m) + ' ' + (delta[m] < 0n ? 'out of' : 'into') + ' the Treasury, the plan says ' + fmtRaw(outBy[m] || 0n, m)); });
       Object.keys(outBy).forEach(function (m) { if ((delta[m] || 0n) !== -outBy[m]) refuse('the Treasury would not send the planned ' + fmtRaw(outBy[m], m)); });
-      var toBy = sumBy(expT, 'dst', 'amount');
+      var toBy = sumBy(outs, 'dst', 'amount');
       Object.keys(toBy).forEach(function (a) { if ((got[a] || 0n) !== toBy[a]) refuse('a recipient would not receive exactly the planned amount'); });
       expS.forEach(function (s) { if ((got[s.to] || 0n) < s.lamports) refuse('a SOL recipient would get less than planned'); });
-      var solCap = expS.reduce(function (a, s) { return a + s.lamports; }, 0n) + BigInt(newAtas) * ATA_RENT + fee + 10000n;
+      expC.forEach(function (c) { if (coreOwner[c.asset] !== c.owner) refuse('the Core asset ' + c.asset.slice(0, 4) + '… would not end up with its winner'); });
+      var solCap = expS.reduce(function (a, s) { return a + s.lamports; }, 0n) + BigInt(newAtas) * ATA_RENT + BigInt(expP.length) * TOKEN_RECORD_ALLOW + fee + 10000n;
       if (solSpent > solCap) refuse('the Treasury would spend ' + fmtRaw(solSpent, MINTS.SOL) + ' SOL, more than the payments + deposits + fee');
     } else if (kind === 'swap') {
       var gotOut = delta[e.getMint] || 0n;
@@ -413,7 +475,7 @@
   }
 
   return { MINTS: MINTS, DEC: DEC, TOKEN: TOKEN, ATA: ATA, MAX_TX: MAX_TX, ataAddress: ataAddress, transferIxs: transferIxs, packTransfers: packTransfers,
-    B: B, swapBuckets: swapBuckets, transfersForPlan: transfersForPlan, need: need, payable: payable, swapFromQuote: swapFromQuote,
+    B: B, swapBuckets: swapBuckets, transfersForPlan: transfersForPlan, giftsForPlan: giftsForPlan, need: need, payable: payable, swapFromQuote: swapFromQuote,
     burnPnftIxs: burnPnftIxs, packBurns: packBurns, swapFromQuoteTo: swapFromQuoteTo, inspect: inspect, STORE: STORE, JUP: JUP,
     jupSwapArgs: jupSwapArgs, jupOnChainMinOut: jupOnChainMinOut, jupOnChainMaxIn: jupOnChainMaxIn, JUP_IX: JUP_IX };
 });

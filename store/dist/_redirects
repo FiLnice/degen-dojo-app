@@ -15,6 +15,7 @@
 /api/verify  /.netlify/functions/verify  200
 /api/draw  /.netlify/functions/draw  200
 /api/payouts  /.netlify/functions/payouts  200
+/api/raffle  /.netlify/functions/raffle  200
 /api/auth  /.netlify/functions/auth  200
 /api/vault  /.netlify/functions/vault  200
 /api/repair  /.netlify/functions/repair  200

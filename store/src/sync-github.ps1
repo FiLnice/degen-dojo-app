@@ -12,7 +12,7 @@ $t = Get-Content -Raw "$scr\build-store-deploy.mjs"
 $names = [regex]::Matches($t, 'scripts/([A-Za-z0-9._-]+\.(?:json|mjs|html|css|js))') | ForEach-Object { $_.Groups[1].Value }
 # the store HOME page is built from store-template.html by build-store.mjs (not by build-store-deploy.mjs), so it must be
 # listed by hand — leaving it out let the repo copy drift behind the deployed page (security review 2026-10-23, M12)
-$names += @("store-repair.html", "store-burn.html", "store-sweep.html", "store-privacy.html", "store-terms.html", "build-store-deploy.mjs", "build-store.mjs", "store-template.html", "html-safe.mjs", "csp.mjs", "build-leak-guard.mjs", "zip-forward.ps1", "sync-github.ps1")
+$names += @("store-repair.html", "store-burn.html", "store-sweep.html", "store-raffle.html", "store-privacy.html", "store-terms.html", "build-store-deploy.mjs", "build-store.mjs", "store-template.html", "html-safe.mjs", "csp.mjs", "build-leak-guard.mjs", "zip-forward.ps1", "sync-github.ps1")
 $skip = @("store.html", "mwa.js")                       # generated outputs, not sources
 $src = 0; $fn = 0; $missing = @()
 foreach ($n in ($names | Sort-Object -Unique)) {

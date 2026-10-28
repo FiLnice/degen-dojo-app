@@ -6,6 +6,7 @@
 //   cronTick()          weekly state machine: commit → draw → build plan → notify (+ resumes a
 //                       payment settlement a crashed call left in "paying")
 //   buildPlan(round)    winners (5 ranks, 40/25/15/10/10% of the round's pot snapshot, per token; unfilled ranks → next week) +
+//                       Burn Raffle winners (kind "raffle", drawn rounds no other plan carries — store-raffle-core) +
 //                       preachers (owed ≥ MIN_PREACHER_PAYOUT_USD) + fraud flags
 //   quoteSwaps(round)   SERVER-side Jupiter quote for the SOL/USDC shares → the exact ORE each payee
 //                       gets is recorded in the plan's manifest (the browser never says what's due)
@@ -27,6 +28,7 @@ import { computePreacherOwed, markPreacherPaid, preacherRiskFlags } from "./stor
 import { commitRound, drawRound, latestRound, getPublic, verifyDraw, rpc, DrawError } from "./store-draw-core.mjs";
 import { notify } from "./store-notify.mjs";
 import { casUpdate, readWithEtag, putIfMatch, putIfNew } from "./store-cas-core.mjs";
+import { raffleForPlan, markRafflePlanned, rollbackRafflePrize, raffleBusy, verifyRaffleDraw, coreTransfersOf, RAFFLE_WAIT_MS } from "./store-raffle-core.mjs";
 import { createHash, randomUUID } from "node:crypto";
 
 export const MINTS = { ORE: "oreoU2P8bN6jkk3jbaiVxYnG1dCXcYxwhwyK9jSybcp", SKR: "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3", USDC: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", SOL: "So11111111111111111111111111111111111111112" };
@@ -301,10 +303,11 @@ export async function checkWinnerWallets(winners, { now = Date.now(), within = b
       catch (e) { flags.push({ severity: "warn", who: w.id, check: "c", reason: "couldn't check who funded this wallet (" + (e.message || e) + ")" }); }
     }
   });
-  const byFunder = new Map();
+  const byFunder = new Map(), walletOf = new Map(winners.map((w) => [w.id, w.wallet]));
   for (const [id, f] of funders) byFunder.set(f, [...(byFunder.get(f) || []), id]);
-  for (const [f, ids] of byFunder) if (ids.length > 1) for (const id of ids)
-    flags.push({ severity: "warn", who: id, check: "c", reason: `${ids.length} winners were first funded by the same wallet ${f.slice(0, 4)}…${f.slice(-4)}` });
+  // one wallet winning both the Dojo Pot and the Burn Raffle is two payees, not two winners
+  for (const [f, ids] of byFunder) { const n = new Set(ids.map((id) => walletOf.get(id))).size; if (n > 1) for (const id of ids)
+    flags.push({ severity: "warn", who: id, check: "c", reason: `${n} winners were first funded by the same wallet ${f.slice(0, 4)}…${f.slice(-4)}` }); }
   return flags;
 }
 // (g) preacher whose referred buyers were funded by the preacher's own wallet, or whose referred
@@ -375,6 +378,13 @@ export async function buildPlan(round, { budgetMs = 20e3, excluded = [], now = D
   if (!snap && (pub.winners || []).length) flags.push({ severity: "block", who: "plan", check: "h", reason: pub.manualPot ? "manual ?potSol draw — no pot snapshot, so winners get nothing in this plan" : "no pot snapshot for this round" });
 
   const winners = winnerPayees(pub, snap);
+  // the Burn Raffle's drawn winners that no other plan carries (store-raffle-core) — paid in the same batch
+  let raffle = { payees: [], rounds: [], draws: [] };
+  try { raffle = await within(raffleForPlan(round)); } catch (e) { flags.push(cant("e", "the Burn Raffle draws", e)); }
+  for (const d of raffle.draws) {
+    try { const v = await within(verifyRaffleDraw(d.round)); for (const p of v.problems) flags.push({ severity: "block", who: "plan", check: "e", reason: `raffle round ${d.round} re-check: ${p}` }); for (const u of v.unchecked) flags.push(cant("e", `raffle round ${d.round}: ${u}`)); }
+    catch (e) { flags.push(cant("e", `raffle round ${d.round}`, e)); }
+  }
   let rows = [];
   // preachers are owed everything unpaid, so ONLY the newest plan carries them (an older round rebuilt later would
   // otherwise list the same records as the newer plan — both payable = paid twice)
@@ -383,7 +393,7 @@ export async function buildPlan(round, { budgetMs = 20e3, excluded = [], now = D
   for (const s of skipped) flags.push({ severity: "warn", who: "p:" + String(s.code).toLowerCase(), check: "g", reason: `owed $${(+s.owedUsd).toFixed(2)} but ${s.reason} — not in this payout` });
   for (const p of preachers) if (Object.keys(p.unsupported).length)
     flags.push({ severity: "warn", who: p.id, check: "g", reason: "owed in unsupported token(s) " + Object.keys(p.unsupported).join(", ") + " — not paid here" });
-  const payees = [...winners, ...preachers];
+  const payees = [...winners, ...raffle.payees, ...preachers];
 
   // fraud checks
   let records = [];
@@ -397,7 +407,7 @@ export async function buildPlan(round, { budgetMs = 20e3, excluded = [], now = D
   flags.push(...checkReserved(payees));
   flags.push(...checkCap(await liveUsd(planTotals(payees), within)));
   flags.push(...checkPotLedger(snap, prevClosedAt, records));
-  try { flags.push(...(await checkWinnerWallets(winners, { now, within }))); } catch (e) { flags.push(cant("b", "winner wallets", e)); }
+  try { flags.push(...(await checkWinnerWallets([...winners, ...raffle.payees], { now, within }))); } catch (e) { flags.push(cant("b", "winner wallets", e)); }
   try { flags.push(...(await checkPreachers(preachers, records, { within }))); } catch (e) { flags.push(cant("g", "preacher funding", e)); }
   // M8: self-referral through a second wallet (few / one buyer, buyer↔preacher transfers, same tx) — store-preacher-core
   try { flags.push(...(await preacherRiskFlags(preachers, records, { within }))); } catch (e) { flags.push(cant("g", "preacher links", e)); }
@@ -409,6 +419,7 @@ export async function buildPlan(round, { budgetMs = 20e3, excluded = [], now = D
       statusUrl: storeUrl() + "/api/draw?action=status" },
     pot: snap ? { usd: +(+snap.usd || 0).toFixed(2), routes: snap.routes, totals: potTotals(snap), since: snap.since, closedAt: snap.closedAt } : null,
     tiers: PRIZE_TIERS.map(Number), unfilled: unfilledShares(pub, snap),
+    ...(raffle.rounds.length ? { raffle: { rounds: raffle.rounds, draws: raffle.draws, ...((raffle.hiddenGifts || []).length ? { hiddenGifts: raffle.hiddenGifts } : {}) } } : {}),
     payees, excluded: excluded.filter((id) => payees.some((p) => p.id === id)), flags,
     mints: MINTS, decimals: DEC,
   };
@@ -427,12 +438,13 @@ export function summary(plan) {
   const t = plan.totals || planTotals(plan.payees, plan.excluded);
   const nW = plan.payees.filter((p) => p.kind === "winner" && !(plan.excluded || []).includes(p.id)).length;
   const nP = plan.payees.filter((p) => p.kind === "preacher" && !(plan.excluded || []).includes(p.id)).length;
+  const nR = plan.payees.filter((p) => p.kind === "raffle" && !(plan.excluded || []).includes(p.id)).length;
   const parts = [];
   if (big(t.ORE) > 0n) parts.push(fmt(t.ORE, "ORE") + " ORE");
   if (big(t.SKR) > 0n) parts.push(fmt(t.SKR, "SKR", 2) + " SKR");
   if (big(t.SOL) > 0n) parts.push(fmt(t.SOL, "SOL") + " SOL→ORE");
   if (big(t.USDC) > 0n) parts.push(fmt(t.USDC, "USDC", 2) + " USDC→ORE");
-  return `round ${plan.round}: ${nW} winner${nW === 1 ? "" : "s"} + ${nP} preacher${nP === 1 ? "" : "s"}, ${parts.join(" + ") || "nothing to send"} (≈ $${t.usd})`;
+  return `round ${plan.round}: ${nW} winner${nW === 1 ? "" : "s"}${nR ? ` + ${nR} Burn Raffle winner${nR === 1 ? "" : "s"}` : ""} + ${nP} preacher${nP === 1 ? "" : "s"}, ${parts.join(" + ") || "nothing to send"} (≈ $${t.usd})`;
 }
 function flagText(plan) {
   const fl = openFlags(plan);
@@ -451,6 +463,8 @@ export async function buildAndStore(round, opts = {}) {
   const saved = etag ? await putIfMatch(payStore(), "round:" + round, plan, etag) : await putIfNew(payStore(), "round:" + round, plan);
   if (!saved) throw new DrawError(`round ${round}'s plan changed while it was being rebuilt — reload and try again`, 409);
   if (plan.round >= (await latestPlanRound())) await payStore().set("latest", String(plan.round));
+  // the Burn Raffle rounds this plan pays are tied to it (create-only): no other plan can list them again
+  if (plan.raffle?.rounds?.length) await markRafflePlanned(plan.raffle.rounds, round);
   // the ranks nobody filled (fewer than 5 entrants) → next week's Pot, once (marker + id-guarded adds)
   if (plan.unfilled) await rollUnfilled(round, plan);
   // Preachers are owed EVERYTHING unpaid, so the newest plan carries them. Drop unpaid preacher
@@ -514,6 +528,10 @@ export async function cronTick({ now = Date.now(), budgetMs = 20e3 } = {}) {
   }
 
   if (pub?.status === "drawn" && (pub.drawnAt || 0) >= state.since && !(await getPlan(round))) {
+    // the Burn Raffle draws on the same schedule (store-fn-payout-cron runs it first): its winners join this plan, so
+    // wait for a raffle draw in progress — at most RAFFLE_WAIT_MS, then they simply go into next week's plan
+    const busy = await raffleBusy().catch(() => null);
+    if (busy && now - (pub.drawnAt || 0) < RAFFLE_WAIT_MS) return { step: "waiting-raffle", round, raffleRound: busy };
     const plan = await buildAndStore(round, { budgetMs, now });
     return { step: "planned", round, status: plan.status, flags: plan.flags.length };
   }
@@ -675,32 +693,46 @@ export async function quoteSwaps(round, { now = Date.now() } = {}) {
 // ----- what's due, what arrived -----
 // What each wallet must receive: direct ORE/SKR plus, for SOL/USDC shares, the ORE recorded in the
 // server manifest. `unquoted` = payees with a SOL/USDC share and no recorded ORE amount → never covered.
+// Burn Raffle gifts (pay.bonus): `bonus` = raw due per mint (gift tokens; Token Metadata NFTs count 1), `cores` = the
+// Metaplex Core assets that must be transferred to the wallet.
 export function dueByOwner(plan, ids) {
   const due = {}, so = plan.manifest?.swapOre || {};
   for (const p of plan.payees) {
     if (!ids.has(p.id)) continue;
     const pay = payOf(p);
-    const d = (due[p.wallet] ||= { ORE: 0n, SKR: 0n, ids: [], unquoted: [] });
+    const d = (due[p.wallet] ||= { ORE: 0n, SKR: 0n, ids: [], unquoted: [], bonus: {}, cores: [] });
     d.ORE += pay.ORE; d.SKR += pay.SKR; d.ids.push(p.id);
     if (pay.SOL + pay.USDC > 0n) { if (so[p.id] == null) d.unquoted.push(p.id); else d.ORE += big(so[p.id]); }
+    for (const b of Array.isArray(p.pay?.bonus) ? p.pay.bonus : []) {
+      if (b.kind === "core") d.cores.push(b.mint);
+      else if (ADDR_RE.test(b.mint || "")) d.bonus[b.mint] = (d.bonus[b.mint] || 0n) + (b.kind === "token" ? big(b.raw) : 1n);
+    }
   }
   return due;
 }
 // does what an owner received (exact raw, per mint) cover what they're due? No tolerance.
 export function covers(d, got) {
   if (d.unquoted.length) return false;
-  return big(got.ORE) >= d.ORE && big(got.SKR) >= d.SKR;
+  if (!(big(got.ORE) >= d.ORE && big(got.SKR) >= d.SKR)) return false;
+  for (const [m, v] of Object.entries(d.bonus || {})) if (!(big(got.bonus?.[m]) >= v)) return false;
+  for (const a of d.cores || []) if (!(got.cores || []).includes(a)) return false;
+  return true;
 }
-// what `owner` received in these txs, per mint, skipping (sig, owner) pairs already credited earlier
-export function received(owner, txs, consumed = {}) {
-  const got = { ORE: 0n, SKR: 0n }, used = [];
+// what `owner` received in these txs, per mint, skipping (sig, owner) pairs already credited earlier. `d` (optional) =
+// their due: its gift mints and Core assets are read too (a Core asset counts when a TransferV1 of the payer's moved it to them).
+export function received(owner, txs, consumed = {}, d = null) {
+  const got = { ORE: 0n, SKR: 0n, bonus: {}, cores: [] }, used = [];
+  const want = Object.keys(d?.bonus || {}), wantCore = new Set(d?.cores || []);
   for (const { sig, tx } of txs) {
     if (consumed[sig + ":" + owner]) continue;
     const del = tokenDeltas([tx])[owner] || {};
     const o = del[MINTS.ORE] || 0n, k = del[MINTS.SKR] || 0n;
+    let hit = false;
     if (o > 0n) got.ORE += o;
     if (k > 0n) got.SKR += k;
-    if (o > 0n || k > 0n) used.push(sig);
+    for (const m of want) { const v = del[m] || 0n; if (v > 0n) { got.bonus[m] = (got.bonus[m] || 0n) + v; hit = true; } }
+    if (wantCore.size) for (const c of coreTransfersOf(tx)) if (c.to === owner && wantCore.has(c.asset) && !got.cores.includes(c.asset)) { got.cores.push(c.asset); hit = true; }
+    if (o > 0n || k > 0n || hit) used.push(sig);
   }
   return { got, used };
 }
@@ -766,7 +798,7 @@ export async function recordPayment({ round, sigs, payer, reviewed = false }) {
         const pending = new Set(plan.payees.filter((p) => !ex.has(p.id) && !pay.paidIds[p.id]).map((p) => p.id));
         const due = dueByOwner(plan, pending), newlyPaid = [];
         for (const [owner, d] of Object.entries(due)) {
-          const { got, used } = received(owner, txs, pay.consumed);
+          const { got, used } = received(owner, txs, pay.consumed, d);
           if (!covers(d, got)) {
             for (const id of d.unquoted) why[id] = "its SOL/USDC share has no server-recorded ORE amount (no quote) — not counted as paid";
             continue;
@@ -828,6 +860,8 @@ export async function settlePayment(round) {
       for (const c of curs) await addToPot({ usd: (p.usd || 0.01) / curs.length, currency: c, native: fromRaw(pay_[c], c), route: "other", id: `rollover:r${round}:${p.id}:${c}` });
       if (curs.length) rolled.push(p.id);
     }
+    // excluded Burn Raffle winners: their prize goes back into the raffle's open round (id-guarded, once)
+    for (const p of plan.payees) if (p.kind === "raffle" && ex.has(p.id)) { await rollbackRafflePrize(round, p); rolled.push(p.id); }
     if (await putIfNew(payStore(), "notified:paid:" + round, { at: Date.now() }))
       await notify(`Paid ✓ — ${summary(plan)}\n${pay.sigs.map((x) => "https://solscan.io/tx/" + x).join("\n")}`);
   }
@@ -966,7 +1000,7 @@ export const STATEMENT_SYMBOLS = {
 };
 const STORE_MINT_ = "storenSbvkfzircixnaosc5CbzNZVrHJ6S3EKrS1yqR";
 export function weeklyStatement({ now = Date.now(), reserve = null, viaPreacher = {}, repairs = { granted: [], refunded: [] }, plan = null, drawNote = null,
-  keeper = {}, pot = null, prices = {}, burnEnabled = false, opsWallet = null } = {}) {
+  keeper = {}, pot = null, rafflePot = null, prices = {}, burnEnabled = false, opsWallet = null } = {}) {
   const px = (m) => (+prices[m] > 0 ? +prices[m] : 0);
   const clean = (o) => { const r = {}; for (const [m, v] of Object.entries(o || {})) { const n = +v; if (n > 1e-12) r[m] = n; } return r; };
   const usd = (o) => +Object.entries(o || {}).reduce((s, [m, v]) => s + (+v || 0) * px(m), 0).toFixed(2);
@@ -988,6 +1022,8 @@ export function weeklyStatement({ now = Date.now(), reserve = null, viaPreacher 
     { key: "mineRef", label: "Mining tips via a preacher (locked before 27 Oct 2026)", note: "the preacher's share is paid out below", ...amt(via) },
     { key: "mineNoRef", label: "Mining tips, no preacher", note: "100% Reserve", ...amt(minus(src.mining, via)) },
     { key: "potTips", label: "Pot tips", note: "100% to the Pot", ...amt(src.tips) },
+    { key: "raffle", label: "Burn Raffle burns", note: "the rent holders burned — 88% the raffle's prize, 12% Reserve", ...amt(src.raffle) },
+    { key: "gifts", label: "Burn Raffle gifts", note: "added to the raffle's prize by donors — 100% for the winners, no tickets", ...amt(src.gifts) },
     { key: "repairs", label: "Card repairs", note: nCards ? nCards + " card" + (nCards === 1 ? "" : "s") + " × 0.01 ORE" : "", ...amt(repairIn) },
     { key: "direct", label: "Direct tips & other", ...amt(minus(src.direct, repairIn)) },
   ];
@@ -1008,6 +1044,11 @@ export function weeklyStatement({ now = Date.now(), reserve = null, viaPreacher 
     { none: winnerLines.length ? null : (drawNote || (plan && plan.status === "paid" ? "Round " + plan.round + " is already paid ✓" : "No draw to pay right now")), swapNote: swapped(winnerLines) ? "SOL / USDC parts are swapped to ORE in the same batch" : null }));
   OUT.push(group("preachers", "Preacher shares", "28–44% of the coin buys they brought in (mining tips locked before 27 Oct 2026 still pay)", preacherLines,
     { none: preacherLines.length ? null : "No preacher is owed $1 or more", swapNote: swapped(preacherLines) ? "SOL / USDC parts are swapped to ORE in the same batch" : null }));
+  // gift tokens / NFTs a raffle winner gets on top (pay.bonus) — sent from the Treasury in the same batch
+  const giftNote = (p) => { const b = p.pay?.bonus || []; if (!b.length) return ""; const n = b.filter((x) => x.kind !== "token").length, t = b.length - n; return " · + " + [t ? t + " gift token" + (t === 1 ? "" : "s") : "", n ? n + " NFT" + (n === 1 ? "" : "s") : ""].filter(Boolean).join(" + "); };
+  const raffleLines = open.filter((p) => p.kind === "raffle").map((p) => ({ to: p.wallet, amounts: fromPay(p), usd: +(+p.usd || 0).toFixed(2), note: "raffle round " + p.raffleRound + " · " + ["1st", "2nd", "3rd", "4th", "5th"][(p.rank || 1) - 1] + " · " + (p.tickets || 0) + " ticket" + (p.tickets === 1 ? "" : "s") + giftNote(p) }));
+  OUT.push(group("raffle", "Burn Raffle winners", "the raffle's own draw (rent burned by holders + Degen Dojo's seed)", raffleLines,
+    { none: raffleLines.length ? null : "No raffle draw to pay right now", swapNote: swapped(raffleLines) ? "SOL parts are swapped to ORE in the same batch" : null }));
   const refundLines = (keeper.refundsDue || []).map((r) => { const a = clean({ [MINTS.ORE]: fromRaw(r.raw, "ORE") }); return { to: r.payer, amounts: a, usd: usd(a), note: ((r.mints || []).length || 0) + " card(s) paid after the Mint cap was full" }; });
   OUT.push(group("refunds", "Repair refunds", "repairs paid when every Mint spot was taken", refundLines, { none: refundLines.length ? null : "None" }));
   const claimLines = burnEnabled ? (keeper.claimsDue || []).map((c) => ({ to: c.wallet, amounts: clean({ [STORE_MINT_]: +c.store || 0 }), usd: +(+c.usd || 0).toFixed(2), note: (c.coll || "") + (c.kind === "sent" ? " · sent to the Treasury" : " · burned by the holder") })) : [];
@@ -1032,12 +1073,14 @@ export function weeklyStatement({ now = Date.now(), reserve = null, viaPreacher 
   const vaults = Object.entries(keeper.pools || {}).map(([name, p]) => ({ name, amounts: clean(p.pool), usd: usd(p.pool), nfts: p.eligible ?? null }));
   const potUsd = +(+(pot?.usd) || 0).toFixed(2), vaultUsd = +vaults.reduce((s, v) => s + v.usd, 0).toFixed(2), afterUsd = usd(after);
   const opsWaiting = OUT.find((g) => g.key === "ops")?.waiting || null;
+  // the Burn Raffle's open round: its ORE seed + the 88% of burned SOL — prize money, not the Reserve's
+  const rAmts = clean({ [MINTS.ORE]: fromRaw(rafflePot?.oreRaw || "0", "ORE"), [MINTS.SOL]: fromRaw(rafflePot?.solLamports || "0", "SOL") }), rUsd = usd(rAmts);
   return {
     at: now, from: now - 7 * DAY, partial: !reserve || !!reserve.partial, reserveAt: reserve?.at || null,
     in: IN, inUsd: +IN.reduce((s, l) => s + l.usd, 0).toFixed(2), topUps,
     out: OUT, outUsd: OUT_USD, convert,
-    stays: { now: now_, nowUsd: usd(now_), after, afterUsd, pot: { amounts: potAmts, usd: potUsd }, vaults, vaultUsd,
-      reserveFreeUsd: +Math.max(0, afterUsd - potUsd - vaultUsd - (opsWaiting ? opsWaiting.usd : 0)).toFixed(2), opsWaiting },
+    stays: { now: now_, nowUsd: usd(now_), after, afterUsd, pot: { amounts: potAmts, usd: potUsd }, rafflePot: { amounts: rAmts, usd: rUsd, round: rafflePot?.round || null }, vaults, vaultUsd,
+      reserveFreeUsd: +Math.max(0, afterUsd - potUsd - rUsd - vaultUsd - (opsWaiting ? opsWaiting.usd : 0)).toFixed(2), opsWaiting },
     symbols: STATEMENT_SYMBOLS, prices,
   };
 }

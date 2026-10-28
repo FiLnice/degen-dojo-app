@@ -30,6 +30,19 @@
   // and first (only) verified creator HEyazx….
   var KEEP_AUTH = { 'DfaGo3Qht6MC2bqgFCBHgUWjaeXDNmsbE7XjyRKWM3qS': 1 };
   var KEEP_CREATOR = { 'HEyazxpV2wxMUvNx53UZUXthRS9Rjsbv7hoHYJNbVedC': 1 };
+  // The Burn Raffle ONLY (owner 2026-10-28: "holders want to burn some for fun" … "any NFT can burn") scans with
+  // { allowDojo: true }: the collection-based KEEP is lifted — Degen Dojo, Demon Dojo and TETO cards are offered, tagged
+  // c.dojo (the page badges them and asks twice); a card only its authority / creator marks as ours is tagged "Dojo".
+  // What protects money stays everywhere: DeFi / LP positions and passes (KEEP_RE), frozen, soulbound, staked, delegated.
+  // Sweep / Claim and Burn to Mine never pass the option.
+  var DOJO_COLL = { '2m9DupVeheZ5vfuXZxqV3KSQ7HnVDk2tG6ouH1ZnLwYb': 'Degen Dojo', 'WyUy9qjJekjqTAYGanANjhtviwgu1uhCkXx1uas8fWb': 'Demon Dojo', 'dgd6We3oS4M5LSVzT6Ep39wwVpjLC336tCpyPZkLAHx': 'TETO' };
+  var MYTHIC_RACES = { 'Oni Senseis': 1, 'Gods': 1, 'Devil': 1 };
+  /** A Degen Dojo / Demon Dojo card's facts for the raffle's badges: { coll, framed, mythic, race, character } */
+  function dojoInfo(a, coll) {
+    var at = (a && a.content && a.content.metadata && a.content.metadata.attributes) || [], t = {};
+    at.forEach(function (x) { if (x && x.trait_type) t[x.trait_type] = String(x.value == null ? '' : x.value); });
+    return { coll: coll, framed: t.Condition === 'Framed', mythic: !!MYTHIC_RACES[t.Race], race: t.Race || '', character: t.Character || '' };
+  }
   var KEEP_RE = /\b(position|liquidity|whirlpool|orca|raydium|meteora|kamino|lifinity|crema|invariant|concentrated|genesis token|seeker genesis|saga genesis)\b/i;
   // Floor-price guard (owner 2026-10-27): an NFT whose collection floor is at least FLOOR_MAX SOL is worth more listed than
   // burned — hidden from the burn lists by default and never bulk-picked. Floors come from the store's /api/floors (Magic Eden).
@@ -205,8 +218,8 @@
     try { var u = new URL(url); return u.protocol === 'https:' && RAW_IMG_HOSTS.test(u.hostname); } catch (e) { return false; }
   }
 
-  async function scan(rpc, owner, onStep, onList) {
-    var step = onStep || function () {};
+  async function scan(rpc, owner, onStep, onList, opts) {
+    var step = onStep || function () {}, allowDojo = !!(opts && opts.allowDojo);
     var t0 = Date.now(), c0 = rpc.stats ? rpc.stats.calls : 0;
     var out = { owner: owner, sol: 0, empties: [], skipped: [], nfts: [], soft: [], locked: [], unread: 0, floorsPending: true };
     var miss = function (n) { out.unread += n; };
@@ -260,9 +273,12 @@
     // what every NFT kind is judged on: its collection, name, spam score and the "it IS something" guard. null = never offered.
     var judge = function (a) {
       var g = ((a.grouping || []).filter(function (x) { return x.group_key === 'collection'; })[0]) || null;
-      if (g && KEEP[g.group_value]) return null;   // the owner's own collections: never offered
-      if ((a.authorities || []).some(function (x) { return x && KEEP_AUTH[x.address]; })) return null;
-      if ((a.creators || []).some(function (c) { return c && c.verified && KEEP_CREATOR[c.address]; })) return null;
+      var ours = (a.authorities || []).some(function (x) { return x && KEEP_AUTH[x.address]; }) || (a.creators || []).some(function (c) { return c && c.verified && KEEP_CREATOR[c.address]; });
+      var dojo = !allowDojo ? null : g && DOJO_COLL[g.group_value] ? dojoInfo(a, DOJO_COLL[g.group_value]) : ours ? dojoInfo(a, 'Dojo') : null;   // the raffle's own cards
+      if (!dojo) {
+        if (g && KEEP[g.group_value]) return null;   // the owner's own collections: never offered
+        if (ours) return null;
+      }
       var md = (a.content && a.content.metadata) || {}, name = String(md.name || 'Unnamed NFT');
       // spam = a lure in the name / symbol, or a description that pairs a lure word with a link ("claim at https://…")
       var desc = String(md.description || ''), lure = SPAM.test([name, md.symbol].join(' ')) || (/(claim|airdrop|reward|visit|voucher|redeem|giveaway|winner)/i.test(desc) && /(https?:|www\.|\.com\b|\.io\b|\.xyz\b|t\.me)/i.test(desc));
@@ -272,7 +288,7 @@
       var keep = KEEP_RE.test([name, md.symbol].join(' ')) || /^(OWP|RCL|DLMM|DAMM|LP)$/i.test(String(md.symbol || ''));
       if (g) collOf[g.group_value] = '';
       var vc = (a.creators || []).filter(function (c) { return c && c.verified && c.address; })[0];
-      return { g: g, fk: g ? g.group_value : (vc ? vc.address : null), name: name, image: image, junk: (g ? 0 : 2) + (lure ? 3 : 0) + (image ? 0 : 1), why: keep ? 'a DeFi position or pass — never burned here' : null };
+      return { g: g, fk: g ? g.group_value : (vc ? vc.address : null), name: name, image: image, junk: dojo ? 0 : (g ? 0 : 2) + (lure ? 3 : 0) + (image ? 0 : 1), why: keep ? 'a DeFi position or pass — never burned here' : null, dojo: dojo };
     };
     mints.forEach(function (mint) {
       var t = nftAccts[mint], a = assets[mint];
@@ -283,7 +299,7 @@
       if (!why && !pnft && t.frozen) why = 'locked (staked or frozen)';
       else if (!why && !pnft && t.delegate) why = 'listed or delegated somewhere';
       cands.push({ mint: mint, name: j.name, image: j.image, collection: j.g ? j.g.group_value : null, collectionName: '', floorKey: j.fk || mint, floorSol: null,
-        pnft: pnft, tokenAccount: t.tokenAccount, tokenLamports: t.tokenLamports, tokenProgram: t.tokenProgram, junk: j.junk, reason: why, frozen: t.frozen, delegate: t.delegate || (a.ownership && a.ownership.delegate) || null });
+        pnft: pnft, tokenAccount: t.tokenAccount, tokenLamports: t.tokenLamports, tokenProgram: t.tokenProgram, junk: j.junk, reason: why, frozen: t.frozen, delegate: t.delegate || (a.ownership && a.ownership.delegate) || null, dojo: j.dojo || null });
     });
     // Metaplex Core: one account per NFT, the owner burns it directly. Frozen by a freeze plugin = held by whoever holds that
     // plugin (a Core staking program) — listed with the staked ones, never offered.
@@ -294,7 +310,7 @@
         var j = judge(a); if (!j) return;
         var held = coreHold(a), lent = held ? null : coreDelegated(a, owner);
         cores.push({ mint: a.id, core: true, name: j.name, image: j.image, collection: j.g ? j.g.group_value : null, collectionName: '', floorKey: j.fk || a.id, floorSol: null, pnft: false,
-          junk: j.junk, reason: j.why || (held && !held.by ? 'Frozen by its project — can’t be burned' : null) || (lent ? 'listed or delegated somewhere' : null), coreHeld: !!(held && held.by), delegate: held ? held.by : lent, frozen: !!held });
+          junk: j.junk, reason: j.why || (held && !held.by ? 'Frozen by its project — can’t be burned' : null) || (lent ? 'listed or delegated somewhere' : null), coreHeld: !!(held && held.by), delegate: held ? held.by : lent, frozen: !!held, dojo: j.dojo || null });
       });
     }
     // collection names: one batch per 100 distinct collections (usually a single call); cosmetic, so a failure is ignored.
@@ -548,9 +564,11 @@
 
   /** Plan the burn transactions for the ticked NFTs: up to 3 Token Metadata burns per tx (Core burns are tiny: up to 12
    *  NFTs a tx, as fit), each simulated; the owner's real gain is measured from the simulation. A burn that fails
-   *  (staked, locked, odd collection, a Core plugin that says no) is dropped with the reason. */
+   *  (staked, locked, odd collection, a Core plugin that says no) is dropped with the reason.
+   *  opts.fee === false: no 1% fee · opts.room: instructions the caller adds afterwards (the Burn Raffle's transfer + memo),
+   *  so every batch is sized to still fit with them. */
   async function planBurns(rpc, owner, nfts, onStep, opts) {
-    var step = onStep || function () {}, batches = [], dropped = [], charge = !(opts && opts.fee === false);
+    var step = onStep || function () {}, batches = [], dropped = [], charge = !(opts && opts.fee === false), room = (opts && opts.room) || [];
     var mk = function (items) { return budget(burnUnits(items)).concat(items.map(function (c) { return burnIxOf(owner, c); })); };
     var roomFor = function (items, next) { return items.length < 12 && items.concat([next]).filter(function (x) { return !x.core; }).length <= 3; };
     var pre = (await rpc('getBalance', [owner])).value;
@@ -574,7 +592,7 @@
     while (queue.length) {
       var items = [];
       // sized WITH room for the fee transfer + memo, which is added once the gain is measured
-      while (queue.length && roomFor(items, queue[0]) && sizeOf(owner, mk(items.concat([queue[0]])).concat(charge ? solFeeIxs(owner, FEE_MIN) : [])) <= TX_MAX) items.push(queue.shift());
+      while (queue.length && roomFor(items, queue[0]) && sizeOf(owner, mk(items.concat([queue[0]])).concat(charge ? solFeeIxs(owner, FEE_MIN) : [], room)) <= TX_MAX) items.push(queue.shift());
       if (!items.length) { dropped.push({ item: queue.shift(), reason: 'does not fit in a transaction' }); continue; }
       var mm = await measure(items);
       if (mm.sim.err && items.length > 1) { queue = items.slice(1).concat(queue); items = [items[0]]; mm = await measure(items); }
@@ -621,7 +639,7 @@
 
   global.DojoBurn = { makeRpc: makeRpc, scan: scan, planCloses: planCloses, planBurns: planBurns, finalize: finalize, simulate: simulate, closeIx: closeIx, burnIx: burnIx, coreBurnIx: coreBurnIx, coreHold: coreHold, CORE: CORE,
     FEE_BPS: FEE_BPS, FEE_MIN: FEE_MIN, FEE_WALLET: FEE_WALLET, FEE_MEMO: FEE_MEMO, feeOf: feeOf, solFeeIxs: solFeeIxs, splFeeIxs: splFeeIxs, ataOf: ataOf,
-    metaOf: metaOf, editionOf: editionOf, tokenRecordOf: tokenRecordOf, KEEP: KEEP, TX_MAX: TX_MAX,
+    metaOf: metaOf, editionOf: editionOf, tokenRecordOf: tokenRecordOf, KEEP: KEEP, DOJO_COLL: DOJO_COLL, dojoInfo: dojoInfo, TX_MAX: TX_MAX,
     FLOOR_MAX: FLOOR_MAX, floorHigh: floorHigh, floorUnknownVerified: floorUnknownVerified, visibleNfts: visibleNfts, junkPicks: junkPicks, attachFloors: attachFloors,
     rawImageOk: rawImageOk, coreDelegated: coreDelegated, KEEP_AUTH: KEEP_AUTH, KEEP_CREATOR: KEEP_CREATOR,
     checkBurns: checkBurns, pluginFrozen: pluginFrozen, CORE_ERRORS: CORE_ERRORS, _resetBurnChecks: function () { burnChecks = {}; },

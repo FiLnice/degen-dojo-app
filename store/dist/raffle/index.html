@@ -1,0 +1,676 @@
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Burn Raffle — burn NFTs, win the pot | Degen Dojo</title>
+<meta name="description" content="Burn the NFTs you don't want. The rent they free becomes raffle tickets and grows the prize — 1 ticket per 0.001 SOL, a provably fair draw every week, paid in ORE.">
+<link rel="icon" href="/icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Teko:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0e0907;--pan:#1a120d;--pan2:#22170f;--line:#3d2a1c;--gold:#e8b84b;--goldd:#c8962a;--ink:#ece4d6;--ink2:#f6efe2;--mut:#9c8f7d;--grn:#7bb26a;--red:#c1443a;--redd:#7d221b;--amber:#d9a441;}
+*{box-sizing:border-box}
+body{margin:0;color:var(--ink);font-family:Inter,system-ui,sans-serif;background:#0e0907;
+  background-image:radial-gradient(900px 420px at 50% -120px,rgba(193,68,58,.35),transparent 70%),
+    repeating-linear-gradient(90deg,rgba(232,184,75,.035) 0 1px,transparent 1px 88px),repeating-linear-gradient(0deg,rgba(232,184,75,.03) 0 1px,transparent 1px 88px);}
+.wrap{max-width:1100px;margin:0 auto;padding:22px 16px 60px}
+h1{font-family:Teko;font-weight:700;font-size:46px;margin:0;line-height:.95;letter-spacing:.02em;background:linear-gradient(180deg,#f7e6b8,var(--gold) 55%,#b9832a);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+h1 .emo{-webkit-text-fill-color:initial;background:none}
+h2{font-family:Cinzel,serif;font-size:15px;letter-spacing:.06em;margin:0 0 6px;color:var(--ink2)}
+.sub{color:var(--mut);font-size:14px;margin:6px 0 0;max-width:640px;line-height:1.5}
+.card{background:var(--pan);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px;min-width:0}
+/* hero: a lit shoji screen with the red sun behind it */
+.hero{position:relative;overflow:hidden;border:1px solid rgba(232,184,75,.35);border-radius:16px;margin-bottom:14px;
+  background:radial-gradient(260px 260px at 82% 38%,rgba(193,68,58,.55),rgba(193,68,58,.08) 62%,transparent 64%),linear-gradient(180deg,#24170f,#140d09);}
+.hero::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.55;
+  background:repeating-linear-gradient(90deg,rgba(232,184,75,.07) 0 2px,transparent 2px 110px),repeating-linear-gradient(0deg,rgba(232,184,75,.06) 0 2px,transparent 2px 74px)}
+.hero .in{position:relative;display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:18px;padding:20px}
+.kicker{font-family:Cinzel,serif;font-size:11px;letter-spacing:.22em;color:var(--gold);text-transform:uppercase}
+.clock{font-family:Teko;font-weight:600;font-size:54px;line-height:1;color:var(--ink2);margin-top:14px;font-variant-numeric:tabular-nums;letter-spacing:.02em}
+.clock small{font-size:18px;color:var(--mut);margin:0 6px 0 2px}
+.clockl{font-size:12px;color:var(--mut);letter-spacing:.06em;text-transform:uppercase;margin-top:2px}
+.pot{background:rgba(10,6,4,.55);border:1px solid rgba(232,184,75,.3);border-radius:14px;padding:14px;backdrop-filter:blur(2px)}
+.potv{font-family:Teko;font-size:50px;line-height:.95;color:var(--gold)}
+.potv small{font-size:22px;color:var(--ink2);margin-left:4px}
+.potusd{font-size:13px;color:var(--ink);margin-top:2px}
+.potsplit{font-size:12px;color:var(--mut);margin-top:6px;line-height:1.5}
+.tiers{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+.tier{flex:1;min-width:64px;text-align:center;border:1px solid var(--line);border-radius:10px;padding:6px 4px;color:var(--mut);font-size:11px;line-height:1.25}
+.tier b{display:block;font-family:Teko;font-size:22px;color:var(--mut);line-height:1}
+.tier.on{border-color:var(--gold);background:rgba(232,184,75,.12);color:var(--ink2)}
+.tier.on b{color:var(--gold)}
+.nexttier{font-size:12px;color:var(--amber);margin-top:6px}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:16px}
+.stat{background:rgba(10,6,4,.45);border:1px solid var(--line);border-radius:11px;padding:9px 10px}
+.stat b{display:block;font-family:Teko;font-size:26px;line-height:1;color:var(--ink2)}
+.stat span{font-size:11px;color:var(--mut)}
+.mine{margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:13px}
+.mine b{font-family:Teko;font-size:24px;color:var(--gold);line-height:1}
+.rules{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.rule{background:var(--pan);border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center}
+.rule b{display:block;font-family:Teko;font-size:23px;line-height:1.05;color:var(--ink2)}
+.rule span{font-size:12px;color:var(--mut)}
+.btn{background:linear-gradient(135deg,var(--goldd),#8b6018);border:none;color:#0a0814;font-family:Cinzel,serif;font-weight:700;font-size:12px;letter-spacing:.05em;padding:10px 16px;border-radius:9px;cursor:pointer;white-space:normal;text-align:center}
+.btn:disabled{opacity:.45;cursor:default}
+.btn.ghost{background:transparent;color:var(--gold);border:1px solid rgba(201,151,58,.5);font-family:Inter;font-weight:600}
+.btn.fire{background:linear-gradient(135deg,var(--red),var(--redd));color:#fff;font-size:13px;padding:12px 18px}
+.mini{font-size:11.5px;color:var(--gold);background:transparent;border:1px solid rgba(201,151,58,.45);border-radius:7px;padding:4px 9px;cursor:pointer;font-family:Inter}
+.seg{display:inline-flex;gap:4px;flex-wrap:wrap}
+.seg .mini.on{background:rgba(232,184,75,.18);color:var(--ink2)}
+.sec-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.amt{font-family:Teko;font-size:26px;color:var(--gold);line-height:1}
+.fine{color:var(--mut);font-size:12.5px;line-height:1.55}
+.muted{color:var(--mut);font-size:13px}
+.ok{color:var(--grn)}.err{color:#e58b80}.warn{color:var(--amber)}.redl{color:#ff9c8f}
+.grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;align-items:start;margin-top:10px}
+.nft{position:relative;border:1px solid var(--line);border-radius:11px;background:var(--pan2);overflow:hidden;cursor:pointer;min-width:0}
+.nft.sel{outline:2px solid var(--red);outline-offset:1px}
+.nft.off{opacity:.45;cursor:default}
+.nft.wait{cursor:progress}
+.nft.hiflo{border-color:var(--red)}
+.nft img,.nft .ph{width:100%;aspect-ratio:1/1;object-fit:cover;display:block;background:#0d0a06}
+.nft .ph{display:flex;align-items:center;justify-content:center;color:var(--mut);font-size:11px}
+.nft .meta{padding:7px 8px}
+.nft .nm{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nft .co{font-size:10.5px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nft .rent{font-family:Teko;font-size:16px;color:var(--gold);line-height:1;display:flex;justify-content:space-between;gap:4px}
+.nft .rent i{font-style:normal;color:var(--ink2)}
+.nft .tick{position:absolute;top:7px;left:7px;width:22px;height:22px;border-radius:6px;border:2px solid #fff;background:rgba(0,0,0,.45)}
+.nft.sel .tick{background:var(--red);border-color:var(--red)}
+.nft.sel .tick::after{content:"✓";color:#fff;font-weight:700;font-size:14px;position:absolute;left:4px;top:0}
+.nft .fl{display:inline-block;margin-top:3px;font-size:9.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:1px 6px;border-radius:999px;border:1px solid var(--line);color:var(--mut)}
+.nft .fl.hi{border-color:var(--red);background:var(--red);color:#fff}
+.nft .worth{font-size:10px;color:#ff9c8f;margin-top:2px;line-height:1.25}
+.tag{position:absolute;top:7px;right:7px;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 6px;border-radius:999px;background:var(--amber);color:#1a1206}
+.tag.no{background:#3a2f22;color:var(--mut)}
+.why{font-size:10.5px;color:#e58b80;margin-top:2px}
+.confirm{border:1px solid rgba(193,68,58,.6);background:rgba(193,68,58,.08);border-radius:11px;padding:12px;margin-top:12px}
+.list{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;color:#cbbfa8;max-height:150px;overflow:auto;margin-top:6px;line-height:1.6;word-break:break-all}
+/* the step banner — same as the coins page (dojo-credits.html) */
+.buystat{margin-top:12px;padding:10px 12px;border:1px solid rgba(232,184,75,.35);border-radius:10px;background:rgba(232,184,75,.07);font-size:13px;line-height:1.5;color:var(--ink)}
+.buystat .hg{display:inline-block;animation:dcHg 1.6s ease-in-out infinite;margin-right:4px}
+@keyframes dcHg{0%,40%{transform:rotate(0)}50%,90%{transform:rotate(180deg)}100%{transform:rotate(360deg)}}
+.buystat .stp{display:block;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);opacity:.75;margin-bottom:2px}
+.buystat .secs{opacity:.7;font-variant-numeric:tabular-nums}
+.buystat a{color:var(--gold)}
+.winners{display:grid;gap:6px;margin-top:8px}
+.wrow{display:flex;justify-content:space-between;gap:10px;font-size:13px;border-bottom:1px dashed var(--line);padding:4px 0;flex-wrap:wrap}
+.wrow code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:#d8ccb4}
+a{color:var(--gold)}
+/* Degen Dojo cards in the burn list (owner 2026-10-28: allowed in the raffle only, confirmed twice) */
+.tag.dojo{background:linear-gradient(135deg,#f3d27a,var(--goldd));color:#1a1206;left:auto}
+.tag.myth{background:linear-gradient(135deg,#bfe9ff,#e7c6ff 45%,#ffe6a8);color:#160d22;box-shadow:0 0 10px rgba(191,233,255,.55)}
+.nft.dd{border-color:rgba(232,184,75,.6)}
+.nft.dd.myth{border-color:#bfe9ff;box-shadow:0 0 0 1px rgba(191,233,255,.35)}
+.nft .num{font-family:Teko;font-size:15px;color:var(--gold);margin-left:4px}
+.ddwarn{border:1px solid rgba(232,184,75,.55);background:rgba(232,184,75,.08);border-radius:9px;padding:8px 10px;margin-top:10px}
+/* the prize pool + gifts */
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.chip{display:flex;align-items:center;gap:7px;background:var(--pan2);border:1px solid var(--line);border-radius:999px;padding:4px 10px 4px 4px;font-size:13px;min-width:0}
+.chip img,.chip .dot{width:24px;height:24px;border-radius:50%;object-fit:cover;background:#0d0a06;flex:none}
+.chip b{font-family:Teko;font-size:19px;color:var(--ink2);font-weight:600;line-height:1}
+.nft.gift{cursor:default}
+.nft .by{font-size:10.5px;color:var(--amber);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wall{display:grid;gap:4px;margin-top:8px;max-height:220px;overflow:auto}
+.wall div{font-size:12.5px;border-bottom:1px dashed var(--line);padding:4px 0;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.trow{display:grid;grid-template-columns:28px minmax(0,1fr) minmax(90px,150px) auto;gap:8px;align-items:center;padding:6px 0;border-bottom:1px dashed var(--line);font-size:13px}
+.trow img,.trow .dot{width:26px;height:26px;border-radius:50%;object-fit:cover;background:#0d0a06}
+.trow.off{opacity:.45}
+.trow input,.giftin{background:#0d0a06;border:1px solid var(--line);border-radius:7px;color:var(--ink);padding:6px 8px;font:13px Inter;width:100%;min-width:0}
+.gsec{margin-top:12px}
+.gsec h3{font-family:Cinzel,serif;font-size:13px;margin:0 0 4px;color:var(--ink2);letter-spacing:.05em}
+@media(max-width:860px){.hero .in{grid-template-columns:1fr}.grid{grid-template-columns:repeat(3,minmax(0,1fr))}.rules{grid-template-columns:repeat(2,minmax(0,1fr))}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.rules{grid-template-columns:1fr}h1{font-size:40px}.clock{font-size:44px}.potv{font-size:42px}.trow{grid-template-columns:26px minmax(0,1fr) 92px}.trow .mx{grid-column:2/4}}
+</style>
+
+<style>.dn-ham{display:none}.dn-connect{display:none}.dn-extra{margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}@media(max-width:640px){.dn-bar{gap:10px!important;padding:10px 14px!important;}.dn-extra{display:none!important;}.dn-connect{display:block!important;}.dn-ham{display:flex!important;align-items:center;justify-content:center;width:44px;height:44px;border-radius:10px;cursor:pointer;background:rgba(201,151,58,.12);border:1px solid rgba(201,151,58,.45);color:#e8b84b;font-size:22px;line-height:1;margin-left:auto;flex:0 0 auto;}.dn-links{position:absolute!important;top:calc(100% - 2px);right:10px;min-width:214px;flex-direction:column!important;align-items:stretch;gap:5px!important;background:rgba(12,10,18,.98);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(201,151,58,.4);border-radius:12px;padding:9px;box-shadow:0 16px 36px rgba(0,0,0,.6);display:none!important;z-index:80;}.dn-links.dn-open{display:flex!important;}.dn-links a{text-align:left;font-size:13px!important;padding:11px 13px!important;}}</style><div class="dn-bar" style="position:sticky;top:0;z-index:72;background:rgba(10,10,15,.94);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-bottom:1px solid rgba(201,151,58,.18);display:flex;align-items:center;gap:16px;padding:11px 20px;flex-wrap:wrap;font-family:'Cinzel',serif;"><a href="/" style="display:flex;align-items:center;gap:11px;text-decoration:none;color:#efe6d2;"><img src="/dd-mark.jpg" alt="Degen Dojo" style="width:40px;height:40px;border-radius:9px;object-fit:cover;display:block;box-shadow:0 0 0 1px rgba(201,151,58,.35);" onerror="this.style.display='none'"/><div style="text-align:left;"><b style="font-family:'Cinzel',serif;font-size:15px;letter-spacing:.16em;display:block;color:#efe6d2;">DEGEN DOJO</b><small style="font-family:'Cinzel',serif;font-size:9px;letter-spacing:.26em;color:#a99a7e;">RAFFLE</small></div></a><nav class="dn-links" style="display:flex;gap:8px;flex-wrap:wrap;"><a href="#" class="dn-connect" onclick="var b=this.closest('.dn-bar').querySelector('.dn-extra button');if(b)b.click();return false;" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#e8b84b;border:1px solid rgba(201,151,58,.5);background:rgba(201,151,58,.12);">🔑 Connect</a><a href="/" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">⌂ Store</a><a href="/market" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">🛒 Market</a><a href="/list" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">🏷 List</a><a href="/play" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">▶ Play</a><a href="/mine" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">⛏ Mine</a><a href="/sweep" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">💰 Claim</a><a href="/launch" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">🚀 Launch</a><a href="/pot" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">🏆 Pot</a><a href="/become-a-preacher" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">📣 Preacher</a></nav><span class="dn-extra"><button id="dojoNavWallet" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#0a0814;background:linear-gradient(135deg,#c8962a,#8b6018);border:none;padding:9px 16px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;">Connect wallet</button></span><button class="dn-ham" type="button" aria-label="Menu" onclick="var n=this.closest('.dn-bar').querySelector('.dn-links');if(n)n.classList.toggle('dn-open');">☰</button></div>
+<div class="wrap">
+  <section class="hero"><div class="in">
+    <div>
+      <div class="kicker">Degen Dojo · weekly</div>
+      <h1><span class="emo">🔥</span> Burn Raffle</h1>
+      <div class="sub">Burn the NFTs you don’t want. The rent they free <b>becomes your tickets and grows the prize</b> — 1 ticket for every 0.001 SOL. One provably fair draw a week, paid in ORE.</div>
+      <div class="clock" id="clock">–</div>
+      <div class="clockl" id="clockl">until the draw</div>
+      <div class="stats">
+        <div class="stat"><b id="sTickets">–</b><span>tickets in</span></div>
+        <div class="stat"><b id="sSol">–</b><span>SOL burned in</span></div>
+        <div class="stat"><b id="sBurns">–</b><span>burn transactions</span></div>
+        <div class="stat"><b id="sRound">–</b><span>round</span></div>
+      </div>
+      <div class="mine" id="mine"></div>
+    </div>
+    <div class="pot">
+      <div class="kicker">The prize</div>
+      <div class="potv" id="potv">–</div>
+      <div class="potusd" id="potusd"></div>
+      <div class="potsplit" id="potsplit"></div>
+      <div class="tiers" id="tiers"></div>
+      <div class="nexttier" id="nexttier"></div>
+    </div>
+  </div></section>
+
+  <div class="rules">
+    <div class="rule"><b>1 ticket / 0.001 SOL</b><span>the rent your burns free, sent in the same transaction</span></div>
+    <div class="rule"><b>88% prize · 12% Reserve</b><span>everything burned grows this week’s pot</span></div>
+    <div class="rule"><b>1 · 3 · 5 winners</b><span>pot ≤ 1 ORE → 1 · ≤ 3 ORE → 3 · more → 5</span></div>
+    <div class="rule"><b>Provably fair</b><span>a secret seed + a future Solana blockhash pick the winners</span></div>
+  </div>
+
+  <div class="card" id="poolCard">
+    <div class="sec-h"><h2>🏆 The prize pool</h2><div class="amt" id="poolAmt"></div></div>
+    <div class="fine" id="poolNote">Loading…</div>
+    <div id="poolTokens"></div>
+    <div id="poolNfts"></div>
+    <div class="fine" id="poolPending" style="margin-top:6px"></div>
+    <div class="gsec" id="wallSec" hidden><h3>Recent gifts</h3><div class="wall" id="wall"></div></div>
+  </div>
+
+  <div id="burnArea"><div class="card"><div class="muted" id="msg">Connect your wallet (top right) to see the NFTs you could burn for tickets.</div></div></div>
+
+  <div class="card" id="giftCard">
+    <div class="sec-h"><h2>🎁 Add to the prize</h2></div>
+    <div class="fine">Give SOL, ORE, any token or NFTs to round <span id="giftRound">–</span>’s prize — a community can sponsor the week. <b>No tickets: 100% goes to the winners.</b> SOL and ORE grow the ORE prize (and can unlock more winners); other tokens are split like the prize; NFTs go one per winner, 1st place first. Verified items show right away, anything else after a quick review.</div>
+    <div style="margin-top:10px"><button class="btn" id="giftOpen">🎁 Choose what to give</button></div>
+    <div id="giftArea"></div>
+    <div id="giftStat" class="buystat" style="display:none"></div>
+  </div>
+
+  <div class="card" id="lastCard" hidden></div>
+
+  <div class="fine">Burning is permanent. Every transaction is built in your browser and simulated before your wallet sees it — you approve it yourself, and nothing is sent without that. Each one burns your ticked NFTs and sends exactly the rent they free to the Dojo Treasury (shamanchef.sol) with a “ddraffle” memo; your tickets are counted from that transaction on-chain. <b>Sacrifice a Degen?</b> Allowed — every card burned makes the rest scarcer (Degen Dojo, Demon Dojo and TETO alike). You confirm it twice. DeFi positions and staked, frozen or listed NFTs are never offered. Gifts go to the same wallet with a “ddpot” memo and never give tickets. The prize’s SOL is swapped to ORE when the winners are paid. Draw records: <a href="/api/raffle?action=round" target="_blank" rel="noopener">latest round</a>.</div>
+</div>
+
+<script src="/buffer.js"></script>
+<script>window.Buffer=window.Buffer||(window.buffer&&window.buffer.Buffer);</script>
+<script src="/web3.js"></script>
+<script src="/dojo-burn.js"></script>
+<script src="/dojo-raffle.js"></script>
+<script src="/dojo-gift.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"'`]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '`': '&#96;' }[c]));
+const short = (a) => String(a || '').slice(0, 4) + '…' + String(a || '').slice(-4);
+const SOL = (l, d) => (Number(l || 0) / 1e9).toLocaleString(undefined, { minimumFractionDigits: d == null ? 4 : d, maximumFractionDigits: d == null ? 4 : d });
+const num = (v, d) => (+v || 0).toLocaleString(undefined, { maximumFractionDigits: d == null ? 4 : d });
+const SIG_RE = /^[1-9A-HJ-NP-Za-km-z]{64,90}$/;
+const thumb = (u) => { try { const x = new URL(String(u || '')); return x.protocol === 'https:' ? 'https://wsrv.nl/?url=' + encodeURIComponent(x.href) + '&w=200&h=200&fit=cover&output=webp' : ''; } catch (e) { return ''; } };
+const floorTxt = (v) => (v >= 10 ? v.toFixed(1) : v >= 0.1 ? v.toFixed(2) : v.toFixed(3)).replace(/\.?0+$/, '');
+const FLOOR_MAX = DojoBurn.FLOOR_MAX, tix = DojoRaffle.ticketsFor;
+const rpc = DojoBurn.makeRpc('/api/rpc');
+const connected = () => (window.DOJO_WALLET && window.DOJO_WALLET.pubkey) || null;
+let ST = null, SKEW = 0, OWNER = null, SCAN = null, SEL = new Set(), BUSY = false, SHOW_ALL = false, CHECK = null, SCAN_ID = 0;
+
+// ---------- the round: pot, tier, countdown ----------
+async function loadStatus() {
+  try {
+    const w = connected();
+    const r = await fetch('/api/raffle?action=status' + (w ? '&wallet=' + encodeURIComponent(w) : ''), { cache: 'no-store' });
+    const j = await r.json(); if (!r.ok) throw new Error(j.error || 'HTTP ' + r.status);
+    ST = j; SKEW = (j.now || Date.now()) - Date.now(); paintStatus();
+  } catch (e) { $('clockl').textContent = 'couldn’t load the raffle right now — retrying'; }
+}
+function paintStatus() {
+  const s = ST; if (!s) return;
+  const p = s.pot || {};
+  $('potv').innerHTML = num(p.potOre, 4) + '<small>ORE</small>';
+  $('potusd').textContent = p.usd != null ? '≈ $' + num(p.usd, 2) : '';
+  const parts = [];
+  if (p.ore) parts.push(num(p.ore, 4) + ' ORE' + (p.seeded ? ' (seeded by Degen Dojo' + (p.carried ? ' + rolled over' : '') + ')' : p.carried ? ' (rolled over)' : ''));
+  if (p.sol) parts.push(num(p.sol, 4) + ' SOL from burns' + (p.giftSol ? ' & gifts' : '') + ' (swapped to ORE at payout)');
+  const bonus = ((s.gifts && s.gifts.tokens) || []).length + ((s.gifts && s.gifts.nfts) || []).length;
+  if (bonus) parts.push(bonus + ' bonus prize' + (bonus === 1 ? '' : 's') + ' given by the community ↓');
+  $('potsplit').textContent = parts.length ? parts.join(' + ') : 'Empty so far — the first burns start it.';
+  $('giftRound').textContent = s.round;
+  paintPool();
+  const cur = (s.tiers || []).length, T = [[1, '≤ 1 ORE', '100%'], [3, '1 – 3 ORE', '60 / 25 / 15'], [5, '3+ ORE', '40/25/15/10/10']];
+  $('tiers').innerHTML = T.map((t) => '<div class="tier' + (t[0] === cur ? ' on' : '') + '"><b>' + t[0] + '</b>winner' + (t[0] === 1 ? '' : 's') + '<br>' + t[1] + '</div>').join('');
+  $('nexttier').textContent = s.nextTierAt != null ? '+' + num(Math.max(0, s.nextTierAt - (p.potOre || 0)), 4) + ' ORE more → ' + (cur === 1 ? 3 : 5) + ' winners' : 'Top tier: 5 winners';
+  $('sTickets').textContent = num(s.tickets, 0); $('sSol').textContent = num(p.solBurned, 4); $('sBurns').textContent = num(s.burns, 0); $('sRound').textContent = s.round;
+  const me = s.me;
+  $('mine').innerHTML = !connected() ? '<span class="fine">Connect your wallet to see your tickets.</span>'
+    : '<span>Your tickets</span> <b>' + num(me && me.tickets, 0) + '</b><span class="fine">· win chance ' + (me && me.tickets && s.tickets ? (me.tickets / s.tickets * 100).toFixed(2) + '%' + (cur > 1 ? ' for 1st (' + cur + ' prizes in the draw)' : '') : '0%') + '</span>';
+  if (s.drawing) $('clockl').textContent = 'round ' + s.drawing + ' is being drawn — burns now count for round ' + s.round;
+  paintLast(); tick();
+}
+function tick() {
+  if (!ST) return;
+  const ms = ST.nextDrawAt - (Date.now() + SKEW);
+  if (ms <= 0) { $('clock').textContent = 'Drawing…'; if (!ST.drawing) $('clockl').textContent = 'the draw runs within ~30 min'; return; }
+  const d = Math.floor(ms / 864e5), h = Math.floor(ms / 36e5) % 24, m = Math.floor(ms / 6e4) % 60, sec = Math.floor(ms / 1e3) % 60;
+  $('clock').innerHTML = d + '<small>d</small>' + String(h).padStart(2, '0') + '<small>h</small>' + String(m).padStart(2, '0') + '<small>m</small>' + String(sec).padStart(2, '0') + '<small>s</small>';
+  if (!ST.drawing) $('clockl').textContent = 'until round ' + ST.round + ' is drawn';
+}
+function paintLast() {
+  const l = ST && ST.last, c = $('lastCard'); if (!l) { c.hidden = true; return; }
+  c.hidden = false;
+  c.innerHTML = '<div class="sec-h"><h2>Round ' + esc(l.round) + ' — drawn ' + esc(new Date(l.drawnAt).toLocaleDateString()) + '</h2><div class="amt">' + num(l.potOre, 4) + ' ORE</div></div>'
+    + (l.rolledOver ? '<div class="fine">Nobody entered — the whole pot rolled into the next round.</div>'
+      : '<div class="fine">' + esc(l.totalTickets) + ' tickets from ' + esc(l.entrants) + ' wallet' + (l.entrants === 1 ? '' : 's') + '.</div><div class="winners">' + l.winners.map((w) => '<div class="wrow"><span><b>' + ['1st', '2nd', '3rd', '4th', '5th'][w.rank - 1] + '</b> · ' + esc(w.pct) + '% · <code>' + esc(short(w.wallet)) + '</code></span><span>' + esc(w.tickets) + ' tickets · ≈ $' + num(w.usd, 2) + ((w.bonus || []).length || (w.nfts || []).length ? ' + ' + esc([].concat((w.bonus || []).map((b) => amtTxt(b.amount) + ' ' + b.symbol), w.nfts || []).join(', ')) : '') + '</span></div>').join('') + '</div>')
+    + '<div class="fine" style="margin-top:8px"><a href="/api/raffle?action=round&round=' + esc(l.round) + '" target="_blank" rel="noopener">Seed, blockhash &amp; winners</a> · <a href="/api/raffle?action=entries&round=' + esc(l.round) + '" target="_blank" rel="noopener">every entry</a> · <a href="/api/raffle?action=verify&round=' + esc(l.round) + '" target="_blank" rel="noopener">re-check the draw</a></div>';
+}
+// ---------- the prize pool: the ORE prize + the community's bonus prizes + who gave them ----------
+const ago = (t) => { const m = Math.round((Date.now() + SKEW - t) / 60000); return m < 1 ? 'just now' : m < 60 ? m + ' min ago' : m < 1440 ? Math.round(m / 60) + ' h ago' : Math.round(m / 1440) + ' d ago'; };
+const amtTxt = (n) => (+n || 0).toLocaleString(undefined, { maximumFractionDigits: n >= 100 ? 0 : n >= 1 ? 2 : 6 });
+function paintPool() {
+  const s = ST; if (!s) return;
+  const p = s.pot || {}, g = s.gifts || { tokens: [], nfts: [], pending: 0 };
+  $('poolAmt').textContent = num(p.potOre, 4) + ' ORE' + (g.tokens.length || g.nfts.length ? ' + bonus' : '');
+  const given = [];
+  if (p.giftSol) given.push(num(p.giftSol, 4) + ' SOL');
+  if (p.giftOre) given.push(num(p.giftOre, 4) + ' ORE');
+  $('poolNote').innerHTML = 'The ORE prize: <b>' + num(p.potOre, 4) + ' ORE</b>' + (p.usd != null ? ' (≈ $' + num(p.usd, 2) + ')' : '') + ' — burns' + (p.seeded ? ', Degen Dojo’s seed' : '') + (given.length ? ' and <b>' + esc(given.join(' + ')) + '</b> given by ' + esc(p.donations) + ' donor' + (p.donations === 1 ? '' : 's') : '') + '.'
+    + (g.tokens.length || g.nfts.length ? ' On top, these bonus prizes: tokens split like the prize, NFTs one per winner (1st place gets the first).' : ' Bonus prizes (tokens, NFTs) that people add show here.');
+  $('poolTokens').innerHTML = g.tokens.length ? '<div class="chips">' + g.tokens.map((t) => {
+    const img = thumb(t.image);
+    return '<span class="chip">' + (img ? '<img src="' + esc(img) + '" alt="">' : '<span class="dot"></span>') + '<b>' + esc(amtTxt(t.amount)) + '</b> ' + esc(t.symbol || short(t.mint)) + (t.usd != null ? ' <span class="fine">≈ $' + num(t.usd, 2) + '</span>' : '') + '</span>';
+  }).join('') + '</div>' : '';
+  $('poolNfts').innerHTML = g.nfts.length ? '<div class="grid">' + g.nfts.map((x, i) => {
+    const img = thumb(x.image);
+    return '<div class="nft gift" title="' + esc(x.title) + '">' + (img ? '<img loading="lazy" src="' + esc(img) + '" alt="">' : '<div class="ph">no image</div>')
+      + (i < (s.tiers || []).length ? '<span class="tag">' + ['1st', '2nd', '3rd', '4th', '5th'][i] + '</span>' : '<span class="tag no">next in line</span>')
+      + '<div class="meta"><div class="nm">' + esc(x.title || short(x.mint)) + '</div><div class="co">' + esc(x.collectionName || (x.collection ? short(x.collection) : 'no verified collection')) + '</div><div class="by">added by ' + esc(x.by || 'someone') + '</div></div></div>';
+  }).join('') + '</div>' : '';
+  $('poolPending').textContent = g.pending ? g.pending + ' gift' + (g.pending === 1 ? ' is' : 's are') + ' waiting for a quick review before showing.' : '';
+  const w = s.wall || [];
+  $('wallSec').hidden = !w.length;
+  $('wall').innerHTML = w.map((x) => {
+    const what = [];
+    if (x.sol) what.push(num(x.sol, 4) + ' SOL');
+    if (x.ore) what.push(num(x.ore, 4) + ' ORE');
+    (x.shown || []).forEach((it) => what.push(it.kind === 'token' ? amtTxt(Number(it.raw) / Math.pow(10, it.decimals || 0)) + ' ' + (it.symbol || 'tokens') : (it.title || 'an NFT')));
+    if (x.pending) what.push(x.pending + ' more in review');
+    return '<div><span><b>' + esc(x.by) + '</b> gave ' + esc(what.join(' · ') || 'a gift') + '</span><span class="fine">' + esc(ago(x.at)) + ' · <a href="https://solscan.io/tx/' + esc(encodeURIComponent(x.sig)) + '" target="_blank" rel="noopener">tx ↗</a></span></div>';
+  }).join('');
+}
+
+// ---------- Degen Dojo card numbers (#123) — fetched only when the wallet holds a card ----------
+let DDNUM = null, DDNUM_P = null;
+function loadDdNums() {
+  if (DDNUM || DDNUM_P) return DDNUM_P;
+  DDNUM_P = fetch('/dd-nums.json', { cache: 'force-cache' }).then((r) => (r.ok ? r.json() : {})).then((j) => { DDNUM = j || {}; if (SCAN) render(); }).catch(() => { DDNUM = {}; });
+  return DDNUM_P;
+}
+const ddNum = (mint) => (DDNUM && DDNUM[mint] != null ? '#' + DDNUM[mint] : '');
+const ddLabel = (c) => c.dojo ? (c.dojo.mythic ? '★ Mythic ' : c.dojo.framed ? '◆ Framed ' : '') + c.dojo.coll + ' card' : '';
+
+setInterval(tick, 1000);
+setInterval(loadStatus, 30000);
+
+// ---------- the step banner (as on the coins page) ----------
+var stageT = {};
+// `id`: which banner — the burn's (raffleStat, default) or the gift's (giftStat)
+function stage(n, html, spin, id) {
+  id = id || 'raffleStat';
+  const st = $(id); if (!st) return;
+  st.style.display = ''; clearInterval(stageT[id]); stageT[id] = null;
+  const t0 = Date.now(), sid = id + 'Secs';
+  st.innerHTML = (n ? '<span class="stp">Step ' + n + ' of 3</span>' : '') + (spin ? '<span class="hg">⏳</span>' : '') + html + (spin ? ' <span class="secs" id="' + sid + '">0 s</span>' : '');
+  if (spin) stageT[id] = setInterval(() => { const s = $(sid); if (s) s.textContent = Math.round((Date.now() - t0) / 1000) + ' s'; else { clearInterval(stageT[id]); stageT[id] = null; } }, 1000);
+}
+
+// ---------- the connected wallet's NFTs ----------
+function startBurnCheck(scan, addr) {
+  if (!scan || !scan.nfts.some((c) => c.burnable)) return;
+  CHECK = { scan, left: null };
+  const quiet = () => BUSY || !!($('burnConfirm') && $('burnConfirm').innerHTML);
+  DojoBurn.checkBurns(rpc, addr, scan, (u) => {
+    if (SCAN !== scan) return;
+    if (u.left != null) CHECK = { scan, left: u.left };
+    scan.nfts.forEach((c) => { if (!c.burnable) SEL.delete(c.mint); });
+    if (!quiet()) render();
+  }).catch(() => {}).finally(() => { if (SCAN === scan) { CHECK = null; if (!quiet()) render(); } });
+}
+async function lookup(addr) {
+  const id = ++SCAN_ID; OWNER = addr; SCAN = null; SEL = new Set();
+  $('burnArea').innerHTML = '<div class="card"><div class="muted" id="msg">Reading your wallet…</div></div>';
+  const early = (partial) => { if (id !== SCAN_ID || !partial.floorsPending) return; SCAN = partial; render(); startBurnCheck(partial, addr); };
+  try {
+    // the raffle's scan: Dojo Burn's + Degen Dojo / Demon Dojo cards (allowed here only — confirmed twice)
+    const out = await DojoRaffle.scan(rpc, addr, (s) => { if (!SCAN && $('msg')) $('msg').textContent = s; }, early);
+    if (out.nfts.some((c) => c.dojo)) loadDdNums();
+    if (id !== SCAN_ID) return;
+    const fresh = SCAN !== out; SCAN = out; applyHandoff(); render(); if (fresh) startBurnCheck(SCAN, addr);
+  } catch (e) { if (id === SCAN_ID && $('msg')) $('msg').textContent = 'Couldn’t read your wallet right now (' + e.message + '). Try again in a minute.'; }
+}
+// NFTs ticked on the Claim page (🎟 Burn for Raffle tickets) arrive through sessionStorage — never the URL
+const HANDOFF_KEY = 'dd:burn2raffle';
+function applyHandoff() {
+  let h = null; try { h = JSON.parse(sessionStorage.getItem(HANDOFF_KEY) || 'null'); sessionStorage.removeItem(HANDOFF_KEY); } catch (e) {}
+  if (!h || h.owner !== OWNER || !Array.isArray(h.mints) || Date.now() - (h.at || 0) > 30 * 60e3) return;
+  const want = new Set(h.mints);
+  SCAN.nfts.forEach((c) => { if (c.burnable && want.has(c.mint)) { SEL.add(c.mint); if (DojoBurn.floorHigh(c)) SHOW_ALL = true; } });
+}
+function selected() { return SCAN ? SCAN.nfts.filter((c) => c.burnable && SEL.has(c.mint)) : []; }
+function render() {
+  const s = SCAN; if (!s) return;
+  const degraded = !!(s.floors && s.floors.degraded);
+  const shown = DojoBurn.visibleNfts(s.nfts, SHOW_ALL, degraded).slice().sort((a, b) => b.burnable - a.burnable), hidden = s.nfts.length - shown.length;
+  const cant = s.nfts.filter((c) => !c.burnable).length, checking = !!(CHECK && CHECK.scan === s), wait = !!s.floorsPending;
+  const shownBurn = shown.filter((c) => c.burnable), sel = selected(), selLam = sel.reduce((t, c) => t + c.lamports, 0);
+  let html = '<div class="card"><div class="sec-h"><h2>Your NFTs you could burn for tickets (' + shownBurn.length + ')</h2><div class="amt">up to ' + num(tix(shownBurn.reduce((t, c) => t + c.lamports, 0)), 0) + ' tickets</div></div>';
+  if (!s.nfts.length) html += '<div class="fine">Nothing to burn in this wallet' + (s.unread ? ' that could be read right now — refresh in a minute.' : '. ✨ You can still add something to the prize below.') + '</div></div>';
+  else {
+    html += '<div class="fine">Tick the ones you don’t want — <b>burning destroys them for good</b>. Each shows the rent it frees and the tickets that buys you. Likely spam is shown first; nothing is ticked for you.</div>'
+      + '<div style="margin:10px 0 2px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span class="seg"><button class="mini' + (SHOW_ALL ? '' : ' on') + '" id="floorLow">Floor below ' + FLOOR_MAX + ' SOL</button><button class="mini' + (SHOW_ALL ? ' on' : '') + '" id="floorAll">Show all</button></span>'
+      + (!SHOW_ALL && hidden ? '<span class="fine">' + hidden + ' hidden — their collection floor is ' + FLOOR_MAX + ' SOL or more' + (degraded ? ', or couldn’t be checked' : ' (worth more listed than burned)') + '</span>' : '') + '</div>'
+      + (checking ? '<div class="fine" style="margin-bottom:6px">Checking which of these can really be burned' + (CHECK.left ? ' (' + CHECK.left + ' left)' : '') + '…</div>' : cant ? '<div class="fine" style="margin-bottom:6px">' + cant + ' can’t be burned — their project blocks it, or they’re frozen. They’re greyed at the end.</div>' : '')
+      + '<div class="grid">' + shown.map((c) => {
+        const img = thumb(c.image), on = SEL.has(c.mint), hi = DojoBurn.floorHigh(c);
+        const fl = !c.burnable ? '' : wait ? '<span class="fl">checking floor…</span>' : hi ? '<span class="fl hi">Floor ' + floorTxt(c.floorSol) + ' SOL</span><div class="worth">worth more listed than burned</div>'
+          : c.floorSol != null ? '<span class="fl">Floor ' + floorTxt(c.floorSol) + ' SOL</span>' : '<span class="fl">floor unknown</span>';
+        const dd = c.dojo, star = dd && (dd.mythic || dd.framed);
+        return '<div class="nft' + (on ? ' sel' : '') + (c.burnable ? '' : ' off') + (hi ? ' hiflo' : '') + (dd ? ' dd' + (star ? ' myth' : '') : '') + (wait && c.burnable ? ' wait' : '') + '" data-mint="' + esc(c.mint) + '" title="' + esc((dd ? ddLabel(c) + ' — ' : '') + c.name + (c.burnable ? '' : ' — ' + (c.reason || 'can’t be burned'))) + '">'
+          + (img ? '<img loading="lazy" src="' + esc(img) + '" alt="">' : '<div class="ph">no image</div>')
+          + (c.burnable ? '<span class="tick"></span>' : '<span class="tag no">Can’t burn</span>') + (c.burnable && c.junk >= 3 ? '<span class="tag">likely spam</span>' : '')
+          + (c.burnable && dd ? '<span class="tag dojo' + (star ? ' myth' : '') + '">' + esc(ddLabel(c)) + '</span>' : '')
+          + '<div class="meta"><div class="nm">' + esc(c.name) + (dd ? '<span class="num">' + esc(ddNum(c.mint)) + '</span>' : '') + '</div><div class="co">' + esc(c.collectionName || (c.collection ? short(c.collection) : 'no verified collection')) + (c.pnft ? ' · pNFT' : c.core ? ' · Core' : '') + '</div>'
+          + (c.burnable ? '<div class="rent"><span>+' + SOL(c.lamports) + ' SOL</span><i>' + tix(c.lamports) + ' 🎟</i></div>' + fl : '<div class="why">' + esc(c.reason) + '</div>') + '</div></div>';
+      }).join('') + '</div>'
+      + '<div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="btn fire" id="burnBtn"' + (sel.length && !wait ? '' : ' disabled') + '>🔥 Burn ' + sel.length + ' NFT' + (sel.length === 1 ? '' : 's') + ' → ~' + num(tix(selLam), 0) + ' ticket' + (tix(selLam) === 1 ? '' : 's') + '</button>'
+      + (sel.length ? '<button class="mini" id="clearSel">Clear selection</button><span class="fine">' + SOL(selLam) + ' SOL of rent goes into the prize</span>' : '') + '</div>'
+      + '<div id="burnConfirm"></div><div id="raffleStat" class="buystat" style="display:none"></div></div>';
+  }
+  $('burnArea').innerHTML = html;
+  const bb = $('burnBtn'); if (bb) bb.onclick = askBurn;
+  const cs = $('clearSel'); if (cs) cs.onclick = () => { SEL.clear(); render(); };
+  const fl = $('floorLow'); if (fl) fl.onclick = () => { if (!SHOW_ALL) return; SHOW_ALL = false; const vis = new Set(DojoBurn.visibleNfts(s.nfts, false, degraded).map((c) => c.mint)); s.nfts.forEach((c) => { if (!vis.has(c.mint)) SEL.delete(c.mint); }); render(); };
+  const fa = $('floorAll'); if (fa) fa.onclick = () => { if (SHOW_ALL) return; SHOW_ALL = true; render(); };
+}
+document.addEventListener('error', (e) => {
+  const im = e.target; if (!im || im.tagName !== 'IMG' || !im.closest('.nft')) return;
+  let raw = null; try { raw = !im.dataset.raw && new URL(im.src).host === 'wsrv.nl' ? new URL(im.src).searchParams.get('url') : null; } catch (x) { /* not a URL */ }
+  if (raw && DojoBurn.rawImageOk(raw)) { im.dataset.raw = '1'; im.src = raw; return; }
+  const ph = document.createElement('div'); ph.className = 'ph'; ph.textContent = 'no image'; im.replaceWith(ph);
+}, true);
+document.addEventListener('click', (e) => {
+  const t = e.target.closest('.nft[data-mint]');
+  if (t && !t.classList.contains('off') && !t.classList.contains('wait') && !BUSY && !(SCAN && SCAN.floorsPending)) { const m = t.dataset.mint; SEL.has(m) ? SEL.delete(m) : SEL.add(m); render(); }
+});
+
+function askBurn() {
+  if (BUSY || !SCAN || SCAN.floorsPending) return;
+  const items = selected(); if (!items.length || connected() !== OWNER) return;
+  const highs = items.filter((c) => DojoBurn.floorHigh(c)), top = highs.reduce((m, c) => Math.max(m, c.floorSol), 0), cards = DojoRaffle.dojoCards(items);
+  const lam = items.reduce((t, c) => t + c.lamports, 0);
+  $('burnConfirm').innerHTML = '<div class="confirm"><b class="err">⚠ Burning is permanent.</b><div class="fine" style="margin:6px 0">These ' + items.length + ' NFT' + (items.length === 1 ? '' : 's') + ' will be destroyed forever. The ' + SOL(lam) + ' SOL of rent they free goes into round ' + esc(ST ? ST.round : '') + '’s prize (88%) and the Reserve (12%) — you get about <b>' + tix(lam) + ' ticket' + (tix(lam) === 1 ? '' : 's') + '</b> back, not SOL:</div>'
+    + '<div class="list">' + items.map((c) => { const t = esc(c.name) + (c.collectionName ? ' · ' + esc(c.collectionName) : ''); return DojoBurn.floorHigh(c) ? '<span class="redl">' + t + ' · Floor ' + floorTxt(c.floorSol) + ' SOL — worth more listed than burned</span>' : t; }).join('<br>') + '</div>'
+    + '<label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:13px;color:var(--ink)"><input type="checkbox" id="burnSure"> I understand — burn them forever for raffle tickets' + (highs.length ? ' (incl. ' + highs.length + ' with a floor up to ' + floorTxt(top) + ' SOL)' : '') + '</label>'
+    + (cards.length ? '<div class="ddwarn"><b class="warn">⚔ ' + cards.length + ' Degen Dojo / TETO card' + (cards.length === 1 ? '' : 's') + ' in this burn:</b><div class="list">' + cards.map((c) => esc(c.name) + ' ' + esc(ddNum(c.mint)) + ' · ' + esc(ddLabel(c))).join('<br>') + '</div>'
+      + '<label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-size:13px;color:var(--ink)"><input type="checkbox" id="dojoSure"> I really want to burn my Degen Dojo card' + (cards.length === 1 ? '' : 's') + ' — ' + (cards.length === 1 ? 'it’s' : 'they’re') + ' gone forever</label></div>' : '')
+    + '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn fire" id="burnGo" disabled>Burn ' + items.length + ' forever</button><button class="mini" id="burnCancel">Cancel</button></div></div>';
+  const ready = () => { $('burnGo').disabled = !DojoRaffle.canBurn(items, $('burnSure').checked, $('dojoSure') && $('dojoSure').checked); };
+  $('burnSure').onchange = ready; if ($('dojoSure')) $('dojoSure').onchange = ready;
+  $('burnCancel').onclick = () => { $('burnConfirm').innerHTML = ''; };
+  $('burnGo').onclick = () => { if (DojoRaffle.canBurn(items, $('burnSure').checked, $('dojoSure') && $('dojoSure').checked)) burnForTickets(items); };
+}
+
+// ---------- burn → tickets ----------
+const PENDING_KEY = 'dd:raffle-pending';
+const pendingList = () => { try { return JSON.parse(localStorage.getItem(PENDING_KEY) || '[]').filter((p) => SIG_RE.test(p.sig || '')); } catch (e) { return []; } };
+const setPending = (l) => { try { localStorage.setItem(PENDING_KEY, JSON.stringify(l.slice(-20))); } catch (e) {} };
+async function report(sigs) {
+  for (let i = 0; i < 4; i++) {
+    try { const r = await fetch('/api/raffle', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'burn', sigs }) }); if (r.ok) return (await r.json()).burns || []; } catch (e) {}
+    await new Promise((r) => setTimeout(r, 1500 * (i + 1)));
+  }
+  return null;
+}
+async function burnForTickets(items) {
+  if (BUSY || connected() !== OWNER) return;
+  BUSY = true; $('burnGo').disabled = true; $('burnBtn').disabled = true;
+  const a = window.DOJO_WALLET;
+  try {
+    if (!ST) await loadStatus();
+    if (!ST) throw new Error('the raffle isn’t reachable right now — nothing was burned');
+    stage(0, ' Checking every burn and measuring the rent it frees (simulated — nothing is sent)…', true);
+    const plan = await DojoRaffle.plan(rpc, OWNER, items, { to: ST.wallet, round: ST.round, onStep: (s) => stage(0, ' ' + esc(s), true) });
+    if (!plan.batches.length) throw new Error('none of these can be burned' + (plan.dropped[0] ? ' (' + plan.dropped[0].item.name + ': ' + plan.dropped[0].reason + ')' : ''));
+    const lam = plan.batches.reduce((t, b) => t + b.lamports, 0), tk = plan.batches.reduce((t, b) => t + b.tickets, 0), nb = plan.batches.reduce((t, b) => t + b.items.length, 0);
+    const txs = await DojoBurn.finalize(rpc, OWNER, plan.batches);
+    stage(1, ' Approve ' + (txs.length > 1 ? 'the ' + txs.length + ' transactions' : 'the transaction') + ' in your wallet — ' + nb + ' burn' + (nb === 1 ? '' : 's') + ', ' + SOL(lam) + ' SOL into the prize → <b>' + tk + ' ticket' + (tk === 1 ? '' : 's') + '</b>', true);
+    const sigs = [];
+    let signed = null;
+    if (txs.length > 1 && typeof a.signAll === 'function') { try { signed = await a.signAll(txs); } catch (e) { if (!/cannot sign multiple/i.test(e.message || '')) throw e; } }
+    if (signed) { for (let i = 0; i < signed.length; i++) sigs.push(await rpc('sendTransaction', [Buffer.from(signed[i]).toString('base64'), { encoding: 'base64', maxRetries: 3 }])); }
+    else for (let i = 0; i < txs.length; i++) { if (txs.length > 1) stage(1, ' Approve ' + (i + 1) + ' of ' + txs.length + ' in your wallet…', true); const r = await a.signAndSendTransaction(txs[i]); sigs.push(String(r.signature || r)); }
+    const good = sigs.filter((s) => SIG_RE.test(s));
+    setPending(pendingList().concat(good.map((sig) => ({ sig, at: Date.now() }))));
+    stage(2, ' Burning on Solana — waiting for confirmation (usually 5–20 s)…', true);
+    let done = 0, failed = 0;
+    for (let k = 0; k < 40 && done + failed < good.length; k++) {
+      const st = await rpc('getSignatureStatuses', [good]); done = 0; failed = 0;
+      ((st && st.value) || []).forEach((x) => { if (x && (x.confirmationStatus === 'confirmed' || x.confirmationStatus === 'finalized')) { if (x.err) failed++; else done++; } });
+      if (done + failed < good.length) await new Promise((r) => setTimeout(r, 1500));
+    }
+    $('burnConfirm').innerHTML = '';
+    await watchTickets(good, plan.dropped);
+  } catch (e) {
+    const m = String((e && e.message) || e || 'Failed.');
+    stage(0, /cancel|reject|declin|denied|closed/i.test(m) ? '✋ Cancelled in your wallet — nothing was burned.' : '⚠ ' + esc(m.slice(0, 160)));
+  }
+  BUSY = false; const g = $('burnGo'); if (g) g.disabled = !DojoRaffle.canBurn(items, $('burnSure') && $('burnSure').checked, $('dojoSure') && $('dojoSure').checked); if ($('burnBtn')) $('burnBtn').disabled = !selected().length;
+}
+// Step 3: the server reads each transaction and adds the tickets (the cron also finds them on its own within a minute)
+async function watchTickets(sigs, dropped) {
+  const t0 = Date.now(), seen = {};
+  stage(3, ' <b>Burned ✓</b> — adding your tickets from the on-chain record…', true);
+  let res = await report(sigs) || [];
+  while (true) {
+    res.forEach((r) => { if (r && r.sig) seen[r.sig] = r; });
+    const open = sigs.filter((s) => !seen[s] || seen[s].status === 'pending' || seen[s].status === 'error');
+    if (!open.length || Date.now() - t0 > 3 * 60e3) break;
+    await new Promise((r) => setTimeout(r, 6000));
+    res = await report(open) || [];
+  }
+  const ok = sigs.map((s) => seen[s]).filter((r) => r && r.status === 'credited'), bad = sigs.map((s) => seen[s]).filter((r) => r && r.status === 'rejected');
+  setPending(pendingList().filter((p) => !seen[p.sig] || seen[p.sig].status === 'pending'));
+  const tk = ok.reduce((t, r) => t + (r.tickets || 0), 0), waiting = sigs.length - ok.length - bad.length;
+  stage(0, (ok.length ? '✅ <b>+' + tk + ' ticket' + (tk === 1 ? '' : 's') + '</b> in round ' + esc(ok[0].round) + '. Good luck!' : '')
+    + (waiting ? ' ⏳ ' + waiting + ' transaction' + (waiting === 1 ? ' is' : 's are') + ' still being read — your tickets land automatically; check back in a minute.' : '')
+    + (bad.length ? ' <span class="err">⚠ ' + bad.length + ' not counted: ' + esc(bad[0].why || '') + '</span>' : '')
+    + (dropped && dropped.length ? '<br><span class="warn">Not burned (' + dropped.length + '): ' + dropped.map((d) => esc(d.item.name) + ' — ' + esc(d.reason)).join('; ') + '</span>' : '')
+    + ' <a href="https://solscan.io/tx/' + esc(encodeURIComponent(sigs[0] || '')) + '" target="_blank" rel="noopener">Solscan ↗</a>');
+  loadStatus();
+  const note = $('raffleStat') ? $('raffleStat').innerHTML : '';
+  setTimeout(async () => { await lookup(OWNER); if ($('raffleStat') && note) { $('raffleStat').style.display = ''; $('raffleStat').innerHTML = note; } }, 2500);
+}
+// burns (and gifts) this browser sent but never saw counted (a closed tab) — report them again
+async function resumePending() {
+  const gl = giftPending();
+  if (gl.length) {
+    const gr = await reportGifts(gl.slice(-10).map((p) => p.sig));
+    if (gr) { const gd = new Set(gr.filter((r) => r && r.status !== 'pending' && r.status !== 'error').map((r) => r.sig)); setGiftPending(gl.filter((p) => !gd.has(p.sig) && Date.now() - p.at < 3 * 86400e3)); if (gd.size) loadStatus(); }
+  }
+  const l = pendingList(); if (!l.length) return;
+  const res = await report(l.slice(-10).map((p) => p.sig)); if (!res) return;
+  const done = new Set(res.filter((r) => r && r.status !== 'pending' && r.status !== 'error').map((r) => r.sig));
+  setPending(l.filter((p) => !done.has(p.sig) && Date.now() - p.at < 3 * 86400e3));
+  if (done.size) loadStatus();
+}
+
+// ---------- 🎁 Add to the prize (dojo-gift.js): the giver's own wallet → the raffle wallet, one signed "ddpot:<round>[:name]" ----------
+// No tickets — 100% for the winners. Everything is built and SIMULATED here; the wallet signs; the server counts only what
+// the raffle wallet actually received in each transaction.
+const W3 = () => window.solanaWeb3;
+const GIFT_PENDING = 'dd:raffle-gift-pending', SOL_KEEP = 10000000;   // leave ≈ 0.01 SOL for the network fees / new token accounts
+const giftPending = () => { try { return JSON.parse(localStorage.getItem(GIFT_PENDING) || '[]').filter((p) => SIG_RE.test(p.sig || '')); } catch (e) { return []; } };
+const setGiftPending = (l) => { try { localStorage.setItem(GIFT_PENDING, JSON.stringify(l.slice(-20))); } catch (e) {} };
+let GSCAN = null, GOWNER = null, GSEL = new Set(), GAMT = {}, GSOL = '', GNAME = '', GBUSY = false, GCHECK = false;
+// "1.5" with `dec` decimals → raw BigInt (null when it isn't a plain positive number with at most `dec` decimals)
+function toRaw(str, dec) {
+  const s = String(str == null ? '' : str).trim();
+  if (!/^\d*(\.\d*)?$/.test(s) || !/\d/.test(s)) return null;
+  const [i, f = ''] = s.split('.');
+  if (f.length > dec) return null;
+  return BigInt(i || '0') * 10n ** BigInt(dec) + BigInt((f + '0'.repeat(dec)).slice(0, dec) || '0');
+}
+const fromRaw = (raw, dec) => { const r = BigInt(raw), d = 10n ** BigInt(dec), w = r / d, f = (r % d).toString().padStart(dec, '0').replace(/0+$/, ''); return w.toString() + (f ? '.' + f : ''); };
+async function openGift() {
+  const owner = connected();
+  if (!owner) { const nb = document.getElementById('dojoNavWallet'); if (nb) nb.click(); return; }
+  if (GBUSY) return;
+  if (!ST) await loadStatus();
+  GOWNER = owner; GSCAN = null; GSEL = new Set(); GAMT = {}; GSOL = '';
+  $('giftArea').innerHTML = '<div class="muted" id="gmsg" style="margin-top:10px">Reading your wallet…</div>';
+  try {
+    const s = await DojoGift.scan(rpc, W3(), owner, (m) => { if ($('gmsg')) $('gmsg').textContent = m; });
+    if (GOWNER !== owner) return;
+    GSCAN = s; renderGift();
+    const nfts = s.nfts.filter((c) => !c.reason);
+    if (nfts.length) {   // can each one really be sent? (simulated; a project can block transfers)
+      GCHECK = true; renderGift();
+      DojoGift.checkSends(rpc, W3(), owner, ST.wallet, nfts, () => { if (GSCAN === s && !GBUSY) renderGift(); })
+        .catch(() => {}).finally(() => { GCHECK = false; s.nfts.forEach((c) => { if (c.reason) GSEL.delete(c.mint); }); if (GSCAN === s && !GBUSY) renderGift(); });
+    }
+  } catch (e) { if ($('gmsg')) $('gmsg').textContent = 'Couldn’t read your wallet right now (' + e.message + '). Try again in a minute.'; }
+}
+function renderGift() {
+  const s = GSCAN; if (!s) return;
+  const solMax = Math.max(0, s.sol - SOL_KEEP);
+  let h = '<div class="gsec"><h3>SOL</h3><div class="trow"><span class="dot"></span><span><b>SOL</b> <span class="fine">you hold ' + SOL(s.sol) + ' — joins the ORE prize (swapped at payout)</span></span>'
+    + '<input id="gSol" inputmode="decimal" placeholder="0.0" value="' + esc(GSOL) + '"><button class="mini mx" data-gmax="sol">Max</button></div></div>';
+  const toks = s.tokens;
+  h += '<div class="gsec"><h3>Tokens (' + toks.length + ')</h3>' + (toks.length ? toks.map((t) => {
+    const img = thumb(t.image), off = !!t.reason, isOre = t.mint === 'oreoU2P8bN6jkk3jbaiVxYnG1dCXcYxwhwyK9jSybcp';
+    return '<div class="trow' + (off ? ' off' : '') + '">' + (img ? '<img src="' + esc(img) + '" alt="">' : '<span class="dot"></span>')
+      + '<span><b>' + esc(t.symbol || short(t.mint)) + '</b> <span class="fine">' + esc(fromRaw(t.raw, t.decimals)) + (t.name && t.name !== t.symbol ? ' · ' + esc(t.name) : '') + (isOre ? ' · joins the ORE prize' : '') + (off ? ' · <span class="err">' + esc(t.reason) + '</span>' : '') + '</span></span>'
+      + (off ? '<span></span><span></span>' : '<input data-gmint="' + esc(t.mint) + '" inputmode="decimal" placeholder="0" value="' + esc(GAMT[t.mint] || '') + '"><button class="mini mx" data-gmax="' + esc(t.mint) + '">Max</button>') + '</div>';
+  }).join('') : '<div class="fine">No tokens in this wallet.</div>') + '</div>';
+  const nf = s.nfts;
+  h += '<div class="gsec"><h3>NFTs (' + nf.length + ')</h3>' + (GCHECK ? '<div class="fine">Checking which ones can really be sent (simulated)…</div>' : '') + (nf.length ? '<div class="grid">' + nf.map((c) => {
+    const img = thumb(c.image), on = GSEL.has(c.mint), off = !!c.reason;
+    return '<div class="nft' + (on ? ' sel' : '') + (off ? ' off' : '') + '" data-gnft="' + esc(c.mint) + '" title="' + esc(c.name + (off ? ' — ' + c.reason : '')) + '">' + (img ? '<img loading="lazy" src="' + esc(img) + '" alt="">' : '<div class="ph">no image</div>')
+      + (off ? '<span class="tag no">Can’t send</span>' : '<span class="tick"></span>')
+      + '<div class="meta"><div class="nm">' + esc(c.name) + '</div><div class="co">' + esc(c.collectionName || (c.collection ? short(c.collection) : 'no verified collection')) + (c.kind === 'pnft' ? ' · pNFT' : c.kind === 'core' ? ' · Core' : '') + '</div>'
+      + (off ? '<div class="why">' + esc(c.reason) + '</div>' : '') + '</div></div>';
+  }).join('') + '</div>' : '<div class="fine">No NFTs in this wallet.</div>') + '</div>';
+  h += '<div class="gsec"><h3>Your name on the gift (optional)</h3><input class="giftin" id="gName" maxlength="24" placeholder="e.g. Mad Lads DAO — letters, digits, space, _ -" value="' + esc(GNAME) + '" style="max-width:340px"></div>'
+    + '<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="btn fire" id="giftGo">🎁 Give it to the prize</button><span class="fine" id="giftSum"></span></div><div id="giftConfirm"></div>';
+  $('giftArea').innerHTML = h;
+  giftSummary();
+}
+// what is chosen right now → { items, lines, err }
+function giftItems() {
+  const s = GSCAN, items = [], lines = []; let err = null;
+  if (!s || !ST) return { items, lines, err: 'not ready' };
+  if (String(GSOL).trim()) {
+    const r = toRaw(GSOL, 9);
+    if (r == null || r <= 0n) err = err || 'SOL: enter an amount like 0.05';
+    else if (r > BigInt(Math.max(0, s.sol - SOL_KEEP))) err = err || 'SOL: keep about 0.01 SOL for the network fees';
+    else { items.push({ kind: 'sol', raw: r.toString(), to: ST.wallet }); lines.push(fromRaw(r, 9) + ' SOL'); }
+  }
+  s.tokens.forEach((t) => {
+    const v = GAMT[t.mint]; if (!v || !String(v).trim() || t.reason) return;
+    const r = toRaw(v, t.decimals);
+    if (r == null || r <= 0n) { err = err || (t.symbol || short(t.mint)) + ': not a valid amount'; return; }
+    if (r > BigInt(t.raw)) { err = err || (t.symbol || short(t.mint)) + ': more than you hold'; return; }
+    items.push({ kind: 'token', mint: t.mint, account: t.account, program: t.program, raw: r.toString(), decimals: t.decimals, to: ST.wallet, name: t.symbol });
+    lines.push(fromRaw(r, t.decimals) + ' ' + (t.symbol || short(t.mint)));
+  });
+  s.nfts.forEach((c) => { if (GSEL.has(c.mint) && !c.reason) { items.push({ kind: c.kind, mint: c.mint, account: c.account, program: c.program, collection: c.collection, ruleSet: c.ruleSet, to: ST.wallet, name: c.name }); lines.push(c.name); } });
+  const nm = String(GNAME || '').trim();
+  if (nm && !DojoGift.NAME_RE.test(nm)) err = err || 'Name: up to 24 letters, digits, spaces, _ or - (no links)';
+  return { items, lines, err };
+}
+function giftSummary() {
+  const g = giftItems(), el = $('giftSum'), b = $('giftGo'); if (!el || !b) return;
+  el.innerHTML = g.err ? '<span class="err">' + esc(g.err) + '</span>' : g.items.length ? esc(g.items.length + ' item' + (g.items.length === 1 ? '' : 's') + ': ' + g.lines.slice(0, 4).join(' · ') + (g.lines.length > 4 ? ' …' : '')) : 'Pick an amount or some NFTs above.';
+  b.disabled = GBUSY || !!g.err || !g.items.length;
+}
+document.addEventListener('input', (e) => {
+  const t = e.target; if (!t || !t.closest || !t.closest('#giftArea')) return;
+  if (t.id === 'gSol') GSOL = t.value; else if (t.id === 'gName') GNAME = t.value; else if (t.dataset && t.dataset.gmint) GAMT[t.dataset.gmint] = t.value;
+  giftSummary();
+});
+document.addEventListener('click', (e) => {
+  const mx = e.target.closest && e.target.closest('[data-gmax]');
+  if (mx && GSCAN) {
+    const k = mx.dataset.gmax;
+    if (k === 'sol') GSOL = fromRaw(BigInt(Math.max(0, GSCAN.sol - SOL_KEEP)), 9);
+    else { const t = GSCAN.tokens.filter((x) => x.mint === k)[0]; if (t) GAMT[k] = fromRaw(t.raw, t.decimals); }
+    renderGift(); return;
+  }
+  const n = e.target.closest && e.target.closest('.nft[data-gnft]');
+  if (n && !n.classList.contains('off') && !GBUSY) { const m = n.dataset.gnft; GSEL.has(m) ? GSEL.delete(m) : GSEL.add(m); renderGift(); return; }
+  if (e.target.id === 'giftGo') askGift();
+  if (e.target.id === 'giftOpen') openGift();
+});
+function askGift() {
+  const g = giftItems(); if (g.err || !g.items.length || GBUSY) return;
+  const nm = String(GNAME || '').trim();
+  $('giftConfirm').innerHTML = '<div class="confirm" style="border-color:rgba(232,184,75,.5);background:rgba(232,184,75,.06)"><b class="warn">🎁 A gift to round ' + esc(ST.round) + '’s prize</b><div class="fine" style="margin:6px 0">It goes to the raffle wallet (shamanchef.sol) for the winners. <b>It gives you no tickets</b> and can’t be taken back.' + (nm ? ' Shown as given by <b>' + esc(nm) + '</b>.' : '') + '</div>'
+    + '<div class="list">' + g.lines.map(esc).join('<br>') + '</div>'
+    + '<label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:13px;color:var(--ink)"><input type="checkbox" id="giftSure"> I understand — this is a gift to the winners, no tickets</label>'
+    + '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="giftSend" disabled>Give it</button><button class="mini" id="giftCancel">Cancel</button></div></div>';
+  $('giftSure').onchange = () => { $('giftSend').disabled = !$('giftSure').checked; };
+  $('giftCancel').onclick = () => { $('giftConfirm').innerHTML = ''; };
+  $('giftSend').onclick = () => { if ($('giftSure').checked) sendGift(g.items, nm); };
+}
+async function reportGifts(sigs) {
+  for (let i = 0; i < 4; i++) {
+    try { const r = await fetch('/api/raffle', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'gift', sigs }) }); if (r.ok) return (await r.json()).gifts || []; } catch (e) {}
+    await new Promise((r) => setTimeout(r, 1500 * (i + 1)));
+  }
+  return null;
+}
+async function sendGift(items, name) {
+  if (GBUSY || connected() !== GOWNER) return;
+  GBUSY = true; giftSummary(); if ($('giftSend')) $('giftSend').disabled = true;
+  const a = window.DOJO_WALLET, G = 'giftStat';
+  try {
+    stage(0, ' Checking your gift (simulated — nothing is sent)…', true, G);
+    const plan = await DojoGift.plan(rpc, W3(), GOWNER, items, { memo: DojoGift.giftMemo(ST.round, name), onStep: (s) => stage(0, ' ' + esc(s), true, G) });
+    if (!plan.batches.length) throw new Error('none of it can be sent' + (plan.dropped[0] ? ' (' + (plan.dropped[0].item.name || plan.dropped[0].item.kind) + ': ' + plan.dropped[0].reason + ')' : ''));
+    const txs = await DojoGift.finalize(rpc, W3(), GOWNER, plan.batches);
+    stage(1, ' Approve ' + (txs.length > 1 ? 'the ' + txs.length + ' transactions' : 'the transaction') + ' in your wallet — a gift to round ' + esc(ST.round) + '’s prize', true, G);
+    const sigs = []; let signed = null;
+    if (txs.length > 1 && typeof a.signAll === 'function') { try { signed = await a.signAll(txs); } catch (e) { if (!/cannot sign multiple/i.test(e.message || '')) throw e; } }
+    if (signed) { for (let i = 0; i < signed.length; i++) sigs.push(await rpc('sendTransaction', [Buffer.from(signed[i]).toString('base64'), { encoding: 'base64', maxRetries: 3 }])); }
+    else for (let i = 0; i < txs.length; i++) { if (txs.length > 1) stage(1, ' Approve ' + (i + 1) + ' of ' + txs.length + ' in your wallet…', true, G); const r = await a.signAndSendTransaction(txs[i]); sigs.push(String(r.signature || r)); }
+    const good = sigs.filter((s) => SIG_RE.test(s));
+    setGiftPending(giftPending().concat(good.map((sig) => ({ sig, at: Date.now() }))));
+    stage(2, ' Sending on Solana — waiting for confirmation (usually 5–20 s)…', true, G);
+    for (let k = 0, done = 0; k < 40 && done < good.length; k++) {
+      const st = await rpc('getSignatureStatuses', [good]); done = 0;
+      ((st && st.value) || []).forEach((x) => { if (x && (x.confirmationStatus === 'confirmed' || x.confirmationStatus === 'finalized')) done++; });
+      if (done < good.length) await new Promise((r) => setTimeout(r, 1500));
+    }
+    $('giftConfirm').innerHTML = '';
+    stage(3, ' <b>Sent ✓</b> — adding it to the prize from the on-chain record…', true, G);
+    const t0 = Date.now(), seen = {};
+    let res = await reportGifts(good) || [];
+    while (true) {
+      res.forEach((r) => { if (r && r.sig) seen[r.sig] = r; });
+      const open = good.filter((s) => !seen[s] || seen[s].status === 'pending' || seen[s].status === 'error');
+      if (!open.length || Date.now() - t0 > 3 * 60e3) break;
+      await new Promise((r) => setTimeout(r, 6000));
+      res = await reportGifts(open) || [];
+    }
+    const ok = good.map((s) => seen[s]).filter((r) => r && r.status === 'credited'), bad = good.map((s) => seen[s]).filter((r) => r && r.status === 'rejected');
+    setGiftPending(giftPending().filter((p) => !seen[p.sig] || seen[p.sig].status === 'pending'));
+    const shown = ok.reduce((t, r) => t + (r.shown || 0), 0), waiting = ok.reduce((t, r) => t + (r.pending || 0), 0), unread = good.length - ok.length - bad.length;
+    stage(0, (ok.length ? '✅ <b>Thank you!</b> Your gift is in round ' + esc(ok[0].round) + '’s prize' + (waiting ? ' — ' + waiting + ' item' + (waiting === 1 ? '' : 's') + ' will show after a quick review' : '') + '.' : '')
+      + (unread ? ' ⏳ ' + unread + ' transaction' + (unread === 1 ? ' is' : 's are') + ' still being read — it lands automatically.' : '')
+      + (bad.length ? ' <span class="err">⚠ not counted: ' + esc(bad[0].why || '') + '</span>' : '')
+      + (plan.dropped.length ? '<br><span class="warn">Not sent (' + plan.dropped.length + '): ' + plan.dropped.map((d) => esc(d.item.name || d.item.kind) + ' — ' + esc(d.reason)).join('; ') + '</span>' : '')
+      + ' <a href="https://solscan.io/tx/' + esc(encodeURIComponent(good[0] || '')) + '" target="_blank" rel="noopener">Solscan ↗</a>', false, G);
+    loadStatus();
+    GBUSY = false;
+    const note = $(G).innerHTML;
+    setTimeout(async () => { await openGift(); if ($(G)) { $(G).style.display = ''; $(G).innerHTML = note; } }, 2500);
+    return;
+  } catch (e) {
+    const m = String((e && e.message) || e || 'Failed.');
+    stage(0, /cancel|reject|declin|denied|closed/i.test(m) ? '✋ Cancelled in your wallet — nothing was sent.' : '⚠ ' + esc(m.slice(0, 160)), false, G);
+  }
+  GBUSY = false; giftSummary();
+}
+
+function syncWallet() {
+  const c = connected();
+  loadStatus();
+  if (GOWNER && c !== GOWNER) { GOWNER = null; GSCAN = null; $('giftArea').innerHTML = ''; }   // another wallet: choose again
+  if (c && c !== OWNER) lookup(c);
+  else if (!c) { OWNER = null; SCAN = null; $('burnArea').innerHTML = '<div class="card"><div class="muted" id="msg">Connect your wallet (top right) to see the NFTs you could burn for tickets.</div> <button class="btn" id="connectHere" style="margin-top:10px">Connect wallet</button></div>'; const ch = $('connectHere'); if (ch) ch.onclick = () => { const nb = document.getElementById('dojoNavWallet'); if (nb) nb.click(); }; }
+}
+window.addEventListener('dojo-wallet-change', syncWallet);
+window.addEventListener('load', () => { syncWallet(); resumePending(); });
+</script>
+<script src="/dojo-credits.js"></script><script src="/dojo-wallet.js"></script><script src="/dojo-profile.js"></script><script src="/mwa.js"></script><script src="/wallet-picker.js"></script><script>/*navwallet-wire*/(function(){var b=document.getElementById('dojoNavWallet');if(!b)return;var A=null,sh=function(p){return p.slice(0,4)+'\u2026'+p.slice(-4);};var G="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#0a0814;background:linear-gradient(135deg,#c8962a,#8b6018);border:none;padding:9px 16px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;",C="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#e8b84b;background:rgba(201,151,58,.12);border:1px solid rgba(201,151,58,.5);padding:9px 14px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;";function set(a){A=a;window.DOJO_WALLET=a||null;window.dispatchEvent(new Event('dojo-wallet-change'));if(a){b.textContent='\u25ce '+sh(a.pubkey);b.setAttribute('style',C);}else{b.textContent='Connect wallet';b.setAttribute('style',G);}document.querySelectorAll('.dn-connect').forEach(function(x){x.textContent=a?'\u25ce '+sh(a.pubkey):'\ud83d\udd11 Connect';});}window.dojoNavSetWallet=set;b.onclick=function(){if(A){var dc=function(){try{A.disconnect&&A.disconnect();}catch(e){}set(null);};if(window.DojoProfile)DojoProfile.menu(b,A.pubkey,dc);else dc();return;}if(window.DojoWalletPicker)DojoWalletPicker.pick().then(set).catch(function(){});};if(window.DojoWalletPicker&&DojoWalletPicker.autoConnect)DojoWalletPicker.autoConnect().then(function(a){if(a&&!A)set(a);});})();</script>

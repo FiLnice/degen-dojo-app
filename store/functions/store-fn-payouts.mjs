@@ -41,6 +41,16 @@
 //   POST {action:'seed-pot', ore, id}                → add Degen Dojo's own ORE to the CURRENT round's Pot (route "seed",
 //        valued at today's ORE price, idempotent per id; ≤ SEED_ORE_MAX per action). Shown on /pot as "Seeded by Degen Dojo".
 //        Payments already received keep the cap that was in force when they were paid.
+//   POST {action:'seed-raffle', ore, id}             → add Degen Dojo's own ORE to the Burn Raffle's OPEN round (store-raffle-core,
+//        ≤ 25 ORE per action, idempotent per id). Like seed-pot, no transfer: the winners are paid from the Treasury.
+//   GET  ?raffle=1                                   → the Burn Raffle's open round (pot, tickets, tier) for the desk
+//   GET  ?gifts=1                                    → "Raffle gifts": items waiting for review / shown / hidden, recent rejected
+//        gift transactions, what's trusted (store-raffle-core listGifts)
+//   POST {action:'raffle-gift', id, op}              → approve | trust (approve + future gifts of that collection / token show at
+//        once) | hide one gift item. Approved items join the raffle's OPEN round.
+//   POST {action:'raffle-direct-gift', sig, name?}   → register a plain send to the raffle wallet (e.g. to shamanchef.sol, no
+//        ddpot memo) as a gift to the open round — shown at once (you registered it). Refused: our own wallets' transfers,
+//        anything already booked (a burn, a ddpot gift, a coin buy, any "dd…" memo, a marketplace sale), a repeat.
 //   POST {action:'keeper-redecide', sig}             → decide a SKIPPED Treasury payment again with today's rules + data
 //        (listed on the desk with its reason: a DAS outage, a junk coin record, …); a booked one is never re-decided
 //   POST {action:'keeper-held-convert', mints}       → (burning open) turn cards sent in while burning was off into
@@ -58,6 +68,7 @@ import { seedPot, getPot as getPotLedger } from "./store-pot-core.mjs";
 import { CasError } from "./store-cas-core.mjs";
 import { keeperSummary, recordClaimsPaid, recordBurned, markRepairsApplied, conversionQuote, recordConversion, scanTreasury, opsMoveQuote, recordOpsMove, recordRefundsPaid, setMintCap, repairActivitySince, redecide, convertHeld, KeeperError } from "./store-keeper-core.mjs";
 import { getPot } from "./store-pot-core.mjs";
+import { seedRaffle, raffleStatus, getRafflePot, raffleTicketRound, listGifts, moderateGift, registerDirectGift } from "./store-raffle-core.mjs";
 
 const json = (o, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { "content-type": "application/json", "cache-control": "no-store", "x-robots-tag": "noindex" } });
 // admin key from the Authorization header only (constant-time, length-hiding compare in store-session-core)
@@ -117,7 +128,8 @@ async function statement(request) {
     drawNote = pub?.status === "drawn" ? "Round " + drawRound + " is drawn — press Build plan below" : pub?.status === "committed" ? "Round " + drawRound + " draws automatically on draw day" : null;
   }
   const viaPreacher = await minetipViaPreacher(since).catch(() => ({}));
-  return weeklyStatement({ now, reserve, viaPreacher, repairs, plan, drawNote, keeper, pot, prices: keeper.prices || {}, burnEnabled: !!keeper.burnEnabled, opsWallet: keeper.ops?.wallet || null });
+  const rafflePot = await raffleTicketRound().then(getRafflePot).catch(() => null);
+  return weeklyStatement({ now, reserve, viaPreacher, repairs, plan, drawNote, keeper, pot, rafflePot, prices: keeper.prices || {}, burnEnabled: !!keeper.burnEnabled, opsWallet: keeper.ops?.wallet || null });
 }
 
 export default async (request) => {
@@ -128,6 +140,8 @@ export default async (request) => {
       if (!keyOk(request)) return json({ error: "forbidden" }, 403);
       if (url.searchParams.get("keeper")) return json(await keeperSummary());
       if (url.searchParams.get("statement")) return json(await statement(request));
+      if (url.searchParams.get("raffle")) return json(await raffleStatus());
+      if (url.searchParams.get("gifts")) return json(await listGifts());
       const round = Number(url.searchParams.get("round")) || (await latestPlanRound()) || (await latestRound());
       return json(await view(round));
     }
@@ -191,6 +205,9 @@ export default async (request) => {
       const pot = await seedPot({ ore: body.ore, id: body.id, oreUsdPrice: await oreUsd() });
       return json({ ok: true, seededOre: Number(body.ore), pot: pot || (await getPotLedger()) });
     }
+    if (body.action === "seed-raffle") return json({ ok: true, seededOre: Number(body.ore), ...(await seedRaffle({ ore: body.ore, id: body.id })), raffle: await raffleStatus() });
+    if (body.action === "raffle-gift") return json({ ok: true, item: await moderateGift(String(body.id || ""), String(body.op || "")), gifts: await listGifts() });
+    if (body.action === "raffle-direct-gift") return json({ ok: true, gift: await registerDirectGift(String(body.sig || ""), { name: body.name == null ? null : String(body.name) }), gifts: await listGifts() });
     if (body.action === "keeper-redecide") return json({ ok: true, ...(await redecide(String(body.sig || "").trim())), keeper: await keeperSummary() });
     if (body.action === "keeper-held-convert") return json({ ok: true, ...(await convertHeld(Array.isArray(body.mints) ? body.mints.map(String) : [])), keeper: await keeperSummary() });
     return json({ error: "unknown action" }, 400);

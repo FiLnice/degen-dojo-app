@@ -380,6 +380,11 @@ async function decideTx(sig, tx, t, now) {
   // Dojo Sweep's fees (memo "ddsweep:fee": the 1% in SOL, the 0.01 ORE GemFarm rescue fee) and older ddsweep tips: decided
   // by the memo FIRST, so an ORE fee is never read as a memo-less card repair
   if (memosOf(tx).some((m) => m.startsWith("ddsweep:"))) return { kind: "skip", why: "a Dojo Sweep fee or tip (ddsweep memo) — not a royalty, repair or card" };
+  // Burn Raffle burns (memo "ddraffle:<round>"): the freed rent is the raffle's (store-raffle-core books it)
+  if (memosOf(tx).some((m) => m.startsWith("ddraffle:"))) return { kind: "skip", why: "a Burn Raffle burn (ddraffle memo) — the raffle books it" };
+  // Burn Raffle gifts (memo "ddpot:<round>"): SOL / tokens / NFTs given to the raffle's prize — never a royalty, repair or a
+  // card sent in to burn (a Degen Dojo card given as a prize must not turn into a burn claim)
+  if (memosOf(tx).some((m) => m.startsWith("ddpot:"))) return { kind: "skip", why: "a Burn Raffle gift (ddpot memo) — the raffle books it" };
   const progs = invokedPrograms(tx);
   const market = [...progs].some((p) => MARKETPLACES.has(p));
   const deltas = tokenDeltas([tx])[TREASURY] || {};

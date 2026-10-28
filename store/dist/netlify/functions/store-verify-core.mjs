@@ -246,6 +246,8 @@ function txFacts(tx) {
     plain: plainPayment(tx), tipMemo: memos.includes(TIP_MEMO), minerTip: minerTipPayment(tx),
     minerSignup: memos.some((m) => m.startsWith("ddminer:")),   // a branded-miner setup fee (store-miner-core) — never a coin buy / tip
     sweep: memos.some((m) => m.startsWith("ddsweep:")),         // a Dojo Sweep fee or tip (ddsweep:fee / :tip / :unstake) — never a coin buy / Pot tip
+    raffle: memos.some((m) => m.startsWith("ddraffle:")),       // a Burn Raffle burn (store-raffle-core) — never a coin buy / tip
+    gift: memos.some((m) => m.startsWith("ddpot:")),            // a Burn Raffle gift (store-raffle-core) — never a coin buy / tip
     repair: memos.some((m) => m.startsWith("ddfix:")),          // a card repair (the Dojo Keeper's) — never a coin buy / tip
     market: allKeys(tx).some((k) => MARKETPLACES.has(k)),       // lists a marketplace program (used or not) — the Keeper's royalty
     // the price quote this payment names in its own signed memo (DD-11)
@@ -272,6 +274,8 @@ export function classifyPayment(tx) {
   const f = txFacts(tx);
   if (f.minerSignup) return { f, reject: "this payment is a branded-miner setup fee (ddminer memo), not a coin purchase or tip" };
   if (f.sweep) return { f, reject: "this is a Dojo Sweep fee or tip (ddsweep memo), not a coin purchase or a Pot tip" };
+  if (f.raffle) return { f, reject: "this is a Burn Raffle burn (ddraffle memo) — its tickets come from /api/raffle, not coins" };
+  if (f.gift) return { f, reject: "this is a Burn Raffle gift (ddpot memo) — it goes to the raffle's prize, not coins" };
   if (f.market) return { f, reject: "a marketplace transaction is not a coin purchase or a Dojo tip" };
   if (f.repair) return { f, reject: "a card repair payment (ddfix memo) is not a coin purchase or a Dojo tip — the Dojo Keeper handles it" };
   if (f.plain && f.tipMemo) return { f, route: "tip" };

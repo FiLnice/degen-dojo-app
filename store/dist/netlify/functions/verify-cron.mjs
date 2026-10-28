@@ -6,13 +6,20 @@
 // the next run retries (no false rejects). Needs SOLANA_RPC + TREASURY_WALLET.
 // Only the pending list is read (verify-core: pending:<sig>), so the work per minute doesn't grow with the ledger;
 // once an hour the rejected junk and expired quotes older than 3 days are purged.
+// The Burn Raffle rides along (store-raffle-core verifyRaffleBurns): new ddraffle burns on the raffle wallet are found
+// and turned into tickets within the same minute.
 import { verifyPurchases, purgeJunk } from "./store-verify-core.mjs";
+import { verifyRaffleBurns } from "./store-raffle-core.mjs";
 
 export default async () => {
   if (!process.env.SOLANA_RPC) return;   // not configured yet — nothing to do
   const purge = new Date().getUTCMinutes() === 17;   // functions stop at 30 s: leave the purge its share of the run
-  const { verified, rejected, left } = await verifyPurchases({ strictReject: false, ...(purge ? { budgetMs: 14_000 } : {}) });
+  const { verified, rejected, left } = await verifyPurchases({ strictReject: false, budgetMs: purge ? 12_000 : 18_000 });
   console.log(`verify-cron: verified ${verified}, rejected ${rejected}${left ? `, ${left} left for the next run` : ""}`);
+  try {
+    const r = await verifyRaffleBurns({ budgetMs: 4000 });
+    if (r.credited || r.rejected || r.found || r.left || r.discoverError) console.log("verify-cron raffle:", JSON.stringify(r));
+  } catch (e) { console.log("verify-cron raffle error:", String(e?.message || e)); }
   if (purge) {
     const p = await purgeJunk({ budgetMs: 6000 }).catch((e) => ({ error: String(e?.message || e) }));
     console.log("verify-cron purge:", JSON.stringify(p));

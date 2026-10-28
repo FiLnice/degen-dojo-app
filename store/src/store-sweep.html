@@ -240,8 +240,9 @@ function render() {
       }).join('') + '</div>'
       + '<div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="btn burn" id="burnBtn"' + (mine() && SEL.size ? '' : ' disabled') + '>Burn ' + SEL.size + ' selected — get back ~' + SOL(net(selLamports)) + ' SOL</button>'
       + '<button class="btn" id="burnMineBtn"' + (mine() && SEL.size ? '' : ' disabled') + ' title="Pick a mining setting and confirm on the miner — nothing is burned before that">🔥 Burn &amp; ⛏ Mine ORE</button>'
+      + '<button class="btn" id="burnRaffleBtn"' + (mine() && SEL.size ? '' : ' disabled') + ' title="Confirm on the Burn Raffle page — nothing is burned before that">🎟 Burn for Raffle tickets</button>'
       + (SEL.size ? '<button class="mini" id="clearSel">Clear selection</button>' : '') + '</div>'
-      + '<div class="fine" style="margin-top:6px">🔥 Burn &amp; ⛏ Mine ORE takes the ticked NFTs to the miner: you pick a mining setting there and confirm — the SOL that comes back goes into ORE auto-mining. Mining is a chance: rounds can lose.</div>'
+      + '<div class="fine" style="margin-top:6px">Three ways to burn: <b>Burn</b> → the SOL comes back to you · <b>🔥 Burn &amp; ⛏ Mine ORE</b> → it goes into ORE auto-mining on all 25 tiles · <b>🎟 Burn for Raffle tickets</b> → it goes into the weekly <a href="/raffle" style="color:var(--gold)">Burn Raffle</a> prize, 1 ticket per 0.001 SOL. The last two take the ticked NFTs to their page, where you confirm.</div>'
       + '<div id="burnConfirm"></div><div id="burnMsg" class="fine" style="margin-top:8px"></div></div>';
   }
   $('results').innerHTML = html;
@@ -250,6 +251,7 @@ function render() {
   const cb = $('closeBtn'); if (cb) cb.onclick = () => sweepCloses();
   const bb = $('burnBtn'); if (bb) bb.onclick = () => askBurn();
   const bm = $('burnMineBtn'); if (bm) bm.onclick = () => burnAndMine();
+  const br = $('burnRaffleBtn'); if (br) br.onclick = () => burnForRaffle();
   const rs = $('rescan'); if (rs) rs.onclick = () => lookup(OWNER);
   const cs = $('clearSel'); if (cs) cs.onclick = () => { SEL.clear(); render(); };
   const fl = $('floorLow'); if (fl) fl.onclick = () => { if (!SHOW_ALL) return; SHOW_ALL = false; const vis = new Set(DojoBurn.visibleNfts(s.nfts, false, !!(s.floors && s.floors.degraded)).map((c) => c.mint)); s.nfts.forEach((c) => { if (!vis.has(c.mint)) SEL.delete(c.mint); }); render(); };   // hidden = never ticked
@@ -266,6 +268,16 @@ function burnAndMine() {
   try { sessionStorage.setItem(BURN2MINE_KEY, JSON.stringify({ owner: OWNER, mints, at: Date.now() })); } catch (e) { /* storage blocked: the miner opens with nothing ticked */ }
   const ref = new URLSearchParams(location.search).get('ref');
   location.href = '/mine?burn=1' + (ref ? '&ref=' + encodeURIComponent(ref) : '');
+}
+
+// 🎟 Burn for Raffle tickets: the ticked NFTs go to /raffle the same way (sessionStorage, never the URL); it re-scans the
+// connected wallet, and nothing is burned before the holder confirms there.
+function burnForRaffle() {
+  if (BUSY || SCAN.floorsPending) return;
+  const mints = SCAN.nfts.filter((c) => c.burnable && SEL.has(c.mint)).map((c) => c.mint);
+  if (!mints.length || !mine()) return;
+  try { sessionStorage.setItem('dd:burn2raffle', JSON.stringify({ owner: OWNER, mints, at: Date.now() })); } catch (e) { /* storage blocked: the raffle opens with nothing ticked */ }
+  location.href = '/raffle';
 }
 
 // a dead thumbnail (spam hosts vanish) shows the "no image" tile instead of a broken image
