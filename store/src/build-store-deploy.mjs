@@ -686,12 +686,16 @@ execSync("npm install --omit=dev --no-audit --no-fund", { cwd: OUT, stdio: "inhe
 }
 
 // ── Search + link previews: canonical, description and preview tags on every public page, plus sitemap.xml. A shared link
-// shows the Seeker banner (scripts/store-og.png). /rescue/ is left out: its tags point at degendojo.xyz/rescue/.
+// shows that page's own card from scripts/page-og (gen-page-og.mjs), or the Seeker banner (scripts/store-og.png) where OG_CARD
+// has none. /rescue/ is left out: its tags point at degendojo.xyz/rescue/.
 // [file, public path, title, description]; null = keep the page's own. ──
 {
   const BASE = "https://store.degendojo.xyz", OG_IMG = `${BASE}/store-og.png`;
+  const OG_CARD = { "/market": "market", "/list/": "list", "/mine": "mine", "/whitelabel": "whitelabel", "/create": "whitelabel", "/play/": "play", "/play/degen-duel/": "degen-duel", "/dojo-flip/": "dojo-flip", "/play/teto-wars/": "teto-wars", "/play/cluck-fu/": "cluck-fu", "/play/cock-brawl/": "cock-brawl", "/credits": "credits", "/pot/": "pot", "/draw": "draw", "/economy/": "economy", "/repair/": "repair", "/sweep/": "sweep", "/orewizard/": "orewizard", "/oreparties/": "oreparties", "/launch": "launch", "/launch/apply/": "launch", "/become-a-preacher": "preacher", "/reserve/": "reserve" };
   const esc = (s) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
   copyFileSync(`${ROOT}/scripts/store-og.png`, `${OUT}/store-og.png`);
+  mkdirSync(`${OUT}/og`, { recursive: true });
+  for (const c of new Set([...Object.values(OG_CARD), "rescue"])) copyFileSync(`${ROOT}/scripts/page-og/${c}.jpg`, `${OUT}/og/${c}.jpg`);
   const pages = [
     ["index.html", "/", "Degen Dojo Store — Buy and list NFTs in ORE", null],
     ["market.html", "/market", null, "Buy Solana NFTs with ORE: Degen Dojo fighters plus other top collections."],
@@ -705,14 +709,14 @@ execSync("npm install --omit=dev --no-audit --no-fund", { cwd: OUT, stdio: "inhe
     ["play/teto-wars/index.html", "/play/teto-wars/", null, "Roll the dice, grab TETO and outlast the Dojo on a crumbling board."],
     ["play/cluck-fu/index.html", "/play/cluck-fu/", null, "Eight chickens, one winner. Back a bird in the Dojo Derby and earn chances in the weekly Dojo Pot."],
     ["play/cock-brawl/index.html", "/play/cock-brawl/", null, null],
-    ["credits/index.html", "/credits/", null, null],
+    ["credits.html", "/credits", null, null],   // the copy Netlify serves, and the one with the /api/rpc patch
     ["pot/index.html", "/pot/", null, null],
     ["draw.html", "/draw", null, null],
     ["economy/index.html", "/economy/", null, null],
     ["repair/index.html", "/repair/", null, "Repair a cracked Degen Dojo card for 0.01 ORE. Mint cards never crack again, and only 555 can exist."],
     ["sweep/index.html", "/sweep/", null, null],
     ["orewizard/index.html", "/orewizard/", null, "Plan an ORE mining run: solo odds, split drip, Motherlode share and the real SOL cost, with live market numbers and five mining strategies."],
-    ["oreparties/index.html", "/oreparties/", null, "The best ORE Parties minting now, a leaderboard of every party, what their settings actually did, and a designer to try your own."],
+    ["oreparties/index.html", "/oreparties/", null, "ORE Parties minting now, a leaderboard of every party with solos won against expected, what their settings actually did, and a designer to try your own."],
     ["launch.html", "/launch", null, "Launch your NFT collection with Degen Dojo, priced in ORE."],
     ["launch/apply/index.html", "/launch/apply/", null, "Apply to launch your NFT collection with Degen Dojo."],
     ["become-a-preacher.html", "/become-a-preacher", null, null],
@@ -731,11 +735,11 @@ execSync("npm install --omit=dev --no-audit --no-fund", { cwd: OUT, stdio: "inhe
     const T = title ? esc(title) : h.match(/<title>([^<]*)<\/title>/i)[1].replace(/"/g, "&quot;");
     const D = desc ? esc(desc) : h.match(/<meta name="description" content="([^"]*)"/i)?.[1];
     if (!D) throw new Error(`${rel} has no description`);
-    const url = BASE + path;
+    const url = BASE + path, img = OG_CARD[path] ? `${BASE}/og/${OG_CARD[path]}.jpg` : OG_IMG;
     const tags = `<link rel="canonical" href="${url}">${desc ? `<meta name="description" content="${D}">` : ""}` +
       `<meta property="og:type" content="website"><meta property="og:site_name" content="Degen Dojo"><meta property="og:title" content="${T}"><meta property="og:description" content="${D}">` +
-      `<meta property="og:url" content="${url}"><meta property="og:image" content="${OG_IMG}"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="600">` +
-      `<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${T}"><meta name="twitter:description" content="${D}"><meta name="twitter:image" content="${OG_IMG}">`;
+      `<meta property="og:url" content="${url}"><meta property="og:image" content="${img}"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="600">` +
+      `<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${T}"><meta name="twitter:description" content="${D}"><meta name="twitter:image" content="${img}">`;
     writeFileSync(fp, h.replace(/<\/title>/i, () => `</title>\n${tags}`));
     urls.push(url);
   }

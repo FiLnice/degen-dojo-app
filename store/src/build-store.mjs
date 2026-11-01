@@ -33,11 +33,11 @@ const CRACK_V = "3a";   // dd-states.js, crack-batch.mjs and the site use the sa
 const CARD_KIND = (() => { try { return JSON.parse(readFileSync(`${ROOT}/scripts/card-numbers.json`, "utf8")).byMint || {}; } catch { return {}; } })();
 const freshCard = (u) => String(u || "").replace(/degen\/card(?:-cracked)?\/([1-9A-HJ-NP-Za-km-z]{32,44})\.png(?:\?[\w=.-]*)?/, (all, mint) =>
   !CARD_KIND[mint] ? all : CARD_KIND[mint].kind === "cracked" ? `degen/card-cracked/${mint}.png?v=${CRACK_V}` : `degen/card/${mint}.png?v=${CARD_V}`);
-// Mints that must NEVER appear in the Degen store: demons (now in Demon Dojo) and the
-// sensei NPCs. They share character NAMES with real degens (e.g. "Teary Goro"), so a
-// name-level filter won't do — exclude them by MINT, or their cardless copies leak into a
-// degen floor and render raw (demon) art. Derived from the on-chain race cache.
-const CARDLESS_RACES = new Set(["demons", "oni senseis", "senseis", "rowdy sensei"]);
+// Mints that must NEVER appear in the Degen store: demons (now in Demon Dojo). They share
+// character NAMES with real degens (e.g. "Teary Goro"), so a name-level filter won't do —
+// exclude them by MINT, or their cardless copies leak into a degen floor and render raw
+// (demon) art. Derived from the on-chain race cache. The Senseis are cards, so they stay in.
+const CARDLESS_RACES = new Set(["demons", "oni senseis"]);
 const CARDLESS_MINTS = (() => {
   try {
     const c = JSON.parse(readFileSync(`${ROOT}/scripts/claim-onchain-cache.json`, "utf8"));

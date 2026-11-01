@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ORE Parties: picks, leaderboard and results | Degen Dojo</title>
-<link rel="canonical" href="https://store.degendojo.xyz/oreparties/"><meta name="description" content="The best ORE Parties minting now, a leaderboard of every party, what their settings actually did, and a designer to try your own."><meta property="og:type" content="website"><meta property="og:site_name" content="Degen Dojo"><meta property="og:title" content="ORE Parties: picks, leaderboard and results | Degen Dojo"><meta property="og:description" content="The best ORE Parties minting now, a leaderboard of every party, what their settings actually did, and a designer to try your own."><meta property="og:url" content="https://store.degendojo.xyz/oreparties/"><meta property="og:image" content="https://store.degendojo.xyz/store-og.png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="600"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="ORE Parties: picks, leaderboard and results | Degen Dojo"><meta name="twitter:description" content="The best ORE Parties minting now, a leaderboard of every party, what their settings actually did, and a designer to try your own."><meta name="twitter:image" content="https://store.degendojo.xyz/store-og.png">
+<title>ORE Parties: minting, leaderboard and results | Degen Dojo</title>
+<link rel="canonical" href="https://store.degendojo.xyz/oreparties/"><meta name="description" content="ORE Parties minting now, a leaderboard of every party with solos won against expected, what their settings actually did, and a designer to try your own."><meta property="og:type" content="website"><meta property="og:site_name" content="Degen Dojo"><meta property="og:title" content="ORE Parties: minting, leaderboard and results | Degen Dojo"><meta property="og:description" content="ORE Parties minting now, a leaderboard of every party with solos won against expected, what their settings actually did, and a designer to try your own."><meta property="og:url" content="https://store.degendojo.xyz/oreparties/"><meta property="og:image" content="https://store.degendojo.xyz/og/oreparties.jpg"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="600"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="ORE Parties: minting, leaderboard and results | Degen Dojo"><meta name="twitter:description" content="ORE Parties minting now, a leaderboard of every party with solos won against expected, what their settings actually did, and a designer to try your own."><meta name="twitter:image" content="https://store.degendojo.xyz/og/oreparties.jpg">
 <link rel="icon" href="/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -37,7 +37,7 @@
   </div>
 
   <div class="panel" id="partiesPanel">
-    <h2>ORE Party picks</h2>
+    <h2>ORE Parties minting now</h2>
     <p class="note" id="partySrc">—</p>
     <div class="recs" id="partyTop"></div>
     <h3 style="margin-top:6px">Review a party</h3>
@@ -58,19 +58,32 @@
       <button type="button" data-tab="minting" aria-pressed="false">Minting</button>
     </div>
     <p class="note" id="boardNote"></p>
+    <details id="luckInfo">
+      <summary>How Expected Solo and Risk / Reward work</summary>
+      <p class="note" style="margin:8px 0 0">Expected Solo is how many solos a party's stake share should have won on average over its rounds. Compare it with Solo Won: 5 won against 1.5 expected is a lucky run. Solo-only parties show — because they have no split wins to read a share from.</p>
+      <p class="note" style="margin:8px 0 0">Risk / Reward is the party's variance: how far luck can move its ORE from its average, worked out from its tiles, stake share, rounds and Motherlode range. Higher ±31% means about 2 runs in 3 land within 31% of average, and the rest land further out. Expected ORE per SOL shows that as a range, so 0.47–0.90 means about 2 runs in 3 land there. It isn't a rating: lower is steadier, higher can win more and can fall short more. Under ±15% is Lower, under ±30% Medium, the rest Higher. Parties still minting are worked out at today's market as if they fill. Across 67 real parties, 69% landed inside their range and 96% inside double it. Solos drive most of it.</p>
+      <p class="note" style="margin:8px 0 0">What 67 parties showed, 23 Sep to 1 Nov:</p>
+      <ul>
+        <li><b>Luck:</b> about 9 parts in 10 of the gap in Value per SOL. A few solos above the expected number decide most of the top of this table.</li>
+        <li><b>When it ran:</b> about 1 part in 10. SOL deployed a round roughly doubled to about 16 as ORE went from about $80 to $150, moving with the price, so a plain miner stayed near 1.1–1.2 per SOL through October.</li>
+        <li><b>Settings:</b> price filter, deploy timing, tile mix and round size showed no clear gain once luck was taken out. 39 of 48 parties with a filter still played 90%+ of their rounds.</li>
+        <li><b>One hint:</b> waiting for a 100+ Motherlode came out about 7% better, from only 7 parties.</li>
+      </ul>
+      <p class="note" style="margin:8px 0 0">Party grades are gone: with luck taken out, they didn't predict results.</p>
+    </details>
     <div class="tw" style="max-height:440px;overflow:auto"><table id="boardTable"><thead></thead><tbody></tbody></table></div>
   </div>
 
   <div class="panel" id="cmpPanel">
     <h2>What settings actually did</h2>
-    <p class="note">Ended and mining parties grouped by one setting at a time, showing the median party in each group so one big party can't decide a row. Value per SOL prices the ORE at the time it was mined, which takes ORE's price rise out of the comparison. Luck (solos and Motherlodes) moves single parties a lot, so read the patterns, not single rows.</p>
-    <div class="tw"><table id="cmpTable"><thead><tr><th>Setting</th><th>Group</th><th>Parties</th><th>SOL used</th><th>ORE per SOL</th><th>Value per SOL</th></tr></thead><tbody></tbody></table></div>
+    <p class="note">Ended and mining parties grouped by one setting at a time, showing the median party in each group so one big party can't decide a row. Value per SOL prices the ORE at the time it was mined, which takes ORE's price rise out of the comparison. Without luck is the same median with each party's solos and Motherlodes at their average, so it's the column to compare.</p>
+    <div class="tw"><table id="cmpTable"><thead><tr><th>Setting</th><th>Group</th><th>Parties</th><th>SOL used</th><th>ORE per SOL</th><th>Value per SOL</th><th>Without luck</th></tr></thead><tbody></tbody></table></div>
     <ul class="caveats" id="cmpTake" style="margin:0;padding-left:18px;font-size:13px;color:var(--muted)"></ul>
   </div>
 
   <div class="panel" id="designPanel">
     <h2>Design a party</h2>
-    <p class="note">Try settings before you launch. Graded with the same rules as the reviews, projected with the live market numbers.</p>
+    <p class="note">Try settings before you launch, projected with the live market numbers.</p>
     <div class="recs" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,140px),1fr))">
       <div class="field"><label for="dPrice">Mint price (SOL)</label><input type="number" id="dPrice" step="0.01" min="0" value="0.05"></div>
       <div class="field"><label for="dSupply">Supply</label><input type="number" id="dSupply" step="1" min="2" value="200"></div>
@@ -87,14 +100,14 @@
     <div id="designOut"></div>
   </div>
 
-  <p class="legal">ORE Parties are run by other people on ore.party, and grades are a guide only. Projections are estimates and luck decides any single party. Not financial advice.</p>
+  <p class="legal">ORE Parties are run by other people on ore.party. Projections are estimates and luck decides any single party. Not financial advice.</p>
 </div>
 
 <script src="/ore-tools.js"></script>
 <script>
 (function(){
   const {$,capRun,pct,ore,sol,dur,readMarket:read,startMarket} = OreTools;
-  // ---------- ORE Party picks, leaderboard, comparisons, designer ----------
+  // ---------- ORE Parties minting, leaderboard, comparisons, designer ----------
   let PARTIES = [], BOARDS = [], partiesOk = null, boardState = "loading", boardTab = "complete";
   const hasRecord = q => q.status!=="minting" && q.rounds>=500 && q.spent>=1;
   const oreSol = q => q.spent>0 ? q.oreWon/q.spent : 0;
@@ -103,11 +116,39 @@
 
   // Average Motherlode inside a range: it grows 0.2 ORE a round and pays 1 round in 500, so sizes fall off exponentially around 100 ORE.
   function meanPool(lo, hi){ if(hi>1e8) return lo+100; const s=hi-lo, e=Math.exp(-s/100); return e<1 ? lo+100-s*e/(1-e) : lo; }
+  // What its stake share should have won. A split win pays its share of 1 ORE and a Motherlode its share of the pool, so the record gives
+  // the share; a tile wins 1 round in 25 and a Motherlode 1 in 500, so the share gives the average. Solo-only parties have no split wins to read.
+  function luckOf(q){
+    const splits=(q.wins||0)-q.solos;
+    if(!hasRecord(q)||!q.split||splits<50) return null;
+    const pool=meanPool(q.minML,q.maxML==null||q.maxML===0?1e9:q.maxML), paid=q.mls?(pool*(q.mls-1)+(q.lastML||pool))/q.mls:pool;
+    const share=(q.oreWon-q.solos)/(splits+q.mls*paid); if(share<=0) return null;
+    const ev=q.rounds*share*(q.solo+q.split)/25*(1+pool/500);
+    return {share, fair:q.px?ev*q.px/q.spent:null, expSolos:q.rounds*share*q.solo/25};
+  }
+  // How far luck can move a party's ORE from its average, as a fraction of it. 69% of 67 real parties landed inside this and 96% inside double.
+  // Each round a split tile pays the share of 1 ORE, a solo tile 1 ORE at a chance equal to the share, and a Motherlode the share of the pool.
+  function swingOf(q,p){
+    const k=q.solo+q.split, cap=q.maxML==null||q.maxML===0?1e9:q.maxML; if(!k) return null;
+    const pool=meanPool(q.minML,cap), sd=Math.min(100,(cap-q.minML)/3.46);
+    let R=q.rounds, share=luckOf(q)?.share, mid;
+    if(!hasRecord(q)){   // not run yet: what it would do with its SOL, a minting party as if it fills (after the 3.75% mint fee)
+      const r=capRun({...p,budget:Math.max(q.status==="minting"&&q.supply&&q.price?q.supply*q.price*0.9625:q.sol,0)},q.perTile,q.solo,q.split,cap,q.minML);
+      R=r.rounds; share=R?(r.lam+r.drip)/(R*k/25):0; mid=r.sol>0?r.total/r.sol:0;
+    } else {
+      if(!share&&q.solo) share=Math.max(q.solos,1)/(R*q.solo/25);   // solo-only: its solos are the only read of its share
+      mid=R*share*k/25*(1+pool/500)/q.spent;
+    }
+    if(!(share>0)||!R) return null;
+    return {mid, cv:Math.sqrt((q.split/25+q.solo/(25*share)+k/12500*(pool*pool+sd*sd))/(R*(k/25)**2*(1+pool/500)**2))};
+  }
+  const swingText = s => s?`${s.cv<0.15?"Lower":s.cv<0.3?"Medium":"Higher"} ±${Math.round(s.cv*100)}%`:"—";
+  const rangeText = s => s?`${(s.mid*Math.max(0,1-s.cv)).toFixed(2)}–${(s.mid*(1+s.cv)).toFixed(2)}`:"—";
   // The least a round clears the bot's rule by. Its cost leaves out the admin fee (about +10%). Count Motherlode divides by the real
   // 1 + pool/500; without it the bot always assumes 1.2 ORE a round, so in a low range the true cost sits above what it sees.
   function edgeOf(q){
     if(!q.pro||!q.disc) return null;
-    return 1 - 1.1*(1-q.disc/100)*(q.countML ? 1 : 1.2/(1+meanPool(q.minML,q.maxML==null||q.maxML===0?1e9:q.maxML)/500));
+    return +(1 - 1.1*(1-q.disc/100)*(q.countML ? 1 : 1.2/(1+meanPool(q.minML,q.maxML==null||q.maxML===0?1e9:q.maxML)/500))).toFixed(6);   // 20% is exactly 12%, not 11.99999%
   }
   // Share of recent final boards that pass its rule at today's price and Motherlode, the same test ore.party's own form runs.
   function passShare(q,p){
@@ -117,51 +158,46 @@
   }
   const passed = pass => `${Math.round(pass*BOARDS.length)} of the last ${BOARDS.length}`;
   function reviewParty(q, p){
-    const pros=[], cons=[]; let score=0;
+    const notes=[], cons=[];   // notes say what a setup does; cons are the few things the maths says can really cost a party
     const tiles=q.solo+q.split, cap=q.maxML==null||q.maxML===0?1e9:q.maxML;
     const realEdge = edgeOf(q);
-    if(!q.pro){ score+=4; cons.push("Lite mode: mines every round, with no price check."); }
-    else if(!q.disc){ score+=6; cons.push("Minimum Discount is off, so it mines even when mining costs more than buying ORE."); }
-    else { const e=realEdge; score += e>=0.12?40 : e>=0.08?33 : e>=0.04?22 : e>0?14 : 10;
-      const txt=`${q.disc}% discount ${q.countML?"counting the Motherlode":"without Count Motherlode"} ≈ ${(Math.max(e,0)*100).toFixed(0)}% real edge after the admin fee`;
-      (e>=0.04?pros:cons).push(e>=0.04?`Price filter: ${txt}.`:`Price filter is weak: ${txt}.`); }
-    // A Motherlode range changes when a party mines, not how much ORE it makes, so only a very long wait costs points.
-    if(q.minML>=150){ score+=5; cons.push(`Only mines when the Motherlode is ${q.minML}+, so it sits idle for long stretches.`); }
-    else { score+=10; if(q.minML>=80) cons.push(`Waits for a ${q.minML}+ Motherlode, so it runs slower.`); }
+    if(!q.pro) notes.push("Lite mode: mines every round, with no price check.");
+    else if(!q.disc) notes.push("Minimum Discount is off, so it mines even when mining costs more than buying ORE.");
+    else notes.push(`Price filter: ${q.disc}% discount ${q.countML?"counting the Motherlode":"without Count Motherlode"} ≈ ${(Math.max(realEdge,0)*100).toFixed(0)}% real edge after the admin fee.`);
+    if(q.minML>=150) notes.push(`Only mines when the Motherlode is ${q.minML}+, so it sits idle for long stretches.`);
+    else if(q.minML>=80) notes.push(`Waits for a ${q.minML}+ Motherlode, so it runs slower.`);
     const r = capRun({...p, budget:Math.max(q.sol,0)}, q.perTile, q.solo, q.split, cap, q.minML);
-    if(tiles===0){ cons.push("No tiles set."); }
-    else if(tiles===25){ score+=30; pros.push("All 25 tiles: steady drip plus solo shots."); }
-    else if(q.split>=10){ score+=q.solo?16:24; pros.push(`${q.solo} solo + ${q.split} split tiles: steady drip${q.solo?" plus solo shots":""}.`); }
-    else if(q.split>0){ score+=12; }
-    else { const pS=r.pSolo; score += pS>=0.9?14:pS>=0.6?10:5; (pS>=0.9?pros:cons).push(pS>=0.9?`Solo-only, with a ${pct(pS)} chance of at least one solo.`:`Solo-only with no drip: ${pct(1-pS)} chance it ends with no solo at all.`); }
-    if(q.pro){ const s=q.secs; if(s!=null && s<=1.5) score+=10; else { score+=5; cons.push(`Deploys ${s}s before the round ends; others add SOL after the price check.`);} } else score+=5;
+    if(tiles===0) cons.push("No tiles set.");
+    else if(tiles===25) notes.push("All 25 tiles: steady drip plus solo shots.");
+    else if(q.split>=10) notes.push(`${q.solo} solo + ${q.split} split tiles: steady drip${q.solo?" plus solo shots":""}.`);
+    else if(q.split===0){ const pS=r.pSolo; if(pS>=0.9) notes.push(`Solo-only, with a ${pct(pS)} chance of at least one solo.`); else cons.push(`Solo-only with no drip: ${pct(1-pS)} chance it ends with no solo at all.`); }
+    if(q.pro && !(q.secs!=null && q.secs<=1.5)) notes.push(`Deploys ${q.secs}s before the round ends; others add SOL after the price check.`);
     const perRound=q.perTile*tiles;
-    if(perRound>0 && perRound<0.002){ score-=3; cons.push(`Only ${sol(perRound)} SOL a round, so fixed per-round fees take a bigger cut.`); }
-    if(q.bps) pros.push(`Sizes each tile at ${(q.bps/100).toFixed(2)}% of its SOL (capped at ${q.perTile.toPrecision(2)}).`);
+    if(perRound>0 && perRound<0.002) cons.push(`Only ${sol(perRound)} SOL a round, so fixed per-round fees take a bigger cut.`);
+    if(q.bps) notes.push(`Sizes each tile at ${(q.bps/100).toFixed(2)}% of its SOL (capped at ${q.perTile.toPrecision(2)}).`);
     const pass = q.status==="complete" ? null : passShare(q,p);
     if(pass!=null && pass<0.5) cons.push(`Only ${passed(pass)} rounds would pass its filter at today's prices, so it runs slower.`);
     let track=null;
-    if(q.status==="minting" && q.supply){ const fill=q.minted/q.supply; score += fill>=0.5?10:fill>=0.2?6:2;
-      (fill>=0.5?pros:cons).push(`${q.minted}/${q.supply} minted${q.closes?`, closes ${new Date(q.closes).toUTCString().slice(5,22)} UTC`:""}${fill<0.5?" (needs 50% to start mining)":""}.`); }
-    else if(hasRecord(q)){ track=oreSol(q)*(q.px||p.orePrice); score += track>=1.1?10:track>=0.9?6:3;
-      (track>=1?pros:cons).push(`Result so far: ${ore(q.oreWon)} ORE for ${sol(q.spent)} SOL, worth ${track.toFixed(2)} per SOL at ${q.px?"the price then":"today's price"}, ${q.solos} solo${q.solos===1?"":"s"}, ${q.mls} Motherlode share${q.mls===1?"":"s"}.`); }
-    else score+=6;
-    score=Math.max(0,Math.min(100,Math.round(score)));
-    return {q,score,grade:score>=80?"A":score>=65?"B":score>=50?"C":"D",pros,cons,r,realEdge,track,pass};
+    if(q.status==="minting" && q.supply){ const fill=q.minted/q.supply;
+      (fill>=0.5?notes:cons).push(`${q.minted}/${q.supply} minted${q.closes?`, closes ${new Date(q.closes).toUTCString().slice(5,22)} UTC`:""}${fill<0.5?" (needs 50% to start mining)":""}.`); }
+    else if(hasRecord(q)){ track=oreSol(q)*(q.px||p.orePrice);
+      notes.push(`Result so far: ${ore(q.oreWon)} ORE for ${sol(q.spent)} SOL, worth ${track.toFixed(2)} per SOL at ${q.px?"the price then":"today's price"}, ${q.solos} solo${q.solos===1?"":"s"}, ${q.mls} Motherlode share${q.mls===1?"":"s"}.`); }
+    return {q,notes,cons,r,realEdge,track,pass,swing:swingOf(q,p)};
   }
+  function byFounder(q){ const b=document.createElement("span"), a=document.createElement("a"); a.href="https://ore.party/u/"+encodeURIComponent(q.founder); a.target="_blank"; a.rel="noopener"; a.textContent=q.founder; a.style.color="inherit"; b.append("By ",a); b.style.cssText="margin-left:6px;font-size:12px;color:var(--muted);white-space:nowrap"; return b; }
   function reviewCard(rv, compact){
     const q=rv.q, r=rv.r, d=document.createElement("div"); d.className=compact?"rec":"rev";
-    const top=document.createElement("div"); top.style.cssText="display:flex;gap:12px;align-items:center";
-    const g=document.createElement("div"); g.className="grade "+rv.grade; g.textContent=rv.grade;
     const t=document.createElement("div");
     const a=document.createElement("a"); a.href=q.slug?"https://ore.party/"+q.slug:"#"; if(q.slug){a.target="_blank";a.rel="noopener";} a.textContent=q.name; a.style.cssText="font:700 19px/1.1 var(--display);text-transform:uppercase;color:var(--ink)";
-    const s=document.createElement("div"); s.className="note"; s.textContent=`${rv.score}/100 · ${q.status==="complete"?"ended":q.status}${q.price?` · mint ${q.price} SOL`:""}`;
-    t.append(a,s); top.append(g,t);
+    const s=document.createElement("div"); s.className="note"; s.textContent=`${q.status==="complete"?"ended":q.status}${q.price?` · mint ${q.price} SOL`:""}`;
+    t.append(a); if(q.founder) t.append(byFounder(q)); t.append(s);
     const set=document.createElement("div"); set.style.cssText="display:flex;flex-wrap:wrap;gap:6px";
     [`${q.perTile.toPrecision(2)} SOL/tile`, `${q.solo} solo + ${q.split} split`, `ML ${q.minML}–${q.maxML==null||q.maxML===0?"∞":q.maxML}`, q.pro?(q.disc?`${q.disc}% discount`:"no price filter"):"Lite"].forEach(x=>{const sp=document.createElement("span");sp.textContent=x;sp.style.cssText="font:500 12px var(--mono);padding:2px 7px;border-radius:4px;background:var(--gold-soft)";set.append(sp);});
     const dl=document.createElement("dl"); dl.style.cssText="display:grid;grid-template-columns:1fr auto;gap:4px 10px;margin:0;font-size:13px";
     const rowsD = [];
-    if(hasRecord(q)){ rowsD.push(["Result so far", `${ore(q.oreWon)} ORE · ${oreSol(q).toFixed(2)} per SOL`]); if(worth(q)!=null) rowsD.push(["Value per SOL", worth(q).toFixed(2)]); }
+    if(hasRecord(q)){ rowsD.push(["Result so far", `${ore(q.oreWon)} ORE · ${oreSol(q).toFixed(2)} per SOL`]); if(worth(q)!=null) rowsD.push(["Value per SOL", worth(q).toFixed(2)]);
+      if(q.solo){ const l=luckOf(q); rowsD.push(["Solo won", String(q.solos)],["Expected solo", l?l.expSolos.toFixed(1):"—"]); } }
+    if(rv.swing) rowsD.push(["Risk / Reward", swingText(rv.swing)],["Expected ORE per SOL", rangeText(rv.swing)]);
     if(q.status!=="complete"){
       if(r.rounds){
         const days = rv.pass==null ? r.days : rv.pass>0 ? r.days/rv.pass : Infinity;
@@ -173,17 +209,18 @@
     }
     rowsD.forEach(([k,v])=>{const dt=document.createElement("dt");dt.textContent=k;dt.style.color="var(--muted)";const dd=document.createElement("dd");dd.textContent=v;dd.style.cssText="margin:0;font:500 13px var(--mono);text-align:right";dl.append(dt,dd);});
     const ul=document.createElement("ul"); ul.style.cssText="margin:0;padding-left:18px;font-size:13px;display:flex;flex-direction:column;gap:3px";
-    const items = compact ? [...rv.pros.slice(0,2).map(x=>["pro",x]), ...rv.cons.slice(0,1).map(x=>["con",x])] : [...rv.pros.map(x=>["pro",x]), ...rv.cons.map(x=>["con",x])];
+    const items = compact ? [...rv.notes.slice(0,2).map(x=>["",x]), ...rv.cons.slice(0,1).map(x=>["con",x])] : [...rv.notes.map(x=>["",x]), ...rv.cons.map(x=>["con",x])];
     items.forEach(([c,x])=>{const li=document.createElement("li");li.className=c;li.textContent=x;ul.append(li);});
-    d.append(top,set,dl,ul); return d;
+    d.append(t,set,dl,ul); return d;
   }
   function srcText(){ return "Live from ore.party."; }
   const boardWait = () => boardState==="loading" ? "Loading the party history…" : "The party history couldn't load right now. Press Refresh to try again.";
   function renderParties(p){
     const box=$("partyTop"); if(!box) return; box.innerHTML="";
     const minting = PARTIES.filter(q=>q.status==="minting");
-    const ranked = minting.map(q=>reviewParty(q,p)).sort((a,b)=>b.score-a.score).slice(0,3);
-    $("partySrc").textContent = partiesOk===null ? "Loading parties from ore.party…" : partiesOk ? `${srcText()} Best 3 of ${minting.length} parties minting now, graded on price filter, tile mix, execution and mint progress.` : "Parties couldn't load right now. Press Refresh to try again.";
+    const fillOf = q=>q.supply?q.minted/q.supply:0;
+    const ranked = minting.filter(q=>fillOf(q)<1).sort((a,b)=>fillOf(b)-fillOf(a)).slice(0,3).map(q=>reviewParty(q,p));
+    $("partySrc").textContent = partiesOk===null ? "Loading parties from ore.party…" : partiesOk ? `${srcText()} The ${ranked.length} closest to filling, of ${minting.length} minting now.` : "Parties couldn't load right now. Press Refresh to try again.";
     if(partiesOk){ if(!ranked.length) box.textContent="No parties are minting right now."; else ranked.forEach(rv=>box.append(reviewCard(rv,true))); }
     renderBoard(p); renderCompare(); renderDesign(p);
   }
@@ -191,28 +228,30 @@
   let boardSort={k:"value",d:-1};
   function renderBoard(p){
     const tb=$("boardTable"); const head=tb.querySelector("thead"), body=tb.querySelector("tbody");
-    const list = PARTIES.filter(q=>q.status===boardTab).map(q=>{const rv=reviewParty(q,p);return {q,rv,score:rv.score,value:worth(q)??-1,ores:oreSol(q),ore:q.oreWon,spent:q.spent,solos:q.solos,fill:q.supply?q.minted/q.supply:0,rec:hasRecord(q)};});
+    const list = PARTIES.filter(q=>q.status===boardTab).map(q=>{const l=luckOf(q), s=swingOf(q,p);return {q,s,value:worth(q)??-1,ores:oreSol(q),ore:q.oreWon,spent:q.spent,solos:q.solos,expSolos:l?l.expSolos:-1,swing:s?s.cv:-1,mid:s?s.mid:-1,fill:q.supply?q.minted/q.supply:0,rec:hasRecord(q)};});
     const cols = boardTab==="minting"
-      ? [["name","Party"],["score","Grade"],["settings","Settings"],["fill","Minted"],["price","Mint"]]
-      : [["name","Party"],["value","Value per SOL"],["ores","ORE per SOL"],["ore","ORE won"],["spent","SOL used"],["solos","Solos"],["score","Grade"],["settings","Settings"]];
-    if(!cols.some(c=>c[0]===boardSort.k)) boardSort={k:"score",d:-1};
+      ? [["name","Party"],["swing","Risk / Reward"],["mid","Expected ORE per SOL"],["settings","Settings"],["fill","Minted"],["price","Mint"]]
+      : [["name","Party"],["value","Value per SOL"],["ores","ORE per SOL"],["mid","Expected ORE per SOL"],["ore","ORE won"],["spent","SOL used"],["solos","Solo Won"],["expSolos","Expected Solo"],["swing","Risk / Reward"],["settings","Settings"]];
+    if(!cols.some(c=>c[0]===boardSort.k)) boardSort={k:boardTab==="minting"?"fill":"value",d:-1};
     const keyv = (x,k)=> k==="name"?x.q.name.toLowerCase(): k==="price"?x.q.price: k==="settings"?setStr(x.q): x[k];
     const shown = boardTab==="minting"?list:list.filter(x=>x.rec);
     shown.sort((a,b)=>{const A=keyv(a,boardSort.k),B=keyv(b,boardSort.k);return (typeof A==="string"?A.localeCompare(B):A-B)*boardSort.d;});
     head.innerHTML=""; const hr=document.createElement("tr");
     cols.forEach(([k,l])=>{const th=document.createElement("th");const b=document.createElement("button");b.type="button";b.textContent=l;b.style.cssText="all:unset;cursor:pointer";th.setAttribute("aria-sort",boardSort.k===k?(boardSort.d>0?"ascending":"descending"):"none");
-      b.addEventListener("click",()=>{boardSort={k,d:boardSort.k===k?-boardSort.d:(k==="name"||k==="settings"?1:-1)};renderBoard(read());});th.append(b);hr.append(th);});
+      b.addEventListener("click",()=>{boardSort={k,d:boardSort.k===k?-boardSort.d:(k==="name"||k==="settings"?1:-1)};renderBoard(read());});th.append(b);
+      if(k==="swing"){const i=document.createElement("button");i.type="button";i.textContent="i";i.setAttribute("aria-label","How Expected Solo and Risk / Reward work");i.style.cssText="all:unset;cursor:pointer;display:inline-grid;place-items:center;width:15px;height:15px;margin-left:5px;border:1px solid var(--gold);border-radius:50%;font:600 10px var(--mono);color:var(--gold);text-transform:none;vertical-align:1px";i.addEventListener("click",()=>{const g=$("luckInfo");g.open=!g.open;});th.append(i);}
+      hr.append(th);});
     head.append(hr); body.innerHTML="";
     shown.forEach(x=>{const tr=document.createElement("tr");
       const cells = boardTab==="minting"
-        ? [x.q.name, `${x.rv.grade} · ${x.score}`, setStr(x.q), `${x.q.minted}/${x.q.supply}`, sol(x.q.price)]
-        : [x.q.name, x.value<0?"—":x.value.toFixed(2), x.ores.toFixed(2), ore(x.ore), sol(x.spent), String(x.solos), `${x.rv.grade} · ${x.score}`, setStr(x.q)];
-      cells.forEach((c,i)=>{const td=document.createElement("td");if(i===0){const a=document.createElement("a");a.href="https://ore.party/"+x.q.slug;a.target="_blank";a.rel="noopener";a.textContent=c;a.style.color="var(--ink)";td.append(a);}else td.textContent=c;tr.append(td);});
+        ? [x.q.name, swingText(x.s), rangeText(x.s), setStr(x.q), `${x.q.minted}/${x.q.supply}`, sol(x.q.price)]
+        : [x.q.name, x.value<0?"—":x.value.toFixed(2), x.ores.toFixed(2), rangeText(x.s), ore(x.ore), sol(x.spent), String(x.solos), x.expSolos<0?"—":x.q.solo?x.expSolos.toFixed(1):"0", swingText(x.s), setStr(x.q)];
+      cells.forEach((c,i)=>{const td=document.createElement("td");if(i===0){const a=document.createElement("a");a.href="https://ore.party/"+x.q.slug;a.target="_blank";a.rel="noopener";a.textContent=c;a.style.color="var(--ink)";td.append(a);if(x.q.founder)td.append(byFounder(x.q));}else td.textContent=c;tr.append(td);});
       body.append(tr);});
     const hidden=list.length-shown.length;
-    $("boardNote").textContent = boardTab!=="minting"&&boardState!=="ok" ? boardWait() : `${srcText()} ${shown.length} parties${hidden?` (${hidden} with under 500 rounds or 1 SOL used are left out)`:""}. Value per SOL is the ORE won, priced at ORE's average while the party ran, ÷ SOL used, before the claim fee: 1.00 means the ORE was worth the SOL it cost at the time. Settings: solo+split tiles · SOL per tile · Motherlode range · price filter. Click a header to sort.`;
+    $("boardNote").textContent = boardTab!=="minting"&&boardState!=="ok" ? boardWait() : `${srcText()} ${shown.length} parties${hidden?` (${hidden} with under 500 rounds or 1 SOL used are left out)`:""}. Value per SOL is the ORE won, priced at ORE's average while the party ran, ÷ SOL used, before the claim fee: 1.00 means the ORE was worth the SOL it cost at the time. Expected Solo is how many solos its stake share should have won on average. Risk / Reward is how far luck can move its ORE either way, not a rating, and Expected ORE per SOL is the range that leaves it. Settings: solo+split tiles · SOL per tile · Motherlode range · price filter. Click a header to sort.`;
   }
-  document.querySelectorAll("#boardTabs button").forEach(b=>b.addEventListener("click",()=>{boardTab=b.dataset.tab;boardSort={k:boardTab==="minting"?"score":"value",d:-1};document.querySelectorAll("#boardTabs button").forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false"));renderBoard(read());}));
+  document.querySelectorAll("#boardTabs button").forEach(b=>b.addEventListener("click",()=>{boardTab=b.dataset.tab;boardSort={k:boardTab==="minting"?"fill":"value",d:-1};document.querySelectorAll("#boardTabs button").forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false"));renderBoard(read());}));
   // Comparisons
   const GROUPS = [
     ["Price filter", q=>!q.pro?"Lite (none)":!q.disc?"Pro, filter off":q.disc<=10?"1–10%":q.disc<20?"11–19%":"20%+"],
@@ -232,18 +271,19 @@
       const entries=Object.entries(g).map(([k,v])=>{
         const ss=v.reduce((t,q)=>t+q.spent,0), big=v.reduce((a,b)=>b.spent>a.spent?b:a);
         if(v.length>=5 && (!top||big.spent/ss>top.share)) top={name:big.name,group:k,share:big.spent/ss};
-        return {k,n:v.length,ss,ms:median(v.map(oreSol)),val:median(v.map(worth))};
-      }).sort((a,b)=>(b.val??b.ms)-(a.val??a.ms));
+        return {k,n:v.length,ss,ms:median(v.map(oreSol)),val:median(v.map(worth)),fair:median(v.map(q=>luckOf(q)?.fair))};
+      }).sort((a,b)=>(b.fair??b.val??b.ms)-(a.fair??a.val??a.ms));
       best[label]=entries;
       entries.forEach((e,i)=>{const tr=document.createElement("tr");if(i===0&&e.n>=5)tr.className="me";
-        [i===0?label:"", e.k, String(e.n), sol(e.ss), num2(e.ms), num2(e.val)].forEach(c=>{const td=document.createElement("td");td.textContent=c;tr.append(td);});tb.append(tr);});
+        [i===0?label:"", e.k, String(e.n), sol(e.ss), num2(e.ms), num2(e.val), num2(e.fair)].forEach(c=>{const td=document.createElement("td");td.textContent=c;tr.append(td);});tb.append(tr);});
     });
     const ul=$("cmpTake"); ul.innerHTML="";
     const say=t=>{const li=document.createElement("li");li.textContent=t;ul.append(li);};
     if(!data.length){ say(boardWait()); return; }
-    const pick=(label,k)=>(best[label]||[]).find(e=>e.k===k), val=e=>e?num2(e.val):"—";
-    say(`Priced at the time, parties with a 20%+ price filter returned a median ${val(pick("Price filter","20%+"))} per SOL, against ${val(pick("Price filter","Lite (none)"))} in Lite mode and ${val(pick("Price filter","Pro, filter off"))} with the filter off.`);
-    const t=best["Tiles"]||[]; if(t.length>1) say(`By tiles, ${t[0].k.toLowerCase()} did best (${val(t[0])}) and ${t[t.length-1].k.toLowerCase()} did worst (${val(t[t.length-1])}). Solo-only parties swing the most: one or two solos decide them.`);
+    const pick=(label,k)=>(best[label]||[]).find(e=>e.k===k), val=e=>e?num2(e.val):"—", fair=e=>e?num2(e.fair):"—";
+    const f20=pick("Price filter","20%+"), fLite=pick("Price filter","Lite (none)"), fOff=pick("Price filter","Pro, filter off");
+    say(`Priced at the time, parties with a 20%+ price filter returned a median ${val(f20)} per SOL, against ${val(fLite)} in Lite mode and ${val(fOff)} with the filter off. Without luck that's ${fair(f20)}, ${fair(fLite)} and ${fair(fOff)}.`);
+    const t=[...(best["Tiles"]||[])].sort((a,b)=>(b.val??b.ms)-(a.val??a.ms)); if(t.length>1) say(`By tiles, ${t[0].k.toLowerCase()} did best (${val(t[0])}) and ${t[t.length-1].k.toLowerCase()} did worst (${val(t[t.length-1])}). Solo-only parties swing the most: one or two solos decide them.`);
     say(`By Motherlode limit: ${val(pick("Max Motherlode","100 or less"))} at 100 or less, ${val(pick("Max Motherlode","101–200"))} at 101–200, ${val(pick("Max Motherlode","Over 200 / none"))} over 200 or with none. A range mostly changes when a party mines, so gaps this size are mainly luck.`);
     const wait=pick("Min Motherlode","100+"); if(wait&&wait.n<10) say(`Waiting for a 100+ Motherlode shows ${val(wait)}, but that's only ${wait.n} parties, and it depends on hitting one.`);
     const old=pick("Started","Before 16 Oct"), recent=pick("Started","16 Oct or later");
@@ -286,7 +326,7 @@
     if(!q){ try{ const d=await fetch("/api/wizard?party="+encodeURIComponent(slug)).then(r=>r.json()); q=d.party; failed=!!d.failed; }catch(e){ failed=true; } }
     if(!q){ say(failed?"Couldn't reach ore.party right now. Try again in a minute.":`Couldn't find "${slug}" on ore.party.`); return; }
     const card=reviewCard(reviewParty(q,read()),false);
-    const n=document.createElement("p"); n.className="note"; n.textContent="Live data from ore.party. Grades rate the setup; luck still decides any single party.";
+    const n=document.createElement("p"); n.className="note"; n.textContent="Live data from ore.party. Luck decides any single party.";
     card.append(n); out.append(card);
   }
   $("reviewForm").addEventListener("submit",reviewByLink);

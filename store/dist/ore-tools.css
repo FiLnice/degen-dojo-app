@@ -67,12 +67,10 @@ input:focus-visible,button:focus-visible,select:focus-visible{outline:2px solid 
 .rec dl{display:grid;grid-template-columns:1fr auto;gap:4px 10px;margin:0;font-size:13px}
 .rec dt{color:var(--muted)} .rec dd{margin:0;font:500 13px var(--mono);text-align:right}
 .rec .btn{margin-top:auto}
-.grade{font:700 32px/1 var(--display);width:46px;height:46px;border-radius:8px;display:grid;place-items:center;border:2px solid currentColor;flex:none}
-.grade.A{color:var(--ok)} .grade.B{color:var(--gold)} .grade.C{color:var(--warn)} .grade.D{color:var(--bad)}
 .rev{border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:10px;background:var(--bg);margin-top:10px}
 .rev .top{display:flex;gap:12px;align-items:center}
 .rev ul{margin:0;padding-left:18px;font-size:13px;display:flex;flex-direction:column;gap:3px}
-.rev li.pro::marker{color:var(--ok)} .rev li.con::marker{color:var(--bad)}
+.rev li.con::marker{color:var(--bad)}
 .rev a{color:var(--ink)}
 .legal{font-size:12px;color:var(--muted);margin:0;text-align:center}
 .sumnote{padding-bottom:9px;border-bottom:1px solid var(--line)}

@@ -8,7 +8,7 @@
 // ?board=1 is every ended and mining party's settings and results, for the leaderboard and the comparisons. Ended parties never
 // change, so each is fetched once and kept in Blobs: a refresh only calls ore.party for the ones still mining, every 15 minutes at most.
 // Each comes with ORE's average price in SOL while it ran (one GeckoTerminal call), so results can be compared at the price of the time.
-// ore.party is outside data: only the fields in cleanParty pass through, and its holder lists never leave this function.
+// ore.party is outside data: only the fields in cleanParty and the founder's name pass through, and its holder lists never leave this function.
 import { limited } from "./store-ratelimit-core.mjs";
 import { getStore } from "@netlify/blobs";
 import { createHash } from "node:crypto";
@@ -18,9 +18,9 @@ const BOARD = "BrcSxdp1nXFzou1YyDnQJcPNBNHgoypZmTsyKBSLLXzi";
 const TREASURY = "45db2FSR4mcXdSVVZbKbwojU6uYDpMyhpEi7cC8nHaWG";
 const ORE_MINT = "oreoU2P8bN6jkk3jbaiVxYnG1dCXcYxwhwyK9jSybcp", SOL_MINT = "So11111111111111111111111111111111111111112";
 const ORE_SOL_POOL = "3Mt1bpU3fnSXyPEm66HKKXyQTpLWrwYziPLqwTqK4ZT7";   // the deepest ORE/SOL pool, for past prices
-const PARTIES = "https://ore.party/api/parties";
+const PARTY_SITE = "https://ore.party", PARTIES = `${PARTY_SITE}/api/parties`;
 const SLUG = /^[a-z0-9-]{1,64}$/;
-const ROUNDS_BACK = 8, BOARDS_BACK = 100, BOARDS_TTL_MS = 600000, PRICES_TTL_MS = 21600000, PARALLEL = 8, TIMEOUT_MS = 4000, BOARD_BUDGET_MS = 5500, BOARD_CALLS = 70;
+const ROUNDS_BACK = 8, BOARDS_BACK = 100, BOARDS_TTL_MS = 600000, PRICES_TTL_MS = 21600000, PARALLEL = 8, TIMEOUT_MS = 4000, BOARD_BUDGET_MS = 5500, BOARD_CALLS = 70, FOUNDER_BUDGET_MS = 3000, FOUNDER_CALLS = 20;
 
 // Round address. Self-contained on purpose (no web3 in the function bundle): same base58 + on-curve + PDA rule as store-fn-dd-listings.mjs.
 const ALPH = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
@@ -177,7 +177,8 @@ function cleanParty(m, row) {
     sol, pro: s.mode === "pro", solo: num(s.soloTiles) || 0, split: num(s.splitTiles) || 0, perTile: num(s.solPerTile) || 0,
     minML: num(s.minMotherlodeOre) || 0, maxML: num(s.maxMotherlodeOre), secs: num(pro.secondsLeft),
     bps: pro.solPerTileMode === "share" ? num(pro.tileShareBps) || 0 : 0, disc: num(pro.minDiscountPct), countML: !!pro.countMotherlode,
-    rounds: num(log.totalRounds) || 0, last: num(log.rows?.[0]?.roundId), solos: num(log.soloWins) || 0, mls: num(log.motherlodeWins) || 0, oreWon: num(log.oreWon) || 0,
+    rounds: num(log.totalRounds) || 0, last: num(log.rows?.[0]?.roundId), wins: num(log.wins) || 0, solos: num(log.soloWins) || 0, mls: num(log.motherlodeWins) || 0, oreWon: num(log.oreWon) || 0,
+    lastML: (num(log.lastMotherlodeWin?.motherlodeGrams) || 0) / 1e11,   // the whole pool of its latest Motherlode, in ORE
     spent: status === "minting" ? 0 : Math.max(0, (num(s.rounds) || 0) * (num(s.solPerRound) || 0) - sol),   // the vault it started with, less what's left
     created: typeof row?.createdAt === "string" ? row.createdAt.slice(0, 10) : "",
   };
@@ -206,6 +207,29 @@ async function getParties(rows, until = Infinity) {
 }
 const mintingParties = async () => getParties((await listParties()).filter((x) => x.status === "minting"));
 
+// The founder's name is only on the party's page, not in its API. It never changes, so each is read once and kept in Blobs.
+// One that couldn't be read yet stays unset, so the next run tries again.
+async function getFounder(slug) {
+  const r = await fetch(`${PARTY_SITE}/${slug}`, { signal: AbortSignal.timeout(TIMEOUT_MS) });
+  if (!r.ok) throw new Error(`founder ${r.status}`);
+  return (await r.text()).match(/founderName:"([^"\\<>]{1,40})"/)?.[1] || "";
+}
+async function addFounders(parties, store = getStore("wizard-parties")) {
+  const until = Date.now() + FOUNDER_BUDGET_MS;
+  const known = (await store.get("founders", { type: "json" }).catch(() => null)) || {};
+  const queue = parties.filter((p) => !(p.slug in known)).slice(0, FOUNDER_CALLS);
+  let added = 0;
+  const work = async () => {
+    for (let p = queue.shift(); p && Date.now() < until; p = queue.shift()) {
+      try { known[p.slug] = await getFounder(p.slug); added++; }
+      catch (e) { if (e.message === "founder 429") queue.length = 0; }
+    }
+  };
+  await Promise.all(Array.from({ length: PARALLEL }, work));
+  if (added) await store.setJSON("founders", known).catch(() => {});
+  for (const p of parties) if (p.slug in known) p.founder = known[p.slug];
+}
+
 // ore.party answers 429 after about 120 calls in a burst, so a run stops at BOARD_CALLS, mining parties first. Filling Blobs takes
 // a few runs: each hands back what it has, stays cached for a minute, and the next carries on from what Blobs kept.
 async function boardParties() {
@@ -213,7 +237,8 @@ async function boardParties() {
   const rows = (await listParties()).filter((x) => x.status !== "minting" && x.status !== "dissolved" && !x.private);
   const store = getStore("wizard-parties");
   const ended = (await store.get("ended-v2", { type: "json" }).catch(() => null)) || {};
-  const todo = rows.filter((x) => !(x.status === "complete" && ended[x.slug])).sort((a, b) => (a.status === "complete") - (b.status === "complete"));
+  // Ended parties saved before wins were kept are read once more; until then the old copy still fills the board
+  const todo = rows.filter((x) => !(x.status === "complete" && ended[x.slug]?.wins != null)).sort((a, b) => (a.status === "complete") - (b.status === "complete"));
   const fresh = await getParties(todo.slice(0, BOARD_CALLS), until);
   const newlyEnded = fresh.filter((p) => p.status === "complete");
   if (newlyEnded.length) {
@@ -222,9 +247,9 @@ async function boardParties() {
   }
   const bySlug = new Map(fresh.map((p) => [p.slug, p]));
   const parties = rows.map((x) => bySlug.get(x.slug) || (x.status === "complete" ? ended[x.slug] : null)).filter(Boolean);
-  const [days, live] = await Promise.all([pastPrices(store), market().catch(() => null)]);
+  const [days, live] = await Promise.all([pastPrices(store), market().catch(() => null), addFounders(parties, store).catch(() => {})]);
   for (const p of parties) p.px = runPrice(p, days, Number(live?.roundId), live?.roundSec || 77);
-  return { parties, whole: parties.length === rows.length };
+  return { parties, whole: parties.length === rows.length && parties.every((p) => "founder" in p && p.wins != null) };
 }
 let lastParties = null, lastBoard = null;   // a warm instance rides out an ore.party hiccup on the last good lists
 
@@ -246,11 +271,14 @@ export default async (request) => {
     if (!SLUG.test(slug)) return json({ party: null }, 300);
     try {
       const row = (await listParties()).find((x) => x.slug === slug);
-      return json({ party: row ? await getParty(row) : null }, 120);
+      const party = row ? await getParty(row) : null;
+      if (party) await addFounders([party]).catch(() => {});
+      return json({ party }, 120);
     } catch { return json({ party: null, failed: true }, 20); }
   }
   try {
     const [parties, boards] = await Promise.all([mintingParties(), recentBoards().catch(() => lastBoards.value)]);
+    await addFounders(parties).catch(() => {});
     lastParties = parties;
     return json({ parties, boards }, 120);
   } catch { return json({ parties: lastParties, boards: lastBoards.value }, 20); }

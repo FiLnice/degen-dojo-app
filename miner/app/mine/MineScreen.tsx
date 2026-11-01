@@ -20,11 +20,12 @@ import {
   estimateRounds,
   SQUARES,
   EXECUTOR_FEE_LAMPORTS,
+  STRATEGY_RANDOM,
 } from "@/lib/ore";
 import { SolIcon } from "@/components/SolIcon";
 import { TIP_WALLET, DEGENS_URL, DEGENS_INLINE_JSON } from "@/lib/config";
 import { recordTip, dojoFeeIxs, dojoFeeOf } from "@/lib/minerTip";
-import { estimateRun, PRESETS, PRESET_MAX_MOTHERLODE, type Preset } from "@/lib/mineEstimate";
+import { estimateRun, PRESETS, PRESET_MAX_MOTHERLODE, SOLO_TILES, SPLIT_TILES, NO_MOTHERLODE_LIMIT, type Preset } from "@/lib/mineEstimate";
 import { BurnMode } from "./BurnMode";
 
 type GridDegen = { name: string; image: string; mint?: string };
@@ -38,6 +39,7 @@ const fmtPct = (p: number) => (p >= 0.1 ? p.toFixed(2) : p.toFixed(4)) + "%";
 // The estimate's numbers: two figures at most, so they don't look more exact than they are.
 const fmtEst = (n: number) => String(Number(n.toPrecision(2)));
 const fmtOdds = (p: number) => (p < 0.001 ? "<0.1%" : p < 0.1 ? `${(p * 100).toFixed(1)}%` : `${Math.min(99, Math.round(p * 100))}%`);
+const fmtSol = (lamports: number) => String(Number((lamports / LAMPORTS_PER_SOL).toFixed(6)));
 const fmtTime = (s: number) => (s < 3600 ? `${Math.max(1, Math.round(s / 60))} min` : s < 172800 ? `${Math.round(s / 3600)} h` : `${Math.round(s / 86400)} days`);
 const solVal = (n: number, dp = 3) => (
   <span className="inline-flex items-center justify-center gap-1">
@@ -105,8 +107,12 @@ export function MineScreen({ previewDegens, header, footer }: { previewDegens?: 
   const [degenPool, setDegenPool] = useState<GridDegen[]>([]);
   const [amountStr, setAmountStr] = useState("0.0001");
   const [depositStr, setDepositStr] = useState("1");
-  // Shorter and Longer are fixed per-tile amounts; Custom opens the per-tile setting.
+  // Shorter and Longer are fixed: all 25 tiles, up to a 140 Motherlode. Custom opens the per-tile setting, the tiles and the Motherlode range.
   const [mode, setMode] = useState<Preset | "custom">("shorter");
+  const [soloStr, setSoloStr] = useState(String(SOLO_TILES));
+  const [splitStr, setSplitStr] = useState(String(SPLIT_TILES));
+  const [minMotherlodeStr, setMinMotherlodeStr] = useState("0");
+  const [maxMotherlodeStr, setMaxMotherlodeStr] = useState(String(PRESET_MAX_MOTHERLODE));
   // Hosted (/m/<slug>) miners swap their art in at runtime; the default /mine keeps the build-time config.
   const [hosted, setHosted] = useState<Hosted | null>(preview ? { slug: "preview", state: "ok" } : null);
   const [hostedName, setHostedName] = useState("");
@@ -195,6 +201,14 @@ export function MineScreen({ previewDegens, header, footer }: { previewDegens?: 
   const depositLamports = Math.floor(deposit * LAMPORTS_PER_SOL);
   const perTileLamports = mode === "custom" ? Math.floor((parseFloat(amountStr) || 0) * LAMPORTS_PER_SOL) : PRESETS[mode];
   const amount = perTileLamports / LAMPORTS_PER_SOL;
+  const presetRun = mode !== "custom";
+  const soloTiles = presetRun ? SOLO_TILES : Number(soloStr);
+  const splitTiles = presetRun ? SPLIT_TILES : Number(splitStr);
+  const minedTiles = soloTiles + splitTiles;
+  const minMotherlode = presetRun ? 0 : Number(minMotherlodeStr);
+  // Max 0 = no limit, as on the ORE Wizard. Below ORE's own default a limit is real.
+  const maxMotherlode = presetRun ? PRESET_MAX_MOTHERLODE : Number(maxMotherlodeStr) || NO_MOTHERLODE_LIMIT;
+  const goodRange = minMotherlode < maxMotherlode;
 
   const pot = round ? sol(round.deployed.reduce((a, b) => a + b, 0n)) : 0;
   const avgPerTile = pot / SQUARES;
@@ -204,7 +218,7 @@ export function MineScreen({ previewDegens, header, footer }: { previewDegens?: 
   const myPerTile = myDeployed.length ? myStake / myDeployed.length : 0;
   // Chance of taking the single uORE this round. The winning tile is random, and only on single-
   // winner rounds (SINGLE_ROUND_SHARE of them) does one miner take it, weighted by their share of
-  // that tile. You mine all 25 tiles, so average your share across them: mean(you_i / tile_i) × 40%.
+  // that tile. So average your share across your tiles, × how many of them are solo tiles of the 25.
   // Before you deploy, it previews your per-tile amount added on top of each tile.
   const myRoundMiner = myStake > 0 && miner ? miner : null;
   const tileShares = round
@@ -217,8 +231,10 @@ export function MineScreen({ previewDegens, header, footer }: { previewDegens?: 
         return amount > 0 ? amount / (tile + amount) : 0;
       })
     : [];
-  const winSingleUOre =
-    tileShares.length > 0 ? (tileShares.reduce((a, b) => a + b, 0) / tileShares.length) * SINGLE_ROUND_SHARE * 100 : 0;
+  const heldTiles = myRoundMiner ? myDeployed.length : SQUARES;
+  const pickedTiles = !!automation && automation.soloTiles + automation.splitTiles > 0;
+  const soloHeld = !myRoundMiner ? soloTiles : pickedTiles ? automation.soloTiles : heldTiles * SINGLE_ROUND_SHARE;
+  const winSingleUOre = tileShares.length > 0 ? (tileShares.reduce((a, b) => a + b, 0) / heldTiles) * (soloHeld / SQUARES) * 100 : 0;
   const claimableOre = miner ? ore(miner.claimableOre) : 0;
   const vaultUnrefined = miner ? ore(miner.unrefinedOre) : 0;
   const vaultRefined = miner ? ore(miner.refinedOre) : 0;
@@ -228,45 +244,53 @@ export function MineScreen({ previewDegens, header, footer }: { previewDegens?: 
   const walletSol = balance != null ? sol(balance) : null;
 
   // The live estimate reads the fuller of the last two rounds: a new round starts near empty and fills up.
-  const presetRun = mode !== "custom";
-  const overLimit = presetRun && motherlodeOre > PRESET_MAX_MOTHERLODE;
+  const overLimit = goodRange && motherlodeOre > maxMotherlode;
+  const underLimit = goodRange && !!motherlode && motherlodeOre < minMotherlode;
   const prevPot = prevRound ? sol(prevRound.deployed.reduce((a, b) => a + b, 0n)) : 0;
   const run = estimateRun({
     depositLamports,
     perTileLamports,
     tiles: (prevPot >= pot ? prevRound?.deployed : round?.deployed) ?? [],
     motherlodeOre,
-    limited: presetRun,
+    soloTiles,
+    splitTiles,
+    minMotherlode,
+    maxMotherlode,
     slotMs,
   });
   const autoBalance = automation ? sol(automation.balance) : 0;
   const autoPerTile = automation ? sol(automation.amount) : 0;
   const estLeftRounds = automation ? estimateRounds(automation.balance, automation.amount, automation.fee || undefined, automation.tiles) : 0;
-  const autoTilesLabel = !automation ? "" : automation.soloTiles && !automation.splitTiles ? `${automation.tiles} solo` : automation.splitTiles && !automation.soloTiles ? `${automation.tiles} split` : String(automation.tiles);
-  const autoWaiting = !!automation && motherlodeOre > automation.maxMotherlode;
+  const autoTilesLabel = !automation ? "" : automation.soloTiles && !automation.splitTiles ? `${automation.tiles} solo` : automation.splitTiles && !automation.soloTiles ? `${automation.tiles} split` : automation.soloTiles ? `${automation.soloTiles} solo + ${automation.splitTiles} split` : String(automation.tiles);
+  const autoAboveLimit = !!automation && motherlodeOre > automation.maxMotherlode;
+  const autoBelowLimit = !!automation && !!motherlode && motherlodeOre < automation.minMotherlode;
   const formColumn = !automation?.active || preview;
   // A hosted miner's own page must have loaded before anything can be sent.
   const hostedReady = !hosted || hosted.state === "ok";
   // The 1% Dojo fee on the deposit (lib/minerTip): every miner pays it, branded /m/<slug> ones too (owner 2026-10-30).
   const feeSol = dojoFeeOf(depositLamports) / LAMPORTS_PER_SOL;
-  // The bot needs one full round (25 tiles) PLUS its fee in the balance — less and ORE's first deploy just closes it.
-  const minDeposit = amount * SQUARES + EXECUTOR_FEE;
+  // The bot needs one full round (every tile mined) PLUS its fee in the balance — less and ORE's first deploy just closes it.
+  const minDeposit = amount * minedTiles + EXECUTOR_FEE;
   const walletShort = walletSol != null && deposit + feeSol > walletSol;
-  const canStartAuto = !preview && connected && amount > 0 && deposit >= minDeposit && !walletShort && !busy && hostedReady;
+  const canStartAuto = !preview && connected && amount > 0 && minedTiles > 0 && goodRange && deposit >= minDeposit && !walletShort && !busy && hostedReady;
 
   const pending = degens.length < SQUARES;
 
   async function onStartAuto() {
     if (!publicKey || !hostedReady || preview) return;
+    // ORE picks solo and split tiles only on its Random strategy, and it takes the first round's tiles from the mask, so the mask
+    // holds the same count (71 of 71 live miners set this way, 2026-11-01). All 25 needs neither.
+    const pickTiles = minedTiles < SQUARES;
     const ixs: TransactionInstruction[] = [
       automateIx({
         signer: publicKey,
         amountLamports: BigInt(perTileLamports),
         depositLamports: BigInt(depositLamports),
         feeLamports: EXECUTOR_FEE_LAMPORTS,
-        squares: ALL_SQUARES,
+        squares: pickTiles ? ALL_SQUARES.map((_, i) => i < minedTiles) : ALL_SQUARES,
         reload: true,
-        conditions: presetRun ? { maxMotherlode: PRESET_MAX_MOTHERLODE } : undefined,
+        strategy: pickTiles ? STRATEGY_RANDOM : undefined,
+        conditions: { minMotherlode, maxMotherlode, ...(pickTiles ? { soloTiles, splitTiles } : {}) },
       }),
     ];
     const buyer = publicKey.toBase58();
@@ -375,7 +399,7 @@ export function MineScreen({ previewDegens, header, footer }: { previewDegens?: 
             />
           </div>
 
-          {/* The 5×5 Degen grid (display only — you always mine all 25) */}
+          {/* The 5×5 Degen grid (display only) */}
           <div className={`mine-frame mx-auto w-full lg:col-start-1 lg:row-span-4 lg:row-start-1 lg:w-[min(100%,calc(100dvh-6rem))] lg:self-start ${formColumn ? "xl:row-span-3 xl:w-[min(calc(100vw-47rem),calc(100dvh-6rem))]" : "xl:w-[min(calc(100vw-30rem),calc(100dvh-6rem))]"}`}>
           <div className="mine-shaft grid grid-cols-5 gap-1 sm:gap-2">
             {pending
@@ -441,8 +465,10 @@ export function MineScreen({ previewDegens, header, footer }: { previewDegens?: 
                       <Row
                         label="Status"
                         value={
-                          autoWaiting ? (
+                          autoAboveLimit ? (
                             <span className="font-semibold text-stone-300">Waiting for the Motherlode to hit</span>
+                          ) : autoBelowLimit ? (
+                            <span className="font-semibold text-stone-300">Waiting for the Motherlode to grow</span>
                           ) : (
                             <span className="font-semibold text-amber-300">Auto-mining ✓</span>
                           )
@@ -480,13 +506,13 @@ export function MineScreen({ previewDegens, header, footer }: { previewDegens?: 
                     <label htmlFor="mine-sol" className="block text-sm font-medium text-stone-200">
                       How much SOL do you want to mine with?
                     </label>
-                    <div className="flex items-center gap-2 rounded-lg border border-stone-700 bg-stone-950 px-3 py-2 focus-within:border-amber-500">
+                    <div className="flex items-center gap-2 rounded-lg border border-stone-700 bg-stone-950 px-3 py-2 focus-within:border-amber-500 lg:py-1.5">
                       <input
                         id="mine-sol"
                         value={depositStr}
                         onChange={(e) => setDepositStr(e.target.value)}
                         inputMode="decimal"
-                        className="w-full min-w-0 bg-transparent text-lg font-semibold text-stone-100 tabular-nums outline-none"
+                        className="w-full min-w-0 bg-transparent text-lg font-semibold text-stone-100 tabular-nums outline-none lg:text-base"
                       />
                       <SolIcon className="size-4 shrink-0" />
                     </div>
@@ -505,7 +531,7 @@ export function MineScreen({ previewDegens, header, footer }: { previewDegens?: 
                           type="button"
                           aria-pressed={mode === m}
                           onClick={() => setMode(m)}
-                          className={`rounded-lg border px-2 py-2 text-xs font-semibold uppercase tracking-wide transition-colors ${
+                          className={`rounded-lg border px-2 py-2 text-xs font-semibold uppercase tracking-wide transition-colors lg:py-1.5 ${
                             mode === m
                               ? "border-amber-400 bg-amber-500/20 text-amber-200"
                               : m === "custom"
@@ -518,27 +544,57 @@ export function MineScreen({ previewDegens, header, footer }: { previewDegens?: 
                       ))}
                     </div>
                     {mode === "custom" && (
-                      <div className="flex items-center justify-between gap-2">
-                        <label className="text-xs text-stone-400">SOL / tile</label>
-                        <input
-                          value={amountStr}
-                          onChange={(e) => setAmountStr(e.target.value)}
-                          inputMode="decimal"
-                          className="w-24 rounded border border-stone-700 bg-stone-950 px-2 py-1 text-right text-sm text-stone-100 tabular-nums outline-none focus:border-amber-500"
-                        />
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <label className="text-xs text-stone-400">SOL / tile</label>
+                          <input
+                            value={amountStr}
+                            onChange={(e) => setAmountStr(e.target.value)}
+                            inputMode="decimal"
+                            className="w-24 rounded border border-stone-700 bg-stone-950 px-2 py-0.5 text-right text-sm text-stone-100 tabular-nums outline-none focus:border-amber-500"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+                          <WholeField label="Solo tiles" value={soloStr} onChange={setSoloStr} max={SOLO_TILES} />
+                          <WholeField label="Split tiles" value={splitStr} onChange={setSplitStr} max={SPLIT_TILES} />
+                          <WholeField label="Min Motherlode" value={minMotherlodeStr} onChange={setMinMotherlodeStr} max={NO_MOTHERLODE_LIMIT} />
+                          <WholeField label="Max Motherlode" value={maxMotherlodeStr} onChange={setMaxMotherlodeStr} max={NO_MOTHERLODE_LIMIT} />
+                        </div>
+                        <p className="text-[11px] leading-snug text-stone-500">
+                          Up to {SOLO_TILES} solo, {SPLIT_TILES} split. Motherlode in uORE, max 0 = no limit.
+                        </p>
                       </div>
                     )}
                     {run && (
-                      <div className="space-y-1 rounded-md bg-stone-950/60 p-3 text-xs">
+                      <div className="space-y-1 rounded-md bg-stone-950/60 p-3 text-xs lg:space-y-0.5 lg:p-2">
                         <Row label="You'd get about" value={<span className="text-sm font-semibold text-amber-300">{fmtEst(run.steady)} uORE</span>} />
                         <Row label="Chance of a solo (+1 uORE)" value={fmtOdds(run.soloChance)} />
                         <Row
                           label="Chance of a Motherlode"
-                          value={run.motherlodeCut > 0 ? `${fmtOdds(run.motherlodeChance)} · ${presetRun ? "up to " : ""}+${fmtEst(run.motherlodeCut)} uORE` : fmtOdds(run.motherlodeChance)}
+                          value={run.motherlodeCut > 0 ? `${fmtOdds(run.motherlodeChance)} · ${maxMotherlode < NO_MOTHERLODE_LIMIT ? "up to " : ""}+${fmtEst(run.motherlodeCut)} uORE` : fmtOdds(run.motherlodeChance)}
                         />
                         {presetRun && <Row label="Max Motherlode we mine" value={`${PRESET_MAX_MOTHERLODE} uORE`} />}
                         <Row label="Average with lucky hits" value={`${fmtEst(run.average)} uORE`} />
                         <Row label="Mining time" value={`~${fmtTime(run.seconds)} · ${fmtEst(run.rounds)} rounds`} />
+                        {!presetRun && (minMotherlode > 0 || maxMotherlode < NO_MOTHERLODE_LIMIT) && (
+                          <Row label="With Motherlode waits" value={run.secondsWithWaits < 31_536_000 ? `~${fmtTime(run.secondsWithWaits)}` : "over a year"} />
+                        )}
+                        <Row
+                          label="SOL deployed per round"
+                          value={
+                            <span className="inline-flex items-center gap-1">
+                              {fmtSol(run.stakePerRound)} <SolIcon className="size-3" />
+                            </span>
+                          }
+                        />
+                        <Row
+                          label="Cost per round"
+                          value={
+                            <span className="inline-flex items-center gap-1">
+                              ~{fmtEst(run.costPerRound / LAMPORTS_PER_SOL)} <SolIcon className="size-3" />
+                            </span>
+                          }
+                        />
                         <Row
                           label={`${hosted ? "Miner" : "Dojo"} fee 1%`}
                           value={
@@ -549,16 +605,23 @@ export function MineScreen({ previewDegens, header, footer }: { previewDegens?: 
                         />
                       </div>
                     )}
-                    {!connected && amount > 0 && deposit < minDeposit && (
+                    {!connected && amount > 0 && minedTiles > 0 && deposit < minDeposit && (
                       <p className="text-xs text-amber-300">Mine at least {(Math.ceil(minDeposit * 1e6) / 1e6).toFixed(6)} SOL.</p>
                     )}
+                    {!goodRange && <p className="text-xs text-amber-300">Max Motherlode must be above Min.</p>}
+                    {minedTiles === 0 && <p className="text-xs text-amber-300">Pick at least 1 tile.</p>}
                     {overLimit && (
-                      <p className="text-xs text-amber-300">The Motherlode is above {PRESET_MAX_MOTHERLODE} uORE right now, so mining starts after it hits.</p>
+                      <p className="text-xs text-amber-300">Motherlode above {maxMotherlode} uORE now: mining starts after it hits.</p>
+                    )}
+                    {underLimit && (
+                      <p className="text-xs text-amber-300">Motherlode below {minMotherlode} uORE now: mining starts when it gets there.</p>
                     )}
                     {/* Measured on chain 10-31 from the Treasury factor: 51% a year over 6 months, 45% over the last 30 days, 88% a year ago. Simple, not compounding. */}
-                    <p className="text-xs leading-snug text-stone-300">
-                      Leave your uORE unclaimed and it earns about 50% a year in rORE (refined ORE). At today&apos;s rate, 1 uORE earns 2.5 rORE in 5 years. The rate moves with how much others claim.
-                    </p>
+                    {presetRun && (
+                      <p className="text-xs leading-snug text-stone-300 lg:text-[11px]">
+                        Leave your uORE unclaimed and it earns about 50% a year in rORE (refined ORE). At today&apos;s rate, 1 uORE earns 2.5 rORE in 5 years. The rate moves with how much others claim.
+                      </p>
+                    )}
                     <p className="text-[11px] leading-snug text-stone-500">
                       An estimate from the last round, not a promise. Your SOL gets used up as you mine, and ORE takes 10% of uORE when you claim.
                       {presetRun && !overLimit && ` Pauses while the Motherlode is above ${PRESET_MAX_MOTHERLODE} uORE.`} 1% {hosted ? "miner" : "Dojo"} fee — same as ORE takes.
@@ -586,7 +649,11 @@ export function MineScreen({ previewDegens, header, footer }: { previewDegens?: 
                         <Pickaxe className="size-4" />
                         {amount <= 0
                           ? "Enter SOL per tile"
-                          : deposit < minDeposit
+                          : minedTiles === 0
+                            ? "Pick at least 1 tile"
+                            : !goodRange
+                              ? "Max Motherlode must be above Min"
+                              : deposit < minDeposit
                             ? `Mine at least ${(Math.ceil(minDeposit * 1e6) / 1e6).toFixed(6)} SOL`
                             : walletShort
                               ? "Not enough SOL in your wallet"
@@ -663,6 +730,23 @@ export function MineScreen({ previewDegens, header, footer }: { previewDegens?: 
                 </button>
               )}
             </div>
+            {/* Degen Dojo's own miner only, same as the ORE Wizard link above */}
+            {!hosted && !preview && (
+              <>
+                <div className="mt-3 mb-2 flex items-center gap-2 text-[11px] text-stone-500">
+                  <span className="h-px flex-1 bg-stone-800" />
+                  other mining solutions
+                  <span className="h-px flex-1 bg-stone-800" />
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-[11px] text-stone-500">
+                  {OTHER_MINERS.map(([name, url, border]) => (
+                    <a key={url} href={url} target="_blank" rel="noopener noreferrer" className={`${FOOT_BTN} ${border} bg-stone-900/40 text-stone-300 hover:bg-stone-800 hover:text-white`}>
+                      {name}
+                    </a>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </div>
         )}
@@ -707,7 +791,7 @@ function HowItWorksModal({ open, onClose }: { open: boolean; onClose: () => void
           </button>
         </div>
         <HowStep n={1} t="It's a 25-tile grid" d="ORE mining is a fixed 5×5 board — always 25 tiles. Each one here is a Degen." />
-        <HowStep n={2} t="You deploy SOL on every tile" d="Pick your SOL, then Shorter or Longer: that sets how much goes on each tile. e.g. 0.0012 × 25 = 0.03 SOL a round." />
+        <HowStep n={2} t="You deploy SOL on every tile" d="Pick your SOL, then Shorter or Longer: that sets how much goes on each tile. e.g. 0.0012 × 25 = 0.03 SOL a round. Custom lets you pick your own solo and split tiles and Motherlode range." />
         <HowStep n={3} t="Every ~80 sec, one tile wins" d="Whoever staked the winning tile mines the round's fresh uORE (one miner takes it, or it's split) — plus the Motherlode when it hits. Your SOL comes back, minus ORE's fees: 1% on every tile, and 10% on the tiles that lost." />
         <HowStep n={4} t="Your uORE stacks in the Vault" d="Claim it to your wallet whenever you like." />
         <HowStep n={5} t="Auto-mine plays for you" d="Fund a balance and it enters every round until it runs low. Stop & withdraw pulls the rest back out." />
@@ -757,8 +841,31 @@ function Stat({
 // "40% of rounds give a single uORE" note on the stat box (the other 60% split it).
 const SINGLE_ROUND_SHARE = 0.4;
 
+const OTHER_MINERS = [
+  ["RubyPool", "https://rubypool.io/", "border-red-600"],
+  ["Orestack", "https://orestack.app/", "border-white"],
+  ["ORE Party", "https://ore.party/", "border-yellow-400"],
+];
 const FOOT_BTN =
   "inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border px-1.5 text-center leading-tight whitespace-nowrap transition-colors";
+
+/** A Custom setting in whole numbers: digits only, and anything above `max` becomes `max` as it's typed. */
+function WholeField({ label, value, onChange, max }: { label: string; value: string; onChange: (v: string) => void; max: number }) {
+  return (
+    <label className="flex items-center justify-between gap-1 text-xs text-stone-400">
+      {label}
+      <input
+        value={value}
+        onChange={(e) => {
+          const digits = e.target.value.replace(/\D/g, "");
+          onChange(Number(digits) > max ? String(max) : digits);
+        }}
+        inputMode="numeric"
+        className="w-12 rounded border border-stone-700 bg-stone-950 px-1.5 py-0.5 text-right text-sm text-stone-100 tabular-nums outline-none focus:border-amber-500"
+      />
+    </label>
+  );
+}
 
 function Row({ label, value }: { label: string; value: ReactNode }) {
   return (
