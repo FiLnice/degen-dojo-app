@@ -1,6 +1,6 @@
 // Netlify Function: /api/miner-requests — branded ORE miner signups (any collection, hosted by us).
 //
-//   POST {name, tipWallet, contact, website?, collection?, degens[25]{name,image,mint?}, paymentSig, payer}
+//   POST {name, contact, website?, collection?, degens[25]{name,image,mint?}, paymentSig, payer}
 //        → verifies the ORE setup fee ON-CHAIN (getTransaction jsonParsed: tx ok, payer signed it,
 //          < ~1h old, operator's ORE balance up by ≥ fee×0.999), checks the payment's memo commits to THIS
 //          request ("ddminer:<hash>", store-miner-core minerRequestHash — front-run guard), replay-guards the
@@ -9,7 +9,7 @@
 //   GET  ?admin=<KEY>    → {requests:[…]} newest first (operator review)
 //   POST {action:'decide', id, key, decision:'approve'|'reject', slug?}
 //        → approve: assigns a unique URL-safe slug (given or from the name) and publishes
-//          miner:<slug> = {slug,name,tipWallet,degens,collection,approvedAt} → live at /m/<slug>.
+//          miner:<slug> = {slug,name,degens,collection,approvedAt} → live at /m/<slug>.
 //          reject: marks it rejected (and unpublishes its miner if it had been approved).
 //
 // Env: ADMIN_KEY (admin list/decide), SOLANA_RPC (fallback HELIUS_RPC) for getTransaction,
@@ -112,7 +112,7 @@ async function decide(request, d) {
   }
   const approvedAt = Date.now();
   await s.setJSON(`miner:${slug}`, {
-    slug, name: r.name, tipWallet: r.tipWallet, degens: r.degens, collection: r.collection || "",
+    slug, name: r.name, degens: r.degens, collection: r.collection || "",
     approvedAt, requestId: r.id,
   });
   r.status = "approved";
@@ -168,7 +168,7 @@ export default async (request) => {
     const chk = checkOrePayment(tx, { operator, payer: b.payer, feeOre });
     if (!chk.ok) return json({ error: chk.error }, 402);
     // the payer signed THIS request into the payment (memo "ddminer:<hash>") — a request with any other details
-    // (someone else's name or tip wallet against a payment they saw on-chain) is refused
+    // (someone else's name or art against a payment they saw on-chain) is refused
     if (!memoBindsRequest(tx, d))
       return json({ error: "That payment isn't tied to these details — submit exactly what you paid for from the Create page (or contact us)." }, 402);
 

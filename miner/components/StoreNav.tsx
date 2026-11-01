@@ -7,7 +7,8 @@ import { useState } from "react";
 import { useWallet } from "@/lib/wallet-bridge";
 
 // ≤640px: collapse the pills behind a ☰ hamburger dropdown (matches the store home + sub-pages).
-const NAV_CSS = `.dn-ham{display:none}.dn-connect{display:none}
+// "⛩ Home" (the main site) is a phone-menu entry only; on a laptop the DD logo goes home, so the one-line nav doesn't wrap.
+const NAV_CSS = `.dn-ham{display:none}.dn-connect{display:none}.dn-home{display:none}
 @media(max-width:640px){
   .dn-bar{gap:10px!important;padding:10px 14px!important;}
   .dn-extra{display:none!important;}
@@ -16,6 +17,7 @@ const NAV_CSS = `.dn-ham{display:none}.dn-connect{display:none}
   .dn-links.dn-open{display:flex!important;}
   .dn-links a{text-align:left;font-size:13px!important;padding:11px 13px!important;}
   .dn-connect{display:flex!important;}
+  .dn-home{display:flex!important;}
 }`;
 
 const PILLS: [string, string][] = [
@@ -67,7 +69,7 @@ export function StoreNav() {
       }}
     >
       <style dangerouslySetInnerHTML={{ __html: NAV_CSS }} />
-      <a href="/" style={{ display: "flex", alignItems: "center", gap: 11, textDecoration: "none", color: "#efe6d2" }}>
+      <a href="https://degendojo.xyz/" title="Degen Dojo home" style={{ display: "flex", alignItems: "center", gap: 11, textDecoration: "none", color: "#efe6d2" }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/dd-mark.jpg"
@@ -86,6 +88,13 @@ export function StoreNav() {
         onClick={() => setOpen(false)}
         style={{ display: "flex", gap: 8, flexWrap: "wrap" }}
       >
+        <a
+          href="https://degendojo.xyz/"
+          className="dn-home"
+          style={{ fontFamily: CINZEL, fontSize: 11, fontWeight: 700, letterSpacing: ".08em", borderRadius: 8, padding: "9px 14px", textDecoration: "none", whiteSpace: "nowrap", color: "#efe6d2", border: "1px solid rgba(201,151,58,.32)" }}
+        >
+          ⛩ Home
+        </a>
         <a
           href="#"
           className="dn-connect"

@@ -53,6 +53,8 @@ body{background:var(--ink);color:var(--text);font-family:'Inter',sans-serif;font
 /* the menu's Connect entry is for the mobile dropdown only — hide it in the desktop
    inline nav so it doesn't render as a 2nd wallet pill next to the brand */
 #navConnect{display:none;}
+/* "⛩ Home" (the main site) is a phone-menu entry only — on a laptop the DD logo goes home, so the one-line nav doesn't wrap */
+#navHome{display:none;}
 /* on mobile the header is a compact sticky bar: brand left, (i) + hamburger top-right.
    stats hide behind the (i) popover, the wallet CTA moves into the menu. */
 @media(max-width:640px){
@@ -77,6 +79,7 @@ body{background:var(--ink);color:var(--text);font-family:'Inter',sans-serif;font
   /* the big Connect CTA is redundant on mobile — connect lives in the ☰ menu */
   .cta{display:none;}
   #navConnect{display:block;}
+  #navHome{display:block;}
   /* in-floor ‹ › arrows: slim + red-edged, pinned to the very edge in the card's side
      margin (NOT over the art). The floor-nav/dots are cleared from the vertical centre
      (below) so these never collide. !important: the base `.shutter` rules sit later in
@@ -306,9 +309,9 @@ html{scroll-snap-type:y proximity;scroll-behavior:smooth;}
 @media(max-width:640px){
   .shelf{padding:22px 18px 14px;}
   /* ONE card per view on mobile — size it by HEIGHT so the whole card (art + stats) fits the
-     screen with the next floor peeking below. width follows the 664:1080 card aspect. */
+     screen with the next floor peeking below. width follows the 664:928 card aspect. */
   .slot{flex:0 0 100%;align-items:center;justify-content:center;}
-  .tile{width:auto;max-width:100%;height:min(calc(100svh - 300px),66svh);aspect-ratio:664/1080;margin:0 auto;}
+  .tile{width:auto;max-width:100%;height:min(calc(100svh - 300px),66svh);aspect-ratio:664/928;margin:0 auto;}
   .fuda .fs,.fuda .fu,.fuda .fo,.fuda .fsym{font-size:13px;}
   .fuda .tok{width:14px;height:14px;}
   .pname{font-size:9.5px;}
@@ -336,14 +339,14 @@ html{scroll-snap-type:y proximity;scroll-behavior:smooth;}
 /* The art is 1175×1208, so the tile carries that exact ratio — object-fit:cover
    then fills it with zero cropping. No hover zoom (which cropped an edge); hover
    just lights a golden border around the frame. */
-.tile{width:100%;aspect-ratio:664/1080;border-radius:7px;overflow:hidden;position:relative;padding:9px;
+.tile{width:100%;aspect-ratio:664/928;border-radius:7px;overflow:hidden;position:relative;padding:9px;
   border:2px solid #3a2a38;
   background:radial-gradient(130% 100% at 50% 32%,rgba(255,190,110,.42),rgba(255,150,80,.14) 42%,rgba(14,8,14,.5) 82%);
   box-shadow:inset 0 0 26px rgba(255,160,80,.3),inset 0 0 0 1px rgba(255,200,130,.12),0 6px 16px rgba(0,0,0,.6);
   transition:box-shadow .18s ease, background .18s ease, transform .18s ease;}
 /* DESKTOP: cap the card to the viewport height so the price line BELOW it always shows.
    The card is otherwise width-driven (fills its 1/3 slot) and overflows short screens at
-   100% zoom, pushing the price off the bottom. width:auto keeps the 664:1080 ratio (no
+   100% zoom, pushing the price off the bottom. width:auto keeps the 664:928 ratio (no
    distortion); the 610px cap keeps the derived width within the slot so nothing clamps. */
 @media(min-width:641px){
   .tile{width:auto;max-width:100%;height:min(calc(100svh - 270px),585px);margin:0 auto;}
@@ -437,17 +440,20 @@ html{scroll-snap-type:y proximity;scroll-behavior:smooth;}
   border-radius:14px 14px 0 0;transform:translateY(100%);} .drawer.open{transform:none;}}
 .dclose{position:absolute;top:12px;right:14px;z-index:3;width:32px;height:32px;border-radius:8px;cursor:pointer;
   background:rgba(0,0,0,.5);border:1px solid var(--border);color:var(--text);font-size:16px;}
-.dart{width:100%;aspect-ratio:1175/1208;object-fit:cover;display:block;background:#000;border-bottom:1px solid rgba(201,151,58,.25);}
+/* the drawer's slideshow, same as the market's: card, then the original art */
+.dshow{position:relative;background:#000;user-select:none;border-bottom:1px solid rgba(201,151,58,.25);}
+.dshow img{width:100%;height:min(68vh,560px);object-fit:contain;display:block;background:#000;}
+.dshow img[hidden]{display:none;}
+.dshow .dsl{position:absolute;top:50%;transform:translateY(-50%);width:34px;height:34px;border-radius:50%;border:1px solid rgba(201,151,58,.5);background:rgba(10,8,15,.75);color:#e8b84b;font-size:20px;line-height:1;cursor:pointer;z-index:2;}
+.dshow .dsl.l{left:10px;}.dshow .dsl.r{right:10px;}
+.dshow .ddots{position:absolute;bottom:10px;left:0;right:0;display:flex;gap:6px;justify-content:center;}
+.dshow .ddots i{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.35);}
+.dshow .ddots i.on{background:#e8b84b;}
+.dshow .dlab{position:absolute;top:10px;left:12px;font:600 11px Inter,sans-serif;letter-spacing:.06em;color:#e8b84b;background:rgba(10,8,15,.7);padding:3px 8px;border-radius:6px;}
 .dbody{padding:20px 22px 40px;}
 .dbody h2{font-family:'Cinzel',serif;font-size:23px;font-weight:900;letter-spacing:.02em;}
 .dmeta{font-family:'Teko',sans-serif;font-size:14px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin-top:2px;}
 
-/* special move — the fighter's signature technique, named like a scroll title */
-.move{display:flex;align-items:center;gap:10px;margin-top:15px;padding:11px 14px;border-radius:8px;
-  background:linear-gradient(135deg,rgba(201,151,58,.14),rgba(139,26,16,.10));border:1px solid rgba(201,151,58,.3);}
-.move .mk{font-family:'Noto Serif JP',serif;font-size:17px;color:var(--gold-l);flex:0 0 auto;}
-.move .ml{font-size:8.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);font-weight:600;}
-.move .mv{font-family:'Cinzel',serif;font-size:14.5px;font-weight:700;color:var(--gold-l);margin-top:1px;}
 
 /* combat stats — Degens only (Demons/Oni don't publish them) */
 .statrow{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:12px;}
@@ -455,12 +461,6 @@ html{scroll-snap-type:y proximity;scroll-behavior:smooth;}
 .statt .sv{font-family:'Cinzel',serif;font-size:19px;font-weight:900;color:var(--text);line-height:1;}
 .statt .sk{font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-top:4px;}
 
-/* diary — the long 3rd-person story, with the short first-person quote beneath */
-.diary{margin-top:16px;padding:14px 16px;border-radius:9px;
-  background:linear-gradient(180deg,rgba(201,151,58,.07),rgba(0,0,0,0));border:1px solid rgba(201,151,58,.2);}
-.diary .dk{font-family:'Teko',sans-serif;font-size:12px;letter-spacing:.24em;text-transform:uppercase;color:var(--gold);margin-bottom:7px;}
-.diary p{font-size:13.5px;line-height:1.62;color:#cdbfa8;}
-.diary .q{margin-top:10px;padding-top:10px;border-top:1px dashed rgba(201,151,58,.22);font-style:italic;font-size:13px;color:#9c8f7d;}
 
 .dlink{display:inline-block;margin-top:20px;font-family:'Teko',sans-serif;font-size:15px;letter-spacing:.06em;
   color:var(--gold-l);border-bottom:1px solid rgba(201,151,58,.4);padding-bottom:2px;}
@@ -469,9 +469,9 @@ html{scroll-snap-type:y proximity;scroll-behavior:smooth;}
    mode — just art + name + this note + the profile link. All the buy/price machinery hides. */
 .heldnote{margin:16px 0 4px;padding:12px 15px;border:1px solid rgba(201,151,58,.3);border-radius:11px;
   color:#cdbf9f;font-size:13.5px;line-height:1.55;background:rgba(201,151,58,.06);}
-.drawer.held .move,.drawer.held .statrow,.drawer.held .diary,.drawer.held .ledger,
+.drawer.held .statrow,.drawer.held .ledger,
 .drawer.held .paylab,.drawer.held .pays,.drawer.held .quote,.drawer.held .tiprow,
-.drawer.held .tipnote,.drawer.held .rebate,.drawer.held .own,.drawer.held .ownnote,
+.drawer.held .tipnote,.drawer.held .roynote,.drawer.held .own,.drawer.held .ownnote,
 .drawer.held .thead,.drawer.held .traits{display:none!important;}
 
 .ledger{margin:18px 0 4px;border-top:1px solid rgba(201,151,58,.22);border-bottom:1px solid rgba(201,151,58,.22);padding:12px 0;}
@@ -503,9 +503,9 @@ html{scroll-snap-type:y proximity;scroll-behavior:smooth;}
 .tipcur img{width:15px;height:15px;border-radius:50%;}
 .tipnote{margin-top:8px;font-size:12px;color:#c9b98f;line-height:1.5;}
 .tipnote b{color:var(--gold-l);}
-.rebate{margin-top:11px;padding:11px 13px;border-radius:9px;font-size:12.5px;line-height:1.55;
+.roynote{margin-top:11px;padding:11px 13px;border-radius:9px;font-size:12.5px;line-height:1.55;
   background:linear-gradient(180deg,rgba(46,204,113,.10),rgba(0,0,0,0));border:1px solid rgba(46,204,113,.34);color:#bfe9cf;}
-.rebate b{color:#7be6a0;}
+.roynote b{color:#7be6a0;}
 .own{margin-top:16px;width:100%;padding:15px 0;border:none;border-radius:9px;cursor:pointer;
   background:linear-gradient(135deg,#c8962a,#8b6018);color:#0a0814;
   font-family:'Cinzel',serif;font-size:13px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;}
@@ -553,7 +553,7 @@ html{scroll-snap-type:y proximity;scroll-behavior:smooth;}
 @keyframes cqRise{from{opacity:0;transform:translateY(22px) scale(.96);}to{opacity:1;transform:none;}}
 .cq-gate{font-size:40px;margin-bottom:2px;}
 .cq-kick{font-family:'Teko',sans-serif;font-size:15px;letter-spacing:.32em;text-transform:uppercase;color:var(--gold);font-weight:600;}
-.cq-art{width:200px;height:auto;aspect-ratio:1175/1208;object-fit:cover;margin:18px auto 12px;display:block;border-radius:12px;
+.cq-art{width:200px;height:auto;margin:18px auto 12px;display:block;border-radius:12px;
   border:3px solid var(--gold-l);box-shadow:0 24px 60px -20px var(--red),0 0 30px rgba(232,184,75,.35);}
 .conquest h2{font-family:'Cinzel',serif;font-size:30px;font-weight:900;letter-spacing:.02em;
   background:linear-gradient(180deg,#f4e2b4,#e8b84b 45%,#8b6020);-webkit-background-clip:text;background-clip:text;color:transparent;}
@@ -588,11 +588,12 @@ footer a{color:var(--gold);text-decoration:none;}
 <body>
 
 <div class="top">
-  <a class="brand" href="/"><img class="mk" src="dd-mark.jpg" alt="Degen Dojo" />
+  <a class="brand" href="https://degendojo.xyz/" title="Degen Dojo home"><img class="mk" src="dd-mark.jpg" alt="Degen Dojo" />
     <div><b>DEGEN DOJO</b><small>THE STORE</small></div></a>
   <button class="navinfo" id="navInfo" onclick="toggleInfo(event)" aria-label="Info / Filter">i</button>
   <button class="navham" id="navHam" onclick="toggleTopNav(event)" aria-label="Menu">☰</button>
   <nav class="topnav" id="topNav">
+    <a href="https://degendojo.xyz/" id="navHome">⛩ Home</a>
     <a href="#" id="navConnect" onclick="walletClick();return false;">🔑 Connect</a>
     <a href="/">⌂ Store</a>
     <a href="/market">🛒 Market</a>
@@ -702,7 +703,7 @@ footer a{color:var(--gold);text-decoration:none;}
 .ddstrip .sub b{color:var(--gold,#c9973a);}
 .ddrow{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;}
 .ddcard{border:1px solid rgba(255,255,255,.08);border-radius:12px;overflow:hidden;background:rgba(0,0,0,.25);display:flex;flex-direction:column;}
-.ddcard img{width:100%;aspect-ratio:1/1;object-fit:cover;background:#151013;}
+.ddcard img{width:100%;aspect-ratio:664/928;object-fit:contain;background:#151013;}
 .ddcard .nm{font-size:12.5px;color:#e7ddc9;padding:8px 10px 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .ddcard .pr{font-size:13px;color:var(--gold,#c9973a);font-weight:600;padding:0 10px 8px;}
 .ddcard button{margin:0 8px 8px;padding:7px 0;border:0;border-radius:8px;background:var(--gold,#c9973a);color:#1a1206;font-weight:700;font-size:12px;cursor:pointer;}
@@ -724,29 +725,20 @@ footer a{color:var(--gold);text-decoration:none;}
 <div class="scrim" id="scrim" onclick="closeDrawer()"></div>
 <aside class="drawer" id="drawer">
   <button class="dclose" onclick="closeDrawer()">✕</button>
-  <img class="dart" id="dArt" alt="" />
+  <div class="dshow" id="dshow"></div>
   <div class="dbody">
     <h2 id="dName"></h2>
     <div class="dmeta" id="dMeta"></div>
     <div class="heldnote" id="dHeld" style="display:none"></div>
-    <div class="move" id="dMove" style="display:none"></div>
     <div class="statrow" id="dStats" style="display:none"></div>
-    <div class="diary" id="dDiary" style="display:none"></div>
     <div class="ledger" id="dLedger"></div>
     <div class="paylab">Pay with</div>
     <div class="pays">
-      <div class="pay on" data-cur="ORE" style="cursor:default;pointer-events:none"><img class="ptok" id="payOreIcon" src="" alt="" /> ORE<small id="oreTag">rebate</small></div><!-- ORE is the only way to pay: a label, not a button -->
+      <div class="pay on" data-cur="ORE" style="cursor:default;pointer-events:none"><img class="ptok" id="payOreIcon" src="" alt="" /> ORE</div><!-- ORE is the only way to pay: a label, not a button -->
     </div>
     <div class="quote" id="dQuote"></div>
-    <div class="tiprow">
-      <span class="tiplab">Optional tip<small>goes to the Dojo Pot</small></span>
-      <div class="tipinput">
-        <input id="tipAmt" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0" oninput="onTip()" />
-        <span class="tipcur" id="tipCur"><img id="tipIcon" src="" alt="" /> SOL</span>
-      </div>
-    </div>
-    <div class="tipnote" id="dTip" style="display:none"></div>
-    <div class="rebate" id="dRebate" style="display:none"></div>
+    <!-- the optional "tip → Dojo Pot" box was removed (owner 2026-10-29): the 1% fee model replaced tips; TIP stays 0 -->
+    <div class="roynote" id="dRoy" style="display:none"></div>
     <button class="own" id="dOwn" onclick="ownClick()">⚔ Own</button>
     <div class="ownnote" id="dOwnNote"></div>
     <div class="thead">Traits</div>
@@ -791,7 +783,7 @@ const STORE = __STORE_DATA__;
 const CARDLESS_MINTS = new Set(__CARDLESS_MINTS__);
 // Nov 2 (owner 2026-10-24): the Demons + Oni Senseis join Degen Dojo as cards — from then (or ?labels=new) they leave the
 // cardless set and show their collectible card in their character's chamber, like any Degen.
-if (Date.now() >= Date.UTC(2026, 10, 2) || /[?&]labels=new/.test(location.search)) for (const m of __DEMON_MINTS__) CARDLESS_MINTS.delete(m);
+if (Date.now() >= Date.UTC(2026, 9, 29) || /[?&]labels=new/.test(location.search)) for (const m of __DEMON_MINTS__) CARDLESS_MINTS.delete(m);
 
 // Trait emoji, lifted at build time from the site's lore explorer so the store
 // speaks the same visual language. { cat: type→emoji, val: value→emoji }
@@ -805,10 +797,8 @@ const ICON = {
   ore: "data:image/png;base64,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",
 };
 
-/* Payment config. The rebate is half the creator royalty, handed back to buyers
-   who pay in ORE — funded out of the royalty itself, so it costs nothing upfront. */
+/* Payment config. */
 const CFG = {
-  oreRebateShareOfRoyalty: 0.5,
   jup: 'https://lite-api.jup.ag',
   // Same-origin proxy. This file is public, so it must never carry a keyed RPC
   // URL; the Netlify function behind /api/rpc holds it. Solana's own public
@@ -1049,7 +1039,7 @@ addEventListener('touchend', (e) => {
 // Centre the in-floor ‹ › arrows in the light-brown gutter between the card and the gold
 // post. The card is height-driven on mobile, so the gutter varies by device — measure it
 // and expose it as --gut (the shutter CSS positions off it).
-function placeArrows(){ try{ const tile=document.querySelector('.floor .tile'); if(!tile) return; const fb=tile.closest('.floorbody'); if(!fb) return; const tr=tile.getBoundingClientRect(), br=fb.getBoundingClientRect(); const visW=Math.min(tr.width, tr.height*664/1080); /* the VISIBLE card (img is object-fit:contain; the rest of the tile is shoji-paper letterbox) */ const gut=Math.max(0,(br.width - visW)/2); document.documentElement.style.setProperty('--gut', gut.toFixed(1)+'px'); }catch(e){} }
+function placeArrows(){ try{ const tile=document.querySelector('.floor .tile'); if(!tile) return; const fb=tile.closest('.floorbody'); if(!fb) return; const tr=tile.getBoundingClientRect(), br=fb.getBoundingClientRect(); const visW=Math.min(tr.width, tr.height*664/928); /* the VISIBLE card (img is object-fit:contain; the rest of the tile is shoji-paper letterbox) */ const gut=Math.max(0,(br.width - visW)/2); document.documentElement.style.setProperty('--gut', gut.toFixed(1)+'px'); }catch(e){} }
 addEventListener('resize', placeArrows);
 addEventListener('load', () => setTimeout(placeArrows, 60));
 addEventListener('keydown', (e) => { if (pagerBusy()) return;
@@ -1084,19 +1074,19 @@ function fudaPrice(allInSol) {
 const S3IMG = (mint, ext) => `https://degendojo.s3.us-west-1.amazonaws.com/degen/img/${mint}.${ext || 'png'}`;
 // The collectible CARD image (portrait). Tiles show this now; fall back to the art for cardless races.
 // ?v=5 busts the Netlify image proxy + browser caches after the cards were re-rendered at
-// 2× (664×1080). S3 ignores the query and serves the new object; bump this if cards change again.
-const cardImg = (mint) => `https://degendojo.s3.us-west-1.amazonaws.com/degen/card/${mint}.png?v=7`;
+// 2× (664×928). S3 ignores the query and serves the new object; bump this if cards change again.
+const cardImg = (mint) => `https://degendojo.s3.us-west-1.amazonaws.com/degen/card/${mint}.png?v=9b`;
 // Request the card at DEVICE-pixel resolution so it's crisp on retina/hi-dpi screens (a 235px
 // tile on a 2× display needs ~470px of image, not 300). Capped near the card's native width
 // (~664px) so we never upscale past the source. This is the #4 "cards look low quality" fix.
 const cardPx = (w) => Math.min(640, Math.round(w * Math.min(2, (typeof window!=='undefined' && window.devicePixelRatio) || 1)));  // 640 = the card's native render width
 function cardThumb(mint, w = 300) {
-  const rw = cardPx(w), url = cardImg(mint), h = Math.round(rw * 1.627);   // card ratio ~664:1080
+  const rw = cardPx(w), url = cardImg(mint), h = Math.round(rw * 1.398);   // card ratio ~664:928
   return IS_LOCAL
     ? `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=${rw}&h=${h}&fit=contain&output=webp`
     : `/.netlify/images?url=${encodeURIComponent(url)}&w=${rw}&h=${h}&fit=contain`;
 }
-const cardWsrv = (mint, w = 300) => { const rw = cardPx(w); return `https://wsrv.nl/?url=${encodeURIComponent(cardImg(mint))}&w=${rw}&h=${Math.round(rw*1.627)}&fit=contain&output=webp`; };
+const cardWsrv = (mint, w = 300) => { const rw = cardPx(w); return `https://wsrv.nl/?url=${encodeURIComponent(cardImg(mint))}&w=${rw}&h=${Math.round(rw*1.398)}&fit=contain&output=webp`; };
 /* A tile's card can fail to load for two reasons: the Netlify image proxy throttles
    under load (transient — the card DOES exist), or the fighter genuinely has no card
    yet (IPFS/rugged). So step through the card on OTHER routes first and only drop to
@@ -1281,14 +1271,22 @@ function openDrawer(fi, i) { renderDrawer(FLOORS[fi].items[i]); }
 // A held (not-listed) fighter opens the SAME drawer in a read-only mode instead of jumping
 // to an external page: its card art + name + a "not for sale" note + the profile link.
 function openHeldEl(el){ openHeld(el.dataset.mint, el.dataset.num, el.dataset.name, el.dataset.ext); }
+// CARD NUMBERS (owner 2026-10-29): Framed #1–#42, Mint #43–#597, cracked the rest. DISPLAY + LINKS ONLY — `num` / `l.number` stay the
+// old fighter number for every data lookup. The live map (dd-states.js) wins over the build-time copy (l.cardNo).
+function cardNoOf(mint, buildNo){ const n = (window.DDStates && DDStates.no) ? DDStates.no(mint) : null; return n != null ? n : (buildNo != null ? buildNo : null); }
+// the shown '#' before the renumbering: the old number, exactly as before (dMeta) — via cardShownOf
+function cardShownOf(mint, id, buildNo){ const n = cardNoOf(mint, buildNo); if (n != null) return n; return (window.DDStates && DDStates.hasNumbers && DDStates.hasNumbers()) ? null : (id != null && id !== '' ? id : null); }
+// before the renumbering is published there are no card numbers at all → the old /<id> link (same as before)
+function cardPathOf(mint, id, buildNo){ const n = cardNoOf(mint, buildNo); if (n != null) return '/' + n; if (id == null || id === '') return ''; return (window.DDStates && DDStates.hasNumbers && DDStates.hasNumbers()) ? '/old/' + id : '/' + id; }
 function openHeld(mint, num, name, ext){
   current = null;
   const d = $('drawer'); d.classList.add('held');
-  $('dArt').src = S3IMG(mint, ext);
+  showSlides([[(window.DDStates && DDStates.card) ? DDStates.card(mint) : cardImg(mint), 'Card'], [S3IMG(mint, ext), 'Original art']]);
   $('dName').textContent = name || '';
-  $('dMeta').textContent = [(num!=null && num!=='' ? ('#'+num) : ''), 'Held — not for sale'].filter(Boolean).join(' · ');
+  const cno = cardShownOf(mint, num);
+  $('dMeta').textContent = [(cno!=null ? ('#'+cno) : ''), 'Held — not for sale'].filter(Boolean).join(' · ');
   const h = $('dHeld'); if (h){ h.style.display=''; h.innerHTML = `This fighter is held by its owner and isn't listed for sale right now.`; }
-  const lk = $('dLink'); if (lk){ lk.style.display=''; lk.href = DD + '/' + num; lk.textContent = 'View the full profile on degendojo.xyz ↗'; }
+  const lk = $('dLink'); if (lk){ lk.style.display=''; lk.href = DD + cardPathOf(mint, num); lk.textContent = 'View the full profile on degendojo.xyz ↗'; }
   $('scrim').classList.add('open'); d.classList.add('open');
 }
 function renderDrawer(l) {
@@ -1297,31 +1295,17 @@ function renderDrawer(l) {
   const _d = $('drawer'); _d.classList.remove('held');   // leaving held mode → restore the buy UI
   const _h = $('dHeld'); if (_h) _h.style.display='none';
   TIP = 0; if ($('tipAmt')) $('tipAmt').value = '';   // fresh listing → clear any prior tip
-  $('dArt').src = l.image;
+  showSlides(l.external ? [[l.image, '']] : [[l.image, 'Card'], [S3IMG(l.mint), 'Original art']]);
   $('dName').textContent = l.name;
-  $('dMeta').textContent = [trait(l,'Race'), l.number!=null?('#'+l.number):'', l.source==='tensor'?'Tensor':'Magic Eden'].filter(Boolean).join(' · ');
-
-  // Special move — the fighter's signature technique.
-  const mv = $('dMove');
-  if (l.move) { mv.style.display=''; mv.innerHTML = `<span class="mk">必殺技</span><div><div class="ml">Special Move</div><div class="mv">${esc(l.move)}</div></div>`; }
-  else mv.style.display='none';
+  $('dMeta').textContent = [trait(l,'Race'), (cardShownOf(l.mint, l.number, l.cardNo)!=null?('#'+cardShownOf(l.mint, l.number, l.cardNo)):''), l.source==='tensor'?'Tensor':'Magic Eden'].filter(Boolean).join(' · ');
 
   // Combat stats — only Degens carry them.
   const ss = $('dStats');
   if (l.stats) {
     ss.style.display='';
-    ss.innerHTML = [['ATK',l.stats.attack],['DEF',l.stats.defence],['HP',l.stats.hitpoints],['SP.DMG',l.stats.smdamage]]
+    ss.innerHTML = [['ATK',l.stats.attack],['DEF',l.stats.defence],['HP',l.stats.hitpoints],['PWR',l.stats.smdamage]]
       .map(([k,v])=>`<div class="statt"><div class="sv">${v??'—'}</div><div class="sk">${k}</div></div>`).join('');
   } else ss.style.display='none';
-
-  // Diary — long story, short quote beneath. Neither exists for Demons/Oni.
-  const dy = $('dDiary');
-  if (l.story || l.quote) {
-    dy.style.display='';
-    dy.innerHTML = `<div class="dk">⛩ From the diary</div>` +
-      (l.story ? `<p>${esc(l.story)}</p>` : '') +
-      (l.quote && l.quote!==l.story ? `<div class="q">“${esc(l.quote)}”</div>` : '');
-  } else dy.style.display='none';
 
   // Unique on-chain page.
   const lk = $('dLink');
@@ -1367,6 +1351,22 @@ function renderDrawer(l) {
   $('scrim').classList.add('open');
   $('drawer').classList.add('open');
 }
+// drawer slideshow, as on the market: arrows, dots, swipe; a slide whose image fails to load is dropped
+function showSlides(slides){
+  $('dshow').innerHTML = slides.map(([u, lab], k) => '<img src="' + esc(u) + '" alt="' + esc(lab) + '"' + (k ? ' hidden' : '') + ' onerror="dropSlide(this)"/>').join('')
+    + (slides.length < 2 ? '' : '<span class="dlab" id="dlab">' + esc(slides[0][1]) + '</span>'
+      + '<button class="dsl l" onclick="slide(-1)" aria-label="Previous">‹</button><button class="dsl r" onclick="slide(1)" aria-label="Next">›</button>'
+      + '<div class="ddots">' + slides.map((_, k) => '<i' + (k ? '' : ' class="on"') + '></i>').join('') + '</div>');
+}
+function slide(dir){ const box = $('dshow'), ims = [...box.querySelectorAll('img')]; if (ims.length < 2) return;
+  let i = ims.findIndex((x) => !x.hidden); ims[i].hidden = true; i = (i + dir + ims.length) % ims.length; ims[i].hidden = false;
+  box.querySelectorAll('.ddots i').forEach((d, k) => d.classList.toggle('on', k === i)); $('dlab').textContent = ims[i].alt; }
+function dropSlide(im){ const box = $('dshow'), wasOn = !im.hidden, k = [...box.querySelectorAll('img')].indexOf(im); im.remove();
+  const dots = box.querySelectorAll('.ddots i'); if (dots[k]) dots[k].remove();
+  const ims = box.querySelectorAll('img'); if (ims.length < 2) box.querySelectorAll('.dsl,.ddots,.dlab').forEach((e) => e.style.display = 'none');
+  if (wasOn && ims[0]) ims[0].hidden = false; }
+addEventListener('touchstart', (e) => { if (e.target.closest && e.target.closest('#dshow')) window._sx = e.touches[0].clientX; }, { passive: true });
+addEventListener('touchend', (e) => { if (window._sx == null) return; const dx = e.changedTouches[0].clientX - window._sx; window._sx = null; if (Math.abs(dx) > 40) slide(dx < 0 ? 1 : -1); }, { passive: true });
 function closeDrawer(){ $('scrim').classList.remove('open'); $('drawer').classList.remove('open'); }
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeDrawer(); closeWallet(); closeConquest(); } });
 
@@ -1523,8 +1523,7 @@ async function rpcCall(method, params) {
 // before signing, so an incompatible state fails safely (nothing signed) rather than silently.
 const M2_SELL_DISCS = new Set(['a40e5c647b39eacc', '01ee48898a15fef9', 'c3372e293607e19b']);
 // Degen Dojo's own creators (address strings), read off our own listings. Used
-// to tell "this is one of ours" from a resolved outside collection — only ours
-// carries the ORE royalty rebate, since only ours pays royalty to a wallet we run.
+// to tell "this is one of ours" from a resolved outside collection.
 const DD_CREATORS = (STORE.listings || []).flatMap(l => l.creators || []);
 // Genuine = in our VERIFIED collections (or a verified Dojo creator). A look-alike copies our name, collection
 // name, creator wallets or artwork without being ours — never shown or sold here (same rule as store-genuine-core.mjs).
@@ -1940,15 +1939,17 @@ function setPay(cur) {
   payCur = cur;
   document.querySelectorAll('.pay').forEach(b => b.classList.toggle('on', b.dataset.cur === cur));
   // the tip is denominated in whichever currency is selected
-  $('tipCur').innerHTML = `<img id="tipIcon" src="${CUR_ICON[cur]()}" alt="" /> ${cur}`;
+  if ($('tipCur')) $('tipCur').innerHTML = `<img id="tipIcon" src="${CUR_ICON[cur]()}" alt="" /> ${cur}`;
   renderTip();
   if (!current) return;
   const total = current.priceAllIn;
-  const q = $('dQuote'), reb = $('dRebate');
+  const q = $('dQuote'), roy = $('dRoy');
+  // where the royalty goes, on our own fighters only (owner 2026-10-31)
+  roy.innerHTML = current.external ? '' : `Of the <b>${current.royaltyBps/100}% royalty</b>, <b>88%</b> goes to the Degen Dojo Reserve and <b>12%</b> funds Degen Dojo's development.`;
+  roy.style.display = current.external ? 'none' : '';
 
   if (cur === 'SOL') {
     q.innerHTML = `<b>${sol(total)} ◎</b>${PRICES.SOL ? ' · ' + usd(total*PRICES.SOL) : ''} — paid straight to the seller's escrow.`;
-    reb.style.display = 'none';
   } else {
     const unit = cur, dp = cur === 'ORE' ? 3 : 2;
     // Show the REAL swap cost, not a spot-price estimate. The swap is ExactOut
@@ -1967,26 +1968,6 @@ function setPay(cur) {
         `<b>${maxAmt.toLocaleString('en-US',{maximumFractionDigits:dp})} ${unit}</b> plus a little SOL for fees.` +
         ` Swapped to SOL, then the buy — <b>two approvals</b>.`;
     }).catch(() => { if (payCur === cur) q.innerHTML = `Couldn't quote ${cur} — try again in a moment.`; });
-    const isReb = (cur === 'ORE' || cur === 'SKR');
-    if (isReb && current.external) {
-      reb.innerHTML = `Your ${cur} is swapped to exactly the SOL this purchase needs, then the NFT is bought — ` +
-        `<b>two approvals</b>. The rebate applies to Degen Dojo fighters only.`;
-      reb.style.display = '';
-    } else if (isReb) {
-      // ORE hands back half the creator royalty (6.5% on a 13% fighter); SKR hands back a flat 5%.
-      const pct    = cur === 'ORE' ? (current.royaltyBps/100) * CFG.oreRebateShareOfRoyalty : 5;
-      const rebSol = current.price * pct/100;
-      const tPrice = cur === 'ORE' ? PRICES.ORE : PRICES.SKR;
-      const tIcon  = cur === 'ORE' ? oreIcon : skrIcon;
-      const tDp    = cur === 'ORE' ? 3 : 0;
-      const rebTok = (tPrice && PRICES.SOL) ? (rebSol * PRICES.SOL) / tPrice : null;
-      reb.innerHTML = `Your ${cur} is swapped to exactly the SOL this purchase needs, then the fighter is bought. ` +
-        `Then <b>${pct}% comes back in ${cur}</b>, returned to your wallet. ` +
-        `On this fighter that's <b>${sol(rebSol)}${solIcon}</b>` +
-        (rebTok ? ` ≈ <b>${rebTok.toLocaleString('en-US',{maximumFractionDigits:tDp})}${tIcon}</b>` : '') +
-        (PRICES.SOL ? ` (${usd(rebSol*PRICES.SOL)})` : '') + `.`;
-      reb.style.display = '';
-    } else reb.style.display = 'none';
   }
   $('dOwn').innerHTML = WALLET
     ? '⚔ Own · ' + (cur === 'SOL' ? sol(total) + ' ◎' : 'pay in ' + cur)
@@ -2311,7 +2292,6 @@ async function loadLiveTower() {
 /* ── boot ────────────────────────────────────────────────────────── */
 paintStats();
 $('fWhen').textContent   = new Date(STORE.updatedAt).toLocaleString();
-$('oreTag').textContent  = ((STORE.listings[0]?.royaltyBps ?? 1300)/100) * CFG.oreRebateShareOfRoyalty + '% back in ORE';
 $('fRoy').textContent    = (STORE.listings[0]?.royaltyBps ?? 1300)/100;
 $('payOreIcon').src = ICON.ore;   // ORE-only marketplace — SKR/SOL pay buttons removed
 

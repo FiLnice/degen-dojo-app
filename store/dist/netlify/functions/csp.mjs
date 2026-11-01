@@ -37,5 +37,8 @@ const base = (scriptExtra) => [
 export const SITE_CSP = base(" https://cdnjs.cloudflare.com");
 // store.degendojo.xyz: loads nothing from cdnjs (security review L8) — no outside script host at all.
 export const STORE_CSP = base("");
+// store.degendojo.xyz/m/<slug> only: a branded miner is the one page other sites may frame, so a collection can put it on its
+// own website (owner 2026-10-31). Every wallet action still needs the wallet's own approval. All other pages stay 'none'.
+export const MINER_EMBED_CSP = STORE_CSP.replace("frame-ancestors 'none'", "frame-ancestors https:");
 // old name (site policy) for any script that still imports it
 export const CSP = SITE_CSP;

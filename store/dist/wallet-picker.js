@@ -102,6 +102,9 @@
       for (var i = 0; i < arguments.length; i++) {
         var w = arguments[i];
         var isSolana = w && w.chains && [].some.call(w.chains, function (c) { return String(c).indexOf('solana') === 0; });
+        // the experimental "Seeker Connect" (beta, public relay) spins then fails on real Seekers — owner 2026-10-29:
+        // Seed Vault via Mobile Wallet Adapter connects fine, so the beta option is hidden everywhere
+        if (w && w.name === 'Seeker Connect') continue;
         if (isSolana && wallets.indexOf(w) < 0) wallets.push(w);
       }
       return function () {};
@@ -223,7 +226,18 @@
   // Silent reconnect of the last wallet the user picked — no popup (only reconnects a wallet
   // that already authorised this origin). Lets a connection made on one same-origin page
   // (store) carry to the next (shelves, preacher) without asking again. Resolves null if none.
+  // ONE silent reconnect per page, started the moment this script loads (below) and shared by every caller — the
+  // nav wire, the page and the miner each started their own, after their own code had loaded, so /mine showed
+  // "connected" late (owner 2026-10-29). A null result isn't kept, so a later call still tries again.
+  var _auto = null;
   function autoConnect() {
+    var remembered; try { remembered = localStorage.getItem('dojo_wallet'); } catch (_) {}
+    if (!remembered) { _auto = null; return Promise.resolve(null); }   // disconnected since → never hand back the old session
+    if (_auto) return _auto;
+    _auto = autoConnectOnce().then(function (a) { if (!a) _auto = null; return a; });
+    return _auto;
+  }
+  function autoConnectOnce() {
     return new Promise(function (resolve) {
       var name; try { name = localStorage.getItem('dojo_wallet'); } catch (_) {}
       if (!name) { resolve(null); return; }
@@ -389,4 +403,6 @@
   }
 
   global.DojoWalletPicker = { enumerate: enumerate, pick: pick, connect: connect, autoConnect: autoConnect, deepLinks: deepLinks, openDeepLink: openDeepLink, icons: WALLET_ICONS, bs58: bs58 };
+  // head start: a returning visitor's silent reconnect begins now, not after the page's own code has loaded
+  try { if (localStorage.getItem('dojo_wallet')) autoConnect(); } catch (_) {}
 })(window);

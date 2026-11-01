@@ -9,7 +9,7 @@
 // 7+ days at that moment; self-referral / no linked wallet → 0) and stored on the record as `split`; the unused part of the
 // 44% pool went to the Reserve right then, so a payout pays exactly the locked amount.
 // Dojo Pot tips (ddtip memo) earn preachers nothing (100% Pot). Referred NFT sales no longer earn anything
-// (royalties now go 88% Card Vault / 12% ops); their records stay readable for history.
+// (royalties now go 88% Reserve / 12% ops); their records stay readable for history.
 // Records verified BEFORE the change (no `split`) keep the old rules: live tier at payout, 20/25/30%.
 // Only records the server has verified on-chain count. Owed amounts are kept in the token actually paid.
 // Holding period (review 2026-10-23, L1): a fighter counts toward the tier only after the preacher has held it for

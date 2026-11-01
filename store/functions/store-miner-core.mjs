@@ -26,13 +26,13 @@ const clip = (v, n) => String(v == null ? "" : v).trim().slice(0, n);
 
 // Front-run guard (2026-10-23): the payer commits to the EXACT request inside the payment. The /create page adds a
 // memo "ddminer:<hash of the request>" to the fee transfer it signs; a request is accepted only when its own hash is
-// in that memo — so nobody can file a different request (their own name / tip wallet) against someone's payment.
+// in that memo — so nobody can file a different request (their own name / art) against someone's payment.
 // The page computes the same hash: sha256 of this JSON, first 32 hex characters.
 export const MINER_MEMO_PREFIX = "ddminer:";
 export function minerRequestHash(b) {
   const s = (v) => String(v == null ? "" : v).trim();
   const tiles = (Array.isArray(b?.degens) ? b.degens : []).map((d) => [s(d?.mint), s(d?.image)]);
-  return createHash("sha256").update(JSON.stringify([1, s(b?.name), s(b?.tipWallet), s(b?.contact), s(b?.website), s(b?.collection), s(b?.payer), tiles])).digest("hex").slice(0, 32);
+  return createHash("sha256").update(JSON.stringify([2, s(b?.name), s(b?.contact), s(b?.website), s(b?.collection), s(b?.payer), tiles])).digest("hex").slice(0, 32);
 }
 /** true when the payment transaction carries this request's "ddminer:<hash>" memo */
 export function memoBindsRequest(tx, body) {
@@ -91,15 +91,13 @@ export function checkOrePayment(tx, { operator, payer, feeOre, now = Date.now(),
 export function validateRequest(b) {
   if (!b || typeof b !== "object") return { ok: false, error: "Bad request." };
   const name = clip(b.name, 80);
-  const tipWallet = clip(b.tipWallet, 44);
   const contact = clip(b.contact, 200);
   const website = clip(b.website, 200);
   const collection = clip(b.collection, 44);
   const paymentSig = clip(b.paymentSig, 100);
   const payer = clip(b.payer, 44);
 
-  if (!name || !tipWallet || !contact || !paymentSig || !payer) return { ok: false, error: "Please fill every field." };
-  if (!B58_ADDR.test(tipWallet)) return { ok: false, error: "Tip wallet isn’t a valid Solana address." };
+  if (!name || !contact || !paymentSig || !payer) return { ok: false, error: "Please fill every field." };
   if (!B58_ADDR.test(payer)) return { ok: false, error: "Bad payer address." };
   if (!B58_SIG.test(paymentSig)) return { ok: false, error: "Bad payment signature." };
   if (collection && !B58_ADDR.test(collection)) return { ok: false, error: "Collection isn’t a valid address." };
@@ -114,7 +112,7 @@ export function validateRequest(b) {
     const mint = clip(d?.mint, 44);
     degens.push({ name: clip(d?.name, 120) || "NFT", image, ...(B58_ADDR.test(mint) ? { mint } : {}) });
   }
-  return { ok: true, value: { name, tipWallet, contact, website, collection, degens, paymentSig, payer } };
+  return { ok: true, value: { name, contact, website, collection, degens, paymentSig, payer } };
 }
 
 /** URL-safe base slug from a collection name. Never empty. */

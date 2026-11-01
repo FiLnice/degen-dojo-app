@@ -1,16 +1,16 @@
-// Dojo Keeper money ledger — card vaults, repairs, burn claims. Shared by /api/vault, /api/repair,
+// Dojo Keeper money ledger — royalties, repairs, burn claims. Shared by /api/vault, /api/repair,
 // /api/burnclaim, the payout cron and the /payouts admin desk. NO private key anywhere: the owner pays and
 // burns once a week from /payouts with the Treasury wallet; this only RECORDS and VERIFIES.
 //
 // Owner rules (2026-10-23):
-//   • every royalty and every repair payment splits 88% to that NFT's COLLECTION Card Vault / 12% ops (no Reserve share)
-//     (three pools: Degen Dojo, Demon Dojo, TETO). Only income after the 2026-10-22 hand-over counts.
+//   • every royalty and every repair payment splits 88% Reserve / 12% ops (owner 2026-10-30: there are no Card Vaults any more).
+//     Only income after the 2026-10-22 hand-over counts.
 //   • an eligible NFT's burn value = its collection's Card Vault ÷ the number of eligible NFTs in that collection now.
-//     Eligible: Degen Dojo cards whose Condition is Mint or Framed (Cracked / Mono → 0: repair first); every live
+//     Eligible: Degen Dojo cards whose Condition is Mint or Framed (Cracked / Faded → 0: repair first); every live
 //     Demon Dojo and TETO NFT (they have no Condition). A burn claim takes its share OUT of the pool, so the next
 //     burner's share stays fair: (P − P/N) / (N − 1) = P/N.
-//   • repair = 0.01 ORE per card, Cracked or Mono → Mint. Mint (and Framed) cards are protected forever.
-//     A repair payment is ANY ORE transfer into the Treasury's ORE account by a wallet that holds Cracked/Mono
+//   • repair = 0.01 ORE per card, Cracked or Faded → Mint. Mint (and Framed) cards are protected forever.
+//     A repair payment is ANY ORE transfer into the Treasury's ORE account by a wallet that holds Cracked/Faded
 //     cards — not a credited store coin buy / tip, no ddtip memo, not a mining tx. The paying wallet = the owner of the
 //     ORE account the money left (not the fee payer). `ddfix:<mint>` memos (the page's one-click flow) make it a repair
 //     whatever anyone POSTs to /api/coinbuy, and pick the cards first, then the rarest. N = floor(ORE / 0.01), capped at
@@ -20,15 +20,15 @@
 //     (Security review 2026-10-23, lane 7: M-1, M-2, M-3, L-1..L-4, I-2, I-4.)
 //   • a burn value is paid only when the NFT is burned — by its holder (a burn tx) or by SENDING it to the
 //     Treasury (the weekly batch burns it). The claim is fixed in stORE at that moment and paid weekly in stORE.
-//   • BURNING IS NOT LAUNCHED (BURN_ENABLED env, default off): the pools keep filling silently, but no burn value or
+//   • BURNING IS NOT LAUNCHED (BURN_ENABLED env, default off): the pools get nothing new, and no burn value or
 //     pool figure is shown publicly, /api/burnclaim refuses, and NFTs sent to the Treasury are only recorded as
 //     "held" (no claim). It's a treasure hunt, not a promise of money.
-//   • HARD CAP on Mint cards — an admin SETTING (/payouts desk; env MINT_CAP is only the initial default, 888): Degen
-//     Dojo cards in Mint / Framed (live) + every repair ever granted may never exceed it. Repairs are granted first come,
+//   • HARD CAP on Mint cards — an admin SETTING (/payouts desk; env MINT_CAP is only the initial default, 555 since 2026-10-29): Degen
+//     Dojo Mint cards (live; the Framed sit outside the cap, owner 2026-10-30) + every repair ever granted may never exceed it. Repairs are granted first come,
 //     first served by payment time, each judged against the cap that was in force WHEN IT WAS PAID (lowering the cap
 //     later closes repairs for later payments only; it never downgrades a Mint card). A repair over the cap is recorded
 //     as a refund (0.01 ORE back to the payer) for the weekly batch — no split is booked for it.
-//   • the condition comes from the NFT's own "Condition" trait (Framed / Mint / Cracked / Mono) — whatever the
+//   • the condition comes from the NFT's own "Condition" trait (Framed / Mint / Cracked / Faded) — whatever the
 //     Nov 2 crack batch sets; nothing here decides who cracks.
 //
 // Raw token amounts are BigInt in code and decimal strings in JSON (house style, see store-payout-core.mjs).
@@ -76,10 +76,11 @@ export const TM_PROGRAM = "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s";
 // among the tx accounts, so history is read for both addresses.
 export const TREASURY_ORE_ATA = process.env.TREASURY_ORE_ATA || "7mapvsQQhHMeRxEbsMUMJUjxUnTy6t8tm7EKizdJZGKv";
 export const REPAIR_PRICE_RAW = 1_000_000_000n;   // 0.01 ORE (11 decimals)
-export const REPAIRABLE = new Set(["Cracked", "Mono"]);
+export const REPAIRABLE = new Set(["Cracked", "Faded"]);
 export const PROTECTED = new Set(["Mint", "Framed"]);
-export const SINCE = Date.UTC(2026, 9, 22);       // the hand-over: vaults accrue from here on
-export const SPLIT = { vault: 88n, reserve: 0n };   // owner 2026-10-24: 88% Card Vault (was 44 vault / 44 Reserve)   // ops = the rest (12%) — rounding dust goes to ops
+export const SINCE = Date.UTC(2026, 9, 22);       // the hand-over: income counts from here on
+export const SPLIT = { vault: 0n, reserve: 88n };   // royalties. owner 2026-10-30: 88% Reserve, no Card Vault any more (was 88% Card Vault)   // ops = the rest (12%) — rounding dust goes to ops
+export const REPAIR_SPLIT = { vault: 0n, reserve: 88n };   // repairs. owner 2026-10-30: 88% Reserve (was 88% Card Vault), ops the rest (12%)
 // our own wallets (+ the owner's personal wallet): their transfers into the Treasury are not income / claims
 const OWN = new Set([TREASURY, "ED3GMCfoX3XNvavnWADvd6oCsohGg1ukdhv3PaUpvwJe", "DfaGo3Qht6MC2bqgFCBHgUWjaeXDNmsbE7XjyRKWM3qS",
   process.env.COSIGNER_PUBKEY || "8KUWwAHMb7TL31JGbucCi8YE1ax7njWi46ajVbWnvDqr",
@@ -90,7 +91,7 @@ export const isAddr = (s) => ADDR_RE.test(s || "");
 export const MAX_AGE_MS = 48 * 3600e3;   // POST /api/repair & /api/burnclaim only look at recent transactions
 const ORE_SETTLE_MS = 10 * 60e3;          // a memo-less ORE payment is decided once it is this old (see decide() step 3)
 export const burnEnabled = () => /^(1|true|yes|on)$/i.test(String(process.env.BURN_ENABLED || "").trim());
-const envMintCap = () => { const n = parseInt(process.env.MINT_CAP || "888", 10); return n > 0 ? n : 888; };
+const envMintCap = () => { const n = parseInt(process.env.MINT_CAP || "555", 10); return n > 0 ? n : 555; };   // owner 2026-10-29: 555 (the printed set)
 export async function getSettings() { return (await ks().get("settings", { type: "json" })) || { history: [] }; }
 // the cap in force at time t (ms): the last setting made at or before t, else the env default
 export async function mintCapAt(t = Date.now(), settings = null) {
@@ -116,9 +117,9 @@ const ks = () => getStore("keeper");
 const S = (b) => big(b).toString();
 
 // ---------- money ----------
-export function splitRaw(raw) {   // → { vault, reserve, ops } BigInt, exact (sum === raw)
+export function splitRaw(raw, split = SPLIT) {   // → { vault, reserve, ops } BigInt, exact (sum === raw)
   raw = big(raw);
-  const vault = (raw * SPLIT.vault) / 100n, reserve = (raw * SPLIT.reserve) / 100n;
+  const vault = (raw * split.vault) / 100n, reserve = (raw * split.reserve) / 100n;
   return { vault, reserve, ops: raw - vault - reserve };
 }
 const addTo = (obj, mint, raw) => { if (big(raw) !== 0n) obj[mint] = S(big(obj[mint]) + big(raw)); return obj; };
@@ -211,7 +212,7 @@ export async function getRepair(mint) { return await ks().get("repair:" + mint, 
 export async function getClaim(mint) { return await ks().get("claim:" + mint, { type: "json" }); }
 export async function getTotals() { return (await ks().get("totals", { type: "json" })) || { reserve: {}, ops: {}, direct: {}, unconverted: {}, ids: [] }; }
 
-// the 88% card share of a royalty / repair → that collection's shared Card Vault (idempotent by id)
+// a share into a collection's old Card Vault pool (idempotent by id). Royalties and repairs credit nothing since 2026-10-30
 async function creditPool(collMint, bal, id) {
   if (!COLLS[collMint]) return;
   await casUpdate(ks(), "pool:" + collMint, (p) => {
@@ -249,7 +250,7 @@ export const isMythic = (a) => collOf(a) === "Degen Dojo" && conditionOf(a) === 
 export const sharesOf = (a) => (!eligibleAsset(a) ? 0
   : collOf(a) === "Degen Dojo" && conditionOf(a) === "Framed" ? FRAMED_SHARES
   : isMythic(a) ? MYTHIC_SHARES : 1);
-export const burnNoteOf = (a) => (collOf(a) === "Degen Dojo" && REPAIRABLE.has(conditionOf(a)) ? "Repair it to Mint first — Cracked and Mono cards have no burn value" : null);
+export const burnNoteOf = (a) => (collOf(a) === "Degen Dojo" && REPAIRABLE.has(conditionOf(a)) ? "Repair it to Mint first — Cracked and Faded cards have no burn value" : null);
 const ELIG = new Map();   // collMint → { at, mints: Map(mint → shares) } per warm instance
 const ELIG_TTL = 3 * 60e3;
 export async function eligibleMints(collMint, { fresh = false } = {}) {
@@ -266,6 +267,8 @@ export async function eligibleMints(collMint, { fresh = false } = {}) {
   return mints;
 }
 export const _resetEligible = () => ELIG.clear();   // test hook
+// the Mint cap counts Mint cards only: Framed are eligible for the vault but sit outside the 555 (owner 2026-10-30)
+const liveMintCards = async (opts) => [...(await eligibleMints(DD_COLL, opts))].filter(([, shares]) => shares !== FRAMED_SHARES).map(([mint]) => mint);
 // The collection's eligible live NFTs that haven't claimed yet → { nfts, shares }, counting `includeMint` (the card
 // being valued / burned, worth `includeShares`) once even if it is already burnt in the index.
 export async function eligibleCount(collMint, { includeMint = null, includeShares = 1, pool = null, fresh = false } = {}) {
@@ -443,7 +446,7 @@ async function decideTx(sig, tx, t, now) {
     return { kind: "royalty", at: t || now, gains, sold };
   }
 
-  // 3) ORE into the Treasury's ORE account → a repair payment if the payer holds Cracked/Mono cards
+  // 3) ORE into the Treasury's ORE account → a repair payment if the payer holds Cracked/Faded cards
   const ore = deltas[ORE_MINT] || 0n;
   if (ore > 0n) {
     const memos = memosOf(tx), feePayer = signers[0], payer = orePayer(tx) || feePayer;
@@ -495,7 +498,7 @@ async function decideTx(sig, tx, t, now) {
     rest.sort((x, y) => rarityScore(y) - rarityScore(x) || (x.id < y.id ? -1 : 1));   // rarest first
     const queue = [...candidates, ...rest];
     const who = { payer, ...(feePayer !== payer ? { feePayer } : {}), ore: S(ore) };
-    if (!queue.length) return asked.length ? { kind: "skip", why: "no repairable card in this payment", refused, ...who } : { kind: "skip", why: "payer holds no Cracked/Mono cards", ...who };
+    if (!queue.length) return asked.length ? { kind: "skip", why: "no repairable card in this payment", refused, ...who } : { kind: "skip", why: "payer holds no Cracked/Faded cards", ...who };
     const n = Number(ore / REPAIR_PRICE_RAW < BigInt(queue.length) ? ore / REPAIR_PRICE_RAW : BigInt(queue.length));
     const cards = queue.slice(0, n).map((a) => ({ mint: a.id, coll: collOf(a), from: conditionOf(a) }));
     for (const a of candidates.slice(n)) refused.push({ mint: a.id, reason: "the payment didn't cover this card (0.01 ORE each)" });
@@ -523,7 +526,7 @@ export async function apply(sig, d) {
     for (const [cm, bal] of Object.entries(perPool)) await creditPool(cm, bal, sig);
     await creditTotals({ reserve, ops, unconverted }, sig);
   } else if (d.kind === "repair") {
-    const sp = splitRaw(REPAIR_PRICE_RAW), reserve = {}, ops = {}, direct = {}, unconverted = {};
+    const sp = splitRaw(REPAIR_PRICE_RAW, REPAIR_SPLIT), reserve = {}, ops = {}, direct = {}, unconverted = {};
     const done = [], capped = [];
     const prior = await ks().get("refund:" + sig, { type: "json" });   // a re-run keeps the refund it already decided
     for (const c of d.cards) {
@@ -532,8 +535,7 @@ export async function apply(sig, d) {
       const rec = { mint: c.mint, coll: c.coll, wallet: d.payer, from: c.from, to: "Mint", sig, at: d.at, status: "pending" };
       const mine = (await putIfNew(ks(), "repair:" + c.mint, rec)) || (await getRepair(c.mint))?.sig === sig;
       if (!mine) { addTo(reserve, ORE_MINT, REPAIR_PRICE_RAW); addTo(direct, ORE_MINT, REPAIR_PRICE_RAW); addTo(unconverted, ORE_MINT, REPAIR_PRICE_RAW); continue; }   // raced: another payment repaired it first → its price goes to the Reserve
-      await creditPool(COLL_MINT[c.coll], { [ORE_MINT]: sp.vault }, sig + ":" + c.mint);
-      addTo(reserve, ORE_MINT, sp.reserve); addTo(ops, ORE_MINT, sp.ops); addTo(unconverted, ORE_MINT, sp.vault + sp.reserve);
+      addTo(reserve, ORE_MINT, sp.reserve); addTo(ops, ORE_MINT, sp.ops); addTo(unconverted, ORE_MINT, sp.reserve);
       done.push(c.mint);
     }
     if (big(d.leftover) > 0n) { addTo(reserve, ORE_MINT, d.leftover); addTo(direct, ORE_MINT, d.leftover); addTo(unconverted, ORE_MINT, d.leftover); }
@@ -554,7 +556,7 @@ export async function apply(sig, d) {
 // A repaired card that was later burned for its claim is no Mint card any more — its granted spot is free again.
 const goneMints = async () => new Set((await getPool(DD_COLL)).claimed || []);
 export async function grantMintSpot(mint, paidAt = Date.now()) {
-  const live = [...(await eligibleMints(DD_COLL, { fresh: true })).keys()];
+  const live = await liveMintCards({ fresh: true });
   const cap = await mintCapAt(paidAt), gone = await goneMints();
   let granted = false;
   await casUpdate(ks(), "mintcap", (c) => {
@@ -568,8 +570,8 @@ export async function grantMintSpot(mint, paidAt = Date.now()) {
   return granted;
 }
 export async function mintSpots({ fresh = false } = {}) {
-  const [live, c, gone] = await Promise.all([eligibleMints(DD_COLL, { fresh }), ks().get("mintcap", { type: "json" }), goneMints()]);
-  const count = new Set([...live.keys(), ...((c && c.granted) || []).filter((m) => !gone.has(m))]).size, cap = await mintCapAt();
+  const [live, c, gone] = await Promise.all([liveMintCards({ fresh }), ks().get("mintcap", { type: "json" }), goneMints()]);
+  const count = new Set([...live, ...((c && c.granted) || []).filter((m) => !gone.has(m))]).size, cap = await mintCapAt();
   return { mintCount: count, mintCap: cap, mintSpotsLeft: Math.max(0, cap - count) };
 }
 // Weekly refunds: verify the Treasury's ORE transfers, then mark the covered refunds paid (oldest first per payer,
@@ -897,7 +899,6 @@ export async function keeperSummary() {
     repairsApplied: repairs.filter((r) => r.status === "applied").length,
     totals: { reserve: fmt(totals.reserve), ops: fmt(totals.ops), direct: fmt(totals.direct), unconverted: fmt(totals.unconverted), unconvertedRaw: totals.unconverted || {} },
     ops: { wallet: opsWallet(), due: fmt(opsDue(totals)), dueRaw: opsDue(totals), moved: fmt(totals.opsMoved) },
-    pools: await poolsPublic().catch(() => null),
     burnEnabled: burnEnabled(), held: held.sort((a, b) => a.at - b.at),
     refundsDue: refundsDue.map((r) => ({ ...r, ore: toUi(r.raw, ORE_MINT) })), refundsDueOre: toUi(refundsDue.reduce((t, r) => t + big(r.raw), 0n), ORE_MINT),
     mint: await mintSpots().catch(() => null), mintCapHistory: ((await getSettings().catch(() => null))?.history || []).slice(-10),

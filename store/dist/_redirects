@@ -32,11 +32,15 @@
 /api/miner-requests  /.netlify/functions/miner-requests  200
 /api/miner  /.netlify/functions/miner  200
 /nft/*  /.netlify/functions/nft  200
-/m/*  /mine.html  200
+/m/*  /.netlify/functions/miner-page  200
 /wallets  /reserve/  301
 /wallets/*  /reserve/  301
 /claim  /sweep  301
 /claim/*  /sweep  301
+/wizard  /orewizard/  301
+/wizard/*  /orewizard/  301
+/wizardore  /orewizard/  301
+/wizardore/*  /orewizard/  301
 /shelves  /  301
 /shelves-100  /  301
 /shelves-100.html  /  301

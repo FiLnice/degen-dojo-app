@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ORE Wizard: plan your ORE mining | Degen Dojo</title>
+<meta name="description" content="Plan an ORE mining run: solo odds, split drip, Motherlode share and the real SOL cost, with live market numbers and five mining strategies.">
+<link rel="icon" href="/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Teko:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/ore-tools.css">
+</head>
+<body>
+<div id="ddnav-mount"></div>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>ORE <span>Wizard</span></h1>
+      <p class="sub">Plan a run before you mine: solo odds, split drip, Motherlode share and the real SOL cost. Math follows ORE's on-chain rules.</p>
+    </div>
+    <div class="hdr-r"><div class="status" id="liveStatus"><span class="dot"></span><span id="liveText">Loading live data…</span></div><a class="btn ghost" href="/oreparties/">ORE Parties</a><a class="btn" href="/mine">Start mining</a></div>
+  </header>
+
+  <div class="grid">
+    <!-- INPUTS -->
+    <div class="panel" id="inputs">
+      <h2>Your deploy</h2>
+      <div class="field">
+        <label for="perTile">SOL per tile</label>
+        <input type="number" id="perTile" step="0.0001" min="0" value="0.0015">
+      </div>
+      <div class="field">
+        <label>Tile strategy</label>
+        <div class="seg" role="group" aria-label="Tile strategy">
+          <button type="button" data-preset="solo" aria-pressed="false">Solo only</button>
+          <button type="button" data-preset="all" aria-pressed="true">All 25</button>
+          <button type="button" data-preset="custom" aria-pressed="false">Custom</button>
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field"><label for="soloTiles">Solo tiles (of 10)</label><input type="number" id="soloTiles" min="0" max="10" step="1" value="10"></div>
+        <div class="field"><label for="splitTiles">Split tiles (of 15)</label><input type="number" id="splitTiles" min="0" max="15" step="1" value="15"></div>
+      </div>
+      <div class="field">
+        <label for="budget">SOL budget for this run</label>
+        <input type="number" id="budget" step="0.1" min="0" value="1.5">
+        <small>On /mine, 1% of this is the miner fee. These results include it.</small>
+      </div>
+
+      <h3>Market right now</h3>
+      <p class="note" id="marketNote">The gold numbers are live and update on their own.</p>
+      <div class="field">
+        <label for="tilePot">Others' SOL per tile</label>
+        <input type="number" id="tilePot" step="0.01" min="0" value="0.57" readonly tabindex="-1">
+        <small>Average SOL already on each tile in a full round.</small>
+      </div>
+      <div class="row2">
+        <div class="field"><label for="mlPool">Motherlode now (ORE)</label><input type="number" id="mlPool" step="1" min="0" value="60" readonly tabindex="-1"></div>
+        <div class="field"><label for="orePrice">ORE price (SOL)</label><input type="number" id="orePrice" step="0.01" min="0" value="1.57" readonly tabindex="-1"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label for="prodCost">ORE's production cost (SOL)</label><input type="number" id="prodCost" step="0.01" min="0" value="1.12" readonly tabindex="-1"></div>
+        <div class="field"><label for="roundSec">Seconds per round</label><input type="number" id="roundSec" step="1" min="0" value="77" readonly tabindex="-1"></div>
+      </div>
+      <p class="note">Production cost is ORE's own figure, shown in SOL. The calculator adds the 1% admin fee ORE leaves out.</p>
+      <div class="field"><label for="autoFee">Autominer fee per round (SOL)</label><input type="number" id="autoFee" step="0.000001" min="0" value="0.000007" readonly tabindex="-1"></div>
+      <input type="hidden" id="maxMl" value="140">
+
+      <button class="btn ghost" type="button" id="resetEx">Reset my settings</button>
+      <p class="msg" id="liveMsg" aria-live="polite"></p>
+    </div>
+
+    <!-- RESULTS -->
+    <div style="display:flex;flex-direction:column;gap:20px;min-width:0">
+      <div class="panel summary" id="summary">
+        <div class="sumrow big"><span>You'd get about</span><b class="gold" id="sBase">—</b></div>
+        <p class="note sumnote">Steady uORE from split rounds, with no solo and no Motherlode.</p>
+        <div class="sumrow"><span>Chance of a solo <em class="mono">(+1 uORE each)</em></span><b id="sSolo">—</b></div>
+        <div class="sumrow"><span>Chance the Motherlode hits your tile</span><b id="sMl">—</b></div>
+        <div class="sumrow"><span>Average with lucky hits</span><b class="gold" id="sAvg">—</b></div>
+        <div class="sumrow"><span>Mining time</span><b id="sTime">—</b></div>
+        <div class="sumrow"><span>Motherlode limit <em>(set by the strategy you use)</em></span><b id="sLimit">—</b></div>
+        <div class="sumrow"><span>SOL used up <em>(with the 1% fee)</em></span><b id="sSol">—</b></div>
+        <div class="sumrow"><span>Value back per SOL <em>(holding uORE)</em></span><b id="sEdge">—</b></div>
+        <div class="sumrow"><span>Value back per SOL <em>(if you claim)</em></span><b id="sEdgeC">—</b></div>
+        <p class="msg" id="sWarn"></p>
+      </div>
+
+      <div class="panel" id="recsPanel">
+        <h2>Recommended settings for <span id="recBudget">—</span> SOL</h2>
+        <p class="note">Five ways to spend the same budget. All use the live market numbers and how pots change with the Motherlode. Time includes the pauses while the Motherlode sits above the cap.</p>
+        <p class="note">On /mine you always run all 25 tiles. Shorter and Longer stop above a 140 Motherlode, Custom has no limit. Solo-only mixes and other limits can't be set on /mine.</p>
+        <div class="recs" id="recs"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Motherlode cap: what it changes</h2>
+        <p class="note">Pots grow as the Motherlode grows, so a lower cap means smaller pots and better solo odds per SOL, but fewer rounds mined and smaller Motherlode payouts. Same budget and tiles as above.</p>
+        <div class="tw"><table>
+          <thead><tr><th>Max Motherlode</th><th>Rounds mined</th><th>Avg pot vs no cap</th><th>Solos per SOL</th><th>Total ORE per SOL</th><th>≥1 solo</th></tr></thead>
+          <tbody id="capTable"></tbody>
+        </table></div>
+        <p class="note" id="capNote"></p>
+      </div>
+
+      <div class="cols">
+        <div class="panel">
+          <h2>Per round</h2>
+          <div class="tw"><table>
+            <tbody id="perRound"></tbody>
+          </table></div>
+        </div>
+        <div class="panel">
+          <h2>Solos this run</h2>
+          <div class="bars" id="dist"></div>
+          <p class="note" id="distNote"></p>
+        </div>
+      </div>
+
+      <div class="cols">
+        <div class="panel">
+          <h2>Motherlode</h2>
+          <div class="tw"><table><tbody id="mlTable"></tbody></table></div>
+          <p class="note">Hits 1 round in 500. The pool goes to miners on that round's winning tile, by SOL share.</p>
+        </div>
+        <div class="panel">
+          <h2>Should you mine now?</h2>
+          <div id="verdict"></div>
+          <div class="tw"><table><tbody id="costTable"></tbody></table></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Same budget, different sizes</h2>
+        <p class="note">Your budget at other SOL-per-tile sizes, same tiles. Bigger tiles mean more solo odds per round but fewer rounds.</p>
+        <div class="tw"><table>
+          <thead><tr><th>SOL per tile</th><th>Per round</th><th>Rounds</th><th>Solo / round</th><th>Solos</th><th>≥1 solo</th><th>Exp. ORE</th></tr></thead>
+          <tbody id="sizeTable"></tbody>
+        </table></div>
+      </div>
+
+      <details class="panel">
+        <summary>How this is calculated</summary>
+        <ul>
+          <li>Each round one of 25 tiles wins at random. 10 tiles per round are solo tiles, fixed before anyone deploys; the rest are split tiles.</li>
+          <li>Split round: 1 ORE is shared by everyone on the winning tile, by SOL share. Solo round: one miner on the winning tile takes the 1 ORE, picked at random weighted by SOL.</li>
+          <li>SOL: ORE gives every miner their own SOL back each round, minus a 1% admin fee on every tile and 10% of the rest on tiles that lose. On average that costs about 10.5% of what you deploy, whatever the pot size. SOL does not move between players, so your SOL balance drains smoothly.</li>
+          <li>ORE's Explore "production cost" counts only the 10% fee, divided by the 1.2 ORE minted each round (1 ORE plus 0.2 into the Motherlode), averaged over 20 rounds. The calculator adds about 10% for the 1% admin fee, and another 10% when you claim.</li>
+          <li>Motherlode: 1 in 500 rounds; the whole pool goes to the winning tile by SOL share. Expected value uses the current pool size.</li>
+          <li>Assumes every tile holds about the same SOL. Real rounds vary, so read results as averages.</li>
+          <li>Recommendations and the cap table use how pots moved with the Motherlode over 35,655 rounds (Sep–Oct 2026): pots ran about 8% below average with the Motherlode under 50 and up to 50% above it past 300. Your current pot size is scaled to each Motherlode range from that.</li>
+        </ul>
+      </details>
+    </div>
+  </div>
+  <p class="legal">Estimates, not promises: results are averages and luck decides any single run. Mining uses up real SOL and ORE's price can move. Not financial advice.</p>
+</div>
+
+<script src="/ore-tools.js"></script>
+<script>
+(function(){
+  const {$,MINER_FEE,model,capRun,pct,pctFine,ore,sol,int,dur,LIVE,startMarket} = OreTools;
+  const EXAMPLE = {perTile:0.0015, soloTiles:10, splitTiles:15, budget:1.5, tilePot:0.57, mlPool:60, maxMl:140, orePrice:1.57, prodCost:1.12, roundSec:77, autoFee:0.000007};
+
+
+  function read(){
+    const o={}; for(const k of Object.keys(EXAMPLE)) o[k]=parseFloat($(k).value)||0;
+    o.funded=o.budget; o.budget*=1-MINER_FEE; return o;
+  }
+  function write(o){ for(const k of Object.keys(o)) if($(k)) $(k).value = o[k]; }
+
+  function render(){
+    const p = read(), m = model(p);
+    // summary card
+    $("sBase").textContent = ore(m.runSplit) + " uORE";
+    $("sSolo").textContent = m.S ? `${pct(1 - m.dist[0])} · +${ore(m.lam)} avg` : "0% · no solo tiles";
+    $("sMl").textContent = `${pct(m.mlOnYou)} · +${ore(m.mlIfYours)} uORE${isFinite(p.maxMl)&&p.maxMl>0?` (up to +${ore(m.mlMax)})`:""}`;
+    $("sAvg").textContent = ore(m.runOre) + " uORE";
+    $("sTime").textContent = `~${dur(m.days)} · ${int(m.rounds)} rounds`;
+    $("sLimit").textContent = p.maxMl>0 ? int(p.maxMl)+" ORE" : "None";
+    $("sSol").textContent = sol(m.runSol + p.funded*MINER_FEE) + " SOL";
+    edgeCell("sEdge", m.valuePerSol * (1-MINER_FEE));
+    edgeCell("sEdgeC", m.valuePerSol * (1-MINER_FEE) * 0.9);
+    $("sWarn").textContent = m.capped ? `The Motherlode is above ${int(p.maxMl)} right now, so mining starts after it hits.` : "";
+
+    // per round
+    rows("perRound", [
+      ["You deploy", sol(m.D)+" SOL"],
+      ["Your share of each tile", pctFine(m.share)],
+      ["Chance your tile wins", pct(m.k/25)],
+      ["Solo chance", pctFine(m.soloP)],
+      ["Split ORE (average)", ore(m.splitOre)],
+      ["Motherlode ORE (average)", ore(m.mlOre)],
+      ["SOL lost to fees", sol(m.solLoss)],
+      ["Rounds for a 50% solo chance", m.S ? int(m.r50)+" ("+dur(m.r50/m.perDay)+")" : "—"],
+    ]);
+
+    // distribution
+    const labels = ["0 solos","1","2","3+"]; const box = $("dist"); box.innerHTML = "";
+    m.dist.forEach((v,i)=>{
+      const r = document.createElement("div"); r.className="bar";
+      const l = document.createElement("span"); l.textContent = labels[i];
+      const t = document.createElement("div"); t.className="track";
+      const f = document.createElement("div"); f.className="fill"+(i===0?" zero":""); f.style.width = (v*100).toFixed(1)+"%";
+      t.append(f);
+      const b = document.createElement("b"); b.textContent = pct(v);
+      r.append(l,t,b); box.append(r);
+    });
+    $("distNote").textContent = m.S ? `Each solo is 1 ORE (≈ ${sol(p.orePrice)} SOL). Split drip this run: ${ore(m.runSplit)} ORE.` : `Solo-only odds are zero with 0 solo tiles. Split drip this run: ${ore(m.runSplit)} ORE.`;
+
+    // motherlode
+    rows("mlTable", [
+      ["Pool now", ore(p.mlPool)+" ORE"],
+      ["If it hits on your tile, you get", ore(m.mlIfYours)+" ORE"],
+      ["Chance it hits during your run", pct(m.mlAnyHit)],
+      ["Chance it hits on your tile", pct(m.mlOnYou)],
+      ["Average Motherlode ORE this run", ore(m.runMl)],
+    ]);
+
+    // verdict: ORE's figure leaves out the 1% admin fee (+~10% on cost); claiming costs 10% more
+    const realCost = p.prodCost * 1.1, claimCost = realCost / 0.9;
+    const ratio = p.orePrice > 0 ? realCost / p.orePrice : 0;
+    const ratioC = p.orePrice > 0 ? claimCost / p.orePrice : 0;
+    const v = $("verdict"); v.innerHTML = "";
+    const c = document.createElement("span");
+    c.className = "chip " + (ratio < 0.8 ? "ok" : ratio < 0.9 ? "warn" : "bad");
+    c.textContent = ratio < 0.8 ? "Mine" : ratio < 0.9 ? "Thin edge" : "Pause";
+    const t = document.createElement("p"); t.className="note"; t.style.marginTop="8px";
+    t.textContent = ratio < 0.8 ? `Mining ORE costs about ${pct(1-ratio)} less than buying it${ratioC<1?`, or ${pct(1-ratioC)} less if you claim`:""}. Good time to run.` :
+      ratio < 0.9 ? "Mining is only slightly cheaper than buying. Hold your uORE; claiming to refuel eats the edge." :
+      "Mining costs about as much as buying ORE or more. Hold your SOL and wait for cheaper rounds.";
+    v.append(c,t);
+    rows("costTable", [
+      ["ORE's production cost", sol(p.prodCost)+" SOL / ORE"],
+      ["Real cost (+1% admin fee)", sol(realCost)+" SOL / ORE"],
+      ["Real cost if you claim (+10%)", sol(claimCost)+" SOL / ORE"],
+      ["ORE price", sol(p.orePrice)+" SOL"],
+      ["Real cost vs price", pct(ratio)],
+      ["If you claim", pct(ratioC)],
+    ]);
+
+    // size table
+    const sizes = [0.0001,0.0005,0.001,0.002,0.005,0.01,0.02];
+    if(!sizes.some(s=>Math.abs(s-m.x)<1e-9) && m.x>0) sizes.push(m.x);
+    sizes.sort((a,b)=>a-b);
+    const tb = $("sizeTable"); tb.innerHTML="";
+    sizes.forEach(s=>{
+      const q = model({...p, perTile:s});
+      const tr = document.createElement("tr"); if(Math.abs(s-m.x)<1e-9) tr.className="me";
+      [String(s), sol(q.D), int(q.rounds), pctFine(q.soloP), ore(q.lam), q.S?pct(1-q.dist[0]):"—", ore(q.runOre)].forEach(txt=>{
+        const td=document.createElement("td"); td.textContent=txt; tr.append(td);
+      });
+      tb.append(tr);
+    });
+    renderRecs(p);
+    renderCaps(p, m);
+  }
+
+  // Find SOL per tile so the run lasts about `days` of real time
+  function sizeFor(p, S, P, cap, days){
+    const k=S+P; let x=0.001;
+    for(let i=0;i<6;i++){
+      const r = capRun(p, x, S, P, cap);
+      const want = days*(86400/Math.max(30,p.roundSec))*r.active;
+      if(!r.rounds) break;
+      x = x * r.rounds / want;
+    }
+    x = Math.max(x, 0.001/k);                 // keep at least 0.001 SOL a round so fixed fees stay small
+    const mag = Math.pow(10, Math.floor(Math.log10(x)));
+    return +(Math.round(x/mag*2)/2*mag).toPrecision(2);   // round to a clean number
+  }
+  const RECS = [
+    {name:"Steady stacker", goal:"uORE every few rounds. Lowest chance of ending with nothing.", S:10,P:15,cap:200,days:3},
+    {name:"Balanced", goal:"Some drip, better solo odds than all 25 tiles.", S:10,P:5,cap:140,days:2.5},
+    {name:"Solo hunter", goal:"All SOL on solo tiles, mining only while pots are smaller.", S:10,P:0,cap:90,days:2},
+    {name:"Cheap rounds only", goal:"Most solos per SOL. Only mines while the Motherlode is under 50, so it runs slowly.", S:10,P:0,cap:50,days:3},
+    {name:"Quick shot", goal:"Bigger tiles, answer within a few hours. Same odds per SOL, just faster.", S:10,P:0,cap:90,days:0.25},
+  ];
+  function renderRecs(p){
+    $("recBudget").textContent = sol(p.funded);
+    const box=$("recs"); box.innerHTML="";
+    if(p.budget<=0||p.tilePot<=0){ box.textContent="Enter a budget and pot size to see recommendations."; return; }
+    RECS.forEach(rc=>{
+      const x = sizeFor(p, rc.S, rc.P, rc.cap, rc.days);
+      const r = capRun(p, x, rc.S, rc.P, rc.cap);
+      const card=document.createElement("div"); card.className="rec";
+      const h=document.createElement("h4"); h.textContent=rc.name;
+      const g=document.createElement("p"); g.className="goal"; g.textContent=rc.goal;
+      const set=document.createElement("div"); set.className="set";
+      [`${x} SOL/tile`, rc.P?`${rc.S} solo + ${rc.P} split`:`${rc.S} solo`, `max ML ${rc.cap}`].forEach(t=>{const s=document.createElement("span");s.textContent=t;set.append(s);});
+      const dl=document.createElement("dl");
+      [["Per round", sol(r.perRound)+" SOL"],["Runs for", "~"+dur(r.days)],["Drip (no luck)", ore(r.drip)+" uORE"],
+       ["Solo chance", pct(r.pSolo)+" · +1 each"],["Motherlode on your tile", pct(r.mlOnYou)+" · +"+ore(r.mlPayout)],
+       ["Average with lucky hits", ore(r.total)+" uORE"]].forEach(([a,b])=>{const dt=document.createElement("dt");dt.textContent=a;const dd=document.createElement("dd");dd.textContent=b;dl.append(dt,dd);});
+      const btn=document.createElement("button"); btn.type="button"; btn.className="btn ghost"; btn.textContent="Use these settings";
+      btn.addEventListener("click",()=>{
+        write({perTile:x, soloTiles:rc.S, splitTiles:rc.P, maxMl:rc.cap});
+        const which = rc.P===0?"solo":rc.P===15?"all":"custom";
+        segBtns.forEach(b=>b.setAttribute("aria-pressed", b.dataset.preset===which?"true":"false"));
+        render(); $("summary").scrollIntoView({behavior:"smooth",block:"start"});
+      });
+      card.append(h,g,set,dl,btn); box.append(card);
+    });
+  }
+  function renderCaps(p, m){
+    const tb=$("capTable"); tb.innerHTML="";
+    const base = capRun(p, m.x, m.S, m.P, 1e9);
+    if(!base.rounds){ $("capNote").textContent=""; return; }
+    const caps=[50,90,140,200,1e9];
+    let bestSolo=null,bestTot=null;
+    const rowsData = caps.map(c=>{const r=capRun(p, m.x, m.S, m.P, c); return {c,r,soloPerSol:r.lam/r.sol,totPerSol:r.total/r.sol};});
+    const b0=rowsData[rowsData.length-1];
+    rowsData.forEach(d=>{ if(!bestSolo||d.soloPerSol>bestSolo.soloPerSol) bestSolo=d; if(!bestTot||d.totPerSol>bestTot.totPerSol) bestTot=d; });
+    rowsData.forEach(d=>{
+      const tr=document.createElement("tr"); if(Math.abs(d.c-(p.maxMl>0?p.maxMl:1e9))<1) tr.className="me";
+      const rel = v => (v>=0?"+":"")+(v*100).toFixed(0)+"%";
+      [d.c>=1e9?"No cap":String(d.c), pct(d.r.active), rel(d.r.fAvg/b0.r.fAvg-1),
+       m.S? rel(d.soloPerSol/b0.soloPerSol-1) : "—", rel(d.totPerSol/b0.totPerSol-1), m.S?pct(d.r.pSolo):"—"].forEach(t=>{const td=document.createElement("td");td.textContent=t;tr.append(td);});
+      tb.append(tr);
+    });
+    $("capNote").textContent = m.S
+      ? `For solos, a cap of ${bestSolo.c>=1e9?"none":bestSolo.c} gives the most per SOL. For total ORE including Motherlode payouts, ${bestTot.c>=1e9?"no cap":"a cap of "+bestTot.c} comes out best. Lower caps also mean your miner sits idle more often.`
+      : `With no solo tiles, only total ORE matters: ${bestTot.c>=1e9?"no cap":"a cap of "+bestTot.c} comes out best.`;
+  }
+  function edgeCell(id, val){
+    const el=$(id); el.innerHTML="";
+    const e=val-1, chip=document.createElement("span");
+    chip.className="chip "+(e>0.1?"ok":e>-0.05?"warn":"bad");
+    chip.textContent=e>0.1?"Profitable":e>-0.05?"About even":"Losing";
+    el.append(document.createTextNode((val?val.toFixed(2):"—")+"× "),chip);
+  }
+  function rows(id, data){
+    const tb=$(id); tb.innerHTML="";
+    data.forEach(([a,b])=>{const tr=document.createElement("tr");const x=document.createElement("td");x.textContent=a;const y=document.createElement("td");y.textContent=b;y.className="mono";tr.append(x,y);tb.append(tr);});
+  }
+
+  // ---------- presets ----------
+  const segBtns = document.querySelectorAll(".seg button[data-preset]");
+  segBtns.forEach(b=>b.addEventListener("click",()=>{
+    segBtns.forEach(x=>x.setAttribute("aria-pressed", x===b?"true":"false"));
+    if(b.dataset.preset==="solo"){ $("soloTiles").value=10; $("splitTiles").value=0; }
+    if(b.dataset.preset==="all"){ $("soloTiles").value=10; $("splitTiles").value=15; }
+    render();
+  }));
+  ["soloTiles","splitTiles"].forEach(id=>$(id).addEventListener("input",()=>{
+    const S=+$("soloTiles").value, P=+$("splitTiles").value;
+    const which = S===10&&P===0?"solo":S===10&&P===15?"all":"custom";
+    segBtns.forEach(x=>x.setAttribute("aria-pressed", x.dataset.preset===which?"true":"false"));
+  }));
+  document.querySelectorAll("#inputs input").forEach(i=>i.addEventListener("input",render));
+  $("resetEx").addEventListener("click",()=>{
+    const o={...EXAMPLE}; LIVE.filter(k=>$(k).readOnly).forEach(k=>delete o[k]);
+    write(o); segBtns.forEach(b=>b.setAttribute("aria-pressed", b.dataset.preset==="all"?"true":"false")); render();
+  });
+
+  render();
+  startMarket(render);
+})();
+</script>
+</body>
+</html>

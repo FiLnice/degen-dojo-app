@@ -16,7 +16,7 @@ import { casUpdate, readWithEtag, putIfMatch, putIfNew, pushId, CasError } from 
 //   no Pot, no ops, no preacher share, with or without a ddref memo — store-verify-core.mjs. (2026-10-23 → 10-27 a referred
 //   tip split 22% Pot / 22% Reserve / 12% ops / 44% pool via splitGame; those records keep their locked split.)
 // Every verified record stores its exact parts (`split`), so older records keep accounting the way they were booked.
-// Royalties never feed the Pot any more (88% Card Vault / 12% ops — store-keeper-core.mjs).
+// Royalties never feed the Pot any more (88% Reserve / 12% ops — store-keeper-core.mjs).
 export const POT_FRAC = 0.22;             // history: the Pot's share under splitGame (referred mining tips 10-23 → 10-27)
 export const POT_PCT_MAX = 76, POT_PCT_MIN = 32;   // a coin buy's Pot share: 76% unreferred … 32% with a 44% preacher
 export const LEGACY_POT_FRAC = 0.65;      // records verified before 2026-10-23 (no `split`) gave the Pot 65%

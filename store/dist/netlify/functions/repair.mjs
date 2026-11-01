@@ -3,7 +3,7 @@
 //
 //   POST { sig } → { ok, repaired: [{ mint, from, to: "Mint" }], refused: [{ mint, reason }], status: "pending" }
 //
-// A repair payment = ORE sent into the Treasury's ORE account by a wallet holding Cracked / Mono Dojo cards
+// A repair payment = ORE sent into the Treasury's ORE account by a wallet holding Cracked / Faded Dojo cards
 // (0.01 ORE per card; `ddfix:<mint>` memos pick the cards, else the rarest first). Decided ONCE per signature
 // (store-keeper-core processSig) — calling this again returns the same answer. The card turns "Mint" (and is
 // protected forever) at the next weekly Dojo update; until then it shows as repairPending.

@@ -1,19 +1,17 @@
 // ============================================================================
-//  Degen Dojo — package THE STORE for a private Netlify test deploy.
+//  Degen Dojo — package THE STORE for Netlify.
 //
-//  Builds the store, drops it in its own folder with headers that keep it out of
-//  search engines, and zips it for drag-and-drop onto Netlify.
+//  Builds the store, drops it in its own folder and zips it for drag-and-drop
+//  onto Netlify.
 //
 //    node scripts/build-store-deploy.mjs           -> re-index + build + zip
 //    node scripts/build-store-deploy.mjs --nofetch -> reuse the current listings
 //
 //  Output: scripts/store-deploy/  and  Downloads/degendojo-store.zip
 //
-//  PRIVACY: the zip ships `X-Robots-Tag: noindex` + a disallow-all robots.txt,
-//  so the site is unlisted — reachable only by its random Netlify URL. That is
-//  "unlisted", not "locked". For a real password use Netlify's own
-//  Site configuration → Access & security → Password protection (a paid
-//  feature); it cannot be set from the deploy bundle.
+//  SEARCH: the store is public, so Google may list it (robots.txt + sitemap.xml
+//  + the page tags near the end of this file). Operator pages, /raffle and the
+//  miner's wallet-only sub-pages stay out via `X-Robots-Tag: noindex` in _headers.
 // ============================================================================
 import { readFileSync, writeFileSync, mkdirSync, copyFileSync, cpSync, rmSync, existsSync, readdirSync } from "fs";
 import { assertNoSecrets, assertZipClean } from "./build-leak-guard.mjs";
@@ -44,8 +42,7 @@ copyFileSync(`${ROOT}/scripts/store.html`, `${OUT}/index.html`);
 }
 // The Become a Preacher page — same origin so /api/preacher is same-origin too.
 copyFileSync(`${ROOT}/scripts/become-a-preacher.html`, `${OUT}/become-a-preacher.html`);
-// Economy / tokenomics page — kept private here (the store site is password-locked) until it's
-// ready to go public. Self-contained (logo + favicon embedded, nav links absolute to degendojo.xyz).
+// Economy / tokenomics page. Self-contained (logo + favicon embedded, nav links absolute to degendojo.xyz).
 mkdirSync(`${OUT}/economy`, { recursive: true });
 copyFileSync(`${ROOT}/scripts/economy-page.html`, `${OUT}/economy/index.html`);
 // NFT rescue tool — read-only scanner for NFTs stuck in a rugged staking program. Lives on the
@@ -87,9 +84,9 @@ const navPill = (href, label, on) =>
 // hamburger (dropdown), matching the store home. One <style> block + classes; the toggle is a
 // self-contained inline handler (no globals).
 const ddNavCss =
-  `<style>.dn-ham{display:none}.dn-connect{display:none}.dn-extra{margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}` +
+  `<style>.dn-ham{display:none}.dn-connect{display:none}.dn-home{display:none}.dn-extra{margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}` +
   `@media(max-width:640px){` +
-  `.dn-bar{gap:10px!important;padding:10px 14px!important;}.dn-extra{display:none!important;}.dn-connect{display:block!important;}` +
+  `.dn-bar{gap:10px!important;padding:10px 14px!important;}.dn-extra{display:none!important;}.dn-connect{display:block!important;}.dn-home{display:block!important;}` +
   `.dn-ham{display:flex!important;align-items:center;justify-content:center;width:44px;height:44px;border-radius:10px;cursor:pointer;background:rgba(201,151,58,.12);border:1px solid rgba(201,151,58,.45);color:#e8b84b;font-size:22px;line-height:1;margin-left:auto;flex:0 0 auto;}` +
   `.dn-links{position:absolute!important;top:calc(100% - 2px);right:10px;min-width:214px;flex-direction:column!important;align-items:stretch;gap:5px!important;background:rgba(12,10,18,.98);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(201,151,58,.4);border-radius:12px;padding:9px;box-shadow:0 16px 36px rgba(0,0,0,.6);display:none!important;z-index:80;}` +
   `.dn-links.dn-open{display:flex!important;}` +
@@ -98,9 +95,9 @@ const ddNavCss =
 const ddNav = (sub, active, extra = "") =>
   ddNavCss +
   `<div class="dn-bar" style="position:sticky;top:0;z-index:72;background:rgba(10,10,15,.94);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-bottom:1px solid rgba(201,151,58,.18);display:flex;align-items:center;gap:16px;padding:11px 20px;flex-wrap:wrap;font-family:'Cinzel',serif;">` +
-  `<a href="/" style="display:flex;align-items:center;gap:11px;text-decoration:none;color:#efe6d2;"><img src="/dd-mark.jpg" alt="Degen Dojo" style="width:40px;height:40px;border-radius:9px;object-fit:cover;display:block;box-shadow:0 0 0 1px rgba(201,151,58,.35);" onerror="this.style.display='none'"/>` +
+  `<a href="https://degendojo.xyz/" title="Degen Dojo home" style="display:flex;align-items:center;gap:11px;text-decoration:none;color:#efe6d2;"><img src="/dd-mark.jpg" alt="Degen Dojo" style="width:40px;height:40px;border-radius:9px;object-fit:cover;display:block;box-shadow:0 0 0 1px rgba(201,151,58,.35);" onerror="this.style.display='none'"/>` +
   `<div style="text-align:left;"><b style="font-family:'Cinzel',serif;font-size:15px;letter-spacing:.16em;display:block;color:#efe6d2;">DEGEN DOJO</b><small style="font-family:'Cinzel',serif;font-size:9px;letter-spacing:.26em;color:#a99a7e;">${sub}</small></div></a>` +
-  `<nav class="dn-links" style="display:flex;gap:8px;flex-wrap:wrap;"><a href="#" class="dn-connect" onclick="var b=this.closest('.dn-bar').querySelector('.dn-extra button');if(b)b.click();return false;" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#e8b84b;border:1px solid rgba(201,151,58,.5);background:rgba(201,151,58,.12);">🔑 Connect</a>${navPill("/", "⌂ Store", active === "store")}${navPill("/market", "🛒 Market", active === "market")}${navPill("/list", "🏷 List", active === "list")}${navPill("/play", "▶ Play", active === "play")}${navPill("/mine", "⛏ Mine", active === "mine")}${navPill("/sweep", "💰 Claim", active === "sweep")}${navPill("/launch", "🚀 Launch", active === "launch")}${navPill("/pot", "🏆 Pot", active === "pot")}${navPill("/become-a-preacher", "📣 Preacher", active === "preacher")}</nav><span class="dn-extra">${extra}</span>` +
+  `<nav class="dn-links" style="display:flex;gap:8px;flex-wrap:wrap;"><a href="https://degendojo.xyz/" class="dn-home" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">⛩ Home</a><a href="#" class="dn-connect" onclick="var b=this.closest('.dn-bar').querySelector('.dn-extra button');if(b)b.click();return false;" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#e8b84b;border:1px solid rgba(201,151,58,.5);background:rgba(201,151,58,.12);">🔑 Connect</a>${navPill("/", "⌂ Store", active === "store")}${navPill("/market", "🛒 Market", active === "market")}${navPill("/list", "🏷 List", active === "list")}${navPill("/play", "▶ Play", active === "play")}${navPill("/mine", "⛏ Mine", active === "mine")}${navPill("/sweep", "💰 Claim", active === "sweep")}${navPill("/launch", "🚀 Launch", active === "launch")}${navPill("/pot", "🏆 Pot", active === "pot")}${navPill("/become-a-preacher", "📣 Preacher", active === "preacher")}</nav><span class="dn-extra">${extra}</span>` +
   `<button class="dn-ham" type="button" aria-label="Menu" onclick="var n=this.closest('.dn-bar').querySelector('.dn-links');if(n)n.classList.toggle('dn-open');">☰</button>` +
   `</div>`;   // Market = browse/buy any collection; Launch = mining-drip launchpad (preview); List = sell your Degen
 const walletBtnHtml = `<button id="dojoNavWallet" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#0a0814;background:linear-gradient(135deg,#c8962a,#8b6018);border:none;padding:9px 16px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;">Connect wallet</button>`;
@@ -177,7 +174,7 @@ copyFileSync(`${ROOT}/scripts/store-cas-core.mjs`, `${OUT}/netlify/functions/sto
 //  • Netlify platform rules (global per IP+domain; the plan allows only 2 code-defined rules per site on
 //    Free/Personal, 5 on Pro): /api/rpc 300/min, /api/collection 90/min — declared in each function's config.
 //  • store-ratelimit-core.mjs, an in-memory per-IP window in EVERY public function (per warm instance):
-//    rpc 240 · nft 120 · collection/search/topcollections/listings/tensor-listings/resolve/dd-listings/miner/play 60
+//    rpc 240 · nft 120 · collection/search/topcollections/listings/tensor-listings/resolve/dd-listings/miner/play/wizard 60
 //    · preacher/draw/payouts 30 · attr/coinbuy/mebuy/tensorbuy/dd-cosign/dd-royalty/miner-requests 20
 //    · admin/verify/launch-apply 10 (per minute). Crons are not limited. On Pro, spend the 3 extra platform
 //    rules on /api/dd-cosign, /api/mebuy and /api/play.
@@ -201,7 +198,7 @@ copyFileSync(`${ROOT}/scripts/store-fn-raffle.mjs`, `${OUT}/netlify/functions/ra
 // Coins live server-side (credited only by verify.mjs on a confirmed purchase);
 // tickets are minted only by play.mjs after it recomputes the outcome itself.
 copyFileSync(`${ROOT}/scripts/store-fn-auth.mjs`, `${OUT}/netlify/functions/auth.mjs`);
-// Dojo Keeper money backend: card vaults (88/12), repairs (0.01 ORE), burn claims (stORE) — store-keeper-core.mjs
+// Dojo Keeper money backend: royalties (88/12), repairs (0.01 ORE), burn claims (stORE) — store-keeper-core.mjs
 copyFileSync(`${ROOT}/scripts/store-keeper-core.mjs`, `${OUT}/netlify/functions/store-keeper-core.mjs`);
 copyFileSync(`${ROOT}/scripts/store-fn-vault.mjs`, `${OUT}/netlify/functions/vault.mjs`);         // /api/vault
 copyFileSync(`${ROOT}/scripts/store-fn-repair.mjs`, `${OUT}/netlify/functions/repair.mjs`);       // /api/repair
@@ -214,6 +211,7 @@ copyFileSync(`${ROOT}/scripts/store-session-core.mjs`, `${OUT}/netlify/functions
 copyFileSync(`${ROOT}/scripts/store-fn-mebuy.mjs`, `${OUT}/netlify/functions/mebuy.mjs`);   // Magic Eden universal buy builder (/api/mebuy)
 copyFileSync(`${ROOT}/scripts/store-fn-tensorbuy.mjs`, `${OUT}/netlify/functions/tensorbuy.mjs`);   // Tensor aggregator buy builder — buys ME AMM pools too (/api/tensorbuy)
 copyFileSync(`${ROOT}/scripts/store-fn-floors.mjs`, `${OUT}/netlify/functions/floors.mjs`);   // collection floors for the burn lists (/api/floors)
+copyFileSync(`${ROOT}/scripts/store-fn-wizard.mjs`, `${OUT}/netlify/functions/wizard.mjs`);   // live market numbers + ore.party parties for /orewizard and /oreparties (/api/wizard)
 copyFileSync(`${ROOT}/scripts/store-fn-dd-listings.mjs`, `${OUT}/netlify/functions/dd-listings.mjs`);   // DD ORE/SKR/USDC AuctionHouse listing index (/api/dd-listings)
 copyFileSync(`${ROOT}/scripts/store-fn-dd-cosign.mjs`, `${OUT}/netlify/functions/dd-cosign.mjs`);   // pNFT buy cosigner (/api/dd-cosign) — holds COSIGNER_SECRET
 copyFileSync(`${ROOT}/scripts/store-fn-dd-royalty.mjs`, `${OUT}/netlify/functions/dd-royalty.mjs`);
@@ -223,6 +221,7 @@ copyFileSync(`${ROOT}/scripts/store-fn-launch-apply.mjs`, `${OUT}/netlify/functi
 copyFileSync(`${ROOT}/scripts/store-fn-miner-requests.mjs`, `${OUT}/netlify/functions/miner-requests.mjs`);   // /api/miner-requests
 copyFileSync(`${ROOT}/scripts/store-miner-core.mjs`, `${OUT}/netlify/functions/store-miner-core.mjs`);   // pure payment/slug checks, imported by miner-requests
 copyFileSync(`${ROOT}/scripts/store-fn-miner.mjs`, `${OUT}/netlify/functions/miner.mjs`);   // /api/miner?slug= — hosted miner config
+copyFileSync(`${ROOT}/scripts/store-fn-miner-page.mjs`, `${OUT}/netlify/functions/miner-page.mjs`);   // /m/<slug> — the one page other sites may frame
 copyFileSync(`${ROOT}/scripts/store-fn-resolve.mjs`, `${OUT}/netlify/functions/resolve.mjs`);   // /api/resolve — find a live listing for a pasted/clicked mint
 copyFileSync(`${ROOT}/scripts/store-fn-tensor-listings.mjs`, `${OUT}/netlify/functions/tensor-listings.mjs`);   // live Tensor book for the tower (/api/tensor-listings)
 copyFileSync(`${ROOT}/scripts/store-royalty-core.mjs`, `${OUT}/netlify/functions/store-royalty-core.mjs`);   // MARKETPLACES list (keeper + reserve); its royalty→Pot sweep is retired
@@ -417,7 +416,7 @@ copyFileSync(`${ROOT}/scripts/store-wallets.html`, `${OUT}/reserve/index.html`);
     if (!h.includes("navwallet-wire")) h = h.includes("</body>") ? h.replace(/<\/body>/i, walletWire + "</body>") : (h + walletWire);
     writeFileSync(fp, h);
   } catch {} }
-// Repair (/repair) page: paste a wallet (or connect) → Cracked/Mono → Mint for 0.01 ORE a card (Mint cap shown).
+// Repair (/repair) page: paste a wallet (or connect) → Cracked/Faded → Mint for 0.01 ORE a card (Mint cap shown).
 // The Burn page (store-burn.html) is NOT shipped while burning is off (BURN_ENABLED) — kept in the repo for later:
 // add ["store-burn.html", "burn", "BURN"] back to the list below when the owner opens burning. Same nav + wallet as /list.
 copyFileSync(`${ROOT}/scripts/dojo-card-tx.js`, `${OUT}/dojo-card-tx.js`);   // repair (ORE + ddfix memos) / burn (BurnV1) txs
@@ -425,11 +424,18 @@ copyFileSync(`${ROOT}/scripts/dojo-qr.js`, `${OUT}/dojo-qr.js`);             // 
 // Dojo Sweep (/sweep, alias /claim): free — empty token accounts, burnable NFTs, Magic Eden bid escrow, staking; txs built + simulated in the browser
 copyFileSync(`${ROOT}/scripts/dojo-burn.js`, `${OUT}/dojo-burn.js`);     // shared burn + close + tip logic (/sweep and the miner's burn mode, /mine?burn=1)
 copyFileSync(`${ROOT}/scripts/dojo-sweep.js`, `${OUT}/dojo-sweep.js`);
+copyFileSync(`${ROOT}/scripts/store-ore-tools.js`, `${OUT}/ore-tools.js`);     // /orewizard + /oreparties: ORE's maths and the live market numbers
+copyFileSync(`${ROOT}/scripts/store-ore-tools.css`, `${OUT}/ore-tools.css`);
 copyFileSync(`${ROOT}/scripts/dojo-raffle.js`, `${OUT}/dojo-raffle.js`);   // Burn Raffle (/raffle): burns + the freed rent → raffle wallet + ddraffle memo, one tx
 copyFileSync(`${ROOT}/scripts/dojo-gift.js`, `${OUT}/dojo-gift.js`);       // "Add to the prize" (/raffle) + the raffle's gift payouts (/payouts): transfers of any asset
-// Degen Dojo card numbers (#123) for the raffle's burn list — fetched by /raffle only when the wallet holds a card
-writeFileSync(`${OUT}/dd-nums.json`, JSON.stringify(JSON.parse(readFileSync(`${ROOT}/scripts/mint-to-num.json`, "utf8"))));
-for (const [src, dir, label] of [["store-repair.html", "repair", "REPAIR"], ["store-sweep.html", "sweep", "SWEEP"], ["store-raffle.html", "raffle", "RAFFLE"], ["store-privacy.html", "privacy", "PRIVACY"], ["store-terms.html", "terms", "TERMS"]]) {   // /privacy + /terms: the dApp-store / app listing pages
+// Degen Dojo CARD numbers (#123) for the raffle's burn list — fetched by /raffle only when the wallet holds a card.
+// Owner 2026-10-29: these are the card numbers (Framed #1–#42, Mint #43–#597, cracked the rest — card-numbers.json), display only; before the
+// renumbering exists the old fighter numbers are shipped instead. The page also takes the live S3 map when it loads.
+{ const cn = `${ROOT}/scripts/card-numbers.json`;
+  const nums = existsSync(cn) ? Object.fromEntries(Object.entries(JSON.parse(readFileSync(cn, "utf8")).byMint || {}).filter(([, v]) => v && v.no != null).map(([m, v]) => [m, v.no]))
+    : JSON.parse(readFileSync(`${ROOT}/scripts/mint-to-num.json`, "utf8"));
+  writeFileSync(`${OUT}/dd-nums.json`, JSON.stringify(nums)); }
+for (const [src, dir, label] of [["store-repair.html", "repair", "REPAIR"], ["store-sweep.html", "sweep", "SWEEP"], ["store-wizard.html", "orewizard", "WIZARD"], ["store-parties.html", "oreparties", "PARTIES"], ["store-raffle.html", "raffle", "RAFFLE"],["store-privacy.html", "privacy", "PRIVACY"], ["store-terms.html", "terms", "TERMS"]]) {   // /privacy + /terms: the dApp-store / app listing pages
   mkdirSync(`${OUT}/${dir}`, { recursive: true });
   copyFileSync(`${ROOT}/scripts/${src}`, `${OUT}/${dir}/index.html`);
   const fp = `${OUT}/${dir}/index.html`;
@@ -447,8 +453,9 @@ for (const [src, dir, label] of [["store-repair.html", "repair", "REPAIR"], ["st
     writeFileSync(fp, h);
   } catch {} }
 
-// Keep the test deploy out of search results and off the record.
-writeFileSync(`${OUT}/robots.txt`, "User-agent: *\nDisallow: /\n");
+// The store is public, so search engines may list it. /api is off limits (every hit is a function call) and so is
+// /nft/<mint> (each page spends Helius credits, and degendojo.xyz already has a page per fighter).
+writeFileSync(`${OUT}/robots.txt`, "User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /nft/\nSitemap: https://store.degendojo.xyz/sitemap.xml\n");
 
 // ── PWA: makes the store installable so it can be wrapped as a TWA/APK for the
 // Solana dApp Store (Seeker). See SEEKER-PUBLISHING.md. ──
@@ -509,12 +516,13 @@ writeFileSync(`${OUT}/_redirects`,
   "/api/miner-requests  /.netlify/functions/miner-requests  200\n" +
   "/api/miner  /.netlify/functions/miner  200\n" +
   "/nft/*  /.netlify/functions/nft  200\n" +
-  // Hosted branded miners: /m/<slug> is the /mine page; it reads the slug from the URL and
-  // loads that collection's name/tip wallet/25 NFTs from /api/miner?slug=.
-  "/m/*  /mine.html  200\n" +
+  // Hosted branded miners: /m/<slug> is the /mine page, through a function so it alone can be
+  // framed on a collection's website; it loads that collection's name/25 NFTs from /api/miner?slug=.
+  "/m/*  /.netlify/functions/miner-page  200\n" +
   "/wallets  /reserve/  301\n/wallets/*  /reserve/  301\n" +
   // Dojo Sweep's short alias on the STORE only (nothing here used /claim; degendojo.xyz/claim is the main site's gallery)
   "/claim  /sweep  301\n/claim/*  /sweep  301\n" +
+  "/wizard  /orewizard/  301\n/wizard/*  /orewizard/  301\n/wizardore  /orewizard/  301\n/wizardore/*  /orewizard/  301\n" +
   // Shelves retired → send any old links to the store home so nothing 404s.
   "/shelves  /  301\n" +
   "/shelves-100  /  301\n" +
@@ -537,10 +545,10 @@ writeFileSync(
   `${OUT}/_headers`,
   [
     "/*",
-    "  X-Robots-Tag: noindex, nofollow, noarchive",
     "  Referrer-Policy: no-referrer",
     "  X-Content-Type-Options: nosniff",
     // no other site may frame the store (a hidden frame could trick a click onto Own / List / Sign)
+    // — except a branded miner at /m/<slug>, which store-fn-miner-page.mjs serves with its own headers
     "  X-Frame-Options: DENY",
     "  Content-Security-Policy: " + CSP,   // scripts/csp.mjs — what pages may load / talk to (+ frame-ancestors 'none')
     // The miner's Next export references content-hashed /_next assets that change every build.
@@ -556,31 +564,22 @@ writeFileSync(
     "  Cache-Control: public, max-age=0, must-revalidate",
     "/mine/vault",
     "  Cache-Control: public, max-age=0, must-revalidate",
+    "  X-Robots-Tag: noindex, nofollow",
     "/mine/burn",
     "  Cache-Control: public, max-age=0, must-revalidate",
+    "  X-Robots-Tag: noindex, nofollow",
     "/whitelabel",
     "  Cache-Control: public, max-age=0, must-revalidate",
     "/create",
     "  Cache-Control: public, max-age=0, must-revalidate",
-    "/m/*",
-    "  Cache-Control: public, max-age=0, must-revalidate",
-    // operator pages: never cached by the browser (security review L7) — the service worker skips them too (store-sw.js)
-    "/admin",
-    "  Cache-Control: no-store",
-    "/admin.html",
-    "  Cache-Control: no-store",
-    "/miner-admin",
-    "  Cache-Control: no-store",
-    "/miner-admin.html",
-    "  Cache-Control: no-store",
-    "/preacher-admin.html",
-    "  Cache-Control: no-store",
-    "/preacher-admin",
-    "  Cache-Control: no-store",
-    "/payouts",
-    "  Cache-Control: no-store",
-    "/payouts.html",
-    "  Cache-Control: no-store",
+    // operator pages: never cached by the browser (security review L7) — the service worker skips them too (store-sw.js) — and never listed by search engines
+    ...["/admin", "/admin.html", "/miner-admin", "/miner-admin.html", "/preacher-admin.html", "/preacher-admin", "/payouts", "/payouts.html"]
+      .flatMap((p) => [p, "  Cache-Control: no-store", "  X-Robots-Tag: noindex, nofollow"]),
+    // the Burn Raffle isn't open yet, and credits.html is a copy of /credits/
+    ...["/raffle", "/raffle/*", "/credits.html"].flatMap((p) => [p, "  X-Robots-Tag: noindex, nofollow"]),
+    "/sitemap.xml",
+    "  Content-Type: application/xml; charset=utf-8",
+    "  Cache-Control: public, max-age=3600",
     "",
   ].join("\n"),
 );
@@ -670,7 +669,7 @@ execSync("npm install --omit=dev --no-audit --no-fund", { cwd: OUT, stdio: "inhe
     }
   }
   console.log(`  mwa.js added to ${added} page(s) that loaded the wallet picker without it.`);
-  // Cracked / Mono cards (Nov 2 on): every page that shows Degen Dojo card pictures loads dd-states.js in <head>,
+  // Cracked / Faded cards (Nov 2 on): every page that shows Degen Dojo card pictures loads dd-states.js in <head>,
   // which swaps a cracked card's picture to its cracked card (degen/card-states.json).
   copyFileSync(`${ROOT}/scripts/dd-states.js`, `${OUT}/dd-states.js`);
   let st = 0;
@@ -684,6 +683,64 @@ execSync("npm install --omit=dev --no-audit --no-fund", { cwd: OUT, stdio: "inhe
     }
   }
   console.log(`  dd-states.js (cracked card pictures) added to ${st} page(s).`);
+}
+
+// ── Search + link previews: canonical, description and preview tags on every public page, plus sitemap.xml. A shared link
+// shows the Seeker banner (scripts/store-og.png). /rescue/ is left out: its tags point at degendojo.xyz/rescue/.
+// [file, public path, title, description]; null = keep the page's own. ──
+{
+  const BASE = "https://store.degendojo.xyz", OG_IMG = `${BASE}/store-og.png`;
+  const esc = (s) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+  copyFileSync(`${ROOT}/scripts/store-og.png`, `${OUT}/store-og.png`);
+  const pages = [
+    ["index.html", "/", "Degen Dojo Store — Buy and list NFTs in ORE", null],
+    ["market.html", "/market", null, "Buy Solana NFTs with ORE: Degen Dojo fighters plus other top collections."],
+    ["list/index.html", "/list/", null, "List your NFT on Degen Dojo and get paid in ORE. It stays in your wallet until it sells."],
+    ["mine.html", "/mine", "Mine ORE on the Degen Dojo Grid", "Mine ORE on a 25-tile grid of Degen Dojo fighters. Auto-mine from your wallet, or burn junk NFTs to fund it."],
+    ["whitelabel.html", "/whitelabel", null, null],
+    ["create.html", "/create", "Put Your Collection on the ORE Grid — Degen Dojo", "Paste 25 NFTs from your collection and preview your own branded ORE miner."],
+    ["play/index.html", "/play/", null, null],
+    ["play/degen-duel/index.html", "/play/degen-duel/", null, "Best-of-eight card duel with real Degen Dojo fighters. Pick your order and beat the Dojo."],
+    ["dojo-flip/index.html", "/dojo-flip/", null, null],
+    ["play/teto-wars/index.html", "/play/teto-wars/", null, "Roll the dice, grab TETO and outlast the Dojo on a crumbling board."],
+    ["play/cluck-fu/index.html", "/play/cluck-fu/", null, "Eight chickens, one winner. Back a bird in the Dojo Derby and earn chances in the weekly Dojo Pot."],
+    ["play/cock-brawl/index.html", "/play/cock-brawl/", null, null],
+    ["credits/index.html", "/credits/", null, null],
+    ["pot/index.html", "/pot/", null, null],
+    ["draw.html", "/draw", null, null],
+    ["economy/index.html", "/economy/", null, null],
+    ["repair/index.html", "/repair/", null, "Repair a cracked Degen Dojo card for 0.01 ORE. Mint cards never crack again, and only 555 can exist."],
+    ["sweep/index.html", "/sweep/", null, null],
+    ["orewizard/index.html", "/orewizard/", null, "Plan an ORE mining run: solo odds, split drip, Motherlode share and the real SOL cost, with live market numbers and five mining strategies."],
+    ["oreparties/index.html", "/oreparties/", null, "The best ORE Parties minting now, a leaderboard of every party, what their settings actually did, and a designer to try your own."],
+    ["launch.html", "/launch", null, "Launch your NFT collection with Degen Dojo, priced in ORE."],
+    ["launch/apply/index.html", "/launch/apply/", null, "Apply to launch your NFT collection with Degen Dojo."],
+    ["become-a-preacher.html", "/become-a-preacher", null, null],
+    ["reserve/index.html", "/reserve/", null, "What the Degen Dojo Reserve holds, read live from the chain."],
+    ["privacy/index.html", "/privacy/", null, null],
+    ["terms/index.html", "/terms/", null, null],
+  ];
+  const urls = [];
+  for (const [rel, path, title, desc] of pages) {
+    const fp = `${OUT}/${rel}`;
+    if (!existsSync(fp)) { console.log(`  ! ${rel} missing — left out of the sitemap`); continue; }
+    // pot + duel carry their own noindex, Flip's preview tags point at the main site
+    let h = readFileSync(fp, "utf8").replace(/<meta name="robots"[^>]*>\s*/gi, "").replace(/<meta (?:property="og:|name="twitter:)[^>]*>\s*/gi, "");
+    if (title) h = h.replace(/<title>[^<]*<\/title>/i, () => `<title>${esc(title)}</title>`);
+    if (desc) h = h.replace(/<meta name="description"[^>]*>\s*/i, "");
+    const T = title ? esc(title) : h.match(/<title>([^<]*)<\/title>/i)[1].replace(/"/g, "&quot;");
+    const D = desc ? esc(desc) : h.match(/<meta name="description" content="([^"]*)"/i)?.[1];
+    if (!D) throw new Error(`${rel} has no description`);
+    const url = BASE + path;
+    const tags = `<link rel="canonical" href="${url}">${desc ? `<meta name="description" content="${D}">` : ""}` +
+      `<meta property="og:type" content="website"><meta property="og:site_name" content="Degen Dojo"><meta property="og:title" content="${T}"><meta property="og:description" content="${D}">` +
+      `<meta property="og:url" content="${url}"><meta property="og:image" content="${OG_IMG}"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="600">` +
+      `<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${T}"><meta name="twitter:description" content="${D}"><meta name="twitter:image" content="${OG_IMG}">`;
+    writeFileSync(fp, h.replace(/<\/title>/i, () => `</title>\n${tags}`));
+    urls.push(url);
+  }
+  writeFileSync(`${OUT}/sitemap.xml`, `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map((u) => `<url><loc>${u}</loc></url>`).join("\n")}\n</urlset>\n`);
+  console.log(`  Search + preview tags on ${urls.length} pages, sitemap.xml written.`);
 }
 
 writeFileSync(`${OUT}/404.html`, '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Not found · Degen Dojo</title><body style="background:#0a0a0f;color:#e8e0d0;font:16px Inter,system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;margin:0"><div style="text-align:center"><h1 style="color:#e8b84b">Not found</h1><a href="/" style="color:#e8b84b">← Back to the store</a></div>');
@@ -703,8 +760,6 @@ console.log(`\n[4/4] ===== STORE READY FOR NETLIFY =====`);
 console.log(`  index.html   ${kb(`${OUT}/index.html`)} KB`);
 console.log(`  deploy zip   ${ZIP}  (${kb(ZIP)} KB)`);
 console.log(`\n  Drag the zip onto https://app.netlify.com/drop (or a new site's Deploys tab).`);
-console.log(`  It ships noindex + robots disallow, so it stays unlisted.`);
-console.log(`  For an actual password: Site configuration → Access & security → Password protection.`);
 console.log(`
   BEFORE CHECKOUT WORKS: set the env var SOLANA_RPC to your Helius URL in`);
 console.log(`  Site configuration → Environment variables. The page calls /api/rpc, so the`);

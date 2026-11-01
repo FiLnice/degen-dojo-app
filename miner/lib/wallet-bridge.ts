@@ -102,7 +102,9 @@ export function useWallet(): BridgedWallet {
   const pkStr = sw ? String(sw.pubkey || sw.publicKey) : null;
   const pk = useMemo(() => (pkStr ? new PublicKey(pkStr) : null), [pkStr]);
 
-  if (!embedded) return adapter as unknown as BridgedWallet;
+  // The state above lags one render on every page change, and in the store that render must not hand out the adapter's
+  // wallet: it read another account's vault on /mine/vault, which showed until the next poll (owner 2026-11-01).
+  if (!embedded) return (isEmbedded() ? { ...adapter, publicKey: null, connected: false } : adapter) as unknown as BridgedWallet;
 
   if (!sw || !pk) {
     return {

@@ -29,7 +29,9 @@ export type OreGameState = {
   connection: Connection;
   board: OreBoard | null;
   round: OreRound | null; // current (in-progress) round
+  prevRound: OreRound | null; // the previous, resolved round
   lastWinner: number | null; // winning square of the previous, resolved round
+  slotMs: number; // live ms-per-slot
   miner: OreMiner | null; // the connected wallet's miner account
   automation: OreAutomation | null; // the connected wallet's auto-mining account
   motherlode: bigint | null; // accumulated Motherlode jackpot (ORE grams)
@@ -78,7 +80,9 @@ export function useOreGame(pollMs = 12000): OreGameState {
 
   const [board, setBoard] = useState<OreBoard | null>(null);
   const [round, setRound] = useState<OreRound | null>(null);
+  const [prevRound, setPrevRound] = useState<OreRound | null>(null);
   const [lastWinner, setLastWinner] = useState<number | null>(null);
+  const [slotMs, setSlotMs] = useState(SLOT_MS);
   const [miner, setMiner] = useState<OreMiner | null>(null);
   const [automation, setAutomation] = useState<OreAutomation | null>(null);
   const [motherlode, setMotherlode] = useState<bigint | null>(null);
@@ -93,6 +97,8 @@ export function useOreGame(pollMs = 12000): OreGameState {
   // Live ms-per-slot, MEASURED from the chain so the countdown never drifts as Solana keeps
   // cutting slot time (400→350→…→200ms). Falls back to SLOT_MS until the first sample lands.
   const slotMsRef = useRef(SLOT_MS);
+  const walletRef = useRef(publicKey);
+  walletRef.current = publicKey;
 
   const refresh = useCallback(async () => {
     try {
@@ -132,9 +138,12 @@ export function useOreGame(pollMs = 12000): OreGameState {
         connection.getMultipleAccountsInfo(keys, "confirmed"),
         publicKey ? connection.getBalance(publicKey) : Promise.resolve(null),
       ]);
+      if (walletRef.current !== publicKey) return; // the wallet changed mid-read: this answer belongs to the old one
       const roundAcc = accs[0], prevAcc = accs[1];
       setRound(roundAcc ? decodeRound(roundAcc.data) : null);
-      setLastWinner(prevAcc ? decodeRound(prevAcc.data).winningSquare : null);
+      const prev = prevAcc ? decodeRound(prevAcc.data) : null;
+      setPrevRound(prev);
+      setLastWinner(prev ? prev.winningSquare : null);
       if (publicKey) {
         const minerAcc = accs[2], autoAcc = accs[3];
         // + refining rewards accrued since the miner was last touched, so the vault shows what a claim really pays
@@ -171,7 +180,10 @@ export function useOreGame(pollMs = 12000): OreGameState {
       const s = samples.find((x) => x.numSlots > 0 && x.samplePeriodSecs > 0);
       if (!s) return;
       const ms = (s.samplePeriodSecs * 1000) / s.numSlots;
-      if (ms >= 150 && ms <= 650) slotMsRef.current = ms; // ignore nonsense samples
+      if (ms >= 150 && ms <= 650) { // ignore nonsense samples
+        slotMsRef.current = ms;
+        setSlotMs(ms);
+      }
     } catch {
       /* keep the current/fallback SLOT_MS */
     }
@@ -207,7 +219,9 @@ export function useOreGame(pollMs = 12000): OreGameState {
     connection,
     board,
     round,
+    prevRound,
     lastWinner,
+    slotMs,
     miner,
     automation,
     motherlode,

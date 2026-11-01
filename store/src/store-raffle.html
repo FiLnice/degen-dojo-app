@@ -287,7 +287,8 @@ function loadDdNums() {
   DDNUM_P = fetch('/dd-nums.json', { cache: 'force-cache' }).then((r) => (r.ok ? r.json() : {})).then((j) => { DDNUM = j || {}; if (SCAN) render(); }).catch(() => { DDNUM = {}; });
   return DDNUM_P;
 }
-const ddNum = (mint) => (DDNUM && DDNUM[mint] != null ? '#' + DDNUM[mint] : '');
+// card numbers (display only): the live map from dd-states.js when it's on the page, else the build's dd-nums.json
+const ddNum = (mint) => { const live = window.DDStates && DDStates.no ? DDStates.no(mint) : null; const n = live != null ? live : (DDNUM && DDNUM[mint] != null ? DDNUM[mint] : null); return n != null ? '#' + n : ''; };
 const ddLabel = (c) => c.dojo ? (c.dojo.mythic ? '★ Mythic ' : c.dojo.framed ? '◆ Framed ' : '') + c.dojo.coll + ' card' : '';
 
 setInterval(tick, 1000);

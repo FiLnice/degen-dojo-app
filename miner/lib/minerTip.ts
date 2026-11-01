@@ -5,7 +5,7 @@
 import { SystemProgram, type PublicKey, type TransactionInstruction } from "@solana/web3.js";
 import { refMemoIx } from "@/lib/ore";
 import { dojoFeeOf } from "@/lib/dojoFee";
-// ─── Preacher referral on tips (Degen Dojo miner only) ───────────────────────
+// ─── Preacher referral ───────────────────────────────────────────────────────
 export const REF_RE = /^[a-zA-Z0-9_-]{2,32}$/;
 export function readRef(): string | null {
   try {
@@ -24,7 +24,7 @@ export function readRef(): string | null {
 // the Automate transaction — so it is paid only if that lands — plus the preacher's signed "ddref:<code>" memo when one
 // referred this miner — kept for attribution only: since 2026-10-27 the store books every mining fee 100% to the Reserve
 // (store-verify-core), memo or not; preachers earn from coin purchases.
-// Not on branded /m/<slug> miners: they keep their own optional tip to the collection's wallet.
+// Branded /m/<slug> miners pay it too: no tips, no collection wallet (owner 2026-10-30).
 // the fee math itself lives in lib/dojoFee.ts (import-free, shared with lib/burnMine.ts)
 export { DOJO_FEE_BPS, dojoFeeOf, depositWithin } from "@/lib/dojoFee";
 export function dojoFeeIxs(payer: PublicKey, depositLamports: number, wallet: PublicKey): { ixs: TransactionInstruction[]; feeLamports: number } {

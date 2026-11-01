@@ -1,15 +1,17 @@
 // Degen Dojo card states for the store pages that build a card picture from its mint alone (store cases, market
 // shelves + drawer, List page, profile). degen/card-states.json — written by crack-batch.mjs and
-// keeper-apply-repairs.mjs — lists the Cracked / Mono cards by the first 8 characters of the mint.
-//   DDStates.cond(mint) → "Mint" | "Cracked" | "Mono"        DDStates.card(mint) → the card picture to show
+// keeper-apply-repairs.mjs — lists the Cracked / Faded cards by the first 8 characters of the mint.
+//   DDStates.cond(mint) → "Mint" | "Cracked" | "Faded"        DDStates.card(mint) → the card picture to show
+//   DDStates.no(mint) → the card number (display only)        DDStates.path(mint, id) → "/<no>" (or "/old/<id>")
 // Any <img> already showing degen/card/<mint>.png (directly or through the wsrv.nl resizer) is switched to the cracked
 // card once the list arrives, and so is every image added later — pages don't have to wait for it.
 (function () {
-  // card v8 / cracked v2 = the Nov 2 renders (labels HITPOINTS · POWER, cracked = stats faded) — on from Nov 2
-  var NOV2 = Date.now() >= Date.UTC(2026, 10, 2);
-  var S3 = "https://degendojo.s3.us-west-1.amazonaws.com/degen/", CARD_V = NOV2 ? "8" : "7", CRACK_V = NOV2 ? "2" : "1";
+  // card v8d / cracked v2d = the new renders (labels HITPOINTS · POWER; cracked keeps its numbers readable; twins' half and
+  // half border) — on since the early crack (owner 2026-10-29)
+  var NOV2 = Date.now() >= Date.UTC(2026, 9, 29);
+  var S3 = "https://degendojo.s3.us-west-1.amazonaws.com/degen/", CARD_V = "9b", CRACK_V = "3a";
   var c = {}, m = {}, loaded = false;
-  function cond(mint) { var k = String(mint || "").slice(0, 8); return m[k] ? "Mono" : c[k] ? "Cracked" : "Mint"; }
+  function cond(mint) { var k = String(mint || "").slice(0, 8); return m[k] ? "Faded" : c[k] ? "Cracked" : "Mint"; }
   function card(mint) { return cond(mint) === "Mint" ? S3 + "card/" + mint + ".png?v=" + CARD_V : S3 + "card-cracked/" + mint + ".png?v=" + CRACK_V; }
   var CARD_RE = /degen\/card\/([1-9A-HJ-NP-Za-km-z]{32,44})\.png/;
   function fix(img) {
@@ -35,5 +37,21 @@
       else x.addedNodes.forEach(function (n) { if (n.nodeType === 1) sweep(n); });
     });
   }).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ["src"] });
-  window.DDStates = { ready: ready, cond: cond, card: card };
+  // CARD NUMBERS (owner 2026-10-29): Framed #1–#42, Mint #43–#597, cracked the rest — degen/card-numbers.json (card-numbers.mjs).
+  // DISPLAY + LINKS ONLY: pages keep every data lookup on the old fighter number (id). A page may inline a build-time
+  // fallback as window.DD_CARD_NO (mint → no); the live map overrides it, so a repair shows without a rebuild.
+  var nos = window.DD_CARD_NO || {};
+  var numbersReady = fetch(S3 + "card-numbers.json", { cache: "no-cache" })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (j) {
+      var b = (j && j.byMint) || {};
+      for (var k in b) if (b[k] && b[k].no != null) nos[k] = b[k].no;
+      try { window.dispatchEvent(new Event("dd-cardno")); } catch (e) {}
+    })
+    .catch(function () {});
+  function no(mint) { var v = nos[mint]; return v == null ? null : v; }
+  // the link a card prints / opens: /<no>, or /old/<id> for a card that has no number yet (the old id route never moves)
+  function hasNumbers() { for (var k in nos) return true; return false; }   // false until the renumbering is published
+  function path(mint, id) { var n = no(mint); if (n != null) return "/" + n; if (id == null || id === "") return ""; return hasNumbers() ? "/old/" + id : "/" + id; }
+  window.DDStates = { ready: ready, cond: cond, card: card, no: no, path: path, hasNumbers: hasNumbers, numbersReady: numbersReady };
 })();

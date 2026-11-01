@@ -15,15 +15,11 @@ function toPubkey(addr: string | undefined): PublicKey {
   }
 }
 
-/** Collection name shown in the tab title, tip label, etc. */
+/** Collection name shown in the tab title, etc. */
 export const COLLECTION_NAME = process.env.NEXT_PUBLIC_COLLECTION_NAME || "Degen Dojo";
 
-/** Wallet that receives optional tips (a public address — safe to expose). */
+/** Wallet that receives the 1% Dojo fee (a public address — safe to expose). */
 export const TIP_WALLET = toPubkey(process.env.NEXT_PUBLIC_TIP_WALLET);
-
-/** Show the optional-tip field. Set NEXT_PUBLIC_TIP_ENABLED=false to hide it. */
-export const TIP_ENABLED =
-  (process.env.NEXT_PUBLIC_TIP_ENABLED ?? "true").toLowerCase() !== "false";
 
 /** Inline 25-image list as a JSON string. If set, used directly (no fetch) — the
  *  fully-automatic whitelabel path: the whole collection config lives in env vars. */

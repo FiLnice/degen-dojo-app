@@ -115,7 +115,6 @@ a{color:inherit;}
     <a class="buy" href="${esc(buyUrl)}">${d.price ? "⚔ Own it · pay in ORE" : "Browse the market"}</a>
   </div>
   <div>
-    ${d.story ? `<div class="lore"><div class="lh">Who they are</div><p>${esc(d.story)}</p></div>` : ""}
     <div class="sec">${d.isDD ? "Every trait, read deeper" : "Traits"}</div>
     ${traits || '<div class="trait"><div class="ti">No traits on this asset.</div></div>'}
   </div>

@@ -5,16 +5,16 @@
 //   GET ?owner=<wallet> → { items: [ same per Dojo NFT the wallet holds ], storeMint, treasury, … }
 //   GET ?spots=1        → { mintCount, mintCap, mintSpotsLeft, … }
 //
-//   repair  = { price: "0.01", currency: "ORE", to: "Mint" } for a Cracked / Mono card not yet repaired, else null
-//   vault   = { <currencyMint>: "<decimal>" } — this NFT's share of its collection's Card Vault (the pool that gets
-//             88% of every royalty and repair across the collection) = pool × shares ÷ eligible shares right now
+//   repair  = { price: "0.01", currency: "ORE", to: "Mint" } for a Cracked / Faded card not yet repaired, else null
+//   vault   = { <currencyMint>: "<decimal>" } — this NFT's share of its collection's Card Vault (the old pool, which
+//             gets nothing new since 2026-10-30) = pool × shares ÷ eligible shares right now
 //             (shares: a Framed Degen 2, every other eligible NFT 1); shares / eligibleShares say which
 //   burnValue = that share in stORE at live prices (what a burn claim would be fixed at right now); 0 + burnNote for a
-//             Cracked / Mono Degen ("repair it to Mint first")
+//             Cracked / Faded Degen ("repair it to Mint first")
 //   pools   = { "Degen Dojo" | "Demon Dojo" | "TETO": { pool, eligible (NFTs), shares, perShare: { store, usd }, claimed } }
 //   vault / burnValue / eligible / shares / eligibleShares / burnNote / pools are sent ONLY while burning is open (BURN_ENABLED) — until then no
 //   money figure about the Card Vaults is public.
-//   mintCount / mintCap / mintSpotsLeft — the Mint cap (Mint/Framed Degens + repairs granted vs the admin's cap)
+//   mintCount / mintCap / mintSpotsLeft — the Mint cap (Mint Degens + repairs granted vs the admin's cap; Framed don't count)
 //
 // Cost per call is bounded (security review 2026-10-23, L-2): ?owner= reads the batch's repair / claim records once
 // (store-keeper-core recordsFor) instead of 2–3 reads per card; ?owner= and ?mint= answers are cached 30 s per warm

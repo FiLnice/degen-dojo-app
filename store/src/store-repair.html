@@ -22,11 +22,11 @@ label{font-size:12px;color:var(--mut);letter-spacing:.04em}
 .grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;align-items:start}
 .c{display:flex;flex-direction:column;gap:6px;min-width:0}
 .c img{width:100%;aspect-ratio:1/1;object-fit:contain;display:block}
-.c.iscard img{aspect-ratio:664/1080}
+.c.iscard img{aspect-ratio:664/928}
 .c .box{border:1px solid var(--line);border-radius:11px;background:var(--pan);padding:7px 9px;text-align:center}
 .c .nm{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .badge{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:999px;margin-top:4px}
-.b-Cracked{color:#1a1206;background:var(--amber)}.b-Mono{color:#fff;background:#6b6b6b}.b-Mint{color:#0d1a0b;background:var(--grn)}.b-Framed{color:#1a0d10;background:#e6a3a9}
+.b-Cracked{color:#1a1206;background:var(--amber)}.b-Faded{color:#fff;background:#6b6b6b}.b-Mint{color:#0d1a0b;background:var(--grn)}.b-Framed{color:#1a0d10;background:#e6a3a9}
 .pay{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:18px;align-items:center}
 .big{font-family:Teko;font-size:34px;line-height:1;color:var(--ink2)}
 .kv{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0}
@@ -43,10 +43,10 @@ label{font-size:12px;color:var(--mut);letter-spacing:.04em}
 <div id="ddnav-mount"></div>
 <div class="wrap">
   <h1>Repair your cards</h1>
-  <div class="sub">A Cracked or Mono card goes back to <b>Mint</b> for 0.01 ORE — and Mint cards never crack again. No wallet connection needed: paste your wallet, send the ORE, done.</div>
+  <div class="sub">A Cracked or Faded card goes back to <b>Mint</b> for 0.01 ORE — and Mint cards never crack again. No wallet connection needed: paste your wallet, send the ORE, done.</div>
 
   <div class="rules">
-    <div class="rule"><b>0.01 ORE</b><span>per card · Cracked or Mono → Mint</span></div>
+    <div class="rule"><b>0.01 ORE</b><span>per card · Cracked or Faded → Mint</span></div>
     <div class="rule"><b>Never again</b><span>Mint cards never crack again</span></div>
     <div class="rule"><b>Weekly</b><span>restored at the next weekly update</span></div>
     <div class="rule"><b id="spotsN">—</b><span>Mint spots left of <span id="spotsCap">—</span> — first come, first served</span></div>
@@ -63,7 +63,7 @@ label{font-size:12px;color:var(--mut);letter-spacing:.04em}
   </div>
 
   <div id="results"></div>
-  <div class="fine" style="margin-top:6px">Every repair splits <b>88%</b> into the collection’s Card Vault · <b>12%</b> to running the Dojo. There is a hard cap on Mint cards: once every spot is taken, a payment can’t be granted and is refunded in full at the weekly payout. See the <a href="/reserve/" style="color:var(--gold)">Reserve</a>.</div>
+  <div class="fine" style="margin-top:6px">Every repair splits <b>88%</b> into the Reserve · <b>12%</b> to running the Dojo. There is a hard cap on Mint cards: once every spot is taken, a payment can’t be granted and is refunded in full at the weekly payout. See the <a href="/reserve/" style="color:var(--gold)">Reserve</a>.</div>
 </div>
 
 <script src="/buffer.js"></script>
@@ -79,7 +79,7 @@ const isB58 = (m) => /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(String(m || ''));
 const short = (a) => a.slice(0, 4) + '…' + a.slice(-4);
 const safeImg = (u) => { try { const x = new URL(String(u || '')); return x.protocol === 'https:' ? x.href : ''; } catch (e) { return ''; } };
 const TREASURY = '5w55F58ia3H71QjBD9bYvNQF2DcNu8K3AfJj9A4WMuWp', ORE = 'oreoU2P8bN6jkk3jbaiVxYnG1dCXcYxwhwyK9jSybcp';
-const CARD = (m) => 'https://degendojo.s3.us-west-1.amazonaws.com/degen/card/' + m + '.png?v=7';
+const CARD = (m) => 'https://degendojo.s3.us-west-1.amazonaws.com/degen/card/' + m + '.png?v=9b';
 async function rpc(method, params) { const r = await fetch('/api/rpc', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) }); const j = await r.json(); if (j.error) throw new Error(j.error.message || 'RPC error'); return j.result; }
 async function api(path, opts) { const r = await fetch(path, opts); const j = await r.json().catch(() => ({})); if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status)); return j; }
 // 0.01 × n as an exact decimal string (no float drift)
@@ -136,7 +136,7 @@ function render(hl) {
   } else if (SPOTS && SPOTS.mintSpotsLeft <= 0) {
     // every Mint spot is taken: no payment instructions at all
     html += '<div class="card"><div class="big">All Mint spots are taken</div><div class="fine" style="margin-top:6px">All ' + SPOTS.mintCap + ' Mint spots are filled, so no more cards can be repaired right now. Please don’t send ORE — a repair can’t be granted. If spots open up again, this page will show it.</div></div>';
-    html += '<div class="card"><div class="fine" style="margin-bottom:10px">Cracked / Mono (' + need.length + ')</div><div class="grid">' + need.map((i) => tile(i, hl)).join('') + '</div></div>';
+    html += '<div class="card"><div class="fine" style="margin-bottom:10px">Cracked / Faded (' + need.length + ')</div><div class="grid">' + need.map((i) => tile(i, hl)).join('') + '</div></div>';
   } else {
     const left = SPOTS ? SPOTS.mintSpotsLeft : need.length, n = Math.min(need.length, left);
     const per = (need[0].repair && need[0].repair.price) || '0.01', total = times(per, n);

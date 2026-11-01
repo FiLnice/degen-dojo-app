@@ -19,6 +19,8 @@ export default function VaultPage() {
   const { busy, submit } = useOreSubmit(connection, refresh);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+  // ?c=<slug>: opened from a collection's branded miner, so no Degen Dojo menu, and back goes to their miner.
+  const slug = mounted ? new URLSearchParams(window.location.search).get("c") : null;
 
   const claimableOre = miner ? ore(miner.claimableOre) : 0;
   const unrefined = miner ? ore(miner.unrefinedOre) : 0;
@@ -30,15 +32,16 @@ export default function VaultPage() {
 
   return (
     <>
-      <StoreNav />
+      {!slug && <StoreNav />}
       <main className="mine-cave min-h-screen px-5 py-10">
       <div className="mx-auto max-w-lg space-y-6">
-        <Link
-          href="/mine"
+        {/* Plain <a>: a full load, because /m/<slug> is a store rewrite the client router doesn't know. */}
+        <a
+          href={slug ? `/m/${encodeURIComponent(slug)}` : "/mine"}
           className="inline-flex items-center gap-1.5 text-sm text-stone-400 hover:text-amber-200"
         >
           <ArrowLeft className="size-4" /> Back to mining
-        </Link>
+        </a>
 
         <header className="space-y-2 text-center">
           <div className="inline-flex items-center gap-2 rounded-full border border-red-500/50 bg-gradient-to-r from-red-950/60 to-amber-950/50 px-3 py-1 text-xs text-amber-200">
@@ -95,13 +98,6 @@ export default function VaultPage() {
             {busy && <Loader2 className="size-4 animate-spin" />}
             {claimableOre > 0 ? `Claim ${claimableOre.toFixed(4)} ORE` : "Nothing to claim yet"}
           </button>
-        )}
-
-        {/* mining → coins: claimed ORE buys game coins on the store (owner 2026-10-27); only inside the store's miner */}
-        {embedded && (
-          <a href="/credits" className="block text-center text-sm font-medium text-amber-200 hover:text-amber-100">
-            Use your ORE → 🪙 buy game coins
-          </a>
         )}
 
         <p className="text-center text-[11px] text-stone-500">

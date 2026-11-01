@@ -1,7 +1,7 @@
 // Netlify Function: /api/miner?slug=<slug> — public config for a hosted branded miner (/m/<slug>).
-//   → {slug, name, tipWallet, degens[25]{name,image,mint?}}   (404 if unknown / not approved)
+//   → {slug, name, degens[25]{name,image,mint?}}   (404 if unknown / not approved)
 // Written by /api/miner-requests on approve (Netlify Blobs "miner-requests", key miner:<slug>).
-// Public data only (a tip wallet is a public address). Cached briefly at the edge.
+// Public data only. Cached briefly at the edge.
 import { limited } from "./store-ratelimit-core.mjs";
 import { getStore } from "@netlify/blobs";
 
@@ -17,7 +17,7 @@ export default async (request) => {
   const m = await getStore({ name: "miner-requests", consistency: "strong" }).get(`miner:${slug}`, { type: "json" });
   if (!m) return json({ error: "not found" }, 404, "public, max-age=15");
   return json(
-    { slug: m.slug, name: m.name, tipWallet: m.tipWallet, degens: m.degens },
+    { slug: m.slug, name: m.name, degens: m.degens },
     200,
     "public, max-age=60, stale-while-revalidate=300",
   );

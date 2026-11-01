@@ -23,9 +23,9 @@
 //        "paying", then mark preacher records paid / roll over / notify "Paid ✓" → 'partial' | 'paid'.
 //
 //   GET  ?statement=1                             → the weekly statement: COMES IN (last 7 days, per source) · GOES OUT
-//        (this batch, line by line) · STAYS (the Treasury after the batch, the Pot, the Card Vaults)
+//        (this batch, line by line) · STAYS (the Treasury after the batch, the Pot)
 //
-// Dojo Keeper (card vaults, repairs, burn claims — store-keeper-core.mjs), same key:
+// Dojo Keeper (royalties, repairs, burn claims — store-keeper-core.mjs), same key:
 //   GET  ?keeper=1                                → this week's Keeper desk: burn claims due (stORE), cards sent in
 //        to burn, repairs pending (for keeper-apply-repairs.mjs), reserve / ops / unconverted totals
 //   POST {action:'keeper-claims-paid', sigs, payer}  → verify the Treasury's stORE transfers, mark covered claims paid

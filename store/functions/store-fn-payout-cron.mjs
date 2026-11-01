@@ -38,7 +38,7 @@ export default async () => {
     try { const s = await sweepTick({ budgetMs: Math.min(5e3, roomForSweep) }); if (s.step !== "sweep-idle") console.log("sweep:", JSON.stringify(s)); }
     catch (e) { console.log("sweep error:", String(e?.message || e)); }
   }
-  // Dojo Keeper: read the Treasury's new transactions — royalties → card vaults, repair payments, cards sent
+  // Dojo Keeper: read the Treasury's new transactions — royalties, repair payments, cards sent
   // in to burn (store-keeper-core). Uses what's left of the ~30s run.
   const left = 26e3 - (Date.now() - t0);
   if (left > 4e3) {

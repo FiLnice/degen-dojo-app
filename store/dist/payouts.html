@@ -200,7 +200,6 @@
       '<div class="why" style="margin-top:10px">Of that, set aside:</div><ul class="lines">' +
       li('Pot — next draw\'s prize', '', amts(st.pot.amounts), st.pot.usd) +
       (st.rafflePot && Object.keys(st.rafflePot.amounts || {}).length ? li('Burn Raffle — round ' + esc(st.rafflePot.round || '') + '\'s prize', 'SOL parts are swapped to ORE when paid', amts(st.rafflePot.amounts), st.rafflePot.usd) : '') +
-      (st.vaults || []).map(function (v) { return li('Card Vault — ' + v.name, v.nfts != null ? v.nfts + ' NFTs share it when burning opens' : '', amts(v.amounts), v.usd); }).join('') +
       (st.opsWaiting ? li('Operations share (waits for OPS_WALLET)', '', amts(st.opsWaiting.amounts), st.opsWaiting.usd) : '') +
       '</ul><div class="free"><span>Free Reserve</span><b>' + usdS(st.reserveFreeUsd) + '</b></div></section></div>';
     // PAY
@@ -357,7 +356,7 @@
         });
       }
     }
-    // 2) the Card Vault + Reserve shares → stORE (server quote per currency)
+    // 2) the Reserve share → stORE (server quote per currency)
     var convInBatch = false;
     if (want('convert')) {
       var un = (KP.totals && KP.totals.unconvertedRaw) || {};
@@ -706,23 +705,21 @@
   function renderKeeper() {
     if (!KP) return;
     var t = KP.totals || {}, due = KP.claimsDue || [], burn = KP.toBurn || [], rep = KP.repairsPending || [], on = !!KP.burnEnabled;
-    var refunds = KP.refundsDue || [], ops = KP.ops || {}, mc = KP.mint || null, pools = KP.pools || {};
-    var h = '<div class="card"><h2>Dojo Keeper — the books</h2><div class="msg">Royalties and repairs split 88% collection Card Vault · 12% ops. ' +
+    var refunds = KP.refundsDue || [], ops = KP.ops || {}, mc = KP.mint || null;
+    var h = '<div class="card"><h2>Dojo Keeper — the books</h2><div class="msg">Royalties and repairs split 88% Reserve · 12% ops. ' +
       'Coin buys (since 27 Oct 2026) split 12% Reserve · 12% ops · the preacher\'s tier share (28/36/44%) · the rest to the Pot (76% with no preacher); the 1% mining fee is 100% Reserve (mining tips locked before still pay their preacher). ' +
-      (on ? 'Burning is OPEN: a burned card is paid its equal share of its collection\'s Card Vault, in stORE. ' : 'Burning is OFF (BURN_ENABLED not set): the Card Vaults fill silently and nothing about them is shown publicly. ') +
+      (on ? 'Burning is OPEN. ' : 'Burning is OFF (BURN_ENABLED not set). ') +
       'Treasury reader: ' + (KP.scan.pending ? KP.scan.pending + ' transaction(s) still to read' : KP.scan.gaps ? 'older history still being read' : 'up to date') + (KP.scan.at ? ' (' + new Date(KP.scan.at).toLocaleString() + ')' : '') + ' <button class="small" id="kscan">Read now</button></div>' +
       '<dl style="margin-top:10px"><dt>Reserve</dt><dd>' + amtList(t.reserve) + '</dd><dt>Ops (12%)</dt><dd>' + amtList(t.ops) + '</dd><dt>Direct (tips beyond repairs)</dt><dd>' + amtList(t.direct) + '</dd>' +
       '<dt>Still to convert to stORE</dt><dd>' + amtList(t.unconverted) + '</dd></dl>' +
       // a conversion done outside this page (e.g. SOL→ORE on Jupiter, then ORE→stORE on the ORE site) — book it so it isn't converted twice
       '<div class="msg" style="margin-top:8px">Converted to stORE by hand? Paste the Treasury transaction(s), one per line (up to 4 — e.g. the swap and the stake):</div>' +
       '<div class="bar"><textarea id="kconvsigs" rows="2" style="flex:1;min-width:220px;font:12px monospace" placeholder="transaction signature(s)"></textarea> <button id="kconvbook">Book it</button><span class="msg" id="kconvmsg"></span></div></div>';
-    h += '<div class="card"><h2>Card Vaults (88% of every royalty + repair, per collection)</h2><table><tr><th>Collection</th><th>Pool</th><th class="num">Eligible NFTs (shares)</th><th class="num">One share (Mint; Framed = 2)</th><th class="num">Claimed</th></tr>' +
-      Object.keys(pools).map(function (n) { var p = pools[n] || {}; return '<tr><td>' + esc(n) + '</td><td>' + amtList(p.pool) + '</td><td class="num">' + (p.eligible == null ? '?' : p.eligible + ' (' + p.shares + ')') + '</td><td class="num">' + esc((p.perShare || {}).store || '0') + ' stORE ($' + (+((p.perShare || {}).usd) || 0).toFixed(2) + ')</td><td class="num">' + (p.claimed || 0) + '</td></tr>'; }).join('') + '</table></div>';
     h += '<div class="card"><h2>Seed the Pot</h2><div class="msg">Add Degen Dojo\'s own ORE to <b>this week\'s</b> prize (e.g. 1 ORE at launch, while the Pot is empty). No transfer now — it is paid from the Treasury with the prize, and /pot shows it as "Seeded by Degen Dojo".</div>' +
       '<div class="bar"><input id="seedore" type="number" min="0.01" max="25" step="0.01" value="1" style="width:110px"> ORE <button id="seedbtn">Seed the Pot</button><span class="msg" id="seedmsg"></span></div></div>';
     h += '<div class="card"><h2>Seed the Burn Raffle</h2><div class="msg">Add Degen Dojo\'s own ORE to the Burn Raffle\'s <b>open round</b> (e.g. 0.1 ORE to start it). Same as the Pot: no transfer now — the winners are paid from the Treasury. The pot\'s ORE value decides the winners: ≤ 1 ORE → 1 · ≤ 3 → 3 · more → 5.</div>' +
       '<div class="bar"><input id="rseedore" type="number" min="0.01" max="25" step="0.01" value="0.1" style="width:110px"> ORE <button id="rseedbtn">Seed the raffle</button><span class="msg" id="rseedmsg"></span></div></div>';
-    h += '<div class="card"><h2>Mint cap</h2>' + (mc ? '<div class="msg">' + mc.mintCount + ' Mint cards (Mint/Framed + repairs granted) of a cap of <b>' + mc.mintCap + '</b> — <b>' + mc.mintSpotsLeft + '</b> spot(s) left. Lowering it only closes repairs for later payments; it never downgrades a Mint card.</div>' : '<div class="msg">Mint count unavailable right now.</div>') +
+    h += '<div class="card"><h2>Mint cap</h2>' + (mc ? '<div class="msg">' + mc.mintCount + ' Mint cards (repairs granted included, Framed not counted) of a cap of <b>' + mc.mintCap + '</b> — <b>' + mc.mintSpotsLeft + '</b> spot(s) left. Lowering it only closes repairs for later payments; it never downgrades a Mint card.</div>' : '<div class="msg">Mint count unavailable right now.</div>') +
       '<div class="bar"><input id="kcap" type="number" min="1" step="1" value="' + (mc ? mc.mintCap : '') + '" style="width:110px"> <button id="kcapsave">Save Mint cap</button><span class="msg" id="kcapmsg"></span></div>' +
       ((KP.mintCapHistory || []).length ? '<div class="msg">Changes: ' + KP.mintCapHistory.slice().reverse().map(function (x) { return new Date(x.at).toLocaleString() + ' ' + x.prev + '→' + x.cap; }).join(' · ') + '</div>' : '') + '</div>';
     h += '<div class="card"><h2>Refunds due (' + refunds.length + ') — ' + esc(KP.refundsDueOre || '0') + ' ORE</h2><div class="msg">Repairs paid after every Mint spot was taken get their 0.01 ORE per card back.</div>' + (refunds.length ? '<table><tr><th>Payer</th><th class="num">ORE</th><th class="num">Cards</th><th>Paid</th></tr>' +

@@ -59,14 +59,14 @@
       var mine = W && x.seller === W.pubkey;
       var m = META[x.mint] || {};
       var isCard = x.dojo === "Degen Dojo";   // genuine Degens: show the collectible card, whole
-      var art = isCard ? "https://degendojo.s3.us-west-1.amazonaws.com/degen/card/" + x.mint + ".png?v=7" : (safeImg(m.img) || safeImg(x.image) || ddImg(x.mint));
+      var art = isCard ? "https://degendojo.s3.us-west-1.amazonaws.com/degen/card/" + x.mint + ".png?v=9b" : (safeImg(m.img) || safeImg(x.image) || ddImg(x.mint));
       var nm = m.name || x.name || (x.mint.slice(0, 6) + "…");
       var btn = mine
         ? '<button data-act="delist" data-i="' + i + '" style="margin:0 8px 8px;padding:7px 0;border:1px solid rgba(201,151,58,.5);border-radius:8px;background:transparent;color:#e8b84b;font-weight:700;font-size:12px;cursor:pointer">Delist</button>'
         : '<button data-act="buy" data-i="' + i + '" style="margin:0 8px 8px;padding:7px 0;border:0;border-radius:8px;background:#c9973a;color:#1a1206;font-weight:700;font-size:12px;cursor:pointer">' + (ready ? "Buy" : "Buy soon") + "</button>";
       // the picture stands on its own; only the info box below carries the border (it isn't part of what's bought)
       return '<div style="display:flex;flex-direction:column;gap:6px;">'
-        + '<img src="' + esc(art) + '" data-fb="' + esc(ddImg(x.mint)) + '" alt="" style="width:100%;display:block;aspect-ratio:' + (isCard ? "664/1080" : "1/1") + ';object-fit:' + (isCard ? "contain" : "cover") + ';background:' + (isCard ? "transparent" : "#151013") + ';" onerror="this.onerror=null;this.src=this.dataset.fb;this.style.opacity=.9">'
+        + '<img src="' + esc(art) + '" data-fb="' + esc(ddImg(x.mint)) + '" alt="" style="width:100%;display:block;aspect-ratio:' + (isCard ? "664/928" : "1/1") + ';object-fit:' + (isCard ? "contain" : "cover") + ';background:' + (isCard ? "transparent" : "#151013") + ';" onerror="this.onerror=null;this.src=this.dataset.fb;this.style.opacity=.9">'
         + '<div class="ddc-info" style="border:1px solid rgba(255,255,255,.08);border-radius:12px;background:rgba(0,0,0,.25);display:flex;flex-direction:column;transition:border-color .16s;">'
         + '<div style="font-size:12.5px;color:#e7ddc9;padding:8px 10px 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(nm) + "</div>"
         // ✓ badge only for our verified collections (the server already hides look-alikes); others say what they are

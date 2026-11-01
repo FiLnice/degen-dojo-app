@@ -263,6 +263,7 @@ export type OreAutomation = {
   reload: boolean; // auto-reload winnings back into balance
   active: boolean; // has a funded balance
   strategy: number; // STRATEGY_RANDOM (0) | STRATEGY_PREFERRED (1)
+  maxMotherlode: number; // whole ORE: ORE skips this automation above it (0xffff = no limit)
   soloTiles: number; // RANDOM: tiles a round from the solo group (0 = unset)
   splitTiles: number; // RANDOM: tiles a round from the split group (0 = unset)
   tiles: number; // tiles staked per round — what the balance actually pays for (the mask, or solo + split)
@@ -281,12 +282,13 @@ export function decodeAutomation(data: Uint8Array): OreAutomation {
   // conditions (newer 160-byte accounts): max_production_cost u64 @136, min/max motherlode u16 @144/@146,
   // split_tiles u16 @148, solo_tiles u16 @150 — e.g. a "10 solo" miner reads solo_tiles = 10
   const long = data.byteLength >= 152;
+  const maxMotherlode = long ? v.getUint16(146, true) : 0xffff;
   const splitTiles = long ? v.getUint16(148, true) : 0;
   const soloTiles = long ? v.getUint16(150, true) : 0;
   let maskTiles = 0;
   for (let m = mask; m > 0n; m >>= 1n) maskTiles += Number(m & 1n);
   const tiles = strategy === 0 && soloTiles + splitTiles > 0 ? soloTiles + splitTiles : maskTiles || 25;
-  return { amount, balance, fee, reload, active: balance > 0n, strategy, soloTiles, splitTiles, tiles };
+  return { amount, balance, fee, reload, active: balance > 0n, strategy, maxMotherlode, soloTiles, splitTiles, tiles };
 }
 
 export async function readAutomation(

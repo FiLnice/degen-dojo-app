@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import Image from "next/image";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Connection, PublicKey, Transaction, TransactionInstruction } from "@solana/web3.js";
 // The store's shared wallet session (same as /mine): embedded → window.DOJO_WALLET via
 // wallet-picker.js, sending with signAndSendTransaction (the store /api/rpc refuses
@@ -11,6 +10,7 @@ import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { Loader2, Check, Copy, ArrowLeft, ExternalLink } from "lucide-react";
 import { OreIcon } from "@/components/OreIcon";
 import { StoreNav } from "@/components/StoreNav";
+import { MineScreen } from "@/app/mine/MineScreen";
 import { OPERATOR_WALLET, SETUP_FEE_ORE } from "@/lib/config";
 import { createAtaIdempotentIx, oreTransferIx, ORE_DECIMALS, MEMO_PROGRAM_ID } from "@/lib/ore";
 
@@ -18,14 +18,18 @@ type Tile = { mint: string; name: string; image: string };
 const SQUARES = 25;
 /** Store endpoint (scripts/store-fn-miner-requests.mjs) — verifies the fee on-chain + queues review. */
 const REQUESTS_API = "/api/miner-requests";
+/** The miner page's own colour: left as is, no ?bg= goes in the link. */
+const DEFAULT_BG = "#0c0a08";
 /** A paid-but-not-yet-accepted signature, kept so a failed submit can retry WITHOUT paying twice. */
 const PAID_KEY = "dd_create_paid_sig";
 /** …and the exact request that payment was made for (the payment's memo commits to it). */
 const PAID_BODY_KEY = "dd_create_paid_body";
 const isHttps = (u: string) => /^https:\/\//i.test(u);
+/** Solana addresses in anything pasted: lines, commas, a JSON array… */
+const ADDRESS = /[1-9A-HJ-NP-Za-km-z]{32,44}/g;
 
 type ReqBody = {
-  name: string; tipWallet: string; contact: string; website: string; collection: string;
+  name: string; contact: string; website: string; collection: string;
   degens: { name: string; image: string; mint: string }[]; payer: string;
 };
 /** The payer commits to the exact request inside the payment: memo "ddminer:<this hash>". The store accepts a
@@ -34,7 +38,7 @@ type ReqBody = {
 async function requestHash(b: ReqBody): Promise<string> {
   const s = (v: unknown) => String(v ?? "").trim();
   const tiles = b.degens.map((d) => [s(d.mint), s(d.image)]);
-  const data = new TextEncoder().encode(JSON.stringify([1, s(b.name), s(b.tipWallet), s(b.contact), s(b.website), s(b.collection), s(b.payer), tiles]));
+  const data = new TextEncoder().encode(JSON.stringify([2, s(b.name), s(b.contact), s(b.website), s(b.collection), s(b.payer), tiles]));
   const dig = new Uint8Array(await crypto.subtle.digest("SHA-256", data));
   return Array.from(dig, (x) => x.toString(16).padStart(2, "0")).join("").slice(0, 32);
 }
@@ -46,30 +50,27 @@ try {
   operatorKey = null;
 }
 
-async function resolveMint(mint: string): Promise<Tile | null> {
-  try {
-    const res = await fetch("/api/rpc", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jsonrpc: "2.0", id: "1", method: "getAsset", params: { id: mint } }),
-    });
-    const j = await res.json();
-    const a = j?.result;
-    if (!a) return null;
-    const image =
-      a.content?.links?.image || a.content?.files?.[0]?.cdn_uri || a.content?.files?.[0]?.uri || "";
-    const name = a.content?.metadata?.name || `${mint.slice(0, 4)}…`;
-    return image && isHttps(image) ? { mint, name, image } : null;
-  } catch {
-    return null;
-  }
-}
-
 type DasAsset = {
   id: string;
   burnt?: boolean;
   content?: { metadata?: { name?: string }; links?: { image?: string }; files?: { uri?: string; cdn_uri?: string }[] };
 };
+async function das<T>(method: string, params: unknown): Promise<T | undefined> {
+  const res = await fetch("/api/rpc", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: "1", method, params }),
+  });
+  if (!res.ok) throw new Error("Couldn't read that right now — try again in a moment.");
+  return (await res.json())?.result;
+}
+function assetTile(a: DasAsset): Tile | null {
+  // First https candidate — the hosted page can't show http/ipfs:// art (mixed content).
+  const image = [a.content?.links?.image, a.content?.files?.[0]?.cdn_uri, a.content?.files?.[0]?.uri].find(
+    (u): u is string => !!u && isHttps(u),
+  );
+  return image && !a.burnt ? { mint: a.id, name: a.content?.metadata?.name || `${a.id.slice(0, 4)}…`, image } : null;
+}
 
 function shuffled<T>(a: T[]): T[] {
   const b = [...a];
@@ -78,19 +79,6 @@ function shuffled<T>(a: T[]): T[] {
     [b[i], b[j]] = [b[j], b[i]];
   }
   return b;
-}
-
-async function mapLimit<T, R>(items: T[], limit: number, fn: (t: T) => Promise<R>): Promise<R[]> {
-  const out: R[] = [];
-  let i = 0;
-  async function worker() {
-    while (i < items.length) {
-      const idx = i++;
-      out[idx] = await fn(items[idx]);
-    }
-  }
-  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
-  return out;
 }
 
 function CopyButton({ text }: { text: string }) {
@@ -123,6 +111,16 @@ export default function CreatePage() {
 
   if (!mounted) return <main className="min-h-screen" />;
 
+  if (!reqId)
+    return (
+      <RequestForm
+        onSubmitted={(id) => {
+          window.history.pushState({}, "", `/create?id=${id}`);
+          setReqId(id);
+        }}
+      />
+    );
+
   return (
     <>
     <StoreNav />
@@ -132,26 +130,15 @@ export default function CreatePage() {
           <div className="inline-flex items-center gap-2 rounded-full border border-amber-600/30 bg-amber-600/10 px-3 py-1 text-xs text-amber-300">
             <OreIcon className="size-3.5" /> Whitelabel ORE mining
           </div>
-          <h1 className="text-2xl font-semibold text-slate-100 sm:text-3xl">
-            {reqId ? "Your request" : "Create your miner"}
-          </h1>
+          <h1 className="text-2xl font-semibold text-slate-100 sm:text-3xl">Your request</h1>
         </header>
-        {reqId ? (
-          <StatusView
-            id={reqId}
-            onBack={() => {
-              window.history.pushState({}, "", "/create");
-              setReqId(null);
-            }}
-          />
-        ) : (
-          <RequestForm
-            onSubmitted={(id) => {
-              window.history.pushState({}, "", `/create?id=${id}`);
-              setReqId(id);
-            }}
-          />
-        )}
+        <StatusView
+          id={reqId}
+          onBack={() => {
+            window.history.pushState({}, "", "/create");
+            setReqId(null);
+          }}
+        />
       </div>
     </main>
     </>
@@ -167,7 +154,6 @@ function RequestForm({ onSubmitted }: { onSubmitted: (id: string) => void }) {
   }, []);
 
   const [name, setName] = useState("");
-  const [tipWallet, setTipWallet] = useState("");
   const [contact, setContact] = useState("");
   // A fee already paid (confirmed) whose submission failed — retry without paying again.
   const [paidSig, setPaidSig] = useState<string | null>(() => {
@@ -178,106 +164,99 @@ function RequestForm({ onSubmitted }: { onSubmitted: (id: string) => void }) {
     }
   });
   const [website, setWebsite] = useState("");
-  const [hashlist, setHashlist] = useState("");
+  const [paste, setPaste] = useState("");
+  const [pasteError, setPasteError] = useState<string | null>(null);
   const [tiles, setTiles] = useState<Tile[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [collection, setCollection] = useState("");
-  const [collectionAddr, setCollectionAddr] = useState(""); // last successfully loaded collection
-  const [pool, setPool] = useState<Tile[]>([]);
+  const [collectionAddr, setCollectionAddr] = useState(""); // the collection on the grid, when it came from one
+  const [pool, setPool] = useState<Tile[]>([]); // that collection's NFTs…
+  const [listMints, setListMints] = useState<string[]>([]); // …or the pasted hashlist
+  const pasteRun = useRef(0); // a newer paste outdates whatever is still loading
+  const pasteTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  function pickFromPool(from: Tile[]) {
-    const picked = shuffled(from).slice(0, SQUARES);
-    setTiles(picked);
-    setHashlist(picked.map((t) => t.mint).join("\n"));
+  function clearGrid() {
+    setTiles([]);
+    setPool([]);
+    setListMints([]);
+    setCollectionAddr("");
+  }
+  function failPaste(run: number, message: string) {
+    if (run !== pasteRun.current) return;
+    clearGrid();
+    setPasteError(message);
   }
 
-  // Paste a collection address → read its NFTs (DAS getAssetsByGroup) → 25 random ones on the grid.
-  async function onLoadCollection() {
-    setError(null);
-    let addr: string;
-    try {
-      addr = new PublicKey(collection.trim()).toBase58();
-    } catch {
-      setError("That isn't a valid collection address.");
+  // One box: a collection address, or a hashlist of any length. No button: the grid fills itself.
+  function onPaste(text: string) {
+    setPaste(text);
+    setPasteError(null);
+    clearTimeout(pasteTimer.current);
+    const run = ++pasteRun.current;
+    const addrs = [...new Set(text.match(ADDRESS) ?? [])];
+    if (addrs.length === 0) {
+      setBusy(null);
+      clearGrid();
+      if (text.trim()) setPasteError("That isn't a collection address or a hashlist.");
       return;
     }
-    setBusy("collection");
+    pasteTimer.current = setTimeout(() => void (addrs.length === 1 ? loadCollection(addrs[0], run) : loadHashlist(addrs, run)), 400);
+  }
+
+  // A collection address → its NFTs (DAS getAssetsByGroup) → 25 random ones on the grid.
+  async function loadCollection(addr: string, run: number) {
+    setBusy("loading");
     try {
-      const res = await fetch("/api/rpc", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          id: "1",
-          method: "getAssetsByGroup",
-          params: { groupKey: "collection", groupValue: addr, page: 1, limit: 1000 },
-        }),
-      });
-      const j = await res.json();
-      const items: DasAsset[] = j?.result?.items ?? [];
-      const found = items
-        .filter((a) => !a.burnt)
-        .map((a) => ({
-          mint: a.id,
-          name: a.content?.metadata?.name || `${a.id.slice(0, 4)}…`,
-          // First https candidate — the hosted page can't show http/ipfs:// art (mixed content).
-          image:
-            [a.content?.links?.image, a.content?.files?.[0]?.cdn_uri, a.content?.files?.[0]?.uri].find(
-              (u): u is string => !!u && isHttps(u),
-            ) || "",
-        }))
-        .filter((t) => t.image);
-      if (found.length < SQUARES) {
-        setError(`Found ${found.length} NFTs with art in that collection — need at least 25.`);
-        return;
-      }
+      const r = await das<{ items?: DasAsset[] }>("getAssetsByGroup", { groupKey: "collection", groupValue: addr, page: 1, limit: 1000 });
+      const found = (r?.items ?? []).flatMap((a) => assetTile(a) ?? []);
+      if (run !== pasteRun.current) return;
+      if (found.length < SQUARES) return failPaste(run, `Found ${found.length} NFTs with art there — need at least 25.`);
+      setListMints([]);
       setPool(found);
       setCollectionAddr(addr);
-      pickFromPool(found);
+      setTiles(shuffled(found).slice(0, SQUARES));
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      failPaste(run, e instanceof Error ? e.message : String(e));
     } finally {
-      setBusy(null);
+      if (run === pasteRun.current) setBusy(null);
     }
   }
 
-
-  const mints = useMemo(
-    () => hashlist.split(/[\s,]+/).map((s) => s.trim()).filter(Boolean),
-    [hashlist],
-  );
-  const tipValid = useMemo(() => {
+  // A hashlist → a random 25 of it; a mint with no usable art is replaced by the next one.
+  async function loadHashlist(all: string[], run: number) {
+    if (all.length < SQUARES) return failPaste(run, `That hashlist has ${all.length} mints — need at least 25.`);
+    setBusy("loading");
     try {
-      new PublicKey(tipWallet.trim());
-      return true;
-    } catch {
-      return false;
-    }
-  }, [tipWallet]);
-
-  async function onPreview() {
-    setError(null);
-    setTiles([]);
-    if (mints.length !== SQUARES) {
-      setError(`Paste exactly 25 mint addresses — you have ${mints.length}.`);
-      return;
-    }
-    setBusy("preview");
-    try {
-      const resolved = (await mapLimit(mints, 5, resolveMint)).filter(Boolean) as Tile[];
-      setTiles(resolved);
-      if (resolved.length < SQUARES)
-        setError(`Only ${resolved.length}/25 resolved — check those are valid NFT mints.`);
+      const order = shuffled(all);
+      const got: Tile[] = [];
+      for (let next = 0; run === pasteRun.current && got.length < SQUARES && next < Math.min(order.length, SQUARES * 4); ) {
+        const ids = order.slice(next, next + SQUARES - got.length);
+        next += ids.length;
+        const found = await das<(DasAsset | null)[]>("getAssetBatch", { ids });
+        got.push(...(found ?? []).flatMap((a) => (a && assetTile(a)) ?? []));
+      }
+      if (run !== pasteRun.current) return;
+      if (got.length < SQUARES) return failPaste(run, `Only ${got.length} of those have art we can show — need 25.`);
+      setPool([]);
+      setCollectionAddr("");
+      setListMints(all);
+      setTiles(got);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      failPaste(run, e instanceof Error ? e.message : String(e));
     } finally {
-      setBusy(null);
+      if (run === pasteRun.current) setBusy(null);
     }
   }
 
-  const infoValid = name.trim() && tipValid && contact.trim() && tiles.length === SQUARES;
+  const foundCount = pool.length || listMints.length;
+  function onShuffle() {
+    if (pool.length) setTiles(shuffled(pool).slice(0, SQUARES));
+    else void loadHashlist(listMints, ++pasteRun.current);
+  }
+
+  const infoValid = name.trim() && contact.trim() && tiles.length === SQUARES;
   const canPay = connected && !!operatorKey && infoValid && !busy;
+  const paying = busy === "pay" || busy === "confirm" || busy === "submit";
 
   function rememberPaid(sig: string | null, body?: ReqBody) {
     setPaidSig(sig);
@@ -307,7 +286,6 @@ function RequestForm({ onSubmitted }: { onSubmitted: (id: string) => void }) {
       // a retry after a failed submit sends exactly the request that was paid for (the memo commits to it)
       let body: ReqBody = (sig && paidBody()) || {
         name: name.trim(),
-        tipWallet: tipWallet.trim(),
         contact: contact.trim(),
         website: website.trim(),
         collection: collectionAddr,
@@ -372,104 +350,64 @@ function RequestForm({ onSubmitted }: { onSubmitted: (id: string) => void }) {
   }
 
   const field =
-    "w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-sky-500";
+    "w-full rounded border border-stone-700 bg-stone-950 px-3 py-2 text-sm text-stone-100 outline-none focus:border-amber-500";
 
   return (
-    <div className="space-y-6">
-      <p className="text-center text-sm text-slate-400">
-        Put your collection&apos;s art on an ORE mining grid. Fill this in, pay the one-time{" "}
-        <span className="text-amber-300">{SETUP_FEE_ORE} ORE</span>{" "}setup fee, and we&apos;ll review it and host
-        your miner at <span className="text-slate-200">store.degendojo.xyz/m/your-name</span>. Tips go straight to
-        your wallet.
-      </p>
-
-      {/* details */}
-      <section className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/40 p-4">
-        <h2 className="text-sm font-medium text-slate-200">1 · Your collection</h2>
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Collection name (e.g. Cool Apes)" className={field} />
-        <div>
-          <input
-            value={tipWallet}
-            onChange={(e) => setTipWallet(e.target.value)}
-            placeholder="Tip wallet — your Solana address (receives the tips)"
-            className={`${field} ${tipWallet && !tipValid ? "border-red-600/60" : ""}`}
+    <MineScreen
+      previewDegens={tiles}
+      header={
+        <section className="space-y-2 rounded-lg border border-stone-800 bg-stone-900/40 p-4">
+          <h1 className="text-lg font-semibold text-stone-100 sm:text-xl">Create your miner</h1>
+          <p className="text-xs text-stone-400">
+            Paste your collection address or hashlist to see how it will look on the grid. Like it? Fill in your details below, pay
+            the one-time <span className="text-amber-300">{SETUP_FEE_ORE} ORE</span> setup fee and we&apos;ll host it at{" "}
+            <span className="text-stone-200">store.degendojo.xyz/m/your-name</span>, ready to embed on your own website. Miners pay
+            the same 1% fee as on our own miner.
+          </p>
+          <textarea
+            value={paste}
+            onChange={(e) => onPaste(e.target.value)}
+            disabled={paying}
+            rows={2}
+            spellCheck={false}
+            aria-label="Your collection address or hashlist"
+            placeholder="Paste your collection address or hashlist"
+            className="w-full resize-y rounded border border-stone-700 bg-stone-950 px-3 py-2 font-mono text-xs text-stone-100 outline-none focus:border-amber-500"
           />
-          {tipWallet && !tipValid && <p className="mt-1 text-[11px] text-red-400">Not a valid Solana address.</p>}
-        </div>
+          {busy === "loading" ? (
+            <p className="inline-flex items-center gap-2 text-xs text-stone-400">
+              <Loader2 className="size-3.5 animate-spin" /> Putting your NFTs on the grid…
+            </p>
+          ) : pasteError ? (
+            <p className="text-xs text-amber-300">{pasteError}</p>
+          ) : tiles.length === SQUARES ? (
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-stone-400">Your NFTs are on the grid.</span>
+              {foundCount > SQUARES && (
+                <button onClick={onShuffle} className="rounded border border-stone-700 px-3 py-1.5 text-stone-200 hover:bg-stone-800">
+                  Shuffle
+                </button>
+              )}
+            </div>
+          ) : (
+            <p className="text-[11px] text-stone-500">Degen Dojo is shown as the example.</p>
+          )}
+        </section>
+      }
+      footer={
+        <>
+          <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+      {/* details */}
+      <section className="space-y-3 rounded-lg border border-stone-800 bg-stone-900/40 p-4">
+        <h2 className="text-sm font-medium text-stone-200">Your details</h2>
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Collection name (e.g. Cool Apes)" className={field} />
         <input value={contact} onChange={(e) => setContact(e.target.value)} placeholder="Contact — email / X / Discord (so we can reach you)" className={field} />
         <input value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="Your website (optional)" className={field} />
       </section>
 
-      {/* NFTs */}
-      <section className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/40 p-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-medium text-slate-200">2 · Your 25 NFTs</h2>
-          <span className={`text-xs ${mints.length === SQUARES ? "text-emerald-300" : "text-slate-500"}`}>
-            {mints.length}/25 mints
-          </span>
-        </div>
-        <div className="flex gap-2">
-          <input
-            value={collection}
-            onChange={(e) => setCollection(e.target.value)}
-            placeholder="Paste your collection address — we pick 25 NFTs for you"
-            className={field}
-          />
-          <button
-            onClick={onLoadCollection}
-            disabled={busy === "collection" || !collection.trim()}
-            className={`inline-flex shrink-0 items-center gap-2 rounded px-4 text-sm font-medium transition-colors ${
-              busy === "collection" || !collection.trim()
-                ? "cursor-not-allowed bg-slate-800 text-slate-500"
-                : "bg-amber-600 text-white hover:bg-amber-500"
-            }`}
-          >
-            {busy === "collection" && <Loader2 className="size-4 animate-spin" />}
-            Load
-          </button>
-        </div>
-        {pool.length > SQUARES && (
-          <div className="flex items-center gap-2 text-xs">
-            <span className="text-slate-400">{pool.length} NFTs found.</span>
-            <button onClick={() => pickFromPool(pool)} className="rounded border border-slate-700 px-3 py-1.5 text-slate-200 hover:bg-slate-800">
-              Shuffle
-            </button>
-          </div>
-        )}
-        <p className="text-[11px] text-slate-500">Or pick them yourself:</p>
-        <textarea
-          value={hashlist}
-          onChange={(e) => setHashlist(e.target.value)}
-          rows={5}
-          placeholder={"Paste 25 NFT mint addresses — one per line"}
-          className="w-full resize-y rounded border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-xs text-slate-100 outline-none focus:border-sky-500"
-        />
-        <button
-          onClick={onPreview}
-          disabled={busy === "preview" || mints.length !== SQUARES}
-          className={`inline-flex w-full items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium transition-colors ${
-            busy === "preview" || mints.length !== SQUARES
-              ? "cursor-not-allowed bg-slate-800 text-slate-500"
-              : "bg-sky-600 text-white hover:bg-sky-500"
-          }`}
-        >
-          {busy === "preview" && <Loader2 className="size-4 animate-spin" />}
-          {busy === "preview" ? "Fetching artwork…" : "Preview the grid"}
-        </button>
-        {tiles.length > 0 && (
-          <div className="grid grid-cols-5 gap-2">
-            {tiles.map((t, i) => (
-              <div key={t.mint || i} title={t.name} className="relative aspect-square overflow-hidden rounded-lg bg-slate-900 ring-1 ring-slate-800">
-                <Image src={t.image} alt={t.name} fill sizes="90px" className="object-cover" />
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
       {/* pay */}
       <section className="space-y-3 rounded-lg border border-amber-800/40 bg-amber-950/10 p-4">
-        <h2 className="text-sm font-medium text-amber-200">3 · Pay {SETUP_FEE_ORE} ORE & submit</h2>
+        <h2 className="text-sm font-medium text-amber-200">Pay {SETUP_FEE_ORE} ORE & submit</h2>
         {!operatorKey ? (
           <p className="text-xs text-slate-400">Signups aren&apos;t open yet — check back soon.</p>
         ) : !connected ? (
@@ -503,7 +441,7 @@ function RequestForm({ onSubmitted }: { onSubmitted: (id: string) => void }) {
                 : busy === "submit"
                   ? "Submitting…"
                   : !infoValid
-                    ? "Fill everything + preview the grid"
+                    ? "Paste your NFTs + fill in your details"
                     : paidSig
                       ? "Already paid — submit request"
                       : `Pay ${SETUP_FEE_ORE} ORE & submit`}
@@ -528,12 +466,15 @@ function RequestForm({ onSubmitted }: { onSubmitted: (id: string) => void }) {
           </p>
         )}
       </section>
+          </div>
 
-      <p className="text-center text-[11px] text-slate-600">
+      <p className="text-center text-[11px] text-stone-600">
         Grid mining stakes real SOL — each round ORE keeps about a tenth of it as fees, and only 1 of 25 tiles mines ORE. Your community owns that risk. Not
         financial advice.
       </p>
-    </div>
+        </>
+      }
+    />
   );
 }
 
@@ -573,8 +514,10 @@ function StatusView({ id, onBack }: { id: string; onBack: () => void }) {
     };
   }, [id]);
 
-  // Always show the link on THIS origin (store.degendojo.xyz in production).
-  const liveUrl = data?.slug ? `${window.location.origin}/m/${data.slug}` : "";
+  // Always show the link on THIS origin (store.degendojo.xyz in production). A background colour other than the default rides in it.
+  const [bg, setBg] = useState(DEFAULT_BG);
+  const liveUrl = data?.slug ? `${window.location.origin}/m/${data.slug}${bg === DEFAULT_BG ? "" : `?bg=${bg.slice(1)}`}` : "";
+  const embedCode = `<iframe src="${liveUrl}" width="100%" height="1250" style="border:0" title="ORE miner"></iframe>`;
 
   return (
     <div className="space-y-4">
@@ -607,13 +550,30 @@ function StatusView({ id, onBack }: { id: string; onBack: () => void }) {
             <code className="min-w-0 flex-1 truncate rounded bg-slate-950 px-3 py-2 text-sm text-emerald-300">{liveUrl}</code>
             <CopyButton text={liveUrl} />
           </div>
+          <div className="text-xs text-slate-400">Or put it on your website — paste this where the miner should appear:</div>
+          <div className="flex items-center gap-2">
+            <code className="min-w-0 flex-1 truncate rounded bg-slate-950 px-3 py-2 text-sm text-emerald-300">{embedCode}</code>
+            <CopyButton text={embedCode} />
+          </div>
+          <div className="text-[11px] text-slate-500">
+            WordPress: add a Custom HTML block and paste it there. WordPress.com&apos;s free plan removes embeds, so use your link instead.
+            On any website, Connect opens your miner in a new tab.
+          </div>
+          <label className="flex items-center gap-2 text-xs text-slate-400">
+            <input
+              type="color"
+              value={bg}
+              onChange={(e) => setBg(e.target.value)}
+              className="h-7 w-10 cursor-pointer rounded border border-slate-700 bg-transparent"
+            />
+            Background colour. Dark colours work best, as the miner&apos;s text is light.
+          </label>
           <a
             href={liveUrl}
             className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-amber-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-amber-500"
           >
             <ExternalLink className="size-4" /> Open your miner
           </a>
-          <p className="text-[11px] text-slate-500">Tips your miners add go straight to the tip wallet you set.</p>
         </section>
       )}
     </div>

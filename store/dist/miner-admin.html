@@ -94,7 +94,6 @@
         '<dl>' +
           '<dt>Contact</dt><dd>' + esc(r.contact) + '</dd>' +
           (r.website ? '<dt>Website</dt><dd><a href="' + esc(site) + '" target="_blank" rel="noopener noreferrer">' + esc(r.website) + '</a></dd>' : '') +
-          '<dt>Tip wallet</dt><dd><a href="https://solscan.io/account/' + esc(r.tipWallet) + '" target="_blank" rel="noopener noreferrer">' + esc(r.tipWallet) + '</a></dd>' +
           (r.collection ? '<dt>Collection</dt><dd><a href="https://solscan.io/token/' + esc(r.collection) + '" target="_blank" rel="noopener noreferrer">' + esc(r.collection) + '</a></dd>' : '') +
           '<dt>Payment</dt><dd><a href="https://solscan.io/tx/' + esc(r.paymentSig) + '" target="_blank" rel="noopener noreferrer">' + esc(String(r.paymentSig).slice(0, 20)) + '…</a> · ' + esc(r.feeOre) + ' ORE from ' + esc(String(r.payer).slice(0, 6)) + '…</dd>' +
         '</dl>' +

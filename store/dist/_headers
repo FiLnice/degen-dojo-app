@@ -1,5 +1,4 @@
 /*
-  X-Robots-Tag: noindex, nofollow, noarchive
   Referrer-Policy: no-referrer
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
@@ -12,27 +11,44 @@
   Cache-Control: public, max-age=0, must-revalidate
 /mine/vault
   Cache-Control: public, max-age=0, must-revalidate
+  X-Robots-Tag: noindex, nofollow
 /mine/burn
   Cache-Control: public, max-age=0, must-revalidate
+  X-Robots-Tag: noindex, nofollow
 /whitelabel
   Cache-Control: public, max-age=0, must-revalidate
 /create
   Cache-Control: public, max-age=0, must-revalidate
-/m/*
-  Cache-Control: public, max-age=0, must-revalidate
 /admin
   Cache-Control: no-store
+  X-Robots-Tag: noindex, nofollow
 /admin.html
   Cache-Control: no-store
+  X-Robots-Tag: noindex, nofollow
 /miner-admin
   Cache-Control: no-store
+  X-Robots-Tag: noindex, nofollow
 /miner-admin.html
   Cache-Control: no-store
+  X-Robots-Tag: noindex, nofollow
 /preacher-admin.html
   Cache-Control: no-store
+  X-Robots-Tag: noindex, nofollow
 /preacher-admin
   Cache-Control: no-store
+  X-Robots-Tag: noindex, nofollow
 /payouts
   Cache-Control: no-store
+  X-Robots-Tag: noindex, nofollow
 /payouts.html
   Cache-Control: no-store
+  X-Robots-Tag: noindex, nofollow
+/raffle
+  X-Robots-Tag: noindex, nofollow
+/raffle/*
+  X-Robots-Tag: noindex, nofollow
+/credits.html
+  X-Robots-Tag: noindex, nofollow
+/sitemap.xml
+  Content-Type: application/xml; charset=utf-8
+  Cache-Control: public, max-age=3600

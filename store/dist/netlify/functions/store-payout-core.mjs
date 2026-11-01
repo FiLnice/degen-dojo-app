@@ -990,7 +990,7 @@ export async function alreadyPaidElsewhere(plan) {
 //   viaPreacher  mining tips that came through a preacher link this week (verified coin-purchase records), per mint
 //   repairs   { granted: [repair records], refunded: [refund records] } this week (store-keeper-core.mjs)
 //   plan      the round's payout plan (winners + preachers) — null when no draw is waiting
-//   keeper    keeperSummary(): refunds due, burn claims, the 12% operations share, unconverted shares, Card Vaults
+//   keeper    keeperSummary(): refunds due, burn claims, the 12% operations share, unconverted shares
 //   pot       the live Pot (next draw's prize) · prices: mint → USD
 // Amounts here are DISPLAY numbers (UI units, ≈USD); the money itself only ever moves by the plan's / Keeper's exact
 // raw amounts, and every transfer is verified on-chain afterwards.
@@ -1052,16 +1052,16 @@ export function weeklyStatement({ now = Date.now(), reserve = null, viaPreacher 
   const refundLines = (keeper.refundsDue || []).map((r) => { const a = clean({ [MINTS.ORE]: fromRaw(r.raw, "ORE") }); return { to: r.payer, amounts: a, usd: usd(a), note: ((r.mints || []).length || 0) + " card(s) paid after the Mint cap was full" }; });
   OUT.push(group("refunds", "Repair refunds", "repairs paid when every Mint spot was taken", refundLines, { none: refundLines.length ? null : "None" }));
   const claimLines = burnEnabled ? (keeper.claimsDue || []).map((c) => ({ to: c.wallet, amounts: clean({ [STORE_MINT_]: +c.store || 0 }), usd: +(+c.usd || 0).toFixed(2), note: (c.coll || "") + (c.kind === "sent" ? " · sent to the Treasury" : " · burned by the holder") })) : [];
-  OUT.push(group("claims", "Burn claims", "a burned card's share of its Card Vault, in stORE", claimLines, { none: burnEnabled ? (claimLines.length ? null : "None") : "Burning is off — no claims" }));
+  OUT.push(group("claims", "Burn claims", "a burned card's claim, in stORE", claimLines, { none: burnEnabled ? (claimLines.length ? null : "None") : "Burning is off — no claims" }));
   const opsDue = clean(keeper.ops?.due);
   const opsLines = Object.keys(opsDue).length && opsWallet ? [{ to: opsWallet, amounts: opsDue, usd: usd(opsDue), note: "12% of royalties, repairs, coin buys and referred mining tips" }] : [];
   OUT.push(group("ops", "Operations share (12%)", "hosting, tools, the team", opsLines,
     { none: !Object.keys(opsDue).length ? "Nothing due" : opsWallet ? null : "Operations wallet not set — set OPS_WALLET in Netlify", waiting: !opsWallet && Object.keys(opsDue).length ? amt(opsDue) : null }));
   const OUT_USD = +OUT.reduce((s, g) => s + g.usd, 0).toFixed(2);
-  // the Card Vault + Reserve shares are swapped to stORE — that money stays with us
+  // the Reserve share is swapped to stORE — that money stays with us
   const unconv = clean(Object.fromEntries(Object.entries(keeper.totals?.unconverted || {}).filter(([m]) => m !== STORE_MINT_)));
   const convUsd = usd(unconv), sp = px(STORE_MINT_);
-  const convert = { key: "convert", label: "Swapped to stORE (stays with us)", why: "the Card Vault and Reserve shares, as Staked ORE", amounts: unconv, usd: convUsd,
+  const convert = { key: "convert", label: "Swapped to stORE (stays with us)", why: "the Reserve share, as Staked ORE", amounts: unconv, usd: convUsd,
     becomes: sp > 0 && convUsd > 0 ? { [STORE_MINT_]: +(convUsd / sp).toFixed(6) } : {}, none: Object.keys(unconv).length ? null : "Nothing to convert" };
 
   // ---- STAYS ----
@@ -1070,8 +1070,7 @@ export function weeklyStatement({ now = Date.now(), reserve = null, viaPreacher 
   for (const g of OUT) leaving = plus(leaving, g.amounts);
   const after = plus(minus(minus(now_, leaving), unconv), convert.becomes);
   const potAmts = clean({ [MINTS.ORE]: Object.values(pot?.routes || {}).reduce((s, r) => s + (+r.ore || 0), 0), [MINTS.SOL]: Object.values(pot?.routes || {}).reduce((s, r) => s + (+r.sol || 0), 0), [MINTS.SKR]: Object.values(pot?.routes || {}).reduce((s, r) => s + (+r.skr || 0), 0) });
-  const vaults = Object.entries(keeper.pools || {}).map(([name, p]) => ({ name, amounts: clean(p.pool), usd: usd(p.pool), nfts: p.eligible ?? null }));
-  const potUsd = +(+(pot?.usd) || 0).toFixed(2), vaultUsd = +vaults.reduce((s, v) => s + v.usd, 0).toFixed(2), afterUsd = usd(after);
+  const potUsd = +(+(pot?.usd) || 0).toFixed(2), afterUsd = usd(after);
   const opsWaiting = OUT.find((g) => g.key === "ops")?.waiting || null;
   // the Burn Raffle's open round: its ORE seed + the 88% of burned SOL — prize money, not the Reserve's
   const rAmts = clean({ [MINTS.ORE]: fromRaw(rafflePot?.oreRaw || "0", "ORE"), [MINTS.SOL]: fromRaw(rafflePot?.solLamports || "0", "SOL") }), rUsd = usd(rAmts);
@@ -1079,8 +1078,8 @@ export function weeklyStatement({ now = Date.now(), reserve = null, viaPreacher 
     at: now, from: now - 7 * DAY, partial: !reserve || !!reserve.partial, reserveAt: reserve?.at || null,
     in: IN, inUsd: +IN.reduce((s, l) => s + l.usd, 0).toFixed(2), topUps,
     out: OUT, outUsd: OUT_USD, convert,
-    stays: { now: now_, nowUsd: usd(now_), after, afterUsd, pot: { amounts: potAmts, usd: potUsd }, rafflePot: { amounts: rAmts, usd: rUsd, round: rafflePot?.round || null }, vaults, vaultUsd,
-      reserveFreeUsd: +Math.max(0, afterUsd - potUsd - rUsd - vaultUsd - (opsWaiting ? opsWaiting.usd : 0)).toFixed(2), opsWaiting },
+    stays: { now: now_, nowUsd: usd(now_), after, afterUsd, pot: { amounts: potAmts, usd: potUsd }, rafflePot: { amounts: rAmts, usd: rUsd, round: rafflePot?.round || null },
+      reserveFreeUsd: +Math.max(0, afterUsd - potUsd - rUsd - (opsWaiting ? opsWaiting.usd : 0)).toFixed(2), opsWaiting },
     symbols: STATEMENT_SYMBOLS, prices,
   };
 }
