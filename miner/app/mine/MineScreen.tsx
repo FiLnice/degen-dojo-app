@@ -6,7 +6,7 @@ import Image from "next/image";
 import { LAMPORTS_PER_SOL, type TransactionInstruction } from "@solana/web3.js";
 import { useWallet } from "@/lib/wallet-bridge";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
-import { Pickaxe, Loader2, RefreshCw, LogOut, Info, Wand2, X } from "lucide-react";
+import { Pickaxe, Loader2, RefreshCw, LogOut, Info, Wand2, PartyPopper, X } from "lucide-react";
 import { OreIcon } from "@/components/OreIcon";
 import { StoreNav } from "@/components/StoreNav";
 import { useOreGame } from "@/hooks/useOreGame";
@@ -25,7 +25,7 @@ import {
 import { SolIcon } from "@/components/SolIcon";
 import { TIP_WALLET, DEGENS_URL, DEGENS_INLINE_JSON } from "@/lib/config";
 import { recordTip, dojoFeeIxs, dojoFeeOf } from "@/lib/minerTip";
-import { estimateRun, PRESETS, PRESET_MAX_MOTHERLODE, SOLO_TILES, SPLIT_TILES, NO_MOTHERLODE_LIMIT, type Preset } from "@/lib/mineEstimate";
+import { estimateRun, PRESETS, PRESET_MAX_MOTHERLODE, STRATEGIES, SOLO_TILES, SPLIT_TILES, NO_MOTHERLODE_LIMIT, type Preset, type Strategy } from "@/lib/mineEstimate";
 import { BurnMode } from "./BurnMode";
 
 type GridDegen = { name: string; image: string; mint?: string };
@@ -107,8 +107,10 @@ export function MineScreen({ previewDegens, header, footer }: { previewDegens?: 
   const [degenPool, setDegenPool] = useState<GridDegen[]>([]);
   const [amountStr, setAmountStr] = useState("0.0001");
   const [depositStr, setDepositStr] = useState("1");
-  // Shorter and Longer are fixed: all 25 tiles, up to a 140 Motherlode. Custom opens the per-tile setting, the tiles and the Motherlode range.
-  const [mode, setMode] = useState<Preset | "custom">("shorter");
+  // The five strategies fix the tiles and the Motherlode range; Shorter and Longer are their pace (SOL a tile).
+  // Custom opens the per-tile setting, the tiles and the Motherlode range.
+  const [mode, setMode] = useState<Strategy | "custom">("steady");
+  const [pace, setPace] = useState<Preset>("shorter");
   const [soloStr, setSoloStr] = useState(String(SOLO_TILES));
   const [splitStr, setSplitStr] = useState(String(SPLIT_TILES));
   const [minMotherlodeStr, setMinMotherlodeStr] = useState("0");
@@ -199,15 +201,16 @@ export function MineScreen({ previewDegens, header, footer }: { previewDegens?: 
   const degens = useMemo(() => (previewDegens?.length ? previewDegens : degenPool).slice(0, SQUARES), [previewDegens, degenPool]);
   const deposit = parseFloat(depositStr) || 0;
   const depositLamports = Math.floor(deposit * LAMPORTS_PER_SOL);
-  const perTileLamports = mode === "custom" ? Math.floor((parseFloat(amountStr) || 0) * LAMPORTS_PER_SOL) : PRESETS[mode];
+  const perTileLamports = mode === "custom" ? Math.floor((parseFloat(amountStr) || 0) * LAMPORTS_PER_SOL) : PRESETS[pace];
   const amount = perTileLamports / LAMPORTS_PER_SOL;
-  const presetRun = mode !== "custom";
-  const soloTiles = presetRun ? SOLO_TILES : Number(soloStr);
-  const splitTiles = presetRun ? SPLIT_TILES : Number(splitStr);
+  const strategy = mode === "custom" ? null : STRATEGIES[mode];
+  const presetRun = !!strategy;
+  const soloTiles = strategy ? strategy.solo : Number(soloStr);
+  const splitTiles = strategy ? strategy.split : Number(splitStr);
   const minedTiles = soloTiles + splitTiles;
-  const minMotherlode = presetRun ? 0 : Number(minMotherlodeStr);
+  const minMotherlode = strategy ? strategy.min : Number(minMotherlodeStr);
   // Max 0 = no limit, as on the ORE Wizard. Below ORE's own default a limit is real.
-  const maxMotherlode = presetRun ? PRESET_MAX_MOTHERLODE : Number(maxMotherlodeStr) || NO_MOTHERLODE_LIMIT;
+  const maxMotherlode = strategy ? strategy.max : Number(maxMotherlodeStr) || NO_MOTHERLODE_LIMIT;
   const goodRange = minMotherlode < maxMotherlode;
 
   const pot = round ? sol(round.deployed.reduce((a, b) => a + b, 0n)) : 0;
@@ -247,7 +250,11 @@ export function MineScreen({ previewDegens, header, footer }: { previewDegens?: 
   const overLimit = goodRange && motherlodeOre > maxMotherlode;
   const underLimit = goodRange && !!motherlode && motherlodeOre < minMotherlode;
   const prevPot = prevRound ? sol(prevRound.deployed.reduce((a, b) => a + b, 0n)) : 0;
+  // A strategy mines across its Motherlode range, so it's priced on the board usually seen there; Custom with today's
+  // Motherlode inside its range would mine right now, so it's priced on the board as it is (owner 2026-11-02).
+  const typicalBoard = presetRun || !(motherlodeOre >= minMotherlode && motherlodeOre <= maxMotherlode);
   const run = estimateRun({
+    typicalBoard,
     depositLamports,
     perTileLamports,
     tiles: (prevPot >= pot ? prevRound?.deployed : round?.deployed) ?? [],
@@ -525,13 +532,13 @@ export function MineScreen({ previewDegens, header, footer }: { previewDegens?: 
                       </div>
                     )}
                     <div className="grid grid-cols-3 gap-2">
-                      {(["shorter", "longer", "custom"] as const).map((m) => (
+                      {([...(Object.keys(STRATEGIES) as Strategy[]), "custom"] as const).map((m) => (
                         <button
                           key={m}
                           type="button"
                           aria-pressed={mode === m}
                           onClick={() => setMode(m)}
-                          className={`rounded-lg border px-2 py-2 text-xs font-semibold uppercase tracking-wide transition-colors lg:py-1.5 ${
+                          className={`rounded-lg border px-1 py-2 text-xs font-semibold uppercase leading-tight tracking-wide transition-colors lg:py-1.5 ${
                             mode === m
                               ? "border-amber-400 bg-amber-500/20 text-amber-200"
                               : m === "custom"
@@ -539,10 +546,38 @@ export function MineScreen({ previewDegens, header, footer }: { previewDegens?: 
                                 : "border-amber-600/60 text-amber-300 hover:bg-amber-900/30"
                           }`}
                         >
-                          {m}
+                          {m === "custom" ? "Custom" : STRATEGIES[m].label}
                         </button>
                       ))}
                     </div>
+                    {strategy && (
+                      <div className="space-y-1.5">
+                        <p className="text-[11px] leading-snug text-stone-400">{strategy.blurb}</p>
+                        <div className="flex items-center gap-2 text-[11px]">
+                          <span className="text-stone-500">Pace</span>
+                          {(Object.keys(PRESETS) as Preset[]).map((p) => (
+                            <button
+                              key={p}
+                              type="button"
+                              aria-pressed={pace === p}
+                              onClick={() => setPace(p)}
+                              className={`rounded-md border px-2 py-0.5 font-semibold transition-colors ${
+                                pace === p ? "border-amber-400 bg-amber-500/20 text-amber-200" : "border-stone-700 text-stone-400 hover:bg-stone-800"
+                              }`}
+                            >
+                              {p === "shorter" ? "Shorter" : "Longer"}
+                            </button>
+                          ))}
+                          <span className="text-stone-500">{fmtSol(PRESETS[pace])} SOL a tile</span>
+                        </div>
+                      </div>
+                    )}
+                    {/* a store page, so Degen Dojo's own miner only, like the footer link */}
+                    {!hosted && !preview && (
+                      <a href="/orewizard/" className="block text-[11px] text-stone-400 hover:text-amber-300">
+                        Not sure which? <span className="font-medium text-amber-300">Ask the ORE Wizard ✨</span>
+                      </a>
+                    )}
                     {mode === "custom" && (
                       <div className="space-y-1">
                         <div className="flex items-center justify-between gap-2">
@@ -567,16 +602,20 @@ export function MineScreen({ previewDegens, header, footer }: { previewDegens?: 
                     )}
                     {run && (
                       <div className="space-y-1 rounded-md bg-stone-950/60 p-3 text-xs lg:space-y-0.5 lg:p-2">
-                        <Row label="You'd get about" value={<span className="text-sm font-semibold text-amber-300">{fmtEst(run.steady)} uORE</span>} />
-                        <Row label="Chance of a solo (+1 uORE)" value={fmtOdds(run.soloChance)} />
+                        {/* solo tiles only: no steady part, so the solo chance is the headline */}
+                        {splitTiles > 0 ? (
+                          <Row label="You'd get about" value={<span className="text-sm font-semibold text-amber-300">{fmtEst(run.steady)} uORE</span>} />
+                        ) : (
+                          <Row label="Chance of a solo (+1 uORE)" value={<span className="text-sm font-semibold text-amber-300">{fmtOdds(run.soloChance)}</span>} />
+                        )}
+                        {splitTiles > 0 && soloTiles > 0 && <Row label="Chance of a solo (+1 uORE)" value={fmtOdds(run.soloChance)} />}
                         <Row
                           label="Chance of a Motherlode"
                           value={run.motherlodeCut > 0 ? `${fmtOdds(run.motherlodeChance)} · ${maxMotherlode < NO_MOTHERLODE_LIMIT ? "up to " : ""}+${fmtEst(run.motherlodeCut)} uORE` : fmtOdds(run.motherlodeChance)}
                         />
-                        {presetRun && <Row label="Max Motherlode we mine" value={`${PRESET_MAX_MOTHERLODE} uORE`} />}
                         <Row label="Average with lucky hits" value={`${fmtEst(run.average)} uORE`} />
                         <Row label="Mining time" value={`~${fmtTime(run.seconds)} · ${fmtEst(run.rounds)} rounds`} />
-                        {!presetRun && (minMotherlode > 0 || maxMotherlode < NO_MOTHERLODE_LIMIT) && (
+                        {(minMotherlode > 0 || maxMotherlode < NO_MOTHERLODE_LIMIT) && (
                           <Row label="With Motherlode waits" value={run.secondsWithWaits < 31_536_000 ? `~${fmtTime(run.secondsWithWaits)}` : "over a year"} />
                         )}
                         <Row
@@ -623,8 +662,11 @@ export function MineScreen({ previewDegens, header, footer }: { previewDegens?: 
                       </p>
                     )}
                     <p className="text-[11px] leading-snug text-stone-500">
-                      An estimate from the last round, not a promise. Your SOL gets used up as you mine, and ORE takes 10% of uORE when you claim.
-                      {presetRun && !overLimit && ` Pauses while the Motherlode is above ${PRESET_MAX_MOTHERLODE} uORE.`} 1% {hosted ? "miner" : "Dojo"} fee — same as ORE takes.
+                      {typicalBoard
+                        ? "Estimated on the usual board at these Motherlode sizes, not a promise."
+                        : "An estimate from the last round, not a promise."}{" "}
+                      Your SOL gets used up as you mine, and ORE takes 10% of uORE when you claim.
+                      {" "}1% {hosted ? "miner" : "Dojo"} fee — same as ORE takes.
                       Paid only when it works.
                     </p>
                     {!connected ? (
@@ -710,18 +752,23 @@ export function MineScreen({ previewDegens, header, footer }: { previewDegens?: 
                 </Link>
               </>
             )}
-            <div className={`grid ${!hosted && !preview ? "grid-cols-3" : "grid-cols-2"} gap-2 text-[11px] text-stone-500`}>
+            <div className="grid grid-cols-2 gap-2 text-[11px] text-stone-500">
               <button onClick={() => setShowHow(true)} className={`${FOOT_BTN} border-stone-800 bg-stone-900/40 hover:bg-stone-800 hover:text-stone-300`}>
                 <Info className="size-3.5 shrink-0" /> how it works
               </button>
               <button onClick={refresh} className={`${FOOT_BTN} border-stone-800 bg-stone-900/40 hover:bg-stone-800 hover:text-stone-300`}>
                 <RefreshCw className="size-3.5 shrink-0" /> refresh
               </button>
-              {/* a store page, not part of this app, and Degen Dojo's own: branded miners don't link it */}
+              {/* store pages, not part of this app, and Degen Dojo's own: branded miners don't link them */}
               {!hosted && !preview && (
-                <a href="/orewizard/" className={`${FOOT_BTN} border-amber-900/60 bg-stone-900/40 text-amber-400 hover:bg-stone-800 hover:text-amber-300`}>
-                  <Wand2 className="size-3.5 shrink-0" /> ORE Wizard
-                </a>
+                <>
+                  <a href="/orewizard/" className={`${FOOT_BTN} border-amber-900/60 bg-stone-900/40 text-amber-400 hover:bg-stone-800 hover:text-amber-300`}>
+                    <Wand2 className="size-3.5 shrink-0" /> ORE Wizard
+                  </a>
+                  <a href="/oreparties/" className={`${FOOT_BTN} border-amber-900/60 bg-stone-900/40 text-amber-400 hover:bg-stone-800 hover:text-amber-300`}>
+                    <PartyPopper className="size-3.5 shrink-0" /> ORE Parties
+                  </a>
+                </>
               )}
               {/* the store menu at the top has Disconnect; a branded miner has no such menu, so it keeps this one */}
               {connected && branded && (
@@ -752,7 +799,7 @@ export function MineScreen({ previewDegens, header, footer }: { previewDegens?: 
         )}
         {footer}
       </div>
-      <HowItWorksModal open={showHow} onClose={() => setShowHow(false)} />
+      <HowItWorksModal open={showHow} onClose={() => setShowHow(false)} hosted={!!hosted} wizard={!hosted && !preview} />
       </main>
     </>
   );
@@ -772,16 +819,18 @@ function HowStep({ n, t, d }: { n: number; t: string; d: string }) {
   );
 }
 
-function HowItWorksModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+// Mechanics from ore.com/learn (how-mining-works, rewards, refining), read 2026-11-02.
+function HowItWorksModal({ open, onClose, hosted, wizard }: { open: boolean; onClose: () => void; hosted: boolean; wizard: boolean }) {
   if (!open) return null;
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center"
+      // above the store's sticky nav (.dn-bar z 72, its menu z 80)
+      className="fixed inset-0 z-[85] flex items-end justify-center bg-black/70 p-4 sm:items-center"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md space-y-3 rounded-xl border border-stone-800 bg-stone-900 p-5"
+        className="max-h-[calc(100dvh-2rem)] w-full max-w-md space-y-3 overflow-y-auto rounded-xl border border-stone-800 bg-stone-900 p-5"
       >
         <div className="flex items-center gap-2">
           <Info className="size-4 text-amber-400" />
@@ -790,13 +839,37 @@ function HowItWorksModal({ open, onClose }: { open: boolean; onClose: () => void
             <X className="size-4" />
           </button>
         </div>
-        <HowStep n={1} t="It's a 25-tile grid" d="ORE mining is a fixed 5×5 board — always 25 tiles. Each one here is a Degen." />
-        <HowStep n={2} t="You deploy SOL on every tile" d="Pick your SOL, then Shorter or Longer: that sets how much goes on each tile. e.g. 0.0012 × 25 = 0.03 SOL a round. Custom lets you pick your own solo and split tiles and Motherlode range." />
-        <HowStep n={3} t="Every ~80 sec, one tile wins" d="Whoever staked the winning tile mines the round's fresh uORE (one miner takes it, or it's split) — plus the Motherlode when it hits. Your SOL comes back, minus ORE's fees: 1% on every tile, and 10% on the tiles that lost." />
-        <HowStep n={4} t="Your uORE stacks in the Vault" d="Claim it to your wallet whenever you like." />
-        <HowStep n={5} t="Auto-mine plays for you" d="Fund a balance and it enters every round until it runs low. Stop & withdraw pulls the rest back out." />
+        <HowStep n={1} t="One shared 5×5 grid" d="Every ORE miner deploys SOL on the same 25 tiles. Here each tile is a Degen. Each round, 10 tiles are solo and 15 are split." />
+        <HowStep n={2} t="Every ~80 sec, one tile wins 1 ORE" d="On-chain randomness picks it, each tile 1 in 25. On a split tile the 1 ORE is shared by SOL deployed. On a solo tile one miner takes all of it, and your chance is your share of the SOL." />
+        <HowStep n={3} t="The Motherlode" d="Every round adds 0.2 ORE to it. About 1 round in 500 it pays out to the miners on the winning tile, by SOL deployed, then starts again." />
+        <HowStep n={4} t="Pick a strategy" d={`Steady mines all 25 tiles and pauses while the Motherlode is above ${PRESET_MAX_MOTHERLODE} uORE. Split only and Solo hunter mine just the 15 split or the 10 solo tiles and pause above 90. Motherlode waits until it's 100 or more. Nonstop mines every round. Shorter or Longer sets the SOL a tile (e.g. 0.0012 × 25 = 0.03 SOL a round). Custom lets you set it all. Fewer tiles cost less a round but win less often.`} />
+        <HowStep n={5} t="What it costs" d={`SOL on the winning tile comes back at 99%, on the other tiles at 89.1%. ORE uses the rest to buy back ORE. That's roughly a tenth of your stake a round, plus a tiny bot fee. ${hosted ? "The miner fee is 1% of what you fund." : "1% of what you fund goes to the Degen Dojo Reserve."}`} />
+        <HowStep n={6} t="Vault: uORE and rORE" d="What you mine lands as uORE (unrefined). Claiming it costs 10%, and that 10% goes to everyone still holding uORE as rORE (refined), which has no fee. Leave it unclaimed and it collects rORE." />
+        <HowStep n={7} t="Auto-mine" d="Fund a balance and the miner enters every round for you until it runs low. Stop & withdraw takes the rest back out." />
+        {wizard && (
+          <div className="space-y-2">
+            <a
+              href="/orewizard/"
+              className="flex items-center gap-2 rounded-lg border border-amber-900/60 bg-stone-950/60 px-3 py-2 text-xs text-stone-300 hover:bg-stone-800"
+            >
+              <Wand2 className="size-4 shrink-0 text-amber-400" />
+              <span>
+                Not sure which settings? <span className="font-medium text-amber-300">Ask the ORE Wizard ✨</span>
+              </span>
+            </a>
+            <a
+              href="/oreparties/"
+              className="flex items-center gap-2 rounded-lg border border-amber-900/60 bg-stone-950/60 px-3 py-2 text-xs text-stone-300 hover:bg-stone-800"
+            >
+              <PartyPopper className="size-4 shrink-0 text-amber-400" />
+              <span>
+                Mine with others? <span className="font-medium text-amber-300">ORE Parties</span> lists live parties and how past ones did.
+              </span>
+            </a>
+          </div>
+        )}
         <p className="rounded bg-stone-950/60 px-3 py-2 text-xs text-stone-500">
-          Each round costs roughly a tenth of what you stake, and only 1 of 25 tiles mines ORE — so you can lose SOL. That&apos;s the game.
+          Only 1 of 25 tiles mines ORE each round and every round costs SOL, so you can end with less SOL than you put in.
         </p>
       </div>
     </div>

@@ -218,7 +218,7 @@ body{font-family:'Inter',sans-serif;color:var(--text);height:100vh;height:100dvh
     <li class="dojo-econ">Backing a bird costs <b>1 coin</b> per race.</li>
     <li>Hit <b>Start the scramble</b>; first past the line wins.</li>
     <li class="dojo-econ">Winners split <b>7/8</b> of the pot by how much each backer put in.</li>
-    <li class="dojo-econ">The last <b>1/8</b> feeds the <b>weekly Dojo Pot</b>.</li>
+    <li class="dojo-econ">The last <b>1/8</b> feeds the <b>Dojo Pot</b>.</li>
     <li>Provably-fair from a future block.</li>
   </ul>
   <button onclick="document.getElementById('cfInfoModal').classList.remove('show')">Got it</button>
@@ -526,8 +526,8 @@ function selectBird(i){ if(racing) return; SEL=i;
   if($('pickName')) $('pickName').textContent = BIRDS[i].name; }
 function setCur(){}   // currency picker is gone — every race is a flat 1-credit entry
 function updateBetLine(){
-  $('myBet').innerHTML = bet ? `Backing <b>${BIRDS[bet.i].name}</b> for <b>1 coin</b> — if it wins you get <b>3 chances in the weekly Dojo Pot</b> 🎟, otherwise 1.`
-    : `Pick a bird — <b>1 coin</b> to enter. A win = <b>3 chances in the weekly Dojo Pot</b> 🎟; just playing = 1.`; }
+  $('myBet').innerHTML = bet ? `Backing <b>${BIRDS[bet.i].name}</b> for <b>1 coin</b> — if it wins you get <b>3 chances in the Dojo Pot</b> 🎟, otherwise 1.`
+    : `Pick a bird — <b>1 coin</b> to enter. A win = <b>3 chances in the Dojo Pot</b> 🎟; just playing = 1.`; }
 
 function placeBet(){
   if(racing) return;
@@ -673,8 +673,8 @@ function finish(winner){
     <div class="rk">winner · bird #${winner+1}</div>
     <div class="rw"><span style="width:50px;display:inline-block">${chickenSVG(b.c,false)}</span>${b.name}</div>
     ${bet ? (won
-      ? `<div class="rp win">🎉 <b>${BIRDS[bet.i].name}</b> won! You earned <b>${awarded} raffle ${awarded===1?'chance':'chances'}</b> 🎟${grandSlam?' <b>(incl. +3 grand-slam!)</b>':''}<br><span style="font-size:13px;color:#cdbfa2">Chances go into the weekly Dojo Pot draw.</span></div>`
-      : `<div class="rp lose">${BIRDS[bet.i].name} didn't make it — <b>${awarded} raffle chance</b> 🎟 for playing.<br><span style="font-size:13px;color:#cdbfa2">Every race earns chances toward the weekly pot.</span></div>`)
+      ? `<div class="rp win">🎉 <b>${BIRDS[bet.i].name}</b> won! You earned <b>${awarded} raffle ${awarded===1?'chance':'chances'}</b> 🎟${grandSlam?' <b>(incl. +3 grand-slam!)</b>':''}<br><span style="font-size:13px;color:#cdbfa2">Chances go into the Dojo Pot draw.</span></div>`
+      : `<div class="rp lose">${BIRDS[bet.i].name} didn't make it — <b>${awarded} raffle chance</b> 🎟 for playing.<br><span style="font-size:13px;color:#cdbfa2">Every race earns chances toward the Dojo Pot.</span></div>`)
       : `<div class="rp" style="color:#cdbfa2">No bird backed — pick one next scramble to earn tickets.</div>`}
     ${fairLine}
     <button onclick="reset()">Next scramble →</button></div>`;

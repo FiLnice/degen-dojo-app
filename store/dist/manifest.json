@@ -1,7 +1,7 @@
 {
   "name": "Degen Dojo",
   "short_name": "Degen Dojo",
-  "description": "Degen Dojo on Solana: trade fighter NFTs in ORE, play 3 games and 2 arenas for the provably-fair weekly Dojo Pot (a free coin every week), mine ORE on the 25-tile grid, Burn to Mine your spare NFTs, and claim back SOL from empty accounts.",
+  "description": "Degen Dojo on Solana: trade fighter NFTs in ORE, play 3 games and 2 arenas for the provably-fair Dojo Pot (a free coin every week), mine ORE on the 25-tile grid, Burn to Mine your spare NFTs, and claim back SOL from empty accounts.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

@@ -464,6 +464,12 @@ copyFileSync(`${ROOT}/scripts/store-sw.js`, `${OUT}/sw.js`);
 for (const ic of ["icon-192.png", "icon-512.png", "icon-192-maskable.png", "icon-512-maskable.png"]) {
   if (existsSync(`${ROOT}/scripts/${ic}`)) copyFileSync(`${ROOT}/scripts/${ic}`, `${OUT}/${ic}`);
 }
+// The tab icons the shared pages link (Flip, Cock Brawl, Rescue, Terms, Privacy…), cut by gen-favicons.mjs. They 404'd on the store until 2026-11-02.
+for (const ic of ["favicon-16.png", "favicon-32.png", "favicon-48.png", "apple-touch-icon.png"]) {
+  copyFileSync(`${ROOT}/scripts/site-assets/${ic}`, `${OUT}/${ic}`);
+}
+// Most store pages name no icon, so browsers ask for /favicon.ico; PNG bytes there are shown by every current browser.
+copyFileSync(`${ROOT}/scripts/site-assets/favicon-48.png`, `${OUT}/favicon.ico`);
 // Digital Asset Links: served from scripts/assetlinks.json (copied above, package xyz.degendojo.store.twa).
 // A leftover block here used to OVERWRITE it with a "REPLACE_ME_WITH_APK_SHA256" / xyz.degendojo.app
 // placeholder, so the live store never verified the TWA. Guard against that ever coming back:
@@ -707,7 +713,7 @@ execSync("npm install --omit=dev --no-audit --no-fund", { cwd: OUT, stdio: "inhe
     ["play/degen-duel/index.html", "/play/degen-duel/", null, "Best-of-eight card duel with real Degen Dojo fighters. Pick your order and beat the Dojo."],
     ["dojo-flip/index.html", "/dojo-flip/", null, null],
     ["play/teto-wars/index.html", "/play/teto-wars/", null, "Roll the dice, grab TETO and outlast the Dojo on a crumbling board."],
-    ["play/cluck-fu/index.html", "/play/cluck-fu/", null, "Eight chickens, one winner. Back a bird in the Dojo Derby and earn chances in the weekly Dojo Pot."],
+    ["play/cluck-fu/index.html", "/play/cluck-fu/", null, "Eight chickens, one winner. Back a bird in the Dojo Derby and earn chances in the Dojo Pot."],
     ["play/cock-brawl/index.html", "/play/cock-brawl/", null, null],
     ["credits.html", "/credits", null, null],   // the copy Netlify serves, and the one with the /api/rpc patch
     ["pot/index.html", "/pot/", null, null],

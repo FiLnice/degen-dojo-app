@@ -6,7 +6,11 @@
 <meta name="robots" content="noindex,nofollow">
 <title>DEGEN DUEL — Degen Dojo</title>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Teko:wght@600;700&display=swap" rel="stylesheet">
-<script>window.DOJO_SERVER_ECON=1;</script>
+<script>window.DOJO_SERVER_ECON=1;
+// Card labels, same switch as Dojo Flip and the site: Health → Hitpoints, Special Move Damage → Power from Oct 29 (?labels=new to preview).
+// This standalone page never had it, so Duel threw "ddLbl is not defined" on the store (found 2026-11-02).
+var DD_NEWLBL = Date.now() >= Date.UTC(2026,9,29) || /[?&]labels=new/.test(location.search);
+function ddLbl(l){ return !DD_NEWLBL ? l : l==='Health' ? 'Hitpoints' : (l==='Special Move Damage' || l==='SM Dmg') ? 'Power' : l; }</script>
 <style>
   html,body{margin:0;background:#0e0c14;color:#efe6d2;font-family:'Georgia',serif;}
   a{color:inherit;}

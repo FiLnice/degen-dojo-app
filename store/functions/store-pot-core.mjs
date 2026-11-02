@@ -126,6 +126,26 @@ export async function seedPot({ ore, id, oreUsdPrice }) {
   return addToPot({ usd: ore * oreUsdPrice, currency: "ORE", native: ore, route: "seed", id: "seed:" + id });
 }
 
+// The Pot draws only once it is worth at least POT_MIN_ORE (owner 2026-11-02: "once it reaches 2.5 ORE we run the raffle,
+// not once a week"). The weekly draw time still comes round every week; below the line it HOLDS the Pot: nothing is
+// archived or reset and every chance carries over to the next week (store-draw-core commitRound / drawRound).
+export function potMinOre() { const v = Number(process.env.POT_MIN_ORE); return process.env.POT_MIN_ORE && Number.isFinite(v) && v > 0 ? v : 2.5; }
+// What the live Pot is worth in ORE right now: its ORE as is, its SOL and SKR at today's Jupiter prices. Fails closed:
+// throws when a price it needs is missing, so a draw never goes ahead (or gets held) on a guess.
+export async function potWorthOre(pot = null) {
+  const p = pot || (await getPot());
+  const t = { sol: 0, ore: 0, skr: 0 };
+  for (const r of Object.values(p.routes || {})) for (const k of Object.keys(t)) t[k] += +r?.[k] || 0;
+  const px = { sol: 0, ore: 0, skr: 0 };
+  if (t.sol > 0 || t.skr > 0) {
+    try { const j = await (await fetch("https://lite-api.jup.ag/price/v3?ids=" + Object.values(PRICE_IDS).join(","))).json();
+      for (const [k, m] of Object.entries(PRICE_IDS)) px[k] = +j?.[m]?.usdPrice || 0; } catch {}
+    if (!(px.ore > 0) || (t.sol > 0 && !(px.sol > 0)) || (t.skr > 0 && !(px.skr > 0))) throw new CasError("no live price to value the Pot in ORE right now — try again shortly", 503);
+  }
+  const ore = t.ore + (t.sol > 0 ? (t.sol * px.sol) / px.ore : 0) + (t.skr > 0 ? (t.skr * px.skr) / px.ore : 0);
+  return { ore: +ore.toFixed(6), needOre: potMinOre(), totals: t, prices: px, at: Date.now() };
+}
+
 // Run on a draw: snapshot the pot to the round's archive and reset to zero so next week
 // accumulates fresh. Returns the snapshot that was paid out. The reset is conditional on the pot
 // not having changed since the snapshot was taken, so a contribution landing mid-reset is never

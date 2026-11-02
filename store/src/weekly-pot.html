@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
-<title>Weekly Dojo Pot — Degen Dojo</title>
-<meta name="description" content="The Degen Dojo weekly pot, fully transparent: where every coin comes from, how you earn chances by playing, and how winners are drawn provably-fair from a future Solana blockhash.">
+<title>Dojo Pot — Degen Dojo</title>
+<meta name="description" content="The Degen Dojo Pot, fully transparent: where every coin comes from, how you earn chances by playing, and how winners are drawn provably-fair from a future Solana blockhash once the pot reaches 2.5 ORE.">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;900&family=Inter:wght@300;400;500;600&family=Teko:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -52,23 +52,24 @@
 
 <div class="wrap">
   <div class="kick">Degen Dojo · Pot &amp; Economy</div>
-  <h1>The Weekly Dojo Pot</h1>
-  <p class="lead">One shared prize pool, topped up by the arena itself and paid out every week — with <b>every coin traced to its source</b> below, and the draw provably-fair so nobody, not even us, can rig it.</p>
+  <h1>The Dojo Pot</h1>
+  <p class="lead">One shared prize pool, topped up by the arena itself and drawn once it reaches <b>2.5 ORE</b> — with <b>every coin traced to its source</b> below, and the draw provably-fair so nobody, not even us, can rig it.</p>
 
   <div class="potbox">
-    <div class="l">Pot this week</div>
+    <div class="l">Pot so far</div>
     <div class="amt"><span id="potAmt">—</span></div>
     <div class="sub" id="potSub">Fed live by games &amp; store activity</div>
+    <div class="sub" id="potGoal">Draws when it reaches 2.5 ORE</div>
     <div class="draws">
       <div><b id="ticketN">—</b>chances entered</div>
       <div><b id="winnerN">—</b>winners this draw</div>
-      <div><b id="nextDraw">Weekly</b>next draw</div>
+      <div><b id="nextDraw">Sun 18:00 UTC</b>next check</div>
     </div>
   </div>
   <p class="fine" style="text-align:center">Live figures read straight from the draw ledger. A win is a <b>prize</b>, never a dividend or an investment return.</p>
 
   <h2>Where every coin comes from — the full ledger</h2>
-  <p class="fine" style="margin-bottom:12px">Every route that feeds the pot, and how much it brought in <b>this week</b>, in the currency it arrived as. Figures read live from the pot ledger; “—” means nothing in from that route yet.</p>
+  <p class="fine" style="margin-bottom:12px">Every route that feeds the pot, and how much it brought in <b>since the last draw</b>, in the currency it arrived as. Figures read live from the pot ledger; “—” means nothing in from that route yet.</p>
   <div class="card" style="padding:6px 8px">
     <table style="width:100%;border-collapse:collapse;font-size:13.5px">
       <thead><tr style="color:var(--mut);font-family:'Cinzel',serif;font-size:10px;letter-spacing:.1em;text-transform:uppercase">
@@ -83,19 +84,19 @@
         <tr data-route="cluck"><td style="padding:11px 8px"><b>🐔 Cluck-Fu sweep</b><div style="color:var(--mut);font-size:12px">the last <b>1/8</b> of every chicken-race pot</div></td><td class="rv" data-c="sol">—</td><td class="rv" data-c="skr">—</td><td class="rv" data-c="ore">—</td></tr>
         <tr data-route="minetip"><td style="padding:11px 8px"><b>⛏️ ORE mining fees</b><div style="color:var(--mut);font-size:12px">since 27 Oct 2026 the 1% mining fee goes to the Reserve &mdash; this row only shows earlier referred tips</div></td><td class="rv" data-c="sol">—</td><td class="rv" data-c="skr">—</td><td class="rv" data-c="ore">—</td></tr>
         <tr data-route="shelves"><td style="padding:11px 8px"><b>🛒 Shelves tips</b><div style="color:var(--mut);font-size:12px">optional tips when buying an NFT from the shelves</div></td><td class="rv" data-c="sol">—</td><td class="rv" data-c="skr">—</td><td class="rv" data-c="ore">—</td></tr>
-        <tr data-route="seed"><td style="padding:11px 8px"><b>🌱 Seeded by Degen Dojo</b><div style="color:var(--mut);font-size:12px">Degen Dojo&rsquo;s own ORE added to this week&rsquo;s prize</div></td><td class="rv" data-c="sol">—</td><td class="rv" data-c="skr">—</td><td class="rv" data-c="ore">—</td></tr>
-        <tr data-route="rollover"><td style="padding:11px 8px"><b>↩ Rolled over</b><div style="color:var(--mut);font-size:12px">prize shares nobody won last week (fewer than 5 players, or a winner disqualified)</div></td><td class="rv" data-c="sol">—</td><td class="rv" data-c="skr">—</td><td class="rv" data-c="ore">—</td></tr>
+        <tr data-route="seed"><td style="padding:11px 8px"><b>🌱 Seeded by Degen Dojo</b><div style="color:var(--mut);font-size:12px">Degen Dojo&rsquo;s own ORE added to the next prize</div></td><td class="rv" data-c="sol">—</td><td class="rv" data-c="skr">—</td><td class="rv" data-c="ore">—</td></tr>
+        <tr data-route="rollover"><td style="padding:11px 8px"><b>↩ Rolled over</b><div style="color:var(--mut);font-size:12px">prize shares nobody won in an earlier draw (fewer than 5 players, or a winner disqualified)</div></td><td class="rv" data-c="sol">—</td><td class="rv" data-c="skr">—</td><td class="rv" data-c="ore">—</td></tr>
         <tr data-route="tip"><td style="padding:11px 8px"><b>🎁 Dojo Pot tips</b><div style="color:var(--mut);font-size:12px"><b>100%</b> — tips sent straight to the Pot from the coins &amp; rescue pages</div></td><td class="rv" data-c="sol">—</td><td class="rv" data-c="skr">—</td><td class="rv" data-c="ore">—</td></tr>
       </tbody>
       <tfoot><tr style="border-top:1px solid rgba(201,151,58,.4);font-family:'Teko',sans-serif;font-size:17px;color:var(--gold-l)">
-        <td style="text-align:left;padding:12px 8px;letter-spacing:.04em">TOTAL IN THIS WEEK</td>
+        <td style="text-align:left;padding:12px 8px;letter-spacing:.04em">TOTAL SINCE THE LAST DRAW</td>
         <td style="text-align:right;padding:12px 8px" id="totSol">—</td>
         <td style="text-align:right;padding:12px 8px" id="totSkr">—</td>
         <td style="text-align:right;padding:12px 8px" id="totOre">—</td>
       </tr></tfoot>
     </table>
   </div>
-  <p class="fine">The Pot is held and paid out in <b>ORE</b>: whatever comes in as SOL or SKR is swapped to ORE via Jupiter when the week is paid. The pot is funded by <b>activity, not by minting new promises</b> — it only ever pays out what the arena actually took in. <a href="/draw" style="color:var(--gold-l)">Verify the draw ↗</a></p>
+  <p class="fine">The Pot is held and paid out in <b>ORE</b>: whatever comes in as SOL or SKR is swapped to ORE via Jupiter when the draw is paid. The pot is funded by <b>activity, not by minting new promises</b> — it only ever pays out what the arena actually took in. <a href="/draw" style="color:var(--gold-l)">Verify the draw ↗</a></p>
   <style>
     #ledgerBody td{border-bottom:1px solid var(--border);vertical-align:top}
     #ledgerBody .rv{text-align:right;padding:11px 8px;font-family:'Teko',sans-serif;font-size:17px;color:var(--text);white-space:nowrap}
@@ -108,7 +109,7 @@
       <li><b>12%</b> → the <a href="/reserve/" style="color:var(--gold-l)">Degen Dojo Reserve</a>.</li>
       <li><b>12%</b> → running the Dojo (hosting, tools, the team).</li>
       <li><b>28 / 36 / 44%</b> → the <b>preacher</b> who brought the player in (Wanderer · Disciple · Sensei, by fighters held).</li>
-      <li><b>Everything else → this weekly Pot</b>: <b>76%</b> when nobody referred the player, at least <b>32%</b> always — players win it back in the draw.</li>
+      <li><b>Everything else → the Dojo Pot</b>: <b>76%</b> when nobody referred the player, at least <b>32%</b> always — players win it back in the draw.</li>
     </ul>
     <p class="fine" style="margin-top:10px">The <b>1% mining fee</b> (auto-mining and Burn to Mine) goes <b>100%</b> to the Reserve — it feeds neither the Pot nor preachers.</p>
     <p class="fine" style="margin-top:10px">Marketplace royalties no longer feed the Pot: every royalty is split <b>88%</b> to the Reserve · <b>12%</b> to running the Dojo. <a href="/become-a-preacher" style="color:var(--gold-l)">Become a preacher ↗</a></p>
@@ -117,9 +118,9 @@
   <h2>How you earn chances</h2>
   <div class="card">
     <ul class="steps">
-      <li>Connect your wallet and <b>play any game</b> — every play mints you <b>1 chance</b> 🎟 in this week's pot.</li>
+      <li>Connect your wallet and <b>play any game</b> — every play mints you <b>1 chance</b> 🎟 in the Pot.</li>
       <li><b>Win</b> and you earn more: a win in Cluck-Fu, Cock Brawl or Dojo Flip is worth <b>3 chances</b>, a Degen Duel win <b>2</b> (it's a skill game), and a loss still gives 1.</li>
-      <li>Chances stack all week. The more you play, the bigger your slice of the draw.</li>
+      <li>Chances stack until the next draw, and <b>carry over</b> every week the Pot isn't drawn. The more you play, the bigger your slice of the draw.</li>
       <li><b>No purchase necessary</b> — free every week: <b>1 coin per Seeker (SGT) or per wallet 30+ days old</b>. Claim it on the <a href="/play" style="color:var(--gold-l)">Play</a> or <a href="/credits" style="color:var(--gold-l)">coins</a> page and play it like any other coin.</li>
     </ul>
     <div style="margin-top:12px"><span class="chip">1 play = 1 chance</span><span class="chip">win = up to 3 chances</span><span class="chip">chances stack</span></div>
@@ -135,8 +136,9 @@
   <div class="card">
     <ul class="steps">
       <li>Winners are drawn <b>weighted by chances</b> — more chances, better odds — but every entry can win.</li>
-      <li><b>5 winners every week</b>, paid in tiers: <b>1st 40% · 2nd 25% · 3rd 15% · 4th 10% · 5th 10%</b> of the pot, in ORE.</li>
-      <li>Fewer than 5 players? The ranks nobody filled <b>roll into next week's pot</b> — as does the share of any winner disqualified by the payout checks.</li>
+      <li>Every week at the draw time (<b>Sunday 18:00 UTC</b>) the Pot is checked: if it's worth <b>at least 2.5 ORE</b>, the draw runs. If not, there's no draw that week and the pot and <b>every chance carry over</b> to the next week.</li>
+      <li><b>5 winners each draw</b>, paid in tiers: <b>1st 40% · 2nd 25% · 3rd 15% · 4th 10% · 5th 10%</b> of the pot, in ORE.</li>
+      <li>Fewer than 5 players? The ranks nobody filled <b>roll into the next draw's pot</b> — as does the share of any winner disqualified by the payout checks.</li>
       <li>Payouts land straight in your wallet.</li>
     </ul>
   </div>
@@ -160,7 +162,10 @@
   fetch('/api/draw?action=status').then(function(r){return r.json();}).then(function(s){
     if(!s) return;
     // the Pot is held and paid in ORE: whatever comes in (SOL / SKR / ORE) is swapped to ORE at payout
-    var pot = (s.potOre!=null? s.potOre : null);
+    var pot = (s.potWorthOre!=null? s.potWorthOre : s.potOre!=null? s.potOre : null);
+    // the line the weekly draw checks: drawn only once the pot is worth potMinOre (2.5 ORE) at that moment's prices
+    var need = s.potMinOre!=null ? Number(s.potMinOre) : 2.5, goal = document.getElementById('potGoal');
+    if(goal) goal.textContent = 'Draws when it reaches ' + need + ' ORE' + (pot!=null ? ' · now ' + (Math.round(pot*1000)/1000).toLocaleString(undefined,{maximumFractionDigits:3}) + ' ORE' : '') + (pot!=null && pot>=need ? ' · draws at the next draw time' : '');
     if(pot!=null){ document.getElementById('potAmt').textContent = (pot===0?'0':(Math.round(pot*1000)/1000).toLocaleString(undefined,{maximumFractionDigits:3}))+' ORE'; }
     if(s.potUsd!=null && s.potUsd>0) document.getElementById('potSub').textContent = '≈ $'+Number(s.potUsd).toLocaleString(undefined,{maximumFractionDigits:2})+' · fed live by games & store activity';
     var t = (s.tickets!=null? s.tickets : (s.ticketsTotal!=null? s.ticketsTotal : null));

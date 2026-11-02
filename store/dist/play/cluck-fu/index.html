@@ -4,7 +4,7 @@
 <script>window.DOJO_SERVER_ECON=1;</script>
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>CLUCK-FU — Dojo Derby</title>
-<link rel="canonical" href="https://store.degendojo.xyz/play/cluck-fu/"><meta name="description" content="Eight chickens, one winner. Back a bird in the Dojo Derby and earn chances in the weekly Dojo Pot."><meta property="og:type" content="website"><meta property="og:site_name" content="Degen Dojo"><meta property="og:title" content="CLUCK-FU — Dojo Derby"><meta property="og:description" content="Eight chickens, one winner. Back a bird in the Dojo Derby and earn chances in the weekly Dojo Pot."><meta property="og:url" content="https://store.degendojo.xyz/play/cluck-fu/"><meta property="og:image" content="https://store.degendojo.xyz/og/cluck-fu.jpg"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="600"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="CLUCK-FU — Dojo Derby"><meta name="twitter:description" content="Eight chickens, one winner. Back a bird in the Dojo Derby and earn chances in the weekly Dojo Pot."><meta name="twitter:image" content="https://store.degendojo.xyz/og/cluck-fu.jpg">
+<link rel="canonical" href="https://store.degendojo.xyz/play/cluck-fu/"><meta name="description" content="Eight chickens, one winner. Back a bird in the Dojo Derby and earn chances in the Dojo Pot."><meta property="og:type" content="website"><meta property="og:site_name" content="Degen Dojo"><meta property="og:title" content="CLUCK-FU — Dojo Derby"><meta property="og:description" content="Eight chickens, one winner. Back a bird in the Dojo Derby and earn chances in the Dojo Pot."><meta property="og:url" content="https://store.degendojo.xyz/play/cluck-fu/"><meta property="og:image" content="https://store.degendojo.xyz/og/cluck-fu.jpg"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="600"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="CLUCK-FU — Dojo Derby"><meta name="twitter:description" content="Eight chickens, one winner. Back a bird in the Dojo Derby and earn chances in the Dojo Pot."><meta name="twitter:image" content="https://store.degendojo.xyz/og/cluck-fu.jpg">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Inter:wght@400;500;600&family=Noto+Serif+JP:wght@700;900&family=Teko:wght@600;700&display=swap" rel="stylesheet"/>
 <style>
 :root{
@@ -201,7 +201,7 @@ body{font-family:'Inter',sans-serif;color:var(--text);height:100vh;height:100dvh
     <li class="dojo-econ">Backing a bird costs <b>1 coin</b> per race.</li>
     <li>Hit <b>Start the scramble</b>; first past the line wins.</li>
     <li class="dojo-econ">Winners split <b>7/8</b> of the pot by how much each backer put in.</li>
-    <li class="dojo-econ">The last <b>1/8</b> feeds the <b>weekly Dojo Pot</b>.</li>
+    <li class="dojo-econ">The last <b>1/8</b> feeds the <b>Dojo Pot</b>.</li>
     <li>Provably-fair from a future block.</li>
   </ul>
   <button onclick="document.getElementById('cfInfoModal').classList.remove('show')">Got it</button>
@@ -509,8 +509,8 @@ function selectBird(i){ if(racing) return; SEL=i;
   if($('pickName')) $('pickName').textContent = BIRDS[i].name; }
 function setCur(){}   // currency picker is gone — every race is a flat 1-credit entry
 function updateBetLine(){
-  $('myBet').innerHTML = bet ? `Backing <b>${BIRDS[bet.i].name}</b> for <b>1 coin</b> — if it wins you get <b>3 chances in the weekly Dojo Pot</b> 🎟, otherwise 1.`
-    : `Pick a bird — <b>1 coin</b> to enter. A win = <b>3 chances in the weekly Dojo Pot</b> 🎟; just playing = 1.`; }
+  $('myBet').innerHTML = bet ? `Backing <b>${BIRDS[bet.i].name}</b> for <b>1 coin</b> — if it wins you get <b>3 chances in the Dojo Pot</b> 🎟, otherwise 1.`
+    : `Pick a bird — <b>1 coin</b> to enter. A win = <b>3 chances in the Dojo Pot</b> 🎟; just playing = 1.`; }
 
 function placeBet(){
   if(racing) return;
@@ -656,8 +656,8 @@ function finish(winner){
     <div class="rk">winner · bird #${winner+1}</div>
     <div class="rw"><span style="width:50px;display:inline-block">${chickenSVG(b.c,false)}</span>${b.name}</div>
     ${bet ? (won
-      ? `<div class="rp win">🎉 <b>${BIRDS[bet.i].name}</b> won! You earned <b>${awarded} raffle ${awarded===1?'chance':'chances'}</b> 🎟${grandSlam?' <b>(incl. +3 grand-slam!)</b>':''}<br><span style="font-size:13px;color:#cdbfa2">Chances go into the weekly Dojo Pot draw.</span></div>`
-      : `<div class="rp lose">${BIRDS[bet.i].name} didn't make it — <b>${awarded} raffle chance</b> 🎟 for playing.<br><span style="font-size:13px;color:#cdbfa2">Every race earns chances toward the weekly pot.</span></div>`)
+      ? `<div class="rp win">🎉 <b>${BIRDS[bet.i].name}</b> won! You earned <b>${awarded} raffle ${awarded===1?'chance':'chances'}</b> 🎟${grandSlam?' <b>(incl. +3 grand-slam!)</b>':''}<br><span style="font-size:13px;color:#cdbfa2">Chances go into the Dojo Pot draw.</span></div>`
+      : `<div class="rp lose">${BIRDS[bet.i].name} didn't make it — <b>${awarded} raffle chance</b> 🎟 for playing.<br><span style="font-size:13px;color:#cdbfa2">Every race earns chances toward the Dojo Pot.</span></div>`)
       : `<div class="rp" style="color:#cdbfa2">No bird backed — pick one next scramble to earn tickets.</div>`}
     ${fairLine}
     <button onclick="reset()">Next scramble →</button></div>`;

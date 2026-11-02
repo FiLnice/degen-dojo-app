@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Weekly Draw — Provably Fair — Degen Dojo</title>
-<meta name="description" content="The Degen Dojo weekly pot draw is provably fair: a secret seed committed before an unpredictable future Solana blockhash. Verify it yourself — the result can't be rigged." />
+<title>Dojo Pot Draw — Provably Fair — Degen Dojo</title>
+<meta name="description" content="The Degen Dojo Pot draw is provably fair: a secret seed committed before an unpredictable future Solana blockhash. Verify it yourself — the result can't be rigged." />
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Teko:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -59,7 +59,7 @@ h1{font-family:"Teko",sans-serif;font-weight:700;font-size:clamp(34px,7vw,56px);
 <body>
 <div class="wrap">
   <div class="brand">道場 · Provably Fair</div>
-  <h1>The Weekly Draw</h1>
+  <h1>The Pot Draw</h1>
   <div class="sub">The pot winners are picked by a <b>secret seed committed before an unpredictable future Solana blockhash</b>. Nobody — not even Degen Dojo — can choose or predict them. Check it yourself below.</div>
 
   <div class="card" id="roundCard"><div style="color:var(--mut);text-align:center;padding:20px">Loading the latest round…</div></div>
@@ -84,7 +84,7 @@ h1{font-family:"Teko",sans-serif;font-weight:700;font-size:clamp(34px,7vw,56px);
   <div class="card">
     <h3 style="font-family:'Teko';color:var(--gold);margin:0 0 8px;font-size:20px">How it works</h3>
     <div class="steps">
-      <b>1 · Commit</b> — when the week ends, we publish <b>sha256(seed)</b> and close the round: new chances go to next week. The seed stays secret.<br>
+      <b>1 · Commit</b> — at the weekly draw time (Sunday 18:00 UTC) we publish <b>sha256(seed)</b> and close the round: new chances go to the next one. The seed stays secret. We also publish what the Pot is worth in ORE: under <b>2.5 ORE</b> the round is <b>held</b> — no winners, and the pot and every chance carry over to the next week's round.<br>
       <b>2 · Freeze</b> — we publish every entry (wallet · chances) and only then pick a target future slot, so its blockhash doesn't exist until the entries are fixed and public.<br>
       <b>3 · Draw</b> — once the slot finalizes, we take its on-chain blockhash (nobody controlled it), mix it with the seed, and pick winners weighted by chances. Then we reveal the seed.<br>
       <b>4 · Verify</b> — check <b>sha256(seed)</b> equals the commitment (the seed wasn't swapped), the blockhash really is that slot's on-chain (the randomness was real &amp; unpredictable), and re-run the pick on the published entries. Same inputs always give the same winners.
@@ -122,7 +122,8 @@ async function load(){
   }
 }
 function render(){
-  const d = DRAW, drawn = d.status==='drawn';
+  // a held round (the Pot was under 2.5 ORE at draw time): no winners, the pot and every chance carry over
+  const d = DRAW, drawn = d.status==='drawn', held = !!d.potHeld;
   const rows = [
     ['Round', '#'+d.round],
     ['Commitment (sha256 of seed)', short(d.commitHash)],
@@ -132,12 +133,15 @@ function render(){
   if(drawn){
     rows.push(['Block slot used', d.blockSlot], ['Block hash', short(d.blockhash)], ['Revealed seed', short(d.seed)], ['Entrants · tickets', d.entrants+' · '+d.totalTickets]);
   }
+  if(d.carriedFrom) rows.push(['Carried over', d.carriedTickets+' chances from round #'+d.carriedFrom]);
+  if(d.potCheck) rows.push(['Pot at draw time', (+d.potCheck.ore).toLocaleString(undefined,{maximumFractionDigits:4})+' ORE (draws at '+d.potCheck.needOre+' ORE)']);
   $('roundCard').innerHTML =
-    `<div style="text-align:center;margin-bottom:12px"><span class="status ${d.status}">${drawn?'Drawn':'Committed — awaiting draw'}</span></div>`+
+    `<div style="text-align:center;margin-bottom:12px"><span class="status ${d.status}">${held?'Pot held — no draw this week':drawn?'Drawn':'Committed — awaiting draw'}</span></div>`+
     rows.map(([k,v])=>`<div class="row"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('')+
-    (drawn ? `<div style="font-family:'Teko';color:var(--gold-dim);font-size:14px;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 4px">Winners</div><ol class="winners">${d.winners.map((w,i)=>`<li><span class="rk">${i+1}</span><span>${esc(w.name)}</span><span class="tk">${w.tickets} 🎟</span></li>`).join('')}</ol>` : '');
-  $('revealBox').style.display = drawn ? '' : 'none';
-  if(drawn){ REVEAL_PLAYING=false; buildGrid(); $('revBtn').disabled=false; $('revBtn').textContent='▶ Play the draw'; $('revWinners').innerHTML=''; $('revLeft').textContent=GRID_N; $('revWinN').textContent=d.winners.length; $('revN').textContent=d.winners.length; }
+    (held ? `<div style="color:var(--mut);text-align:center;margin-top:12px">Pot not drawn: worth ${esc((+(d.potCheck||{}).ore||0).toLocaleString(undefined,{maximumFractionDigits:4}))} ORE, needs ${esc((d.potCheck||{}).needOre||2.5)}. The pot and every chance carry over to next week.</div>` : '')+
+    (drawn && !held ? `<div style="font-family:'Teko';color:var(--gold-dim);font-size:14px;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 4px">Winners</div><ol class="winners">${d.winners.map((w,i)=>`<li><span class="rk">${i+1}</span><span>${esc(w.name)}</span><span class="tk">${w.tickets} 🎟</span></li>`).join('')}</ol>` : '');
+  $('revealBox').style.display = drawn && !held ? '' : 'none';
+  if(drawn && !held){ REVEAL_PLAYING=false; buildGrid(); $('revBtn').disabled=false; $('revBtn').textContent='▶ Play the draw'; $('revWinners').innerHTML=''; $('revLeft').textContent=GRID_N; $('revWinN').textContent=d.winners.length; $('revN').textContent=d.winners.length; }
   $('verifyBox').style.display = drawn ? '' : 'none';
   $('checks').innerHTML=''; $('verdict').textContent='';
 }

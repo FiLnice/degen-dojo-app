@@ -570,9 +570,14 @@
     }
     var st = p.status, pill = st === 'paid' ? 'ok' : st === 'flagged' ? 'bad' : (st === 'partial' || st === 'paying') ? 'warn' : '';
     var t = p.totals || {};
+    // a week the Pot was under its minimum (2.5 ORE) at draw time: no winners; the pot and every chance carry over
+    var nf = function (v) { return v == null ? '?' : (+v).toLocaleString('en-US', { maximumFractionDigits: 4 }); };
+    var held = p.potHeld ? 'Pot not drawn: worth ' + nf(p.potHeld.ore) + ' ORE, needs ' + nf(p.potHeld.needOre) + ' — the pot and every chance carry over to next week.' : '';
     h += '<div class="card"><div class="bar" style="margin:0;justify-content:space-between"><div><b style="font-size:17px">Round ' + p.round + '</b> <span class="pill ' + pill + '">' + esc(st) + '</span>' +
+      (p.potHeld ? ' <span class="pill warn">Pot held</span>' : '') +
       (p.preachersMovedTo ? ' <span class="pill">preachers moved to round ' + p.preachersMovedTo + '</span>' : '') + '</div>' +
       '<div class="msg">built ' + new Date(p.builtAt).toLocaleString() + '</div></div>' +
+      (held ? '<div class="msg" style="margin-top:8px;color:var(--gold, #e8b84b)"><b>' + esc(held) + '</b> Preachers below are paid as usual.</div>' : '') +
       '<div class="bar" style="margin:10px 0 0;gap:18px">' +
       '<span>ORE <b>' + ui(t.ORE, 'ORE') + '</b></span><span>SKR <b>' + ui(t.SKR, 'SKR') + '</b></span>' +
       (T.B(t.SOL) > 0n ? '<span>SOL → ORE <b>' + ui(t.SOL, 'SOL') + '</b></span>' : '') + (T.B(t.USDC) > 0n ? '<span>USDC → ORE <b>' + ui(t.USDC, 'USDC') + '</b></span>' : '') +
@@ -583,9 +588,10 @@
       '<dt>Revealed seed</dt><dd>' + esc(dr.seed) + '</dd>' +
       '<dt>Target slot</dt><dd>' + esc(dr.targetSlot) + '</dd>' +
       '<dt>Blockhash (slot ' + esc(dr.blockSlot) + ')</dt><dd><a href="https://solscan.io/block/' + esc(dr.blockSlot) + '" target="_blank" rel="noopener">' + esc(dr.blockhash) + '</a></dd>' +
-      '<dt>Tickets</dt><dd>' + esc(dr.totalTickets) + ' from ' + esc(dr.entrants) + ' wallet(s)' + (dr.potRolledOver ? ' — no winners, pot rolled over' : '') + '</dd>' +
+      '<dt>Tickets</dt><dd>' + esc(dr.totalTickets) + ' from ' + esc(dr.entrants) + ' wallet(s)' + (dr.carriedFrom ? ' (incl. ' + esc(dr.carriedTickets) + ' carried from round ' + esc(dr.carriedFrom) + ')' : '') +
+        (p.potHeld ? ' — Pot held, these chances carry over' : dr.potRolledOver ? ' — no winners, pot rolled over' : '') + '</dd>' +
       '<dt>Public record</dt><dd><a href="' + esc(dr.statusUrl || '/api/draw?action=status') + '" target="_blank" rel="noopener">draw status JSON</a> · <a href="/draw" target="_blank" rel="noopener">/draw</a></dd>' +
-      '</dl></div><div class="card"><h2>Pot snapshot</h2>' + potHtml(p.pot) + '</div></div>';
+      '</dl></div><div class="card"><h2>Pot snapshot</h2>' + (p.potHeld && !p.pot ? '<div class="msg">None: the Pot was held, so nothing was archived or reset. It keeps growing for the next draw.</div>' : potHtml(p.pot)) + '</div></div>';
     var fl = flagsNow();
     if (fl.length) {
       h += '<div class="card"><h2>Flags (' + fl.length + ')</h2>' + fl.map(function (f) {
@@ -604,7 +610,7 @@
     }
     h += '<div class="card"><h2>Winners (' + Wn.length + ')</h2>' + (Wn.length ? '<table><tr><th>Wallet</th><th class="num">Tickets</th><th class="num">ORE</th><th class="num">SKR</th><th class="num">SOL → ORE</th><th class="num">≈ USD</th><th></th></tr>' +
       Wn.map(function (x) { return row(x, '<td>' + (x.rank ? '<b>' + ['1st','2nd','3rd','4th','5th'][x.rank - 1] + '</b> · ' + x.pct + '% · ' : '') + acct(x.wallet) + (x.label && x.label !== x.wallet ? ' <span class="msg">' + esc(x.label) + '</span>' : '') + '</td><td class="num">' + x.tickets + '</td><td class="num">' + ui(x.pay.ORE, 'ORE') + '</td><td class="num">' + ui(x.pay.SKR, 'SKR') + '</td><td class="num">' + ui(x.pay.SOL, 'SOL') + '</td><td class="num">$' + (x.usd || 0).toFixed(2) + '</td>'); }).join('') + '</table>'
-      : '<div class="msg">No winners this round (no tickets) — the pot carries over to next week.</div>') + (p.unfilled ? '<div class="msg">Ranks ' + p.unfilled.ranks.join(', ') + ' had nobody (' + p.unfilled.pct + '% of the pot) — rolled into next week\'s pot.</div>' : '') + '</div>';
+      : '<div class="msg">' + (held ? esc(held) : 'No winners this round (no tickets) — the pot carries over to next week.') + '</div>') + (p.unfilled ? '<div class="msg">Ranks ' + p.unfilled.ranks.join(', ') + ' had nobody (' + p.unfilled.pct + '% of the pot) — rolled into next week\'s pot.</div>' : '') + '</div>';
     var Rf = p.payees.filter(function (x) { return x.kind === 'raffle'; }), RR = (p.raffle && p.raffle.rounds) || [];
     if (Rf.length || RR.length) h += '<div class="card"><h2>Burn Raffle winners (' + Rf.length + ')</h2><div class="msg">Raffle round' + (RR.length === 1 ? ' ' : 's ') + esc(RR.join(', ')) + ' — drawn provably fair from the rent holders burned (<a href="/api/raffle?action=round&round=' + esc(RR[0] || '') + '" target="_blank" rel="noopener">public record</a> · <a href="/raffle" target="_blank" rel="noopener">/raffle</a>).</div>' +
       (Rf.length ? '<table><tr><th>Wallet</th><th class="num">Tickets</th><th class="num">ORE</th><th class="num">SOL → ORE</th><th>Gift prizes</th><th class="num">≈ USD</th><th></th></tr>' +

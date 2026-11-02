@@ -31,19 +31,28 @@
 // (/api/draw?action=entries&round=n, and the check on /draw). A round committed by the older code (target slot
 // set at commit) is still drawn the old way.
 //
+// POT HELD (owner 2026-11-02: the Pot draws only once it's worth 2.5 ORE, store-pot-core potMinOre). Every week's commit
+// values the live Pot in ORE (potWorthOre, fails closed with no price) and publishes it as potCheck. Below the line the
+// round is HELD (potHeld): it is frozen, snapshotted and its entries published like any round, but it picks NO winners
+// (nWinners 0) and leaves the pot alone. Its chances aren't lost: the NEXT round's ticket snapshot adds the held round's
+// snapshot records (create-only, so read once, never re-added — a chain of held weeks carries forward one snapshot at a
+// time), and that round publishes the summed entries before its target slot is set, exactly like any other round.
+// Rounds (and so the free weekly coin and the weekly preacher payout) still turn over every week.
+//
 // Blobs: "draws" (latest, public:<n>, seed:<n>, drawing:<n>, snap:<n>, entries:<n>, legacy-closed), "tickets"
 // (r<n>:player:<wallet>, written ONLY by /api/play; the old unprefixed player:<wallet> ledger is drawn once, in
 // the first draw after this change), "tickets-archive" (r<n>:player:<wallet>), "pot" (current, round:<n>).
 // Env: SOLANA_RPC.
 import { getStore } from "@netlify/blobs";
 import { createHash, createHmac, randomBytes } from "node:crypto";
-import { getPot } from "./store-pot-core.mjs";
+import { getPot, potWorthOre } from "./store-pot-core.mjs";
 import { casUpdate, readWithEtag, putIfNew, putIfMatch, CasError } from "./store-cas-core.mjs";
 
 export const SOL_MINT = "So11111111111111111111111111111111111111112";
 export const SLOTS_AHEAD = 300;   // finalized + 300 ≈ 1–2 min ahead of the chain tip (slots run ~0.2–0.4 s; round 1 measured 56 s)
-// Every week 5 winners (owner 2026-10-27), whatever the pot — paid in tiers 40 / 25 / 15 / 10 / 10% by pick order
-// (store-payout-core PRIZE_TIERS). With fewer entrants the unfilled ranks' shares roll into next week's Pot.
+// Every draw 5 winners (owner 2026-10-27) — paid in tiers 40 / 25 / 15 / 10 / 10% by pick order (store-payout-core
+// PRIZE_TIERS). With fewer entrants the unfilled ranks' shares roll into next week's Pot. Since 2026-11-02 a week only
+// draws once the Pot is worth potMinOre() (2.5 ORE); below that the round is held (POT HELD above).
 export const WINNERS = 5;
 export function winnerCount() { return WINNERS; }
 
@@ -161,6 +170,19 @@ export async function ticketRound() {
 }
 export const SETTLE_MS = 30e3;   // > a play function's longest run: after it, nothing can still write into a frozen round
 
+// Chances a wallet carries INTO `round` from held rounds before it (see POT HELD in the header): the held round's
+// snapshot once it exists (it already includes anything carried into it), else its live ledger + what it carried in.
+export async function carriedTickets(round, wallet, depth = 0) {
+  const prev = round - 1;
+  if (!(prev > 0) || depth > 60) return 0;
+  const pub = await getPublic(prev);
+  if (!pub?.potHeld) return 0;
+  const snap = await strong(getStore("draws"), "snap:" + prev);
+  if (snap) return +(snap.records || []).find((r) => r.key === "player:" + wallet)?.value?.tickets || 0;
+  const live = await strong(getStore("tickets"), ticketKey(prev, wallet));
+  return (+live?.tickets || 0) + (await carriedTickets(prev, wallet, depth + 1));
+}
+
 // Plays (store-fn-play.mjs; security review M11 — ticket hoarding). A play remembers the round it was started in.
 // Finished in a LATER round more than ROUND_GRACE_MS after it started, it earns only the play ticket (no win
 // bonus), so a banked win can't be timed into the fattest pot; an open play can't be finished at all after
@@ -177,11 +199,17 @@ export async function commitRound() {
   const open = await getPublic(latest);
   if (open && open.status !== "drawn") throw new DrawError("a round is already open — draw it first");
   const round = latest + 1;
+  // draw or hold: the live Pot in ORE at this moment, published with the commit (no price → no commit, retried later)
+  let check;
+  try { check = await potWorthOre(); }
+  catch (e) { throw new DrawError(String(e?.message || e), 503); }
+  const potHeld = !(check.ore >= check.needOre);
   await putIfNew(store, "seed:" + round, { seed: randomBytes(32).toString("hex") });   // secret until the draw
   const { seed } = (await strong(store, "seed:" + round)) || {};
   if (!seed) throw new DrawError("seed missing", 500);
   // no target slot yet: it is chosen only after the entries are frozen and published (drawRound)
-  const pub = { round, status: "committed", freezeFirst: true, commitHash: sha256(Buffer.from(seed, "hex")), targetSlot: null, committedAt: Date.now() };
+  const pub = { round, status: "committed", freezeFirst: true, commitHash: sha256(Buffer.from(seed, "hex")), targetSlot: null, committedAt: Date.now(),
+    potCheck: { ore: check.ore, needOre: check.needOre, at: check.at }, ...(potHeld ? { potHeld: true } : {}) };
   let out = pub;
   if (!(await putIfNew(store, "public:" + round, pub))) {
     const cur = await getPublic(round);
@@ -279,9 +307,19 @@ export async function drawRound({ potSolOverride = 0, winnersOverride = 0, now =
     if (legacy) for (const b of (await tstore.list({ prefix: "player:" })).blobs) {
       const v = await strong(tstore, b.key); if (v) add(b.key, b.key, v);
     }
+    // the chances a HELD round before this one carried over (its own snapshot, which already holds anything carried
+    // into it). Its play ids stay with that round's snapshot (mintedInSnapshot asks the round a play was minted in).
+    let carry = null;
+    const prev = round > 1 ? await getPublic(round - 1) : null;
+    if (prev?.potHeld) {
+      const ps = await strong(store, "snap:" + (round - 1));
+      if (!ps) throw new DrawError(`round ${round - 1} held the Pot but its ticket snapshot is missing — not drawing without its chances`, 500);
+      for (const r of ps.records || []) { const { playIds, ...v } = r.value || {}; add(r.key, "carry:r" + (round - 1), v); }
+      carry = { from: round - 1, tickets: +ps.totalTickets || 0 };
+    }
     const records = [...byKey.values()].sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
     const e = entriesFromRecords(records);
-    await putIfNew(store, "snap:" + round, { round, takenAt: Date.now(), legacy, records, entriesHash: entriesHash(e.entries), totalTickets: e.totalTickets });
+    await putIfNew(store, "snap:" + round, { round, takenAt: Date.now(), legacy, ...(carry ? { carry } : {}), records, entriesHash: entriesHash(e.entries), totalTickets: e.totalTickets });
     snap = await strong(store, "snap:" + round);
   }
   if (snap.legacy) await putIfNew(store, "legacy-closed", { round, at: Date.now() });   // the old ledger is drawn ONCE
@@ -291,15 +329,17 @@ export async function drawRound({ potSolOverride = 0, winnersOverride = 0, now =
     st = await setOnce(store, round, { archived: Date.now(), phase: "snapshot" });
   }
   const { entries, totalTickets } = entriesFromRecords(snap.records);
-  const rollover = !entries.length;
+  const held = !!pub.potHeld;   // below the Pot's minimum at the commit: no winners, the pot stays, the chances carry
+  const rollover = !entries.length || held;
+  const carried = snap.carry ? { carriedFrom: snap.carry.from, carriedTickets: snap.carry.tickets } : {};
 
   // 4) publish the entries — the [wallet, tickets] list the pick runs on (what entriesHash commits to) — and, for a
   //    freezeFirst round, only NOW choose the target slot: its blockhash doesn't exist until after the entries are public.
-  await putIfNew(store, "entries:" + round, { round, entriesHash: entriesHash(entries), totalTickets, entries: entries.map((e) => [e.wallet, e.tickets]) });
+  await putIfNew(store, "entries:" + round, { round, entriesHash: entriesHash(entries), totalTickets, ...carried, entries: entries.map((e) => [e.wallet, e.tickets]) });
   if (pub.freezeFirst && !pub.targetSlot) {
     const fin = await rpc("getSlot", [{ commitment: "finalized" }]);
     await casUpdate(store, "public:" + round, (cur) => (cur && cur.status === "committed" && !cur.targetSlot
-      ? { ...cur, targetSlot: fin + SLOTS_AHEAD, entriesSlot: fin, entriesAt: Date.now(), entriesHash: entriesHash(entries), totalTickets, entrants: entries.length } : undefined));
+      ? { ...cur, targetSlot: fin + SLOTS_AHEAD, entriesSlot: fin, entriesAt: Date.now(), entriesHash: entriesHash(entries), totalTickets, entrants: entries.length, ...carried } : undefined));
     pub = await getPublic(round);
     if (pub?.status !== "committed") throw new DrawError(`round ${round} was drawn meanwhile — reload`, 409);
   }
@@ -318,7 +358,7 @@ export async function drawRound({ potSolOverride = 0, winnersOverride = 0, now =
     const reset = !st.potSolOverride && !rollover;
     const p = reset ? await archivePotOnce(round) : await getPot();
     const solPrice = await solUsd();
-    if (!solPrice && !st.potSolOverride) throw new DrawError("no SOL price right now — draw again shortly", 503);
+    if (!solPrice && !st.potSolOverride && !held) throw new DrawError("no SOL price right now — draw again shortly", 503);
     st = await setOnce(store, round, { pot: { usd: +p.usd || 0, routes: p.routes || {} }, potReset: reset, solPrice: solPrice || 0, phase: "pot" });
   }
 
@@ -326,11 +366,12 @@ export async function drawRound({ potSolOverride = 0, winnersOverride = 0, now =
   if (!st.result) {
     const potFromLedger = st.solPrice > 0 && st.pot.usd > 0 ? +(st.pot.usd / st.solPrice).toFixed(4) : 0;
     const potSol = st.potSolOverride || potFromLedger;
-    const nWinners = Math.min(WINNERS, st.winnersOverride || WINNERS);   // the old ?winners= override can only lower it (5 tiers)
+    // the old ?winners= override can only lower it (5 tiers); a held round picks nobody
+    const nWinners = held ? 0 : Math.min(WINNERS, st.winnersOverride || WINNERS);
     const winners = pickWinners(seed, st.blockhash, entries, nWinners);
     st = await setOnce(store, round, { phase: "result", result: { ...pub, status: "drawn", seed, blockSlot: st.blockSlot, blockhash: st.blockhash, potSol,
       potUsd: +st.pot.usd.toFixed(2), potBreakdown: st.pot.routes, nWinners, totalTickets, entrants: entries.length, entriesHash: entriesHash(entries),
-      winners, drawnAt: Date.now(), ...(rollover ? { potRolledOver: true } : {}), ...(st.potSolOverride ? { manualPot: true } : {}) } });
+      winners, drawnAt: Date.now(), ...carried, ...(rollover ? { potRolledOver: true } : {}), ...(st.potSolOverride && !held ? { manualPot: true } : {}) } });
   }
 
   // 8) publish LAST — committed → drawn, exactly once

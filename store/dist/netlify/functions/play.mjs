@@ -49,13 +49,13 @@ import { simulate as flipSimulate } from "./dojo-flip-engine.mjs";
 import { POOL as FLIP_POOL } from "./flip-pool.mjs";
 import { dealHands, statsFromDigest, playRound, freshState, winnerOf, simulateV2, DUEL_V2, STATS_TAG } from "./dojo-duel-engine.mjs";
 import { DUEL_POOL } from "./duel-pool.mjs";
-import { ticketRound, ticketKey, mintedInSnapshot, PLAY_TTL_MS, ROUND_GRACE_MS } from "./store-draw-core.mjs";
+import { ticketRound, ticketKey, mintedInSnapshot, carriedTickets, PLAY_TTL_MS, ROUND_GRACE_MS } from "./store-draw-core.mjs";
 import { lastDrawTime } from "./store-payout-core.mjs";
 
 const GAMES = new Set(["duel", "flip", "teto", "cluck", "brawl"]);
 // Grand slam (+5, once per draw round): PLAY all five games in the same round, win or lose — it
-// rewards using coins across every game. Tickets reset after every draw (store-fn-draw archives
-// them), so "same week" = same round.
+// rewards using coins across every game. Rounds still turn over every week (a week the Pot is under 2.5 ORE is a held
+// round whose chances carry into the next one — store-draw-core POT HELD), so "same week" = same round.
 const SLAM_WIN_GAMES = [];
 const SLAM_PLAY_GAMES = ["duel", "flip", "cluck", "brawl", "teto"];
 const WIN = 3, PLAY = 1, GRAND_SLAM = 5;
@@ -299,10 +299,12 @@ export default async (request) => {
 
   if (r.action === "me") {
     const coins = await getCoins(balances, wallet);
-    const t = await getStrong(getStore("tickets"), ticketKey(await ticketRound(), wallet));   // this round's chances
     const round = await ticketRound();
+    const t = await getStrong(getStore("tickets"), ticketKey(round, wallet));   // this round's chances
+    // + the chances carried over from weeks the Pot was held (under 2.5 ORE at draw time — store-draw-core POT HELD)
+    const carried = await carriedTickets(round, wallet).catch(() => 0);
     const freeClaimed = !!(await getStrong(getStore("free-claims"), `r${round}:w:${wallet}`));
-    return json({ ok: true, wallet, coins, tickets: t?.tickets || 0, wins: t?.wins || 0, plays: t?.plays || 0, grandSlam: !!t?.grandSlam,
+    return json({ ok: true, wallet, coins, tickets: (t?.tickets || 0) + carried, carried, wins: t?.wins || 0, plays: t?.plays || 0, grandSlam: !!t?.grandSlam,
       free: { claimed: freeClaimed, nextAt: nextDrawAt() } });
   }
 

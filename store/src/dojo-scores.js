@@ -100,7 +100,7 @@
         '<div class="ds-tabs"><button class="ds-tab" data-t="game">' + esc(GAMES[game] || 'This game') + '</button><button class="ds-tab" data-t="all">Overall · 🎟</button></div>' +
         '<div class="ds-head"><span>#</span><span>Player</span><span>W</span><span>🎟</span></div>' +
         '<ol class="ds-list"></ol>' +
-        '<div class="ds-note"><b>Win</b> = 3 raffle chances · <b>play</b> = 1 · win all 4 games = <b>+3</b> bonus. The weekly Dojo Pot is drawn among ticket-holders — Degen Dojo keeps <b>12%</b>.</div>';
+        '<div class="ds-note"><b>Win</b> = 3 raffle chances · <b>play</b> = 1 · win all 4 games = <b>+3</b> bonus. The Dojo Pot is drawn among ticket-holders once it reaches 2.5 ORE — Degen Dojo keeps <b>12%</b>.</div>';
       el.querySelector('.ds-name').value = self.getName();
       function paint() {
         el.querySelectorAll('.ds-tab').forEach(function (b) { b.classList.toggle('on', b.dataset.t === tab); });

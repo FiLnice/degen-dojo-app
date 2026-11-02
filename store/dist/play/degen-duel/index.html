@@ -6,7 +6,11 @@
 <title>DEGEN DUEL — Degen Dojo</title>
 <link rel="canonical" href="https://store.degendojo.xyz/play/degen-duel/"><meta name="description" content="Best-of-eight card duel with real Degen Dojo fighters. Pick your order and beat the Dojo."><meta property="og:type" content="website"><meta property="og:site_name" content="Degen Dojo"><meta property="og:title" content="DEGEN DUEL — Degen Dojo"><meta property="og:description" content="Best-of-eight card duel with real Degen Dojo fighters. Pick your order and beat the Dojo."><meta property="og:url" content="https://store.degendojo.xyz/play/degen-duel/"><meta property="og:image" content="https://store.degendojo.xyz/og/degen-duel.jpg"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="600"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="DEGEN DUEL — Degen Dojo"><meta name="twitter:description" content="Best-of-eight card duel with real Degen Dojo fighters. Pick your order and beat the Dojo."><meta name="twitter:image" content="https://store.degendojo.xyz/og/degen-duel.jpg">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Teko:wght@600;700&display=swap" rel="stylesheet">
-<script>window.DOJO_SERVER_ECON=1;</script>
+<script>window.DOJO_SERVER_ECON=1;
+// Card labels, same switch as Dojo Flip and the site: Health → Hitpoints, Special Move Damage → Power from Oct 29 (?labels=new to preview).
+// This standalone page never had it, so Duel threw "ddLbl is not defined" on the store (found 2026-11-02).
+var DD_NEWLBL = Date.now() >= Date.UTC(2026,9,29) || /[?&]labels=new/.test(location.search);
+function ddLbl(l){ return !DD_NEWLBL ? l : l==='Health' ? 'Hitpoints' : (l==='Special Move Damage' || l==='SM Dmg') ? 'Power' : l; }</script>
 <style>
   html,body{margin:0;background:#0e0c14;color:#efe6d2;font-family:'Georgia',serif;}
   a{color:inherit;}

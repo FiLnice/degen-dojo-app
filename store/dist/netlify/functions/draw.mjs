@@ -1,4 +1,5 @@
-// Netlify Function: provably-fair weekly pot draw at /api/draw
+// Netlify Function: provably-fair Dojo Pot draw at /api/draw (checked every week; drawn once the Pot is worth 2.5 ORE,
+// else that week's round is held and its chances carry over — store-draw-core POT HELD)
 //
 // The whole point: nobody — not even us — can pick or predict the winner. It's a
 // classic commit-reveal bound to a FUTURE Solana blockhash:
@@ -30,7 +31,7 @@
 // Env: ADMIN_KEY (gates commit/draw), SOLANA_RPC (a Solana RPC URL).
 // Tickets come from the "tickets" Blobs store, written ONLY by /api/play (store-fn-play.mjs).
 import { limited } from "./store-ratelimit-core.mjs";
-import { getPot, POT_PCT_MAX, POT_PCT_MIN } from "./store-pot-core.mjs";
+import { getPot, POT_PCT_MAX, POT_PCT_MIN, potWorthOre, potMinOre } from "./store-pot-core.mjs";
 import { commitRound, drawRound, latestRound, getPublic, publicEntries, solUsd, oreUsd, DrawError } from "./store-draw-core.mjs";
 import { adminRequestOk } from "./store-session-core.mjs";
 
@@ -59,10 +60,13 @@ export default async (request) => {
     // Shape matches what the /pot ledger page renders: potSol, potPct, routes{route:{sol,skr,ore}}.
     const pot = await getPot();
     const [sp, op] = await Promise.all([solUsd(), oreUsd()]);
+    // what the draw time checks: the live Pot in ORE at today's prices vs the minimum (null while a price is missing)
+    const worth = await potWorthOre(pot).catch(() => null);
     return json({
       round, latestRound: latest, draw: pub,
       potSol: sp ? +(pot.usd / sp).toFixed(4) : null, potOre: op ? +(pot.usd / op).toFixed(4) : null, potUsd: +pot.usd.toFixed(2),
       potPct: POT_PCT_MAX, potPctMin: POT_PCT_MIN, routes: pot.routes, solPrice: sp, orePrice: op,
+      potWorthOre: worth ? worth.ore : null, potMinOre: potMinOre(),
     });
   }
 

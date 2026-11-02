@@ -402,7 +402,8 @@ export async function buildPlan(round, { budgetMs = 20e3, excluded = [], now = D
     const v = await within(verifyDraw(round));
     for (const p of v.problems) flags.push({ severity: "block", who: "plan", check: "e", reason: "draw re-check: " + p });
     for (const u of v.unchecked) flags.push(cant("e", u));
-    flags.push(...checkTicketConcentration(v.entries, v.totalTickets, new Set(winners.map((w) => w.id))));
+    // a held round (Pot under its minimum) picks nobody, so who holds its chances decides nothing this week
+    if (!pub.potHeld) flags.push(...checkTicketConcentration(v.entries, v.totalTickets, new Set(winners.map((w) => w.id))));
   } catch (e) { flags.push(cant("e", "the draw", e)); }
   flags.push(...checkReserved(payees));
   flags.push(...checkCap(await liveUsd(planTotals(payees), within)));
@@ -416,7 +417,10 @@ export async function buildPlan(round, { budgetMs = 20e3, excluded = [], now = D
     round, builtAt: Date.now(), status: "ready",
     draw: { commitHash: pub.commitHash, seed: pub.seed, blockhash: pub.blockhash, blockSlot: pub.blockSlot, targetSlot: pub.targetSlot,
       totalTickets: pub.totalTickets, entrants: pub.entrants, drawnAt: pub.drawnAt, potRolledOver: !!pub.potRolledOver,
+      ...(pub.carriedFrom ? { carriedFrom: pub.carriedFrom, carriedTickets: pub.carriedTickets || 0 } : {}),
       statusUrl: storeUrl() + "/api/draw?action=status" },
+    // the Pot was under its minimum at this week's draw time: no winners, the pot and every chance carry over
+    potHeld: pub.potHeld ? { ore: pub.potCheck?.ore ?? null, needOre: pub.potCheck?.needOre ?? null } : null,
     pot: snap ? { usd: +(+snap.usd || 0).toFixed(2), routes: snap.routes, totals: potTotals(snap), since: snap.since, closedAt: snap.closedAt } : null,
     tiers: PRIZE_TIERS.map(Number), unfilled: unfilledShares(pub, snap),
     ...(raffle.rounds.length ? { raffle: { rounds: raffle.rounds, draws: raffle.draws, ...((raffle.hiddenGifts || []).length ? { hiddenGifts: raffle.hiddenGifts } : {}) } } : {}),
@@ -445,6 +449,13 @@ export function summary(plan) {
   if (big(t.SOL) > 0n) parts.push(fmt(t.SOL, "SOL") + " SOL→ORE");
   if (big(t.USDC) > 0n) parts.push(fmt(t.USDC, "USDC", 2) + " USDC→ORE");
   return `round ${plan.round}: ${nW} winner${nW === 1 ? "" : "s"}${nR ? ` + ${nR} Burn Raffle winner${nR === 1 ? "" : "s"}` : ""} + ${nP} preacher${nP === 1 ? "" : "s"}, ${parts.join(" + ") || "nothing to send"} (≈ $${t.usd})`;
+}
+// "Pot not drawn: worth 0.31 ORE, needs 2.5 — the pot and every chance carry over to next week" (null when it was drawn)
+export function heldText(plan) {
+  const h = plan?.potHeld;
+  if (!h) return null;
+  const n = (v) => (v == null ? "?" : (+v).toLocaleString("en-US", { maximumFractionDigits: 4 }));
+  return `Pot not drawn: worth ${n(h.ore)} ORE, needs ${n(h.needOre)} — the pot and every chance carry over to next week`;
 }
 function flagText(plan) {
   const fl = openFlags(plan);
@@ -486,8 +497,9 @@ export async function buildAndStore(round, opts = {}) {
     });
   }
   if (opts.notify !== false) {
-    if (plan.status === "empty") await notify(`Dojo payout round ${round}: nothing to pay this week (no winners, no preacher owed ≥ $${num("MIN_PREACHER_PAYOUT_USD", 1)}).`);
-    else await notify(`Weekly payout ready — ${summary(plan)}\n${flagText(plan)}\n${storeUrl()}/payouts`);
+    const held = heldText(plan);
+    if (plan.status === "empty") await notify(`Dojo payout round ${round}: nothing to pay this week (no winners, no preacher owed ≥ $${num("MIN_PREACHER_PAYOUT_USD", 1)}).${held ? "\n" + held + "." : ""}`);
+    else await notify(`Weekly payout ready — ${summary(plan)}${held ? "\n" + held + "." : ""}\n${flagText(plan)}\n${storeUrl()}/payouts`);
   }
   return plan;
 }
@@ -521,10 +533,14 @@ export async function cronTick({ now = Date.now(), budgetMs = 20e3 } = {}) {
   if (pub?.committedAt >= week && state.committedFor !== week) { state.committedFor = week; await store.setJSON("cycle", state); }
   if (state.committedFor !== week && now >= week) {
     if (now - week > CATCHUP_MS) { state.committedFor = week; state.skipped = [...(state.skipped || []).slice(-5), week]; await store.setJSON("cycle", state); return { step: "skipped-late", week }; }
-    const c = await commitRound();
-    state.committedFor = week; state.lastCommit = { round: c.round, at: now };
+    // the commit values the Pot in ORE (draw at ≥ 2.5 ORE, else hold — store-draw-core). No live price → nothing is
+    // committed and the next tick (10 min) tries again, within the same catch-up window.
+    let c;
+    try { c = await commitRound(); }
+    catch (e) { if (e instanceof DrawError && e.status === 503) return { step: "waiting-price", week, error: e.message }; throw e; }
+    state.committedFor = week; state.lastCommit = { round: c.round, at: now, ...(c.potHeld ? { potHeld: true } : {}), potOre: c.potCheck?.ore ?? null };
     await store.setJSON("cycle", state);
-    return { step: "committed", round: c.round, targetSlot: c.targetSlot };
+    return { step: c.potHeld ? "committed-held" : "committed", round: c.round, targetSlot: c.targetSlot, potOre: c.potCheck?.ore ?? null, needOre: c.potCheck?.needOre ?? null };
   }
 
   if (pub?.status === "drawn" && (pub.drawnAt || 0) >= state.since && !(await getPlan(round))) {
@@ -1041,7 +1057,7 @@ export function weeklyStatement({ now = Date.now(), reserve = null, viaPreacher 
   const swapped = (lines) => lines.some((l) => l.amounts[MINTS.SOL] || l.amounts[MINTS.USDC]);
   const OUT = [];
   OUT.push(group("winners", plan ? "Pot winners — round " + plan.round : "Pot winners", "this week's draw", winnerLines,
-    { none: winnerLines.length ? null : (drawNote || (plan && plan.status === "paid" ? "Round " + plan.round + " is already paid ✓" : "No draw to pay right now")), swapNote: swapped(winnerLines) ? "SOL / USDC parts are swapped to ORE in the same batch" : null }));
+    { none: winnerLines.length ? null : (drawNote || heldText(plan) || (plan && plan.status === "paid" ? "Round " + plan.round + " is already paid ✓" : "No draw to pay right now")), swapNote: swapped(winnerLines) ? "SOL / USDC parts are swapped to ORE in the same batch" : null }));
   OUT.push(group("preachers", "Preacher shares", "28–44% of the coin buys they brought in (mining tips locked before 27 Oct 2026 still pay)", preacherLines,
     { none: preacherLines.length ? null : "No preacher is owed $1 or more", swapNote: swapped(preacherLines) ? "SOL / USDC parts are swapped to ORE in the same batch" : null }));
   // gift tokens / NFTs a raffle winner gets on top (pay.bonus) — sent from the Treasury in the same batch
