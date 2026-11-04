@@ -59,7 +59,7 @@
       var mine = W && x.seller === W.pubkey;
       var m = META[x.mint] || {};
       var isCard = x.dojo === "Degen Dojo";   // genuine Degens: show the collectible card, whole
-      var art = isCard ? "https://degendojo.s3.us-west-1.amazonaws.com/degen/card/" + x.mint + ".png?v=9b" : (safeImg(m.img) || safeImg(x.image) || ddImg(x.mint));
+      var art = isCard ? "https://degendojo.s3.us-west-1.amazonaws.com/degen/card/" + x.mint + ".png?v=9e" : (safeImg(m.img) || safeImg(x.image) || ddImg(x.mint));
       var nm = m.name || x.name || (x.mint.slice(0, 6) + "…");
       var btn = mine
         ? '<button data-act="delist" data-i="' + i + '" style="margin:0 8px 8px;padding:7px 0;border:1px solid rgba(201,151,58,.5);border-radius:8px;background:transparent;color:#e8b84b;font-weight:700;font-size:12px;cursor:pointer">Delist</button>'

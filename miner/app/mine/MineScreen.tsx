@@ -25,7 +25,7 @@ import {
 import { SolIcon } from "@/components/SolIcon";
 import { TIP_WALLET, DEGENS_URL, DEGENS_INLINE_JSON } from "@/lib/config";
 import { recordTip, dojoFeeIxs, dojoFeeOf } from "@/lib/minerTip";
-import { estimateRun, PRESETS, PRESET_MAX_MOTHERLODE, STRATEGIES, SOLO_TILES, SPLIT_TILES, NO_MOTHERLODE_LIMIT, type Preset, type Strategy } from "@/lib/mineEstimate";
+import { estimateRun, fmtEst, fmtOdds, PRESETS, PRESET_MAX_MOTHERLODE, STRATEGIES, SOLO_TILES, SPLIT_TILES, NO_MOTHERLODE_LIMIT, type Preset, type Strategy } from "@/lib/mineEstimate";
 import { BurnMode } from "./BurnMode";
 
 type GridDegen = { name: string; image: string; mint?: string };
@@ -36,9 +36,7 @@ const EXECUTOR_FEE = Number(EXECUTOR_FEE_LAMPORTS) / LAMPORTS_PER_SOL;
 const sol = (lamports: bigint | number) => Number(lamports) / LAMPORTS_PER_SOL;
 const ore = (grams: bigint) => Number(grams) / 1e11;
 const fmtPct = (p: number) => (p >= 0.1 ? p.toFixed(2) : p.toFixed(4)) + "%";
-// The estimate's numbers: two figures at most, so they don't look more exact than they are.
-const fmtEst = (n: number) => String(Number(n.toPrecision(2)));
-const fmtOdds = (p: number) => (p < 0.001 ? "<0.1%" : p < 0.1 ? `${(p * 100).toFixed(1)}%` : `${Math.min(99, Math.round(p * 100))}%`);
+// The estimate's numbers (fmtEst, fmtOdds in lib/mineEstimate): two figures at most, so they don't look more exact than they are.
 const fmtSol = (lamports: number) => String(Number((lamports / LAMPORTS_PER_SOL).toFixed(6)));
 const fmtTime = (s: number) => (s < 3600 ? `${Math.max(1, Math.round(s / 60))} min` : s < 172800 ? `${Math.round(s / 3600)} h` : `${Math.round(s / 86400)} days`);
 const solVal = (n: number, dp = 3) => (
@@ -356,7 +354,7 @@ export function MineScreen({ previewDegens, header, footer }: { previewDegens?: 
         )}
 
         {burnMode && !hosted ? (
-          <BurnMode connection={connection} automation={automation} motherlode={motherlode} miner={miner} busy={busy} submit={submit} onBack={() => showBurn(false)} />
+          <BurnMode connection={connection} automation={automation} motherlode={motherlode} miner={miner} round={round} prevRound={prevRound} slotMs={slotMs} busy={busy} submit={submit} onBack={() => showBurn(false)} />
         ) : (
         /* Desktop: Degens left, info + auto-miner right. From xl the setup form takes its own column so the page fits with no scroll;
            a running miner's status is short enough to stay in the info column, just above Burn to Mine. */

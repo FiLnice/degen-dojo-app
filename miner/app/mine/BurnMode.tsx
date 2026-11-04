@@ -13,26 +13,40 @@ import { Buffer } from "buffer";
 import { Flame, Pickaxe, Loader2 } from "lucide-react";
 import { useWallet } from "@/lib/wallet-bridge";
 import type { OreGameState } from "@/hooks/useOreGame";
-import { automateIx, SQUARES, EXECUTOR_FEE_LAMPORTS, STRATEGY_PREFERRED, type AutomationConditions } from "@/lib/ore";
+import { automateIx, SQUARES, EXECUTOR_FEE_LAMPORTS, STRATEGY_PREFERRED, STRATEGY_RANDOM } from "@/lib/ore";
+import { estimateRun, fmtEst, fmtOdds, NO_MOTHERLODE_LIMIT, STRATEGIES, type Strategy } from "@/lib/mineEstimate";
 import { confirmAll, onRpcRetry, storeRpc as rpc, takeBurnPicks, thumb, useDojoBurn, type BurnNft, type Plan, type ScanOut } from "@/lib/dojoBurn";
 import { TIP_WALLET } from "@/lib/config";
 import { dojoFeeIxs, recordTip } from "@/lib/minerTip";
 import {
-  AUTOMATION_BYTES, DEFAULT_ROUNDS, FIXED_PER_TILE, MINER_BYTES, ROUND_CHOICES, STRETCH_MIN_PER_TILE, STRETCH_ROUNDS, TILES,
+  AUTOMATION_BYTES, DEFAULT_ROUNDS, FIXED_PER_TILE, MINER_BYTES, ROUND_CHOICES, STRETCH_MIN_PER_TILE, STRETCH_ROUNDS,
   oneTimeLamports, rentFallback, sizeOption, step2Plan, walletNeedAfter, walletNeedBefore, type Option, type Sizing,
 } from "@/lib/burnMine";
 
-// ─── Mining options (owner 2026-10-27) — Burn to Mine covers ALL 25 tiles, so a new miner is on the winning tile every round
-// and collects some ORE each round. Both: Automate V2 Preferred strategy with every square, winnings reloaded, and the
-// program skips a round while the motherlode is above 140 ORE. The /mine page's own auto-miner keeps its own settings.
+// ─── Mining options. The STRATEGY (owner 2026-11-04: the five of the /mine page, lib/mineEstimate STRATEGIES) sets the tiles and
+// the Motherlode range: Steady (the default) is what Burn to Mine always did, all 25 tiles while the Motherlode is ≤ 140. The
+// SIZING (owner 2026-10-27) sets the SOL a tile; winnings are reloaded either way:
 //   Stretch   the per-tile amount is sized from the deposit so it lasts ≈ 50 rounds, never below 0.00004 SOL a tile
-//   25 tiles  a fixed 0.0002 SOL a tile
-type Preset = { id: Option; name: string; blurb: string; conditions: AutomationConditions };
+//   Fixed     a fixed 0.0002 SOL a tile
+type Preset = { id: Option; name: string; blurb: string };
 export const PRESETS: Preset[] = [
-  { id: "stretch", name: "Stretch", blurb: "All 25 tiles, the amount per tile sized to last about 50 rounds (never below 0.00004 SOL a tile).", conditions: { maxMotherlode: 140 } },
-  { id: "fixed", name: "25 tiles", blurb: "All 25 tiles at 0.0002 SOL a tile — bigger stakes, fewer rounds.", conditions: { maxMotherlode: 140 } },
+  { id: "stretch", name: "Stretch", blurb: "The amount per tile sized to last about 50 rounds (never below 0.00004 SOL a tile)." },
+  { id: "fixed", name: "Fixed", blurb: "0.0002 SOL a tile — bigger stakes, fewer rounds." },
 ];
 const ALL_SQUARES = Array.from({ length: SQUARES }, () => true);
+const STRATEGY_KEYS = Object.keys(STRATEGIES) as Strategy[];
+const tilesOf = (s: Strategy) => STRATEGIES[s].solo + STRATEGIES[s].split;
+/** "all 25 tiles", "15 split tiles", "10 solo tiles" */
+const tilesLabel = (s: Strategy) => {
+  const { solo, split } = STRATEGIES[s];
+  return !solo ? `${split} split tiles` : !split ? `${solo} solo tiles` : `all ${solo + split} tiles`;
+};
+/** When the strategy mines, for the review line: ", only while the Motherlode is ≤ 140 uORE" (nothing for Nonstop). */
+const limitLabel = (s: Strategy) => {
+  const { min, max } = STRATEGIES[s];
+  const hi = max < NO_MOTHERLODE_LIMIT;
+  return !min && !hi ? "" : `, only while the Motherlode is ${min && hi ? `${min}–${max}` : min ? `≥ ${min}` : `≤ ${max}`} uORE`;
+};
 
 const PAGE = 40; // 5 rows of 8 on a laptop; no placeholder tiles
 const solStr = (lamports: number, dp = 4) => (lamports / LAMPORTS_PER_SOL).toFixed(dp);
@@ -43,13 +57,13 @@ const solFine = (lamports: number) => {
 };
 const isB58 = (s: string | null) => !!s && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(s);
 
-type Props = Pick<OreGameState, "connection" | "automation" | "motherlode" | "miner"> & {
+type Props = Pick<OreGameState, "connection" | "automation" | "motherlode" | "miner" | "round" | "prevRound" | "slotMs"> & {
   busy: string | null;
   submit: (label: string, ixs: TransactionInstruction[]) => Promise<string | null>;
   onBack: () => void;
 };
 
-export function BurnMode({ connection, automation, motherlode, miner, busy, submit, onBack }: Props) {
+export function BurnMode({ connection, automation, motherlode, miner, round, prevRound, slotMs, busy, submit, onBack }: Props) {
   const { publicKey, sendTransaction } = useWallet();
   const { api, error: loadErr } = useDojoBurn();
 
@@ -60,7 +74,8 @@ export function BurnMode({ connection, automation, motherlode, miner, busy, subm
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [picked, setPicked] = useState<{ kept: number; dropped: number } | null>(null);
   const [page, setPage] = useState(0);
-  const [presetId, setPresetId] = useState<Option>(PRESETS[0].id); // Stretch first: the cheapest way onto all 25 tiles
+  const [presetId, setPresetId] = useState<Option>(PRESETS[0].id); // Stretch first: the cheapest way onto the tiles
+  const [strategyId, setStrategyId] = useState<Strategy>("steady"); // Steady = what Burn to Mine always did
   const [rounds, setRounds] = useState<number>(DEFAULT_ROUNDS);
   const [showAll, setShowAll] = useState(false); // burn list: "Floor below 0.05 SOL" (default) | "Show all"
   const [walletBal, setWalletBal] = useState<number | null>(null);
@@ -79,6 +94,8 @@ export function BurnMode({ connection, automation, motherlode, miner, busy, subm
   const owner = publicKey ? publicKey.toBase58() : viewWallet;
   const mine = !!publicKey && owner === publicKey.toBase58();
   const preset = PRESETS.find((p) => p.id === presetId) || PRESETS[0];
+  const strat = STRATEGIES[strategyId];
+  const tiles = tilesOf(strategyId);
 
   useEffect(() => {
     const q = new URLSearchParams(window.location.search).get("wallet");
@@ -172,7 +189,14 @@ export function BurnMode({ connection, automation, motherlode, miner, busy, subm
   const reclaim = review ? review.gain : estLamports;
   const motherlodeOre = motherlode ? Number(motherlode) / 1e11 : null;
   // what the chosen option needs: from the burn (≈ reclaim), the top-up from the wallet, one-time account costs
-  const sz: Sizing = sizeOption(preset.id, reclaim, rounds);
+  const sz: Sizing = sizeOption(preset.id, reclaim, rounds, tiles);
+  // what the run is likely to earn, the /mine page's maths on the usual board over the strategy's Motherlode range
+  const board = (prevRound && round && prevRound.deployed.reduce((a, b) => a + b, 0n) >= round.deployed.reduce((a, b) => a + b, 0n) ? prevRound : round)?.deployed ?? [];
+  const estimate = (s: Sizing) =>
+    motherlodeOre == null
+      ? null
+      : estimateRun({ depositLamports: s.deposit, perTileLamports: s.perTile, tiles: board, motherlodeOre, soloTiles: strat.solo, splitTiles: strat.split, minMotherlode: strat.min, maxMotherlode: strat.max, slotMs, typicalBoard: true });
+  const waiting = motherlodeOre != null && (motherlodeOre > strat.max || motherlodeOre < strat.min); // ORE skips rounds outside the range
   const oneTime = oneTimeLamports({ hasAutomation: !!automation, hasMiner: !!miner, rentAutomation: rent.auto, rentMiner: rent.miner });
   const burnTxs = review ? review.plan.batches.length + (review.closes?.batches.length || 0) : Math.max(1, Math.ceil(chosen.length / 3));
   const walletShort = walletBal != null ? Math.max(0, walletNeedBefore(sz, oneTime, burnTxs) - walletBal) : 0;
@@ -267,7 +291,7 @@ export function BurnMode({ connection, automation, motherlode, miner, busy, subm
         return;
       }
       if (plan2.kind === "short") {
-        setDone(`🔥 Burned — ${solFine(plan2.back)} SOL came back. Mining needs ${solFine(plan2.missing)} SOL more in this wallet (${preset.name}, ${rounds} funded rounds), so it wasn't started; you can top up on the miner.`);
+        setDone(`🔥 Burned — ${solFine(plan2.back)} SOL came back. Mining needs ${solFine(plan2.missing)} SOL more in this wallet (${strat.label}, ${preset.name}, ${rounds} funded rounds), so it wasn't started; you can top up on the miner.`);
         setRescan((n) => n + 1);
         return;
       }
@@ -293,29 +317,38 @@ export function BurnMode({ connection, automation, motherlode, miner, busy, subm
     const needNow = walletNeedAfter(s2, oneTime);
     if (bal < needNow) {
       setPendingMine(null);
-      setDone(`🔥 Burned — ${solFine(back)} SOL came back. Mining needs ${solFine(needNow - bal)} SOL more in this wallet (${preset.name}, ${rounds} funded rounds), so it wasn't started; you can top up on the miner.`);
+      setDone(`🔥 Burned — ${solFine(back)} SOL came back. Mining needs ${solFine(needNow - bal)} SOL more in this wallet (${strat.label}, ${preset.name}, ${rounds} funded rounds), so it wasn't started; you can top up on the miner.`);
+      return;
+    }
+    if (s2.tiles !== tiles) {
+      // sized for another strategy's tiles: never send a deposit sized for 25 tiles onto 10, or the other way round
+      setPendingMine(null);
+      setDone(`🔥 Burned — ${solFine(back)} SOL came back. The strategy changed, so auto-mining wasn't started; you can start it on the miner.`);
       return;
     }
     {
       setStep("Step 2 — set up auto-mining…");
       const fee = dojoFeeIxs(publicKey, s2.deposit, TIP_WALLET);
+      // as on /mine: ORE picks solo and split tiles only on its Random strategy and takes the first round's tiles from the mask,
+      // so the mask holds the same count; all 25 tiles stay Preferred with every square (the bytes Burn to Mine always sent)
+      const pickTiles = tiles < SQUARES;
       const sig = await submit("Start auto-mining", [
         automateIx({
           signer: publicKey,
           amountLamports: BigInt(s2.perTile),
           depositLamports: BigInt(s2.deposit),
           feeLamports: EXECUTOR_FEE_LAMPORTS,
-          squares: ALL_SQUARES,
+          squares: pickTiles ? ALL_SQUARES.map((_, i) => i < tiles) : ALL_SQUARES,
           reload: true,
-          strategy: STRATEGY_PREFERRED,
-          conditions: preset.conditions,
+          strategy: pickTiles ? STRATEGY_RANDOM : STRATEGY_PREFERRED,
+          conditions: { minMotherlode: strat.min, maxMotherlode: strat.max, ...(pickTiles ? { soloTiles: strat.solo, splitTiles: strat.split } : {}) },
         }),
         ...fee.ixs,
       ]);
       if (sig && fee.feeLamports > 0) void recordTip(sig, me, fee.feeLamports / LAMPORTS_PER_SOL, "SOL");
       setDone(
         sig
-          ? `🔥 Burned and ⛏ mining — ${solFine(s2.deposit)} SOL went into auto-mining (${preset.name}: all 25 tiles at ${solFine(s2.perTile)} SOL, ${s2.funded} funded rounds, ≈ ${s2.rounds} on average)${s2.topUp > 0 ? `, ${solFine(s2.topUp)} SOL of it from your wallet` : ""}, + ${solFine(fee.feeLamports)} SOL Dojo fee.`
+          ? `🔥 Burned and ⛏ mining — ${solFine(s2.deposit)} SOL went into auto-mining (${strat.label}, ${preset.name}: ${tilesLabel(strategyId)} at ${solFine(s2.perTile)} SOL, ${s2.funded} funded rounds, ≈ ${s2.rounds} on average)${s2.topUp > 0 ? `, ${solFine(s2.topUp)} SOL of it from your wallet` : ""}, + ${solFine(fee.feeLamports)} SOL Dojo fee.`
           : `🔥 Burned — ${solFine(back)} SOL came back. Auto-mining wasn't started (see the message above); you can start it on the miner.`,
       );
       setPendingMine(null);
@@ -354,8 +387,8 @@ export function BurnMode({ connection, automation, motherlode, miner, busy, subm
         </button>
       </div>
       <p className="mt-1 max-w-2xl text-sm text-stone-400">
-        Burn the NFTs you don&apos;t want — every one gives back its rent — and auto-mine ORE with that SOL on all 25 tiles: you&apos;re on the winning tile every
-        round and collect uORE as it runs. Tap the NFTs you want to burn; nothing is picked for you.
+        Burn the NFTs you don&apos;t want — every one gives back its rent — and auto-mine ORE with that SOL, with the same strategies as the miner. Steady
+        mines all 25 tiles: you&apos;re on the winning tile every round and collect uORE as it runs. Tap the NFTs you want to burn; nothing is picked for you.
       </p>
       <p className="mt-1 max-w-2xl text-xs text-stone-500">
         Staked somewhere off-chain? Some projects track staking on their own servers — the NFT looks free here, and burning it ends that stake.
@@ -603,8 +636,8 @@ export function BurnMode({ connection, automation, motherlode, miner, busy, subm
                   )}
                   {review.plan.dropped.length > 0 && <div className="text-amber-300">Left out: {review.plan.dropped.map((d) => d.item.name + " — " + d.reason).join("; ")}</div>}
                   <div>
-                    <b>Step 2</b> — auto-mine on all {TILES} tiles at ≈ <b>{solFine(sz.perTile)} SOL a tile</b> ({preset.name}, {sz.funded} funded rounds, ≈ {sz.rounds} on average with reload, only while the
-                    motherlode is ≤ {preset.conditions.maxMotherlode} ORE) with the ≈ {solFine(review.gain)} SOL that comes back
+                    <b>Step 2</b> — auto-mine on {tilesLabel(strategyId)} at ≈ <b>{solFine(sz.perTile)} SOL a tile</b> ({strat.label}, {preset.name}, {sz.funded} funded rounds, ≈ {sz.rounds} on average with
+                    reload{limitLabel(strategyId)}) with the ≈ {solFine(review.gain)} SOL that comes back
                     {sz.topUp > 0 ? (
                       <>
                         {" "}
@@ -657,9 +690,33 @@ export function BurnMode({ connection, automation, motherlode, miner, busy, subm
                   ))}
                 </span>
               </div>
-              <div className="space-y-2">
+              {/* the miner's five strategies (owner 2026-11-04); a strategy is locked once burned SOL waits on "Mine with these numbers" */}
+              <div className="grid grid-cols-3 gap-1.5">
+                {STRATEGY_KEYS.map((k) => (
+                  <button
+                    key={k}
+                    type="button"
+                    aria-pressed={strategyId === k}
+                    disabled={working || !!pendingMine}
+                    onClick={() => (setStrategyId(k), setSure(false))}
+                    className={`rounded-md border px-1 py-1.5 text-[11px] font-semibold uppercase leading-tight tracking-wide transition-colors disabled:opacity-40 ${
+                      strategyId === k ? "border-amber-400 bg-amber-500/20 text-amber-200" : "border-amber-600/60 text-amber-300 hover:bg-amber-900/30"
+                    }`}
+                  >
+                    {STRATEGIES[k].label}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1.5 text-[11px] leading-snug text-stone-400">{strat.blurb}</p>
+              {waiting && (
+                <p className="mt-1 text-[11px] leading-snug text-amber-300">
+                  The Motherlode is {motherlodeOre!.toFixed(1)} uORE now, so this waits before its first round. A skipped round costs nothing.
+                </p>
+              )}
+              <div className="mt-2 space-y-2">
                 {PRESETS.map((p) => {
-                  const z = sizeOption(p.id, reclaim, rounds);
+                  const z = sizeOption(p.id, reclaim, rounds, tiles);
+                  const e = estimate(z);
                   return (
                     <label
                       key={p.id}
@@ -667,13 +724,19 @@ export function BurnMode({ connection, automation, motherlode, miner, busy, subm
                       className={`block cursor-pointer rounded-lg border px-2.5 py-2 text-xs ${presetId === p.id ? "border-amber-500/70 bg-amber-950/20" : "border-stone-800 hover:border-stone-700"}`}
                     >
                       <span className="flex items-center gap-2 text-sm">
-                        <input type="radio" name="preset" checked={presetId === p.id} onChange={() => (setPresetId(p.id), setSure(false))} />
+                        <input type="radio" name="preset" checked={presetId === p.id} disabled={!!pendingMine} onChange={() => (setPresetId(p.id), setSure(false))} />
                         <b className="text-stone-100">{p.name}</b>
                         <span className="text-xs text-stone-400">· {p.id === "stretch" ? "sized for you" : solFine(FIXED_PER_TILE) + "/tile"}</span>
                       </span>
                       <span className="mt-1 block text-stone-300">
-                        all {TILES} tiles · ≈{solFine(z.perTile)}/tile · ≈{z.rounds} rounds avg · fees ≈{pctStr(z.botFeePct)}%
+                        {tilesLabel(strategyId)} · ≈{solFine(z.perTile)}/tile · ≈{z.rounds} rounds avg · fees ≈{pctStr(z.botFeePct)}%
                       </span>
+                      {e && (
+                        <span className="mt-0.5 block text-amber-200/90">
+                          {strat.split > 0 ? `You'd get about ${fmtEst(e.steady)} uORE` : `Chance of a solo (+1 uORE) ${fmtOdds(e.soloChance)}`}
+                          {strat.split > 0 && strat.solo > 0 ? ` · solo chance ${fmtOdds(e.soloChance)}` : ""}
+                        </span>
+                      )}
                       {z.topUp > 0 && reclaim > 0 ? (
                         <span className="mt-0.5 block text-amber-300">
                           Needs {solFine(z.totalIn)} · burn gives {solFine(reclaim)} · add {solFine(z.topUp)} from wallet
@@ -694,6 +757,10 @@ export function BurnMode({ connection, automation, motherlode, miner, busy, subm
               <details className="mt-2 text-[11px] text-stone-500">
                 <summary className="cursor-pointer select-none text-stone-400 hover:text-stone-300">ⓘ How it works</summary>
                 <ul className="mt-1.5 list-disc space-y-1 pl-4">
+                  <li>
+                    The strategy picks the tiles and when it mines, the same five as the miner: Steady, Split only, Solo hunter, Motherlode and Nonstop
+                    {motherlodeOre != null ? ` (the Motherlode is ${motherlodeOre.toFixed(1)} uORE now)` : ""}.
+                  </li>
                   {PRESETS.map((p) => (
                     <li key={p.id}>
                       <b className="text-stone-400">{p.name}</b> — {p.blurb}
@@ -702,12 +769,10 @@ export function BurnMode({ connection, automation, motherlode, miner, busy, subm
                   <li>
                     Stretch is sized toward ≈ {STRETCH_ROUNDS} rounds on average, never below {solFine(STRETCH_MIN_PER_TILE)} SOL a tile.
                   </li>
+                  <li>&quot;You&apos;d get about&quot; is estimated on the usual board at the strategy&apos;s Motherlode sizes, not a promise.</li>
                   <li>
                     Funded = full rounds even if none of them returns anything. With reload on, winnings flow back, so it keeps going until the balance can&apos;t load a full
                     round — the ≈ average is a guide; a run can be shorter or longer.
-                  </li>
-                  <li>
-                    Both mine only while the motherlode is ≤ {PRESETS[0].conditions.maxMotherlode} ORE{motherlodeOre != null ? ` (now ${motherlodeOre.toFixed(1)} ORE)` : ""}.
                   </li>
                   {oneTime > 0 && <li>Your first auto-mine also opens your ORE account (≈ {solFine(oneTime)} SOL rent, returned when it closes).</li>}
                   <li>1% Dojo fee — same as ORE takes. Paid only when it works: once, on the mining deposit (nothing on the burns).</li>

@@ -17,6 +17,7 @@ import { readFileSync, writeFileSync, mkdirSync, copyFileSync, cpSync, rmSync, e
 import { assertNoSecrets, assertZipClean } from "./build-leak-guard.mjs";
 import { STORE_CSP as CSP } from "./csp.mjs";   // the store loads nothing from cdnjs (security review L8)
 import { execSync } from "child_process";
+import { BELT, REPAIR_ORE } from "./belts.mjs";   // belt names are never hard-coded on a page (owner 2026-11-03): written in from here
 
 const ROOT = "C:/Users/sazei/Documents/DEGEN DOJO/BULKITOR/bulkitor";
 const OUT = `${ROOT}/scripts/store-deploy`;
@@ -97,7 +98,7 @@ const ddNav = (sub, active, extra = "") =>
   `<div class="dn-bar" style="position:sticky;top:0;z-index:72;background:rgba(10,10,15,.94);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-bottom:1px solid rgba(201,151,58,.18);display:flex;align-items:center;gap:16px;padding:11px 20px;flex-wrap:wrap;font-family:'Cinzel',serif;">` +
   `<a href="https://degendojo.xyz/" title="Degen Dojo home" style="display:flex;align-items:center;gap:11px;text-decoration:none;color:#efe6d2;"><img src="/dd-mark.jpg" alt="Degen Dojo" style="width:40px;height:40px;border-radius:9px;object-fit:cover;display:block;box-shadow:0 0 0 1px rgba(201,151,58,.35);" onerror="this.style.display='none'"/>` +
   `<div style="text-align:left;"><b style="font-family:'Cinzel',serif;font-size:15px;letter-spacing:.16em;display:block;color:#efe6d2;">DEGEN DOJO</b><small style="font-family:'Cinzel',serif;font-size:9px;letter-spacing:.26em;color:#a99a7e;">${sub}</small></div></a>` +
-  `<nav class="dn-links" style="display:flex;gap:8px;flex-wrap:wrap;"><a href="https://degendojo.xyz/" class="dn-home" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">⛩ Home</a><a href="#" class="dn-connect" onclick="var b=this.closest('.dn-bar').querySelector('.dn-extra button');if(b)b.click();return false;" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#e8b84b;border:1px solid rgba(201,151,58,.5);background:rgba(201,151,58,.12);">🔑 Connect</a>${navPill("/", "⌂ Store", active === "store")}${navPill("/market", "🛒 Market", active === "market")}${navPill("/list", "🏷 List", active === "list")}${navPill("/play", "▶ Play", active === "play")}${navPill("/mine", "⛏ Mine", active === "mine")}${navPill("/sweep", "💰 Claim", active === "sweep")}${navPill("/launch", "🚀 Launch", active === "launch")}${navPill("/pot", "🏆 Pot", active === "pot")}${navPill("/become-a-preacher", "📣 Preacher", active === "preacher")}</nav><span class="dn-extra">${extra}</span>` +
+  `<nav class="dn-links" style="display:flex;gap:8px;flex-wrap:wrap;"><a href="https://degendojo.xyz/" class="dn-home" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">⛩ Home</a><a href="#" class="dn-connect" onclick="var b=this.closest('.dn-bar').querySelector('.dn-extra button');if(b)b.click();return false;" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#e8b84b;border:1px solid rgba(201,151,58,.5);background:rgba(201,151,58,.12);">🔑 Connect</a>${navPill("/", "🏯 Pagoda", active === "store")}${navPill("/market", "🛒 Market", active === "market")}${navPill("/list", "🏷 List", active === "list")}${navPill("/play", "▶ Play", active === "play")}${navPill("/mine", "⛏ Mine", active === "mine")}${navPill("/sweep", "💰 Claim", active === "sweep")}${navPill("/launch", "🚀 Launch", active === "launch")}${navPill("/pot", "🏆 Pot", active === "pot")}${navPill("/become-a-preacher", "📣 Preacher", active === "preacher")}</nav><span class="dn-extra">${extra}</span>` +
   `<button class="dn-ham" type="button" aria-label="Menu" onclick="var n=this.closest('.dn-bar').querySelector('.dn-links');if(n)n.classList.toggle('dn-open');">☰</button>` +
   `</div>`;   // Market = browse/buy any collection; Launch = mining-drip launchpad (preview); List = sell your Degen
 const walletBtnHtml = `<button id="dojoNavWallet" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#0a0814;background:linear-gradient(135deg,#c8962a,#8b6018);border:none;padding:9px 16px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;">Connect wallet</button>`;
@@ -198,8 +199,9 @@ copyFileSync(`${ROOT}/scripts/store-fn-raffle.mjs`, `${OUT}/netlify/functions/ra
 // Coins live server-side (credited only by verify.mjs on a confirmed purchase);
 // tickets are minted only by play.mjs after it recomputes the outcome itself.
 copyFileSync(`${ROOT}/scripts/store-fn-auth.mjs`, `${OUT}/netlify/functions/auth.mjs`);
-// Dojo Keeper money backend: royalties (88/12), repairs (0.01 ORE), burn claims (stORE) — store-keeper-core.mjs
+// Dojo Keeper money backend: royalties (88/12), repairs (0.05 ORE), burn claims (stORE) — store-keeper-core.mjs
 copyFileSync(`${ROOT}/scripts/store-keeper-core.mjs`, `${OUT}/netlify/functions/store-keeper-core.mjs`);
+copyFileSync(`${ROOT}/scripts/belts.mjs`, `${OUT}/netlify/functions/belts.mjs`);   // the belts (owner 2026-11-03): the repair price + Belt names the Keeper reads
 copyFileSync(`${ROOT}/scripts/store-fn-vault.mjs`, `${OUT}/netlify/functions/vault.mjs`);         // /api/vault
 copyFileSync(`${ROOT}/scripts/store-fn-repair.mjs`, `${OUT}/netlify/functions/repair.mjs`);       // /api/repair
 copyFileSync(`${ROOT}/scripts/store-fn-burnclaim.mjs`, `${OUT}/netlify/functions/burnclaim.mjs`); // /api/burnclaim
@@ -224,6 +226,7 @@ copyFileSync(`${ROOT}/scripts/store-fn-miner.mjs`, `${OUT}/netlify/functions/min
 copyFileSync(`${ROOT}/scripts/store-fn-miner-page.mjs`, `${OUT}/netlify/functions/miner-page.mjs`);   // /m/<slug> — the one page other sites may frame
 copyFileSync(`${ROOT}/scripts/store-fn-resolve.mjs`, `${OUT}/netlify/functions/resolve.mjs`);   // /api/resolve — find a live listing for a pasted/clicked mint
 copyFileSync(`${ROOT}/scripts/store-fn-tensor-listings.mjs`, `${OUT}/netlify/functions/tensor-listings.mjs`);   // live Tensor book for the tower (/api/tensor-listings)
+copyFileSync(`${ROOT}/scripts/store-tensor-core.mjs`, `${OUT}/netlify/functions/store-tensor-core.mjs`);   // shared Tensor book (tower + the market's Dojo cases)
 copyFileSync(`${ROOT}/scripts/store-royalty-core.mjs`, `${OUT}/netlify/functions/store-royalty-core.mjs`);   // MARKETPLACES list (keeper + reserve); its royalty→Pot sweep is retired
 // royalty-cron RETIRED 2026-10-23 (royalties no longer feed the Pot; the Keeper core handles them) — not shipped any more,
 // so the next deploy removes the every-minute scheduled function.
@@ -416,13 +419,15 @@ copyFileSync(`${ROOT}/scripts/store-wallets.html`, `${OUT}/reserve/index.html`);
     if (!h.includes("navwallet-wire")) h = h.includes("</body>") ? h.replace(/<\/body>/i, walletWire + "</body>") : (h + walletWire);
     writeFileSync(fp, h);
   } catch {} }
-// Repair (/repair) page: paste a wallet (or connect) → Cracked/Faded → Mint for 0.01 ORE a card (Mint cap shown).
+// Repair (/repair) page: paste a wallet (or connect) → Cracked/Faded → Mint for 0.05 ORE a card (Mint cap shown).
 // The Burn page (store-burn.html) is NOT shipped while burning is off (BURN_ENABLED) — kept in the repo for later:
 // add ["store-burn.html", "burn", "BURN"] back to the list below when the owner opens burning. Same nav + wallet as /list.
 copyFileSync(`${ROOT}/scripts/dojo-card-tx.js`, `${OUT}/dojo-card-tx.js`);   // repair (ORE + ddfix memos) / burn (BurnV1) txs
 copyFileSync(`${ROOT}/scripts/dojo-qr.js`, `${OUT}/dojo-qr.js`);             // inline QR encoder for Solana Pay links
 // Dojo Sweep (/sweep, alias /claim): free — empty token accounts, burnable NFTs, Magic Eden bid escrow, staking; txs built + simulated in the browser
-copyFileSync(`${ROOT}/scripts/dojo-burn.js`, `${OUT}/dojo-burn.js`);     // shared burn + close + tip logic (/sweep and the miner's burn mode, /mine?burn=1)
+{ const src = readFileSync(`${ROOT}/scripts/dojo-burn.js`, "utf8"), re = /var RED_BELT = '[^']*';/;   // shared burn + close + tip logic (/sweep and the miner's burn mode, /mine?burn=1)
+  if (!re.test(src)) throw new Error("dojo-burn.js: RED_BELT line not found");
+  writeFileSync(`${OUT}/dojo-burn.js`, src.replace(re, () => `var RED_BELT = ${JSON.stringify(BELT.red.name)};`)); }
 copyFileSync(`${ROOT}/scripts/dojo-sweep.js`, `${OUT}/dojo-sweep.js`);
 copyFileSync(`${ROOT}/scripts/store-ore-tools.js`, `${OUT}/ore-tools.js`);     // /orewizard + /oreparties: ORE's maths and the live market numbers
 copyFileSync(`${ROOT}/scripts/store-ore-tools.css`, `${OUT}/ore-tools.css`);
@@ -441,14 +446,15 @@ for (const [src, dir, label] of [["store-repair.html", "repair", "REPAIR"], ["st
   const fp = `${OUT}/${dir}/index.html`;
   try { let h = readFileSync(fp, "utf8");
     h = h.replace('<div id="ddnav-mount"></div>', ddNav(label, dir, walletBtnHtml));
+    h = h.replace(/(<(b|span) data-belt="(\w+)">)[^<]*(<\/\2>)/g, (all, open, tag, key, close) => (BELT[key] ? `${open}${BELT[key].name} belt (${BELT[key].title})${close}` : all));   // /repair: "<name> belt (<title>)" of BELT.white, from belts.mjs
     if (!h.includes("navwallet-wire")) h = h.includes("</body>") ? h.replace(/<\/body>/i, walletWire + "</body>") : (h + walletWire);
     writeFileSync(fp, h);
   } catch {} }
 // Store home keeps its own (reference) nav but build-store.mjs regenerates it, so patch the copy to
-// highlight its own "Store" pill — matching how every other page highlights its active pill.
+// highlight its own "Pagoda" pill (the store home, owner 2026-11-03: was "Store") — matching how every other page highlights its active pill.
 { const fp = `${OUT}/index.html`;
   try { let h = readFileSync(fp, "utf8");
-    h = h.replace('<a href="/">⌂ Store</a>', '<a href="/" class="here">⌂ Store</a>');
+    h = h.replace('<a href="/">🏯 Pagoda</a>', '<a href="/" class="here">🏯 Pagoda</a>');
     h = h.replace('.topnav a:hover{', '.topnav a.here{border-color:rgba(201,151,58,.6);color:var(--gold-l);background:rgba(201,151,58,.14);}\n.topnav a:hover{');
     writeFileSync(fp, h);
   } catch {} }
@@ -676,7 +682,7 @@ execSync("npm install --omit=dev --no-audit --no-fund", { cwd: OUT, stdio: "inhe
   }
   console.log(`  mwa.js added to ${added} page(s) that loaded the wallet picker without it.`);
   // Cracked / Faded cards (Nov 2 on): every page that shows Degen Dojo card pictures loads dd-states.js in <head>,
-  // which swaps a cracked card's picture to its cracked card (degen/card-states.json).
+  // which swaps a cracked piece's picture to its torn card (degen/card-states.json): Belt Torn.
   copyFileSync(`${ROOT}/scripts/dd-states.js`, `${OUT}/dd-states.js`);
   let st = 0;
   for (const p of walk(OUT)) {
@@ -688,7 +694,7 @@ execSync("npm install --omit=dev --no-audit --no-fund", { cwd: OUT, stdio: "inhe
       st++;
     }
   }
-  console.log(`  dd-states.js (cracked card pictures) added to ${st} page(s).`);
+  console.log(`  dd-states.js (cracked → torn card) added to ${st} page(s).`);
 }
 
 // ── Search + link previews: canonical, description and preview tags on every public page, plus sitemap.xml. A shared link
@@ -703,7 +709,7 @@ execSync("npm install --omit=dev --no-audit --no-fund", { cwd: OUT, stdio: "inhe
   mkdirSync(`${OUT}/og`, { recursive: true });
   for (const c of new Set([...Object.values(OG_CARD), "rescue"])) copyFileSync(`${ROOT}/scripts/page-og/${c}.jpg`, `${OUT}/og/${c}.jpg`);
   const pages = [
-    ["index.html", "/", "Degen Dojo Store — Buy and list NFTs in ORE", null],
+    ["index.html", "/", "The Pagoda — Degen Dojo Store, buy NFTs in ORE", null],
     ["market.html", "/market", null, "Buy Solana NFTs with ORE: Degen Dojo fighters plus other top collections."],
     ["list/index.html", "/list/", null, "List your NFT on Degen Dojo and get paid in ORE. It stays in your wallet until it sells."],
     ["mine.html", "/mine", "Mine ORE on the Degen Dojo Grid", "Mine ORE on a 25-tile grid of Degen Dojo fighters. Auto-mine from your wallet, or burn junk NFTs to fund it."],
@@ -719,7 +725,7 @@ execSync("npm install --omit=dev --no-audit --no-fund", { cwd: OUT, stdio: "inhe
     ["pot/index.html", "/pot/", null, null],
     ["draw.html", "/draw", null, null],
     ["economy/index.html", "/economy/", null, null],
-    ["repair/index.html", "/repair/", null, "Repair a cracked Degen Dojo card for 0.01 ORE. Mint cards never crack again, and only 555 can exist."],
+    ["repair/index.html", "/repair/", null, `Repair a torn Degen Dojo card for ${REPAIR_ORE} ORE: it gets the ${BELT.white.name} belt (${BELT.white.title}) and is kept for good. Only 555 Mint cards can exist.`],
     ["sweep/index.html", "/sweep/", null, null],
     ["orewizard/index.html", "/orewizard/", null, "Plan an ORE mining run: solo odds, split drip, Motherlode share and the real SOL cost, with live market numbers and five mining strategies."],
     ["oreparties/index.html", "/oreparties/", null, "ORE Parties minting now, a leaderboard of every party with solos won against expected, what their settings actually did, and a designer to try your own."],

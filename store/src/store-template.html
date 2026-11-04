@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>The Dojo Store — Degen Dojo</title>
-<meta name="description" content="Every Degen Dojo fighter for sale, floor by floor. One character per floor, cheapest at the ground, the Kingpin at the summit. Pay in ORE." />
+<title>The Pagoda — Degen Dojo</title>
+<meta name="description" content="The Pagoda: every Degen Dojo card, floor by floor. Six floors, one per belt: Red at the summit, White at the ground. Pay in ORE." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Inter:wght@300;400;500;600&family=Noto+Serif+JP:wght@400;700&family=Teko:wght@500;600;700&display=swap" rel="stylesheet" />
@@ -349,7 +349,9 @@ html{scroll-snap-type:y proximity;scroll-behavior:smooth;}
    100% zoom, pushing the price off the bottom. width:auto keeps the 664:928 ratio (no
    distortion); the 610px cap keeps the derived width within the slot so nothing clamps. */
 @media(min-width:641px){
-  .tile{width:auto;max-width:100%;height:min(calc(100svh - 270px),585px);margin:0 auto;}
+  /* width-driven so the card keeps its 664:928 shape at 5 a floor (owner 2026-11-03): the slot width, or the height cap
+     turned into a width — whichever is smaller. A fixed height made thin, tall tiles with a small card inside. */
+  .tile{width:min(100%,calc(min(calc(100svh - 270px),585px) * 664 / 928));height:auto;margin:0 auto;}
 }
 /* shoji cross splitting the lit paper pane, sitting behind the card */
 .tile::before,.tile::after{content:'';position:absolute;background:rgba(14,8,14,.72);z-index:0;}
@@ -418,6 +420,34 @@ html{scroll-snap-type:y proximity;scroll-behavior:smooth;}
 .floor.faded .tile img{filter:drop-shadow(0 3px 7px rgba(0,0,0,.6)) brightness(.9);}
 .floor.faded .chochin::after{display:none;}
 
+/* EIGHT BELT FLOORS (owner 2026-11-03): each floor wears its belt's colour (scripts/belts.mjs) on the roof tiles, the name
+   board, the lanterns and the window light: --bc base, --bh light, --bl dark, --bink text, --bglow the light (the black
+   belt glows gold, its stitch). Every floor is lit; the lanterns show how many of that belt exist and how many are for sale. */
+.floor.belt .roof{background:
+    repeating-linear-gradient(90deg,rgba(0,0,0,.35) 0 1px,rgba(255,255,255,.07) 1px 2px,transparent 2px 11px),
+    linear-gradient(180deg,var(--bh) 0%,var(--bc) 40%,var(--bl) 74%,#0c0a0e 100%);}
+.floor.belt .roof::after{background:linear-gradient(180deg,rgba(255,255,255,.18),transparent 42%);}
+.floor.belt .kanban{background:linear-gradient(180deg,var(--bh),var(--bc) 58%,var(--bl));border-color:var(--bl);
+  box-shadow:0 0 22px color-mix(in srgb,var(--bglow) 55%,transparent),0 5px 16px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.3);}
+.floor.belt .kanban .nm{color:var(--bink);text-shadow:none;}
+.floor.belt .kanban::before,.floor.belt .kanban::after{background:var(--bl);}
+.floor.belt .shelf{background:
+    repeating-linear-gradient(0deg,rgba(195,160,175,.1) 0 1px,transparent 1px 52px),
+    repeating-linear-gradient(90deg,rgba(195,160,175,.1) 0 1px,transparent 1px 68px),
+    repeating-linear-gradient(90deg,transparent 0 24.6%,color-mix(in srgb,var(--bl) 45%,#2b2030) 24.6% 25.4%),
+    linear-gradient(180deg,color-mix(in srgb,var(--bl) 26%,#1b141c),color-mix(in srgb,var(--bl) 14%,#100b12));
+  box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--bc) 55%,transparent),inset 0 0 50px rgba(0,0,0,.5),inset 0 0 90px color-mix(in srgb,var(--bglow) 16%,transparent),0 12px 28px rgba(0,0,0,.6);}
+.floor.belt .tile{background:radial-gradient(130% 100% at 50% 32%,color-mix(in srgb,var(--bglow) 42%,transparent),color-mix(in srgb,var(--bglow) 12%,transparent) 42%,rgba(14,8,14,.5) 82%);}
+.floor.belt .slot:hover .tile{background:radial-gradient(130% 100% at 50% 32%,color-mix(in srgb,var(--bglow) 70%,transparent),color-mix(in srgb,var(--bglow) 22%,transparent) 42%,rgba(14,8,14,.5) 82%);}
+.floor.belt .chochin i,.floor.belt .chochin b{color:var(--bink);border-color:var(--bl);
+  background:repeating-linear-gradient(180deg,rgba(0,0,0,.1) 0 1px,transparent 1px 5px),linear-gradient(180deg,color-mix(in srgb,var(--bh) 55%,#fff6e2),var(--bh) 55%,var(--bc));
+  box-shadow:inset 0 0 8px color-mix(in srgb,var(--bglow) 55%,transparent),0 0 13px color-mix(in srgb,var(--bglow) 60%,transparent);}
+.floor.belt .chochin b.big{font-size:11px;letter-spacing:-.02em;}
+.floor.belt .chochin::after{background:radial-gradient(circle,color-mix(in srgb,var(--bglow) 34%,transparent),transparent 70%);}
+@media(max-width:1000px){ .floor.belt .chochin b.big{font-size:9px;} }
+.beltempty{flex:1 0 100%;min-height:150px;display:grid;place-items:center;text-align:center;padding:20px;font-family:'Cinzel',serif;font-size:13px;letter-spacing:.06em;color:#d9c9a8;}
+.beltempty a{color:var(--gold-l);}
+
 /* ── base ───────────────────────────────────────────────────────── */
 .base{position:relative;width:96%;max-width:700px;height:38px;margin-top:2px;border-radius:6px 6px 0 0;
   display:flex;align-items:center;justify-content:center;
@@ -428,6 +458,7 @@ html{scroll-snap-type:y proximity;scroll-behavior:smooth;}
 .steps{width:78%;max-width:600px;height:11px;border-radius:0 0 6px 6px;
   background:linear-gradient(180deg,#140d1a,#080510);box-shadow:0 8px 16px rgba(0,0,0,.6);}
 .groundnote{max-width:560px;margin:26px auto 0;text-align:center;color:var(--muted);font-size:12px;line-height:1.6;}
+.groundnote a{color:var(--gold);}
 
 /* ── the dossier drawer ─────────────────────────────────────────── */
 .scrim{position:fixed;inset:0;z-index:90;background:rgba(4,3,8,.76);backdrop-filter:blur(4px);display:none;}
@@ -589,13 +620,13 @@ footer a{color:var(--gold);text-decoration:none;}
 
 <div class="top">
   <a class="brand" href="https://degendojo.xyz/" title="Degen Dojo home"><img class="mk" src="dd-mark.jpg" alt="Degen Dojo" />
-    <div><b>DEGEN DOJO</b><small>THE STORE</small></div></a>
+    <div><b>DEGEN DOJO</b><small>THE PAGODA</small></div></a>
   <button class="navinfo" id="navInfo" onclick="toggleInfo(event)" aria-label="Info / Filter">i</button>
   <button class="navham" id="navHam" onclick="toggleTopNav(event)" aria-label="Menu">☰</button>
   <nav class="topnav" id="topNav">
     <a href="https://degendojo.xyz/" id="navHome">⛩ Home</a>
     <a href="#" id="navConnect" onclick="walletClick();return false;">🔑 Connect</a>
-    <a href="/">⌂ Store</a>
+    <a href="/">🏯 Pagoda</a>
     <a href="/market">🛒 Market</a>
     <a href="/list">🏷 List</a>
     <a href="/play">▶ Play</a>
@@ -672,7 +703,7 @@ footer a{color:var(--gold);text-decoration:none;}
   .fpclose{padding:9px 11px;flex:0 0 auto;}
 }
 </style>
-<button class="filterfab" id="filterFab" onclick="toggleFilterPanel()" aria-label="Filter the tower and see the collection's numbers">
+<button class="filterfab" id="filterFab" onclick="toggleFilterPanel()" aria-label="Filter the Pagoda and see its numbers">
   <span class="ffic">⚙</span><span class="fftx">Info / Filter</span><span class="fdot"></span>
 </button>
 <div class="filterpanel" id="filterPanel">
@@ -788,8 +819,25 @@ if (Date.now() >= Date.UTC(2026, 9, 29) || /[?&]labels=new/.test(location.search
 // Trait emoji, lifted at build time from the site's lore explorer so the store
 // speaks the same visual language. { cat: type→emoji, val: value→emoji }
 const TRAIT_EMOJI = __TRAIT_EMOJI__;
-const catEmoji = (t) => TRAIT_EMOJI.cat[t] || '';
+const catEmoji = (t) => TRAIT_EMOJI.cat[t] || (t === 'Belt' ? '🥋' : '');
 const valEmoji = (v) => TRAIT_EMOJI.val[v] || '';
+
+// THE PAGODA = ONE FLOOR PER BELT (owner 2026-11-03: "each floor has a specific color depending on the belt color"; six belts
+// since the evening): Red at the summit … White at the ground, every Degen Dojo card, listed or held. BELTS = scripts/belts.mjs
+// (highest first) with the text ink and light colour for each; BELT_OF = first 8 chars of the mint → its index in BELTS (the
+// card's Belt trait at build time), -1 = Belt Torn (a torn card, not on the Pagoda). A torn piece
+// repaired since the build is a White card now: dd-states.js (the Keeper's card-states.json).
+const BELTS = __BELTS__;
+const BELT_OF = __BELT_OF__;
+const WHITE_AT = BELTS.findIndex((b) => b.key === 'white');
+function beltIdx(mint, attrs) {
+  const m = String(mint || '');
+  let i = BELT_OF[m.slice(0, 8)];
+  if (i == null) { const t = (attrs || []).find((a) => a.trait_type === 'Belt'); i = t ? BELTS.findIndex((b) => b.name.toLowerCase() === String(t.value).toLowerCase()) : -1; }
+  if (i === -1 && window.DDStates && DDStates.ok && DDStates.ok() && DDStates.cond(m) === 'Mint') i = WHITE_AT;
+  return i;
+}
+const beltVars = (b) => `--bc:${b.base};--bh:${b.hi};--bl:${b.lo};--bink:${b.ink};--bglow:${b.glow}`;
 
 const ICON = {
   sol: "data:image/png;base64,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",
@@ -847,35 +895,31 @@ const trait = (l,t) => (l.attributes.find(a=>a.trait_type===t)||{}).value || '';
 /* ── one floor per character — the whole roster, listed or not ────── */
 // The working set of listings — starts from the baked-in snapshot, then trimmed
 // live as sales are detected (see refreshListings).
-let LIVE = STORE.listings.slice();
+let LIVE = STORE.listings.filter((l) => beltIdx(l.mint, l.attributes) >= 0);
 
 const uMint = (u) => Array.isArray(u) ? u[0] : (u && u.mint);
 function buildFloors(listings) {
-  const byChar = new Map();
+  // one floor per belt, in belt order; held copies carry their own character name: [mint, number, ext, character]
+  const floors = BELTS.map((b) => ({ belt: b, character: b.name, items: [], unlisted: [] }));   // floor sign = just the colour: RED, BLACK, ORANGE… (owner 11-03)
+  const listed = new Set();
   for (const l of listings) {
-    if (CARDLESS_MINTS.has(l.mint)) continue;   // demon/sensei copies never belong in the degen tower
-    const c = trait(l,'Character') || l.name || 'Unknown';
-    if (!byChar.has(c)) byChar.set(c, []);
-    byChar.get(c).push(l);
+    if (CARDLESS_MINTS.has(l.mint)) continue;
+    const f = floors[beltIdx(l.mint, l.attributes)];
+    if (f) { f.items.push(l); listed.add(l.mint); }
   }
-  // Start from the full character roster so every character gets a chamber —
-  // the ones with no listing render faded, keeping the tower the full building.
-  const floors = (STORE.characters || []).map((c) => {
-    const items = (byChar.get(c.character) || []).sort((a,b)=>a.priceAllIn-b.priceAllIn);
-    byChar.delete(c.character);
-    const unlisted = (c.unlisted || []).filter((u) => !CARDLESS_MINTS.has(uMint(u)));   // drop demon/sensei held copies
-    return { character: c.displayName || c.character, trait: c.character,
-             race: c.race, supply: c.supply, unlisted, items,
-             from: items.length ? items[0].priceAllIn : null };
-  });
-  // Any listed character somehow absent from the roster (defensive) still shows.
-  for (const [character, items] of byChar) {
-    items.sort((a,b)=>a.priceAllIn-b.priceAllIn);
-    floors.push({ character, unlisted: [], items, from: items[0].priceAllIn });
+  for (const c of (STORE.characters || [])) for (const u of (c.unlisted || [])) {
+    const a = Array.isArray(u) ? u : [u && u.mint, u && u.number, u && u.ext], m = a[0];
+    if (!m || CARDLESS_MINTS.has(m) || listed.has(m)) continue;   // a held copy listed since the build shows once, as listed
+    const f = floors[beltIdx(m)];
+    if (f) f.unlisted.push([m, a[1], a[2], c.displayName || c.character]);
   }
-  // Drop chambers that are now completely empty (e.g. a demon-only character) so no
-  // blank floor is left behind; real degen chambers with held copies stay (faded).
-  return floors.filter((f) => f.items.length || (f.unlisted && f.unlisted.length));
+  for (const f of floors) {
+    f.items.sort((a, b) => a.priceAllIn - b.priceAllIn);
+    f.unlisted.sort((a, b) => (a[1] ?? 1e9) - (b[1] ?? 1e9));
+    f.supply = f.items.length + f.unlisted.length;
+    f.from = f.items.length ? f.items[0].priceAllIn : null;
+  }
+  return floors;
 }
 let ALL_FLOORS = buildFloors(LIVE);
 
@@ -912,6 +956,7 @@ const SORT = {
            cap:(top,base)=> `<b>${top.character}</b> · ${top.items.length} listed at the top` },
 };
 function orderedFloors() {
+  return ALL_FLOORS;   // the 8 belt floors keep belt order, Red at the summit (owner 2026-11-03); the sorts below are retired
   const S = SORT[sortMode], tie = (a,b)=> a.character.localeCompare(b.character);
   if (sortMode === 'price' || sortMode === 'scarce') {
     // Only listed floors have a price; the rest (no price) settle at the base,
@@ -930,7 +975,7 @@ let FLOORS = orderedFloors();
    categories the site's trait pages use. Filtering narrows the tower to the
    listings that carry that trait — the held copies step aside while it's on,
    because only listings carry per-fighter traits in the store payload. */
-const FILTER_CATS = ['Character','Race','Weapon','Clothing','Hair','Glasses','Accessories','Background','Condition'];   // "Generation" retired (now Race)
+const FILTER_CATS = ['Character','Race','Weapon','Clothing','Hair','Glasses','Accessories','Background','Belt','Condition'];   // "Generation" retired (now Race); Belt replaced Condition (owner 2026-11-03) — each shows only while listings carry it
 const TRAIT_INDEX = (() => {
   const idx = {};
   for (const l of STORE.listings) {
@@ -1005,6 +1050,9 @@ function buildFloorDots(n){ const dots = $('floorDots'); if (!dots) return;
   let h=''; for (let i=0;i<n;i++) h += `<div class="fd" onclick="floorTo(${i})"></div>`; dots.innerHTML = h; }
 function summitLine(){ return (parseInt(getComputedStyle(document.documentElement).getPropertyValue('--navH')) || 64); }
 function currentFloorIndex(){ const els = floorEls(), line = summitLine() + 40; let idx = 0;
+  // scrolled to the very bottom with the ground floor in view: that floor (a short one, e.g. an empty White floor, never reaches the line)
+  const se = document.scrollingElement || document.documentElement;
+  if (els.length && se.scrollTop + innerHeight >= se.scrollHeight - 4 && els[els.length - 1].getBoundingClientRect().top < innerHeight) return els.length - 1;
   for (let i = 0; i < els.length; i++){ if (els[i].getBoundingClientRect().top <= line) idx = i; else break; } return idx; }
 function updateFloorNav(){ const els = floorEls(), cnt = $('floorCount'), up = $('floorUp'), dn = $('floorDown');
   if (typeof placeArrows === 'function') placeArrows();   // keep the ‹ › arrows centred in the gutter
@@ -1025,7 +1073,12 @@ function stepFloor(dir){ const els = floorEls(); if (!els.length || floorLock) r
 // (disabled while the filter bar or a fighter drawer is open, so those can scroll normally.)
 function pagerBusy(){ const fp = $('filterPanel'), sc = document.querySelector('.scrim');
   return (fp && fp.classList.contains('open')) || (sc && getComputedStyle(sc).display !== 'none'); }
-addEventListener('wheel', (e) => { if (pagerBusy() || Math.abs(e.deltaY) < 6) return; e.preventDefault(); stepFloor(e.deltaY > 0 ? 1 : -1); }, { passive: false });
+let _wheelX = 0;   // a sideways trackpad swipe pages within the floor, once per gesture
+addEventListener('wheel', (e) => {
+  if (pagerBusy()) return;
+  if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) { e.preventDefault(); if (Math.abs(e.deltaX) > 12 && Date.now() - _wheelX > 450) { _wheelX = Date.now(); page(currentFloorIndex(), e.deltaX > 0 ? 1 : -1); } return; }
+  if (Math.abs(e.deltaY) < 6) return; e.preventDefault(); stepFloor(e.deltaY > 0 ? 1 : -1);
+}, { passive: false });
 let _tY = null, _tX = null;
 addEventListener('touchstart', (e) => { _tY = e.touches[0].clientY; _tX = e.touches[0].clientX; }, { passive: true });
 addEventListener('touchmove', (e) => { if (_tY != null && !pagerBusy()) e.preventDefault(); }, { passive: false });
@@ -1055,7 +1108,7 @@ const matchesFilter = (l) => !filterOn() ||
 
 /* How many fit on a shelf. Kept in sync with the CSS custom property so the
    pager maths and the layout can never disagree. */
-const perFloor = () => (window.matchMedia('(max-width:640px)').matches ? 1 : 3);
+const perFloor = () => (window.matchMedia('(max-width:640px)').matches ? 1 : window.matchMedia('(max-width:1000px)').matches ? 3 : 5);   // 5 a floor on a computer (owner 2026-11-03), then ‹ › for the rest
 
 /* The price tag: one line, USDC | SOL | ORE, each with its own symbol ($, ◎, ⛏),
    SOL emphasised. USDC/ORE fill in once live Jupiter prices arrive (the tower
@@ -1075,7 +1128,7 @@ const S3IMG = (mint, ext) => `https://degendojo.s3.us-west-1.amazonaws.com/degen
 // The collectible CARD image (portrait). Tiles show this now; fall back to the art for cardless races.
 // ?v=5 busts the Netlify image proxy + browser caches after the cards were re-rendered at
 // 2× (664×928). S3 ignores the query and serves the new object; bump this if cards change again.
-const cardImg = (mint) => `https://degendojo.s3.us-west-1.amazonaws.com/degen/card/${mint}.png?v=9b`;
+const cardImg = (mint) => `https://degendojo.s3.us-west-1.amazonaws.com/degen/card/${mint}.png?v=9e`;
 // Request the card at DEVICE-pixel resolution so it's crisp on retina/hi-dpi screens (a 235px
 // tile on a 2× display needs ~470px of image, not 300). Capped near the card's native width
 // (~664px) so we never upscale past the source. This is the #4 "cards look low quality" fix.
@@ -1121,6 +1174,9 @@ const ghostSlot = ([mint, num, ext], name) => `
     <div class="fuda ntag"><span class="owned">Owned</span></div>
   </div>`;
 
+// a belt floor with no card yet (White until the first repair or claim)
+const emptyBelt = (b) => `<div class="beltempty"><span>No ${esc(b.name)} belts yet.${b.key === 'white' ? ' A <a href="/repair">0.05 ORE repair</a> turns an OG piece into a White card.' : ''}</span></div>`;   // one span: the grid centres it as one line
+
 function render() {
   const per = perFloor();
   document.documentElement.style.setProperty('--per', per);
@@ -1138,11 +1194,11 @@ function render() {
     const total = listedN + unlistedN;
     const pages = Math.max(1, Math.ceil(total / per));
 
-    // Lanterns: how many are listed (inside) of how many exist (below).
-    // top bulb (lit) = how many are LISTED; bottom bulb (dark) = how many are held / NOT listed.
-    const heldN = Math.max(0, (f.supply != null ? f.supply : total) - listedN);
+    // Lanterns (owner 2026-11-03: "light up lanterns showing how many exist per floor"): both bulbs lit in the belt's colour —
+    // the big bottom bulb = how many cards of this belt EXIST, the small top bulb = how many of them are for sale.
+    const existN = filterOn() ? listedN : (f.supply != null ? f.supply : total);
     const lantern = (side) => `<div class="chochin ${side}">
-        <i>${listedN}</i><b>${heldN.toLocaleString('en-US')}</b>
+        <i>${listedN}</i><b class="${existN >= 1000 ? 'big' : ''}">${existN.toLocaleString('en-US')}</b>
       </div>`;
 
     // Only the listed fighters are built now; the held copies are injected when
@@ -1153,7 +1209,7 @@ function render() {
     const kanban = `<span class="nm">${esc(f.character)}</span>`;
 
     html += `
-      <div class="floor${listedN?'':' faded'}" data-floor="${fi}" data-page="0" ${unlistedN?`data-faded="${fi}"`:''}>
+      <div class="floor belt" style="${beltVars(f.belt)}" data-floor="${fi}" data-page="0" ${unlistedN?`data-faded="${fi}"`:''}>
         <div class="floorbody">
           <div class="roof"><span class="ridge"></span></div>
           <div class="kanban">${kanban}</div>
@@ -1162,16 +1218,16 @@ function render() {
             ${pages>1 ? `<div class="shutter l" onclick="page(${fi},-1)" disabled>‹</div>
                          <div class="shutter r" onclick="page(${fi},1)">›</div>
                          <div class="pager" id="pg${fi}">1 / ${pages}</div>` : ''}
-            <div class="rail"><div class="track" id="tr${fi}">${listedSlots}</div></div>
+            <div class="rail"><div class="track" id="tr${fi}">${listedSlots || (total ? '' : emptyBelt(f.belt))}</div></div>
           </div>
         </div>
       </div>`;
   });
   html += '<div class="base"><span>道場</span></div><div class="steps"></div>';
-  const held = STORE.supply - STORE.listedCount;
+  const listedAll = ALL_FLOORS.reduce((s, f) => s + f.items.length, 0), held = ALL_FLOORS.reduce((s, f) => s + (f.supply || 0), 0) - listedAll;
   html += filterOn()
     ? `<div class="groundnote">${shownListed} for sale carrying <b>${esc(filterValue)}</b>, across ${shownFloors} chamber${shownFloors===1?'':'s'}.</div>`
-    : `<div class="groundnote">${STORE.listedCount} for sale · ${held.toLocaleString('en-US')} more held across ${FLOORS.length} chambers.
+    : `<div class="groundnote">${listedAll} for sale · ${held.toLocaleString('en-US')} more held, on six floors: one per belt, Red at the summit, White at the ground.
        Fighters tagged OWNED aren't listed — their owners haven't put them up. Every fighter opens its own page.</div>`;
   $('tower').innerHTML = html;
 
@@ -1199,20 +1255,21 @@ function observeFaded() {
   }, { rootMargin: '600px 0px' });
   document.querySelectorAll('.floor[data-faded]').forEach((el) => fadedObserver.observe(el));
 }
-function hydrateFaded(fi) {
+// Held copies go in a few pages at a time (the Purple floor holds hundreds): enough for the pages up to `upto` slots.
+function hydrateFaded(fi, upto) {
   const floor = document.querySelector(`.floor[data-floor="${fi}"]`);
-  if (!floor || floor.dataset.hydrated) return;
-  floor.dataset.hydrated = '1';
-  const f = FLOORS[fi];
-  const name = f.character;   // the floor's display name
-  $('tr'+fi).insertAdjacentHTML('beforeend', f.unlisted.map((m) => ghostSlot(m, name)).join(''));
+  if (!floor || filterOn()) return;
+  const f = FLOORS[fi], done = +(floor.dataset.hydrated || 0);
+  const want = Math.min(f.unlisted.length, Math.max(0, (upto || perFloor() * 3) - f.items.length));
+  if (want <= done) return;
+  floor.dataset.hydrated = want;
+  $('tr'+fi).insertAdjacentHTML('beforeend', f.unlisted.slice(done, want).map((m) => ghostSlot(m, m[3] || f.character)).join(''));
 }
 
 /* Slide a floor's rail. One page is exactly the visible width plus one gap, so
    a page always lands flush on a slot boundary at any viewport size. */
 function page(fi, dir) {
   const floor = document.querySelector(`.floor[data-floor="${fi}"]`);
-  hydrateFaded(fi);   // make sure the faded pages exist before sliding to them
   const per = perFloor(), f = FLOORS[fi];
   const total = filterOn()
     ? f.items.filter(matchesFilter).length
@@ -1220,6 +1277,7 @@ function page(fi, dir) {
   const pages = Math.max(1, Math.ceil(total / per));
   const now = Math.min(Math.max(+floor.dataset.page + dir, 0), pages-1);
   floor.dataset.page = now;
+  hydrateFaded(fi, (now + 3) * per);   // the held cards for this page and the next two
   const tr = $('tr'+fi);
   tr.style.transform = `translateX(calc(${-now} * (100% + var(--gap))))`;
   // While the rail slides, the OLD card is still under the tap point (elementFromPoint lags
@@ -2182,7 +2240,7 @@ function paintStats() {
   $('sFloor').innerHTML    = !isFinite(floor) ? '—' : oreIcon + ' ' + oreFmt(floor);
   $('sListed').textContent = LIVE.length;
   $('sChars').textContent  = ALL_FLOORS.length;
-  $('sSupply').textContent = STORE.supply.toLocaleString('en-US');
+  $('sSupply').textContent = ALL_FLOORS.reduce((s, f) => s + (f.supply || 0), 0).toLocaleString('en-US');   // the cards the Pagoda shows
 }
 
 /* A sold or delisted NFT has its on-chain trade state closed. One batched read
@@ -2248,6 +2306,8 @@ async function loadLiveTower() {
       offset += 40;
     }
     if (!live.length) return false;                 // keep the snapshot, never blank the tower
+    // the Pagoda's card states first (≤ 4 s): a no-belt piece repaired since the build is a White card on the White floor
+    if (window.DDStates && DDStates.ready) await Promise.race([DDStates.ready, new Promise((ok) => setTimeout(ok, 4000))]);
     // 2) live Tensor book (your Tensor key powers /api/tensor-listings); enrich each with its
     //    character so it lands in the right floor. Falls back to the baked Tensor listings.
     let liveTensor = [];
@@ -2266,13 +2326,14 @@ async function loadLiveTower() {
     // Tensor's API also returns Magic Eden listings, so drop any Tensor entry whose mint is already in
     // the ME book — otherwise the same NFT shows twice (once plain, once with the 天 badge).
     const meMints = new Set(live.map(it => it.mint));
-    const tensorOnly = tensorSet.filter(l => !meMints.has(l.mint));
+    const tensorOnly = tensorSet.filter(l => !meMints.has(l.mint) && beltIdx(l.mint, l.attributes) >= 0);
+    const liveWhole = live.filter(it => beltIdx(it.mint) >= 0);   // every Degen Dojo card has a belt floor
     // 3) re-render only when something actually changed
-    const sig = live.map(it => it.mint + ':' + it.price).concat(tensorOnly.map(t => t.mint + ':' + t.price)).sort().join('|');
+    const sig = liveWhole.map(it => it.mint + ':' + it.price).concat(tensorOnly.map(t => t.mint + ':' + t.price)).sort().join('|');
     if (sig === _towerSig) return true;
     _towerSig = sig;
     const num = (n) => { const m = /#\s*(\d+)/.exec(n || ''); return m ? +m[1] : null; };
-    const mapped = live.map(it => ({
+    const mapped = liveWhole.map(it => ({
       mint: it.mint, name: it.name || '', image: it.image || S3IMG(it.mint),
       price: it.price, royaltyBps: 1300, royaltySol: it.price * 0.13, takerFeeSol: it.price * 0.02,
       priceAllIn: it.price * 1.15,                  // price + 13% royalty + 2% taker (matches the snapshot's all-in)
@@ -2338,7 +2399,7 @@ function renderDDRow(){
       ? `<button onclick="doDelistDD(${i})" style="background:transparent;border:1px solid rgba(201,151,58,.5);color:#e8b84b">Delist</button>`
       : `<button onclick="doBuyDD(${i})">${ready?'Buy':'Buy soon'}</button>`;
     return `<div class="ddcard">
-    <img src="${esc(ddImg(x.mint))}" alt="" onerror="this.style.opacity=.15">
+    <img src="${esc(cardImg(x.mint))}" data-art="${esc(ddImg(x.mint))}" alt="" onerror="if(this.dataset.art&&this.src!==this.dataset.art){this.src=this.dataset.art;this.dataset.art=''}else this.style.opacity=.15">
     <div class="nm">${esc(x.name||String(x.mint).slice(0,6)+'…')}</div>
     <div class="pr">${esc(x.price)} ${esc(x.currency)}</div>
     ${btn}</div>`;

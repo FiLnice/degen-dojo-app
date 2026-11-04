@@ -21,7 +21,7 @@ const NAV_CSS = `.dn-ham{display:none}.dn-connect{display:none}.dn-home{display:
 }`;
 
 const PILLS: [string, string][] = [
-  ["/", "⌂ Store"],
+  ["/", "🏯 Pagoda"],   // the store home (owner 2026-11-03: was "⌂ Store"), same as build-store-deploy.mjs ddNav
   ["/market", "🛒 Market"],
   ["/list", "🏷 List"],
   ["/play", "▶ Play"],

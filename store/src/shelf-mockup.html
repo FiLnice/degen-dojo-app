@@ -304,7 +304,7 @@ const img = (u,s=300) => { u = u==null ? '' : String(u); if(!u) return '';
   return esc(`https://wsrv.nl/?url=${encodeURIComponent(u)}&w=${s}&h=${s}&fit=cover&output=webp`); };
 // Degen Dojo: the collectible card (S3) is what we show; the original art is the second drawer slide.
 const DD_COLL = '2m9DupVeheZ5vfuXZxqV3KSQ7HnVDk2tG6ouH1ZnLwYb', S3 = 'https://degendojo.s3.us-west-1.amazonaws.com/degen/';
-const ddCard = m => S3 + 'card/' + m + '.png?v=9b', ddArt = m => S3 + 'img/' + m + '.png';
+const ddCard = m => S3 + 'card/' + m + '.png?v=9e', ddArt = m => S3 + 'img/' + m + '.png';
 // resized but NOT cropped (the card is portrait), served as small webp
 const cardImg = (u, w=320) => esc(`https://wsrv.nl/?url=${encodeURIComponent(u)}&w=${w}&output=webp`);
 // amounts under 1 keep 3 significant digits (0.0264, not "0.03"), so a cheap NFT's card shows what the buyer really pays
@@ -559,7 +559,7 @@ async function notePaste(){
 // The listing the drawer is showing — its price is the most the buy may charge (dojo-buy.js price lock).
 let SHOWN = null;
 function showResolved(L){
-  SHOWN = L && !L.lookalike ? { mint: L.mint, price: +L.price } : null;
+  SHOWN = L && !L.lookalike ? { mint: L.mint, price: +L.price, tensor: L.marketplace === 'Tensor', royaltyBps: +L.royaltyBps || 0, seller: L.seller || null } : null;
   if(L.lookalike){ $('panel').innerHTML = '<div class="dclose" onclick="closeDrawer()">×</div><div class="dbody"><div class="dsec">Not a genuine Degen Dojo NFT</div><div class="seo">This NFT copies Degen Dojo’s name or art but isn’t from our verified collections, so it isn’t sold here.</div></div>'; return; }
   const ore = oreOf(L.priceAllIn ?? L.price);
   const rows = (L.attributes||[]).map(a=>[a.trait_type, a.value, null, '']);
@@ -611,9 +611,13 @@ async function shelfBuy(mint){
   // price lock: if the live price is above what this drawer showed, ask before anything is swapped or signed
   const shown = SHOWN && SHOWN.mint === mint ? SHOWN.price : null;
   const oreTxt = (sol) => { const o = oreOf(sol); return o == null ? (+sol).toFixed(4) + ' SOL' : nf(o) + ' ORE'; };
+  // A Tensor listing has no Magic Eden sell state, so hand the engine the price the drawer resolved on-chain:
+  // it then builds the buy through Tensor (/api/tensorbuy) and checks what that tx charges before anything is signed.
+  const tensor = SHOWN && SHOWN.mint === mint && SHOWN.tensor
+    ? { fallbackPrice: SHOWN.price, fallbackRoyaltyBps: SHOWN.royaltyBps, fallbackSeller: SHOWN.seller } : {};
   try{
     await DojoBuy.buy({ mint, currency:'ORE', adapter:w, rpcUrl:'/api/rpc', onState:s=>{ if(btn) btn.textContent=s; },
-      shownPrice: shown, formatPrice: oreTxt,
+      shownPrice: shown, formatPrice: oreTxt, ...tensor,
       confirmPrice: (from, to) => confirm(`The price changed from ${oreTxt(from)} to ${oreTxt(to)} — buy at ${oreTxt(to)}?`) });
     if(btn) btn.textContent='✓ Owned — it is in your wallet';
   }catch(e){

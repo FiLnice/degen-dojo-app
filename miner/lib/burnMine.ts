@@ -1,4 +1,5 @@
-// Burn to Mine sizing (owner 2026-10-27): two all-25-tile options, a FUNDED-rounds choice (2 · 5 · 10 · 25 · 50 · 100) and a wallet top-up.
+// Burn to Mine sizing (owner 2026-10-27): two sizing options, a FUNDED-rounds choice (2 · 5 · 10 · 25 · 50 · 100) and a wallet top-up.
+// Since 2026-11-04 (owner) the miner's five strategies pick the tiles too: `tiles` is how many a round mines (25, 15 split or 10 solo).
 //
 // What ORE itself requires (program source, ore program/src automate.rs + deploy.rs, checked 2026-10-27):
 //   · Automate takes ANY deposit — no minimum, no multi-round rule — and no minimum per tile.
@@ -14,7 +15,7 @@ import { estimateRounds, EXECUTOR_FEE_LAMPORTS, CHECKPOINT_FEE_LAMPORTS, SQUARES
 import { dojoFeeOf, depositWithin } from "./dojoFee";
 
 export const BOT_FEE = Number(EXECUTOR_FEE_LAMPORTS); // 7,000 lamports a round
-export const TILES = SQUARES; // both options cover all 25 tiles: you're on the winning tile every round
+export const TILES = SQUARES; // the default: all 25 tiles (Steady, Motherlode, Nonstop), on the winning tile every round
 export const MIN_ROUNDS = 2; // owner: at least 2 funded rounds — a short burn gets a top-up to reach it
 export const ROUND_CHOICES = [2, 5, 10, 25, 50, 100] as const;
 export const DEFAULT_ROUNDS = 2;
@@ -29,35 +30,36 @@ export const SAFETY = 100_000; // 0.0001 SOL left in the wallet on top
 
 export type Option = "stretch" | "fixed";
 
-/** One full round on all 25 tiles: the stake + the executor's fee. */
-export const roundCost = (perTile: number) => perTile * TILES + BOT_FEE;
+/** One full round on `tiles` tiles: the stake + the executor's fee. */
+export const roundCost = (perTile: number, tiles = TILES) => perTile * tiles + BOT_FEE;
 /** The deposit that funds `rounds` full rounds at `perTile`. */
-export const depositForRounds = (perTile: number, rounds: number) => rounds * roundCost(perTile);
+export const depositForRounds = (perTile: number, rounds: number, tiles = TILES) => rounds * roundCost(perTile, tiles);
 /** Full rounds a deposit funds at `perTile`, even if none of them returns anything. */
-export const fundedRounds = (deposit: number, perTile: number) => Math.floor(deposit / roundCost(perTile));
+export const fundedRounds = (deposit: number, perTile: number, tiles = TILES) => Math.floor(deposit / roundCost(perTile, tiles));
 /** ≈ rounds on average with reload (it stops when the balance can't load a full round). */
-export const avgRounds = (deposit: number, perTile: number) => estimateRounds(deposit, perTile, BOT_FEE, TILES);
+export const avgRounds = (deposit: number, perTile: number, tiles = TILES) => estimateRounds(deposit, perTile, BOT_FEE, tiles);
 
 /** Stretch: the largest whole-lamport per-tile amount that lasts ≈ STRETCH_ROUNDS on average AND still funds `funded`
  *  full rounds — never below the owner's floor. */
-export function stretchPerTile(deposit: number, funded: number): number {
+export function stretchPerTile(deposit: number, funded: number, tiles = TILES): number {
   let p = STRETCH_MIN_PER_TILE;
-  while (avgRounds(deposit, p * 2) >= STRETCH_ROUNDS) p *= 2; // bracket, then binary-search the largest p
+  while (avgRounds(deposit, p * 2, tiles) >= STRETCH_ROUNDS) p *= 2; // bracket, then binary-search the largest p
   let lo = p, hi = p * 2;
-  if (avgRounds(deposit, lo) >= STRETCH_ROUNDS) {
+  if (avgRounds(deposit, lo, tiles) >= STRETCH_ROUNDS) {
     while (hi - lo > 1) {
       const mid = Math.floor((lo + hi) / 2);
-      if (avgRounds(deposit, mid) >= STRETCH_ROUNDS) lo = mid;
+      if (avgRounds(deposit, mid, tiles) >= STRETCH_ROUNDS) lo = mid;
       else hi = mid;
     }
     p = lo;
   }
-  const cap = Math.floor((deposit / Math.max(1, funded) - BOT_FEE) / TILES); // keep `funded` full rounds in the deposit
+  const cap = Math.floor((deposit / Math.max(1, funded) - BOT_FEE) / tiles); // keep `funded` full rounds in the deposit
   return Math.max(STRETCH_MIN_PER_TILE, Math.min(p, cap));
 }
 
 export type Sizing = {
   option: Option;
+  tiles: number; // tiles a round mines (the strategy's)
   perTile: number; // lamports a tile
   deposit: number; // into the automation
   dojoFee: number; // 1% of the deposit, to the Reserve, same transaction
@@ -72,24 +74,25 @@ export type Sizing = {
 /** Size an option for `back` lamports coming back from the burns and a funded-rounds target (2 / 5 / 10, never under 2).
  *  The deposit is that target's need at the option's base per-tile amount (the wallet tops up the difference), or
  *  everything that came back when that's more — Stretch then sizes the per-tile amount up toward 50 average rounds. */
-export function sizeOption(option: Option, back: number, rounds: number): Sizing {
+export function sizeOption(option: Option, back: number, rounds: number, tiles = TILES): Sizing {
   const target = Math.max(MIN_ROUNDS, Math.floor(rounds) || MIN_ROUNDS);
   const base = option === "stretch" ? STRETCH_MIN_PER_TILE : FIXED_PER_TILE;
-  const need = depositForRounds(base, target);
+  const need = depositForRounds(base, target, tiles);
   const needIn = need + dojoFeeOf(need);
   const deposit = back >= needIn ? depositWithin(back) : need;
-  const perTile = option === "stretch" ? stretchPerTile(deposit, target) : FIXED_PER_TILE;
+  const perTile = option === "stretch" ? stretchPerTile(deposit, target, tiles) : FIXED_PER_TILE;
   const dojoFee = dojoFeeOf(deposit);
-  const r = avgRounds(deposit, perTile);
-  const start = depositForRounds(base, MIN_ROUNDS);
+  const r = avgRounds(deposit, perTile, tiles);
+  const start = depositForRounds(base, MIN_ROUNDS, tiles);
   return {
     option,
+    tiles,
     perTile,
     deposit,
     dojoFee,
     totalIn: deposit + dojoFee,
     topUp: Math.max(0, deposit + dojoFee - Math.max(0, back)),
-    funded: fundedRounds(deposit, perTile),
+    funded: fundedRounds(deposit, perTile, tiles),
     rounds: r,
     botFeePct: deposit > 0 ? (r * BOT_FEE * 100) / deposit : 0,
     minIn: start + dojoFeeOf(start),
@@ -122,7 +125,7 @@ export type Step2 =
 export function step2Plan(p: { pre: number; post: number; reviewGain: number; sent: number; done: number; option: Option; rounds: number; planned: Sizing; oneTime: number }): Step2 {
   if (p.sent < 1 || p.done !== p.sent) return { kind: "failed", done: p.done, sent: p.sent };
   const back = Math.max(0, Math.min(p.post - p.pre, p.reviewGain));
-  const s2 = sizeOption(p.option, back, p.rounds);
+  const s2 = sizeOption(p.option, back, p.rounds, p.planned.tiles); // the same strategy's tiles as the review
   const need = walletNeedAfter(s2, p.oneTime);
   if (p.post < need) return { kind: "short", back, missing: need - p.post, s2 };
   const tol = Math.max(5_000, Math.floor(p.planned.totalIn * 0.02));

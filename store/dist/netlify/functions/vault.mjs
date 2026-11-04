@@ -1,11 +1,11 @@
 // Netlify Function: /api/vault — what a Dojo card is worth to its holder (read-only, public).
 //
-//   GET ?mint=<mint>    → { mint, collection, name, image, condition, repair, repairPending, protected, vault,
+//   GET ?mint=<mint>    → { mint, collection, name, image, condition, belt, repair, repairPending, protected, vault,
 //                           burnValue: { store, usd }, burned, claim?, storeMint, treasury, treasuryOreAccount, … }
 //   GET ?owner=<wallet> → { items: [ same per Dojo NFT the wallet holds ], storeMint, treasury, … }
 //   GET ?spots=1        → { mintCount, mintCap, mintSpotsLeft, … }
 //
-//   repair  = { price: "0.01", currency: "ORE", to: "Mint" } for a Cracked / Faded card not yet repaired, else null
+//   repair  = { price: "0.05", currency: "ORE", to: "Mint" } for a Cracked / Faded card not yet repaired, else null
 //   vault   = { <currencyMint>: "<decimal>" } — this NFT's share of its collection's Card Vault (the old pool, which
 //             gets nothing new since 2026-10-30) = pool × shares ÷ eligible shares right now
 //             (shares: a Framed Degen 2, every other eligible NFT 1); shares / eligibleShares say which

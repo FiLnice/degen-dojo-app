@@ -37,11 +37,13 @@
   // Sweep / Claim and Burn to Mine never pass the option.
   var DOJO_COLL = { '2m9DupVeheZ5vfuXZxqV3KSQ7HnVDk2tG6ouH1ZnLwYb': 'Degen Dojo', 'WyUy9qjJekjqTAYGanANjhtviwgu1uhCkXx1uas8fWb': 'Demon Dojo', 'dgd6We3oS4M5LSVzT6Ep39wwVpjLC336tCpyPZkLAHx': 'TETO' };
   var MYTHIC_RACES = { 'Oni Senseis': 1, 'Gods': 1, 'Devil': 1 };
+  // the Framed cards' Belt value = BELT.red.name in belts.mjs — build-store-deploy.mjs writes the current name into the served copy
+  var RED_BELT = "Red";
   /** A Degen Dojo / Demon Dojo card's facts for the raffle's badges: { coll, framed, mythic, race, character } */
   function dojoInfo(a, coll) {
     var at = (a && a.content && a.content.metadata && a.content.metadata.attributes) || [], t = {};
     at.forEach(function (x) { if (x && x.trait_type) t[x.trait_type] = String(x.value == null ? '' : x.value); });
-    return { coll: coll, framed: t.Condition === 'Framed', mythic: !!MYTHIC_RACES[t.Race], race: t.Race || '', character: t.Character || '' };
+    return { coll: coll, framed: t.Condition === 'Framed' || t.Belt === RED_BELT, mythic: !!MYTHIC_RACES[t.Race], race: t.Race || '', character: t.Character || '' };
   }
   var KEEP_RE = /\b(position|liquidity|whirlpool|orca|raydium|meteora|kamino|lifinity|crema|invariant|concentrated|genesis token|seeker genesis|saga genesis)\b/i;
   // Floor-price guard (owner 2026-10-27): an NFT whose collection floor is at least FLOOR_MAX SOL is worth more listed than

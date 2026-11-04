@@ -59,6 +59,10 @@ export const STRATEGIES = {
 } as const;
 export type Strategy = keyof typeof STRATEGIES;
 
+/** An estimate to 2 significant figures, and a chance as a percent (the /mine panel and Burn to Mine). */
+export const fmtEst = (n: number) => String(Number(n.toPrecision(2)));
+export const fmtOdds = (p: number) => (p < 0.001 ? "<0.1%" : p < 0.1 ? `${(p * 100).toFixed(1)}%` : `${Math.min(99, Math.round(p * 100))}%`);
+
 export type RunEstimate = {
   rounds: number;
   seconds: number; // mining time, leaving out any rounds the Motherlode limit skips

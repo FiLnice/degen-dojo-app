@@ -9,6 +9,10 @@
 //   royalties — a marketplace program paid the wallet (DD AuctionHouse, Magic Eden, Tensor)
 //   mining    — it rode in an ORE program transaction (the /mine page's tip goes in the auto-mine tx)
 //   tips      — it carries the ddtip memo (Dojo Pot tips)
+//   sweep     — Claim (Dojo Sweep) fees and tips (ddsweep: memo)
+//   raffle / gifts — Burn Raffle burns (ddraffle:) and gifts (ddpot:)
+//   repairs   — card repairs (ddfix: memo, 0.05 ORE a card since 2026-11-03, 0.01 before)
+//   whitelabel — whitelabel miner setup fees (ddminer: memo)
 //   coins     — a game-coin purchase the store verified (coin-purchases record for that signature)
 //   direct    — anything else anyone sends straight to the Reserve (tips/donations, other fees)
 //   team      — sent by the Dojo's own wallets or the owner (top-ups, not income)
@@ -33,7 +37,9 @@ import { heliusKey, walkHistory } from "./store-helius-core.mjs";   // shared wi
 // holds mined ORE now, so it isn't scanned — it is still "ours" for the internal-transfer rule.
 const RESERVE = ["5w55F58ia3H71QjBD9bYvNQF2DcNu8K3AfJj9A4WMuWp"];
 // the Dojo's own wallets + the owner's personal wallet (FTrH7Q) — money moved between these is not income
+// (GmJk… = the dApp Store publisher wallet, owner 2026-11-02 — SOL moved back from it is a top-up, not income)
 const OWN = new Set([...RESERVE, "ED3GMCfoX3XNvavnWADvd6oCsohGg1ukdhv3PaUpvwJe", "DfaGo3Qht6MC2bqgFCBHgUWjaeXDNmsbE7XjyRKWM3qS",
+  "GmJkUcU49wgGAvigYd3naigkHiYEQB5fgLAynJ1NTWvg",
   ...(process.env.OWNER_WALLETS || "FTrH7Q3jJ2gkPwvpgR8KDGtmewRbB2RKBeKYaZH7hiNy").split(",").map((x) => x.trim()).filter(Boolean)]);
 const COSIGNER = process.env.COSIGNER_PUBKEY || "8KUWwAHMb7TL31JGbucCi8YE1ax7njWi46ajVbWnvDqr";   // co-signs store sales; alone it's ours
 // accounts that are still the Dojo's money: our wallets + the ORE miner / auto-mine accounts of the Reserve wallets
@@ -46,6 +52,9 @@ const SOL = "So11111111111111111111111111111111111111112";
 const DAY_MS = 86400e3, WEEK_MS = 7 * DAY_MS, HIST_DAYS = 30, HIST_MS = HIST_DAYS * DAY_MS;
 const CACHE_MS = 5 * 60e3, PER_CALL = 200, CONCURRENCY = 4, TIME_BUDGET_MS = 6500;
 const STATE_V = 3;   // v3 = 30 days deep + each tx's full signed change (dd) + resumable gaps; an older state is rebuilt from scratch
+const CLASSIFY_V = 2;   // bump when classify() learns a rule (v2: repairs, whitelabel, publisher wallet): the week's txs are sorted again, history is not re-read
+/** A balance-changing tx of the last 7 days not yet sorted by the current rules. */
+const unsorted = (it, now) => now - it.t <= WEEK_MS && (it.c === undefined || it.cv !== CLASSIFY_V) && !!it.dd && Object.keys(it.dd).length > 0;
 const TOKEN_PROGRAMS = ["TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"];
 
 async function rpc(method, params, tries = 3) {
@@ -152,13 +161,16 @@ export function classify(tx, wallet) {
   if (memos.some((m) => m.startsWith("ddraffle:"))) return { src: "raffle", d };
   // Burn Raffle gifts (memo ddpot:<round>): 100% the raffle's prize
   if (memos.some((m) => m.startsWith("ddpot:"))) return { src: "gifts", d };
+  // card repairs (memo ddfix:…, store-repair) and whitelabel miner setup fees (memo ddminer:<hash>, /create)
+  if (memos.some((m) => m.startsWith("ddfix:"))) return { src: "repairs", d };
+  if (memos.some((m) => m.startsWith("ddminer:"))) return { src: "whitelabel", d };
   const src = memos.some((m) => m === TIP_MEMO || m.startsWith(TIP_MEMO)) ? "tips"
     : market ? "royalties" : ran.has(ORE_PROGRAM) ? "mining" : "coins";
   return { src, d };
 }
 
 function aggregate(state, now) {
-  const sources = { royalties: {}, coins: {}, mining: {}, tips: {}, sweep: {}, raffle: {}, gifts: {}, direct: {}, team: {}, out: {} };
+  const sources = { royalties: {}, coins: {}, mining: {}, tips: {}, sweep: {}, raffle: {}, gifts: {}, repairs: {}, whitelabel: {}, direct: {}, team: {}, out: {} };
   const payouts = [];   // every payout of the week, newest first: { s: signature, t, d: net change, to: [{ a, m, v }] }
   for (const [s, it] of Object.entries(state.items)) {
     if (!it.c || now - it.t > WEEK_MS || !sources[it.c.src]) continue;   // "internal" moves aren't shown
@@ -190,7 +202,7 @@ export default async (request) => {
       // balance-changing ones inside the week, to sort the income
       for (const w of RESERVE) await ingestEnhanced(state, w, key, since, started);
       await classifyWeek(state, now, started);
-    } else await ingestOneByOne(state, since, started);
+    } else { await ingestOneByOne(state, since, started); await classifyWeek(state, now, started); }   // classifyWeek re-sorts txs read under older rules
   } catch (e) { /* RPC trouble: answer with what we have */ }
 
   for (const [s, it] of Object.entries(state.items)) if (now - it.t > HIST_MS) delete state.items[s];   // keep 30 days
@@ -225,7 +237,7 @@ async function ingestEnhanced(state, w, key, since, started) {
 /** Sort the week's balance-changing txs into income sources (reads only those in full). */
 async function classifyWeek(state, now, started) {
   const coinStore = getStore("coin-purchases");
-  const todo = Object.entries(state.items).filter(([, it]) => now - it.t <= WEEK_MS && it.c === undefined && it.dd && Object.keys(it.dd).length)
+  const todo = Object.entries(state.items).filter(([, it]) => unsorted(it, now))
     .sort((a, b) => b[1].t - a[1].t);
   for (let k = 0; k < todo.length && Date.now() - started < TIME_BUDGET_MS + 1500; k += CONCURRENCY) {
     await Promise.all(todo.slice(k, k + CONCURRENCY).map(async ([sig, it]) => {
@@ -234,7 +246,7 @@ async function classifyWeek(state, now, started) {
         if (!tx) return;                                                       // not readable yet → next call
         const c = classify(tx, RESERVE[0]);
         if (c && c.src === "coins") { const rec = await coinStore.get("buy:" + sig, { type: "json" }).catch(() => null); if (!rec) c.src = "direct"; }
-        it.c = c;
+        it.c = c; it.cv = CLASSIFY_V;
       } catch { /* next call */ }
     }));
   }
@@ -244,7 +256,7 @@ async function classifyWeek(state, now, started) {
 function outstanding(state, now) {
   if (state.pending.length) return true;
   if (Object.values(state.gaps || {}).some((g) => g.length)) return true;
-  return Object.values(state.items).some((it) => now - it.t <= WEEK_MS && it.c === undefined && it.dd && Object.keys(it.dd).length);
+  return Object.values(state.items).some((it) => unsorted(it, now));
 }
 
 // Without a Helius key: list every signature and read each tx in full (slow for a busy wallet, but exact)
@@ -279,7 +291,7 @@ async function ingestOneByOne(state, since, started) {
           const c = classify(tx, p.w);
           // a plain outside payment is a coin buy only if the store verified it as one; anything else is "direct"
           if (c && c.src === "coins") { const rec = await coinStore.get("buy:" + p.s, { type: "json" }).catch(() => null); if (!rec) c.src = "direct"; }
-          state.items[p.s] = { t: p.t, c, dd: walletDelta(tx, p.w) };
+          state.items[p.s] = { t: p.t, c, cv: CLASSIFY_V, dd: walletDelta(tx, p.w) };
         } catch { retry.push(p); }
       }));
     }
@@ -292,7 +304,7 @@ function answer(state, now) {
   const gapList = Object.values(state.gaps || {}).flat();
   const unknownAfter = Math.max(state.pending.reduce((m, p) => Math.max(m, p.t), 0), gapList.reduce((m, g) => Math.max(m, g.t || 0), 0));
   const daily = state.cur ? reconstructDaily(state.cur.h, state.items, state.cur.at, { unknownAfter }) : [];
-  const weekUnsorted = Object.values(state.items).some((it) => now - it.t <= WEEK_MS && it.c === undefined && it.dd && Object.keys(it.dd).length);
+  const weekUnsorted = Object.values(state.items).some((it) => unsorted(it, now));
   return new Response(JSON.stringify({
     at: state.at,
     // the WEEK still has unread or unsorted txs

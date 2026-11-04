@@ -4,13 +4,13 @@
 //   POST { sig } → { ok, repaired: [{ mint, from, to: "Mint" }], refused: [{ mint, reason }], status: "pending" }
 //
 // A repair payment = ORE sent into the Treasury's ORE account by a wallet holding Cracked / Faded Dojo cards
-// (0.01 ORE per card; `ddfix:<mint>` memos pick the cards, else the rarest first). Decided ONCE per signature
+// (0.05 ORE per card since 2026-11-03; `ddfix:<mint>` memos pick the cards, else the rarest first). Decided ONCE per signature
 // (store-keeper-core processSig) — calling this again returns the same answer. The card turns "Mint" (and is
 // protected forever) at the next weekly Dojo update; until then it shows as repairPending.
 // Over the Mint cap (as it stood when the payment landed) a card comes back in `refused` with refunded: true — its
-// 0.01 ORE is refunded in full at the weekly payout (/payouts "Refunds due").
+// price is refunded in full at the weekly payout (/payouts "Refunds due").
 import { limited } from "./store-ratelimit-core.mjs";
-import { processSig, getRepair, SIG_RE, MAX_AGE_MS, KeeperError } from "./store-keeper-core.mjs";
+import { processSig, getRepair, SIG_RE, MAX_AGE_MS, KeeperError, REPAIR_PRICE } from "./store-keeper-core.mjs";
 import { getTx } from "./store-payout-core.mjs";
 
 const json = (o, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { "content-type": "application/json", "cache-control": "no-store" } });
@@ -41,12 +41,12 @@ export default async (request) => {
     if (d.kind === "retry" && /coin-purchase/.test(d.why || "")) return json({ ok: false, pending: true, error: "a payment without a ddfix memo is checked about 10 minutes after it lands — it is picked up automatically" }, 202);
     if (d.kind === "retry") return json({ error: "couldn't check it right now — try again in a minute" }, 503);
     if (d.kind !== "repair") return json({ ok: false, error: d.why || "not a repair payment", refused: d.refused || [] }, 400);
-    const done = new Set(d.result?.repaired || []), capped = new Set(d.result?.refunded || []);
+    const done = new Set(d.result?.repaired || []), capped = new Set(d.result?.refunded || []), per = d.price ? String(Number(d.price) / 1e11) : REPAIR_PRICE;
     const repaired = [], refused = [...(d.refused || [])];
     for (const c of d.cards) {
       if (done.has(c.mint) || (await getRepair(c.mint))?.sig === sig) repaired.push({ mint: c.mint, from: c.from, to: "Mint" });
-      else if (capped.has(c.mint)) refused.push({ mint: c.mint, reason: "every Mint spot was taken when this payment arrived — its 0.01 ORE is refunded in full at the weekly payout", refunded: true });
-      else refused.push({ mint: c.mint, reason: "another payment repaired this card first — this card's 0.01 ORE went to the Reserve" });
+      else if (capped.has(c.mint)) refused.push({ mint: c.mint, reason: "every Mint spot was taken when this payment arrived — its " + per + " ORE is refunded in full at the weekly payout", refunded: true });
+      else refused.push({ mint: c.mint, reason: "another payment repaired this card first — this card's " + per + " ORE went to the Reserve" });
     }
     return json({ ok: repaired.length > 0, repaired, refused, status: "pending", note: "Repaired cards turn Mint (protected forever) at the next weekly Dojo update." });
   } catch (e) {

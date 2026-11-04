@@ -1029,19 +1029,24 @@ export function weeklyStatement({ now = Date.now(), reserve = null, viaPreacher 
 
   // ---- COMES IN (the last 7 days) ----
   const via = reserve ? capAt(viaPreacher, src.mining) : clean(viaPreacher);
-  const repairOre = (repairs.granted || []).length * 0.01 + (repairs.refunded || []).reduce((s, r) => s + fromRaw(r.raw, "ORE"), 0);
+  // each repair at the price it was paid at (0.05 ORE since 2026-11-03; records from before carry none = 0.01)
+  const repairPrice = (r) => (r.price ? fromRaw(r.price, "ORE") : 0.01);
+  const repairOre = (repairs.granted || []).reduce((s, r) => s + repairPrice(r), 0) + (repairs.refunded || []).reduce((s, r) => s + fromRaw(r.raw, "ORE"), 0);
+  const repairPrices = [...new Set([...(repairs.granted || []).map(repairPrice),
+    ...(repairs.refunded || []).filter((r) => (r.mints || []).length).map((r) => fromRaw(r.raw, "ORE") / r.mints.length)].map((p) => +p.toFixed(6)))];
   const repairIn = clean({ [MINTS.ORE]: repairOre });
   const nCards = (repairs.granted || []).length + (repairs.refunded || []).reduce((n, r) => n + ((r.mints || []).length || 0), 0);
+  // one row per thing people do, like the Reserve page (owner 2026-11-02: Pot tips and direct transfers are not shown)
   const IN = [
-    { key: "royalties", label: "Marketplace royalties", note: "sales on Magic Eden, Tensor and our store", ...amt(src.royalties) },
-    { key: "coins", label: "Game-coin buys", ...amt(src.coins) },
+    { key: "sweep", label: "Claim", note: "1% fee on closes and burns, the 0.01 ORE rescue fee, tips from Claim", ...amt(src.sweep) },
     { key: "mineRef", label: "Mining tips via a preacher (locked before 27 Oct 2026)", note: "the preacher's share is paid out below", ...amt(via) },
-    { key: "mineNoRef", label: "Mining tips, no preacher", note: "100% Reserve", ...amt(minus(src.mining, via)) },
-    { key: "potTips", label: "Pot tips", note: "100% to the Pot", ...amt(src.tips) },
+    { key: "mineNoRef", label: "Mine", note: "the 1% fee on /mine, Burn to Mine and whitelabel miners — 100% Reserve", ...amt(minus(src.mining, via)) },
+    { key: "coins", label: "Game-coin buys", ...amt(src.coins) },
+    { key: "royalties", label: "Marketplace royalties", note: "sales on Magic Eden, Tensor and our store", ...amt(src.royalties) },
     { key: "raffle", label: "Burn Raffle burns", note: "the rent holders burned — 88% the raffle's prize, 12% Reserve", ...amt(src.raffle) },
     { key: "gifts", label: "Burn Raffle gifts", note: "added to the raffle's prize by donors — 100% for the winners, no tickets", ...amt(src.gifts) },
-    { key: "repairs", label: "Card repairs", note: nCards ? nCards + " card" + (nCards === 1 ? "" : "s") + " × 0.01 ORE" : "", ...amt(repairIn) },
-    { key: "direct", label: "Direct tips & other", ...amt(minus(src.direct, repairIn)) },
+    { key: "repairs", label: "Card repairs", note: nCards ? nCards + " card" + (nCards === 1 ? "" : "s") + (repairPrices.length === 1 ? " × " + repairPrices[0] + " ORE" : "") : "", ...amt(repairIn) },
+    { key: "whitelabel", label: "Whitelabel miner setups", note: "5 ORE each", ...amt(src.whitelabel) },
   ];
   const topUps = { key: "team", label: "Your own top-ups", note: "money you moved in — not income", ...amt(src.team) };
 

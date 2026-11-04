@@ -6,14 +6,16 @@
 //   • every royalty and every repair payment splits 88% Reserve / 12% ops (owner 2026-10-30: there are no Card Vaults any more).
 //     Only income after the 2026-10-22 hand-over counts.
 //   • an eligible NFT's burn value = its collection's Card Vault ÷ the number of eligible NFTs in that collection now.
-//     Eligible: Degen Dojo cards whose Condition is Mint or Framed (Cracked / Faded → 0: repair first); every live
-//     Demon Dojo and TETO NFT (they have no Condition). A burn claim takes its share OUT of the pool, so the next
+//     Eligible: Degen Dojo cards whose condition is Mint or Framed (Cracked / Faded → 0: repair first); every live
+//     Demon Dojo and TETO NFT (they have no condition). A burn claim takes its share OUT of the pool, so the next
 //     burner's share stays fair: (P − P/N) / (N − 1) = P/N.
-//   • repair = 0.01 ORE per card, Cracked or Faded → Mint. Mint (and Framed) cards are protected forever.
+//   • repair = 0.05 ORE per card (owner 2026-11-03, was 0.01 — belts.mjs REPAIR_ORE), Cracked or Faded → Mint. Mint (and
+//     Framed) cards are protected forever. A payment is judged at the price in force when it is decided, and that price is
+//     stored with the decision (decisions from before carry none = the old 0.01).
 //     A repair payment is ANY ORE transfer into the Treasury's ORE account by a wallet that holds Cracked/Faded
 //     cards — not a credited store coin buy / tip, no ddtip memo, not a mining tx. The paying wallet = the owner of the
 //     ORE account the money left (not the fee payer). `ddfix:<mint>` memos (the page's one-click flow) make it a repair
-//     whatever anyone POSTs to /api/coinbuy, and pick the cards first, then the rarest. N = floor(ORE / 0.01), capped at
+//     whatever anyone POSTs to /api/coinbuy, and pick the cards first, then the rarest. N = floor(ORE / 0.05), capped at
 //     the wallet's repairable cards; ORE beyond the repaired cards goes to the Reserve as a direct tip.
 //   • a "marketplace transaction" = one that RUNS a marketplace program (top level or inner), never one that merely
 //     lists its id; a DAS / RPC failure is never read as "not ours" (retry, then a skip the desk lists for re-decision).
@@ -27,9 +29,11 @@
 //     Dojo Mint cards (live; the Framed sit outside the cap, owner 2026-10-30) + every repair ever granted may never exceed it. Repairs are granted first come,
 //     first served by payment time, each judged against the cap that was in force WHEN IT WAS PAID (lowering the cap
 //     later closes repairs for later payments only; it never downgrades a Mint card). A repair over the cap is recorded
-//     as a refund (0.01 ORE back to the payer) for the weekly batch — no split is booked for it.
-//   • the condition comes from the NFT's own "Condition" trait (Framed / Mint / Cracked / Faded) — whatever the
-//     Nov 2 crack batch sets; nothing here decides who cracks.
+//     as a refund (its price back to the payer) for the weekly batch — no split is booked for it.
+//   • the condition comes from the NFT itself — its old "Condition" trait (Framed / Mint / Cracked / Faded), or since the
+//     belts (owner 2026-11-03) its "Belt" trait + picture: the red belt (BELT.red) = Framed, Belt Torn (or None: the torn card, not the plain OG
+//     art, 11-03 evening) or an old degen/card-cracked/ picture = Cracked, any other belt = Mint (a paid repair is White and
+//     never cracks again); nothing here decides who cracks.
 //
 // Raw token amounts are BigInt in code and decimal strings in JSON (house style, see store-payout-core.mjs).
 //
@@ -56,6 +60,7 @@ import { memosOf, TIP_MEMO } from "./store-ref-core.mjs";
 import { MARKETPLACES } from "./store-royalty-core.mjs";
 import { heliusKey, walkHistory } from "./store-helius-core.mjs";
 import RARITY from "./dd-trait-rarity.json" with { type: "json" };
+import { REPAIR_ORE, BELT } from "./belts.mjs";
 
 export const COLLS = {
   "2m9DupVeheZ5vfuXZxqV3KSQ7HnVDk2tG6ouH1ZnLwYb": "Degen Dojo",
@@ -75,7 +80,10 @@ export const TM_PROGRAM = "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s";
 // the Treasury's ORE token account (ATA). ORE sent straight to it does NOT list the Treasury wallet itself
 // among the tx accounts, so history is read for both addresses.
 export const TREASURY_ORE_ATA = process.env.TREASURY_ORE_ATA || "7mapvsQQhHMeRxEbsMUMJUjxUnTy6t8tm7EKizdJZGKv";
-export const REPAIR_PRICE_RAW = 1_000_000_000n;   // 0.01 ORE (11 decimals)
+export const REPAIR_PRICE = String(REPAIR_ORE);                          // "0.05" (owner 2026-11-03)
+export const REPAIR_PRICE_RAW = BigInt(Math.round(REPAIR_ORE * 1e11));   // 0.05 ORE = 5_000_000_000 (11 decimals)
+const OLD_REPAIR_PRICE_RAW = 1_000_000_000n;   // 0.01 ORE — the price of every decision recorded before 2026-11-03 (they carry no price)
+const priceOf = (d) => (d?.price ? big(d.price) : OLD_REPAIR_PRICE_RAW);
 export const REPAIRABLE = new Set(["Cracked", "Faded"]);
 export const PROTECTED = new Set(["Mint", "Framed"]);
 export const SINCE = Date.UTC(2026, 9, 22);       // the hand-over: income counts from here on
@@ -83,6 +91,7 @@ export const SPLIT = { vault: 0n, reserve: 88n };   // royalties. owner 2026-10-
 export const REPAIR_SPLIT = { vault: 0n, reserve: 88n };   // repairs. owner 2026-10-30: 88% Reserve (was 88% Card Vault), ops the rest (12%)
 // our own wallets (+ the owner's personal wallet): their transfers into the Treasury are not income / claims
 const OWN = new Set([TREASURY, "ED3GMCfoX3XNvavnWADvd6oCsohGg1ukdhv3PaUpvwJe", "DfaGo3Qht6MC2bqgFCBHgUWjaeXDNmsbE7XjyRKWM3qS",
+  "GmJkUcU49wgGAvigYd3naigkHiYEQB5fgLAynJ1NTWvg",   // the dApp Store publisher wallet (owner 2026-11-02)
   process.env.COSIGNER_PUBKEY || "8KUWwAHMb7TL31JGbucCi8YE1ax7njWi46ajVbWnvDqr",
   ...(process.env.OWNER_WALLETS || "FTrH7Q3jJ2gkPwvpgR8KDGtmewRbB2RKBeKYaZH7hiNy").split(",").map((x) => x.trim()).filter(Boolean)]);
 const ADDR_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
@@ -187,12 +196,23 @@ export async function assetOf(mint, { fresh = false } = {}) {
 export const collMintOf = (a) => (a?.grouping || []).find((g) => g.group_key === "collection" && (g.verified !== false))?.group_value || null;
 export const collOf = (a) => COLLS[collMintOf(a)] || null;
 export const attrOf = (a, k) => ((a?.content?.metadata?.attributes) || []).find((x) => x.trait_type === k)?.value ?? null;
-export const conditionOf = (a) => attrOf(a, "Condition");
-// weighted rarity, as on the rank page: Σ 1/pct over the card's traits (higher = rarer)
+// The card's condition — "Framed" | "Mint" | "Cracked" | "Faded" | null (no condition: Demon Dojo / TETO). Old metadata
+// carries the "Condition" trait; belt metadata (owner 2026-11-03) carries "Belt": the red belt = Framed, Belt Torn (or None,
+// the torn card) = Cracked, an old cracked picture (the index's image is degen/card-cracked/…) = Cracked, every other belt = Mint.
+export const conditionOf = (a) => {
+  const c = attrOf(a, "Condition"); if (c) return c;
+  const b = String(attrOf(a, "Belt") || "");
+  if (!b) return null;
+  if (b === BELT.red.name) return "Framed";
+  const pic = String(a?.content?.links?.image || (a?.content?.files || [])[0]?.uri || "");
+  return /\/card-cracked\//.test(pic) || b === BELT.none.name ? "Cracked" : "Mint";
+};
+// weighted rarity, as on the rank page: Σ 1/pct over the card's traits (higher = rarer). Condition / Belt are the card's
+// state, not its art — never counted.
 export function rarityScore(a) {
   let s = 0;
   for (const t of (a?.content?.metadata?.attributes) || []) {
-    if (!t || t.trait_type === "Condition") continue;
+    if (!t || t.trait_type === "Condition" || t.trait_type === "Belt") continue;
     const r = RARITY?.traits?.[t.trait_type + "|" + t.value];
     if (r?.pct > 0) s += 1 / r.pct;
   }
@@ -483,7 +503,7 @@ async function decideTx(sig, tx, t, now) {
     const refused = [], candidates = [];
     const repairable = async (a) => {
       const c = conditionOf(a);
-      if (!REPAIRABLE.has(c)) return c ? `condition is ${c} — nothing to repair` : "no Condition trait";
+      if (!REPAIRABLE.has(c)) return c ? `condition is ${c} — nothing to repair` : "no Belt or Condition trait";
       if (await getRepair(a.id)) return "already repaired";
       return null;
     };
@@ -501,9 +521,9 @@ async function decideTx(sig, tx, t, now) {
     if (!queue.length) return asked.length ? { kind: "skip", why: "no repairable card in this payment", refused, ...who } : { kind: "skip", why: "payer holds no Cracked/Faded cards", ...who };
     const n = Number(ore / REPAIR_PRICE_RAW < BigInt(queue.length) ? ore / REPAIR_PRICE_RAW : BigInt(queue.length));
     const cards = queue.slice(0, n).map((a) => ({ mint: a.id, coll: collOf(a), from: conditionOf(a) }));
-    for (const a of candidates.slice(n)) refused.push({ mint: a.id, reason: "the payment didn't cover this card (0.01 ORE each)" });
-    if (!cards.length) return { kind: "skip", why: "payment below 0.01 ORE", refused, ...who };
-    return { kind: "repair", at: t || now, ...who, cards, refused, leftover: S(ore - REPAIR_PRICE_RAW * BigInt(cards.length)) };
+    for (const a of candidates.slice(n)) refused.push({ mint: a.id, reason: `the payment didn't cover this card (${REPAIR_PRICE} ORE each)` });
+    if (!cards.length) return { kind: "skip", why: `payment below ${REPAIR_PRICE} ORE`, refused, ...who };
+    return { kind: "repair", at: t || now, ...who, cards, refused, price: S(REPAIR_PRICE_RAW), leftover: S(ore - REPAIR_PRICE_RAW * BigInt(cards.length)) };
   }
   return { kind: "skip", why: "not a royalty, repair or card arrival" };
 }
@@ -526,21 +546,22 @@ export async function apply(sig, d) {
     for (const [cm, bal] of Object.entries(perPool)) await creditPool(cm, bal, sig);
     await creditTotals({ reserve, ops, unconverted }, sig);
   } else if (d.kind === "repair") {
-    const sp = splitRaw(REPAIR_PRICE_RAW, REPAIR_SPLIT), reserve = {}, ops = {}, direct = {}, unconverted = {};
+    const price = priceOf(d);   // the price this payment was decided at (0.01 before 2026-11-03)
+    const sp = splitRaw(price, REPAIR_SPLIT), reserve = {}, ops = {}, direct = {}, unconverted = {};
     const done = [], capped = [];
     const prior = await ks().get("refund:" + sig, { type: "json" });   // a re-run keeps the refund it already decided
     for (const c of d.cards) {
       if (prior?.mints?.includes(c.mint)) { capped.push(c.mint); continue; }
       if (!(await grantMintSpot(c.mint, d.at))) { capped.push(c.mint); continue; }   // over the Mint cap (as it stood when paid) → refund, no split
-      const rec = { mint: c.mint, coll: c.coll, wallet: d.payer, from: c.from, to: "Mint", sig, at: d.at, status: "pending" };
+      const rec = { mint: c.mint, coll: c.coll, wallet: d.payer, from: c.from, to: "Mint", sig, at: d.at, price: S(price), status: "pending" };
       const mine = (await putIfNew(ks(), "repair:" + c.mint, rec)) || (await getRepair(c.mint))?.sig === sig;
-      if (!mine) { addTo(reserve, ORE_MINT, REPAIR_PRICE_RAW); addTo(direct, ORE_MINT, REPAIR_PRICE_RAW); addTo(unconverted, ORE_MINT, REPAIR_PRICE_RAW); continue; }   // raced: another payment repaired it first → its price goes to the Reserve
+      if (!mine) { addTo(reserve, ORE_MINT, price); addTo(direct, ORE_MINT, price); addTo(unconverted, ORE_MINT, price); continue; }   // raced: another payment repaired it first → its price goes to the Reserve
       addTo(reserve, ORE_MINT, sp.reserve); addTo(ops, ORE_MINT, sp.ops); addTo(unconverted, ORE_MINT, sp.reserve);
       done.push(c.mint);
     }
     if (big(d.leftover) > 0n) { addTo(reserve, ORE_MINT, d.leftover); addTo(direct, ORE_MINT, d.leftover); addTo(unconverted, ORE_MINT, d.leftover); }
     await creditTotals({ reserve, ops, direct, unconverted }, sig);
-    if (capped.length && !prior) await putIfNew(ks(), "refund:" + sig, { sig, payer: d.payer, raw: S(REPAIR_PRICE_RAW * BigInt(capped.length)), mints: capped, at: d.at, status: "due" });
+    if (capped.length && !prior) await putIfNew(ks(), "refund:" + sig, { sig, payer: d.payer, raw: S(price * BigInt(capped.length)), mints: capped, at: d.at, status: "due" });
     return { repaired: done, refunded: capped };
   } else if (d.kind === "held") {
     for (const c of d.cards) await putIfNew(ks(), "held:" + c.mint, { mint: c.mint, coll: c.coll, from: c.from, sig, at: d.at });
@@ -812,8 +833,9 @@ export async function vaultItem(a, px, ctx = null) {
   const note = claim ? null : burnNoteOf(a);
   return {
     mint, collection: coll, name: a.content?.metadata?.name || "", image: a.content?.links?.image || "",
-    condition,   // the NFT's own trait — a paid repair shows as repairPending until the weekly apply sets "Mint"
-    repair: REPAIRABLE.has(condition) && !rep ? { price: "0.01", currency: "ORE", to: "Mint" } : null,
+    condition,   // the NFT's own trait (Condition, or Belt + picture) — a paid repair shows as repairPending until the weekly apply
+    belt: attrOf(a, "Belt") || null,   // BELT[key].name once the card's metadata has its Belt (owner 2026-11-03)
+    repair: REPAIRABLE.has(condition) && !rep ? { price: REPAIR_PRICE, currency: "ORE", to: "Mint" } : null,
     repairPending, protected: PROTECTED.has(condition) || repairPending,
     // burn value / Card Vault share — only once burning is open (BURN_ENABLED); until then no money figure is shown
     ...(on ? {
@@ -836,7 +858,7 @@ export async function recordsFor(mints) {
   await Promise.all([read("repair:", ctx.repairs, hits(r.blobs, "repair:")), read("claim:", ctx.claims, hits(c.blobs, "claim:"))]);
   return ctx;
 }
-export const pagePublic = () => ({ storeMint: STORE_MINT, treasury: TREASURY, treasuryOreAccount: TREASURY_ORE_ATA, oreMint: ORE_MINT, repairPrice: "0.01" });
+export const pagePublic = () => ({ storeMint: STORE_MINT, treasury: TREASURY, treasuryOreAccount: TREASURY_ORE_ATA, oreMint: ORE_MINT, repairPrice: REPAIR_PRICE });
 // the three Card Vault pools: what each holds, how many NFTs / shares split it now, and what ONE share is worth in
 // stORE (a Mint card or any Demon / TETO = 1 share, a Framed Degen = 2)
 export async function poolsPublic(px = null) {

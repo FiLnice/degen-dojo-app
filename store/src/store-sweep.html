@@ -242,7 +242,7 @@ function render() {
       + '<button class="btn" id="burnMineBtn"' + (mine() && SEL.size ? '' : ' disabled') + ' title="Pick a mining setting and confirm on the miner — nothing is burned before that">🔥 Burn &amp; ⛏ Mine ORE</button>'
       + '<button class="btn" id="burnRaffleBtn"' + (mine() && SEL.size ? '' : ' disabled') + ' title="Confirm on the Burn Raffle page — nothing is burned before that">🎟 Burn for Raffle tickets</button>'
       + (SEL.size ? '<button class="mini" id="clearSel">Clear selection</button>' : '') + '</div>'
-      + '<div class="fine" style="margin-top:6px">Three ways to burn: <b>Burn</b> → the SOL comes back to you · <b>🔥 Burn &amp; ⛏ Mine ORE</b> → it goes into ORE auto-mining on all 25 tiles · <b>🎟 Burn for Raffle tickets</b> → it goes into the weekly <a href="/raffle" style="color:var(--gold)">Burn Raffle</a> prize, 1 ticket per 0.001 SOL. The last two take the ticked NFTs to their page, where you confirm.</div>'
+      + '<div class="fine" style="margin-top:6px">Three ways to burn: <b>Burn</b> → the SOL comes back to you · <b>🔥 Burn &amp; ⛏ Mine ORE</b> → it goes into ORE auto-mining, with the miner&#39;s strategies · <b>🎟 Burn for Raffle tickets</b> → it goes into the weekly <a href="/raffle" style="color:var(--gold)">Burn Raffle</a> prize, 1 ticket per 0.001 SOL. The last two take the ticked NFTs to their page, where you confirm.</div>'
       + '<div id="burnConfirm"></div><div id="burnMsg" class="fine" style="margin-top:8px"></div></div>';
   }
   $('results').innerHTML = html;

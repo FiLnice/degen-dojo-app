@@ -169,7 +169,7 @@ function paint(){const p=parseFloat($('price').value)||0;const usd=CUR==='USDC'?
 const _assetName=a=>(a&&a.content&&a.content.metadata&&a.content.metadata.name)||'';
 const _assetImg=a=>{ if(!a)return''; const c=a.content||{}; return (c.links&&c.links.image)||(c.files&&c.files[0]&&(c.files[0].cdn_uri||c.files[0].uri))||''; };
 const _ddImg=m=>'https://degendojo.s3.us-west-1.amazonaws.com/degen/img/'+m+'.png';
-const _ddCard=m=>'https://degendojo.s3.us-west-1.amazonaws.com/degen/card/'+m+'.png?v=9b';   // the collectible card (Degen Dojo collection); ?v = card cache key, same as the store's
+const _ddCard=m=>'https://degendojo.s3.us-west-1.amazonaws.com/degen/card/'+m+'.png?v=9e';   // the collectible card (Degen Dojo collection); ?v = card cache key, same as the store's
 const COLL_NAME={'2m9DupVeheZ5vfuXZxqV3KSQ7HnVDk2tG6ouH1ZnLwYb':'Degen Dojo','WyUy9qjJekjqTAYGanANjhtviwgu1uhCkXx1uas8fWb':'Demon Dojo','dgd6We3oS4M5LSVzT6Ep39wwVpjLC336tCpyPZkLAHx':'TETO'};
 const artOf=d=>d.coll==='2m9DupVeheZ5vfuXZxqV3KSQ7HnVDk2tG6ouH1ZnLwYb'?_ddCard(d.mint):(safeImg(d.img)||_ddImg(d.mint));
 const nftOf=(a,ta)=>{ const _g=(a.grouping||[]).find(x=>x.group_key==='collection'), _coll=(_g&&_g.group_value)||'';

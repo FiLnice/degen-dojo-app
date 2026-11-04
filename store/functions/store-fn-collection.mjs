@@ -6,6 +6,7 @@
 //
 // Env: SOLANA_RPC (DAS-capable).
 import { limited } from "./store-ratelimit-core.mjs";
+import { tensorBook } from "./store-tensor-core.mjs";
 const SYM_RE = /^[a-z0-9_]{2,60}$/i;
 // Degen Dojo = the on-chain collection 2m9Dup… only. The Demons + Oni Senseis moved to Demon Dojo
 // (WyUy9q…), but Magic Eden still lists them under "degendojonft" — so trust the chain, not ME.
@@ -42,6 +43,16 @@ export default async (request) => {
     // "No longer listed" dead end on click. A shelf must only show what can actually be bought.
     const buyable = (a) => !a.listingSource || a.listingSource === "M2" || /tensor/i.test(a.listingSource);
     const listed = arr.filter(buyable).map((a) => ({ mint: a.tokenMint, price: a.price })).filter((x) => x.mint && x.price);
+    // Magic Eden's listings API no longer carries Tensor listings (11-02: all 128 were M2), so a Dojo case adds the
+    // live Tensor book itself. Only listings not already on Magic Eden; the collection filter below sorts out
+    // Degens vs Demons. The drawer re-resolves each one on-chain (/api/resolve reads the Tensor list state).
+    if (only && process.env.TENSOR_API_KEY) {
+      try {
+        const have = new Set(listed.map((x) => x.mint));
+        for (const t of (await tensorBook(process.env.TENSOR_API_KEY)).items)
+          if (t.source === "tensor" && !have.has(t.mint)) listed.push({ mint: t.mint, price: t.price, market: "tensor" });
+      } catch (e) {}   // Tensor down → the case still shows the Magic Eden book
+    }
     if (!listed.length) return json({ items: [] }, 200, 60);
 
     const ba = await fetch(process.env.SOLANA_RPC, {
@@ -54,8 +65,8 @@ export default async (request) => {
 
     const items = listed
       .filter((x) => !only || coll[x.mint] === only)
-      // priceAllIn = what the buyer actually pays: list price + the creator royalty + Magic Eden's 2% taker fee
-      // (same formula as /api/resolve, which prices the buy drawer)
+      // priceAllIn = what the buyer actually pays: list price + the creator royalty + the marketplace's 2% taker fee
+      // (same formula as /api/resolve, which prices the buy drawer; Magic Eden and Tensor both take 2%)
       .map((x) => ({ ...x, image: img[x.mint] || "", name: nm[x.mint] || "", coll: coll[x.mint] || "", royaltyBps: roy[x.mint] ?? 0,
         priceAllIn: +(x.price * (1 + (roy[x.mint] ?? 0) / 1e4 + 0.02)).toFixed(6) }))
       .sort((a, b) => a.priceAllIn - b.priceAllIn);

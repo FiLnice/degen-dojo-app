@@ -1,6 +1,6 @@
 // Card actions built in the browser and signed by the holder's own wallet (the /repair and /burn pages).
 //   repair — ONE ORE transferChecked to the Treasury for a batch of cards + one memo "ddfix:<mint>" per card
-//            (the backend credits 0.01 ORE × number of memos; the Treasury ORE account is opened if missing)
+//            (the backend credits 0.05 ORE × number of memos — the price since 2026-11-03; the Treasury ORE account is opened if missing)
 //   burn   — Token Metadata BurnV1 of a 1/1 programmable NFT by its holder (collection size updated)
 // Plain JS on window.solanaWeb3 (the store's self-hosted /web3.js), same pattern as dojo-ah.js.
 (function (global) {
@@ -24,7 +24,7 @@
   var acct = function (pk, s, w) { return { pubkey: PK(pk), isSigner: s, isWritable: w }; };
   var ix = function (programId, keys, data) { return new (W3().TransactionInstruction)({ programId: PK(programId), keys: keys, data: Buf(data) }); };
 
-  // "0.01" × n → raw ORE units (11 decimals), exact (no floating point)
+  // "0.05" × n → raw ORE units (11 decimals), exact (no floating point)
   function oreRaw(decimal, times) {
     var p = String(decimal).split('.'), frac = (p[1] || '').padEnd(ORE_DEC, '0').slice(0, ORE_DEC);
     return BigInt(p[0] || '0') * 10n ** BigInt(ORE_DEC) * BigInt(times) + BigInt(frac || '0') * BigInt(times);
@@ -33,7 +33,7 @@
 
   /** Instructions for ONE repair transaction: open the Treasury ORE account if needed, pay perCard × mints, memo each card. */
   function repairIxs(holder, mints, perCard) {
-    var src = ataOf(holder, ORE), dst = ataOf(TREASURY, ORE), amt = oreRaw(perCard || '0.01', mints.length);
+    var src = ataOf(holder, ORE), dst = ataOf(TREASURY, ORE), amt = oreRaw(perCard || '0.05', mints.length);
     var data = new Uint8Array(10); data[0] = 12; data.set(u64le(amt), 1); data[9] = ORE_DEC;   // TransferChecked
     // compute limit fitted to the batch (measured: 5 cards ≈ 169k units, 8 ≈ 268k — each memo ≈ 33k) + a small priority
     // fee (≈0.00005–0.00008 SOL) so a busy network doesn't drop the payment after the holder approved it

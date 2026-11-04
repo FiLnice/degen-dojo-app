@@ -94,7 +94,7 @@ const short = (a) => a.slice(0, 4) + '…' + a.slice(-4);
 const safeImg = (u) => { try { const x = new URL(String(u || '')); return x.protocol === 'https:' ? x.href : ''; } catch (e) { return ''; } };
 const TREASURY = '5w55F58ia3H71QjBD9bYvNQF2DcNu8K3AfJj9A4WMuWp', SOL = 'So11111111111111111111111111111111111111112';
 const SYM = { So11111111111111111111111111111111111111112: 'SOL', oreoU2P8bN6jkk3jbaiVxYnG1dCXcYxwhwyK9jSybcp: 'ORE', SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3: 'SKR', EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v: 'USDC' };
-const CARD = (m) => 'https://degendojo.s3.us-west-1.amazonaws.com/degen/card/' + m + '.png?v=9b';
+const CARD = (m) => 'https://degendojo.s3.us-west-1.amazonaws.com/degen/card/' + m + '.png?v=9e';
 const fmt = (n, d) => Number(n).toLocaleString('en-US', { maximumFractionDigits: d == null ? (n >= 100 ? 2 : n >= 1 ? 4 : 6) : d });
 const usd = (n) => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 async function rpc(method, params) { const r = await fetch('/api/rpc', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) }); const j = await r.json(); if (j.error) throw new Error(j.error.message || 'RPC error'); return j.result; }
