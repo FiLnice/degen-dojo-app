@@ -61,6 +61,7 @@ import { MARKETPLACES } from "./store-royalty-core.mjs";
 import { heliusKey, walkHistory } from "./store-helius-core.mjs";
 import RARITY from "./dd-trait-rarity.json" with { type: "json" };
 import { REPAIR_ORE, BELT } from "./belts.mjs";
+import { isJpegMemo, decideJpegOrders, SEATS, isTradeMemo, RD_COLL, offFor } from "./store-jpeg-core.mjs";   // JPEG DOJO (2026-11-05)
 
 export const COLLS = {
   "2m9DupVeheZ5vfuXZxqV3KSQ7HnVDk2tG6ouH1ZnLwYb": "Degen Dojo",
@@ -408,6 +409,9 @@ async function decideTx(sig, tx, t, now) {
   // Burn Raffle gifts (memo "ddpot:<round>"): SOL / tokens / NFTs given to the raffle's prize — never a royalty, repair or a
   // card sent in to burn (a Degen Dojo card given as a prize must not turn into a burn claim)
   if (memosOf(tx).some((m) => m.startsWith("ddpot:"))) return { kind: "skip", why: "a Burn Raffle gift (ddpot memo) — the raffle books it" };
+  // JPEG DOJO trade-ins (memo "ddtrade:jpeg"): Rugged Dojo pieces sent to the Treasury → credits on the sender's wallet.
+  // Decided here, BEFORE step 1, so a trade-in never turns into a burn claim.
+  if (memosOf(tx).some(isTradeMemo)) return await decideTrade(tx, t || now);
   const progs = invokedPrograms(tx);
   const market = [...progs].some((p) => MARKETPLACES.has(p));
   const deltas = tokenDeltas([tx])[TREASURY] || {};
@@ -471,11 +475,20 @@ async function decideTx(sig, tx, t, now) {
   if (ore > 0n) {
     const memos = memosOf(tx), feePayer = signers[0], payer = orePayer(tx) || feePayer;
     const fix = memos.some((m) => m.startsWith("ddfix:"));
+    const jpeg = memos.some(isJpegMemo);   // JPEG DOJO: "ddjpeg:<design>:<rugged dojo mint>" (store-jpeg-core)
     // our own wallets' ORE into the Treasury is a top-up — unless it names cards to repair (ddfix memos: the owner
     // repairing cards he holds, e.g. the pre-Nov 2 test)
-    if (OWN.has(payer) && !fix) return { kind: "skip", why: "from our own wallet" };
+    if (OWN.has(payer) && !fix && !jpeg) return { kind: "skip", why: "from our own wallet" };
     if (progs.has(ORE_PROGRAM)) return { kind: "skip", why: "mining tip" };
     if (memos.some((m) => m === TIP_MEMO || m.startsWith(TIP_MEMO))) return { kind: "skip", why: "Pot tip" };
+    // JPEG DOJO orders are decided by their memo alone (never a repair; a coin buy only if coins were credited for it)
+    if (jpeg && !fix) {
+      if ((await coinStatus(sig)) === "credited") return { kind: "skip", why: "store coin purchase / tip record", payer, ddjpeg: true };
+      const jb = await getJpegBook(), credits = jb.credits?.[payer] || 0, holder = await ddHolder(payer, { fresh: true });
+      // holder 25 %, +5 % for every JPEG this wallet already brought in (max 40 %) — store-jpeg-core offFor
+      const j = await decideJpegOrders({ ore, memos, payer, assetOf: (m) => assetSafe(m, { fresh: true }), holder, credits, off: offFor(holder, jb.brought?.[payer] || 0) });
+      return { ...j, at: t || now, payer, ...(feePayer !== payer ? { feePayer } : {}), ore: S(ore) };
+    }
     if (!fix) {
       if (memos.some((m) => m.startsWith("ddq:"))) return { kind: "skip", why: "store coin purchase (price-locked quote)" };
       // A plain ORE transfer with no ddfix memo may be a game-coin purchase whose /api/coinbuy record lands a few
@@ -563,12 +576,125 @@ export async function apply(sig, d) {
     await creditTotals({ reserve, ops, direct, unconverted }, sig);
     if (capped.length && !prior) await putIfNew(ks(), "refund:" + sig, { sig, payer: d.payer, raw: S(price * BigInt(capped.length)), mints: capped, at: d.at, status: "due" });
     return { repaired: done, refunded: capped };
+  } else if (d.kind === "jpeg") {
+    return await applyJpeg(sig, d);
+  } else if (d.kind === "trade") {
+    return await applyTrade(sig, d);
   } else if (d.kind === "held") {
     for (const c of d.cards) await putIfNew(ks(), "held:" + c.mint, { mint: c.mint, coll: c.coll, from: c.from, sig, at: d.at });
   } else if (d.kind === "sent") {
     for (const c of d.cards) await createClaim({ mint: c.mint, coll: c.coll, collMint: c.collMint || COLL_MINT[c.coll], wallet: c.from, kind: "sent", storeRaw: c.storeRaw, store: c.store, usd: c.usd, vault: c.vault, eligible: c.eligible, w: c.w, n: c.n, sig, at: d.at, inTreasury: true });
   }
   return {};
+}
+
+// ---------- JPEG DOJO (2026-11-05, see store-jpeg-core.mjs) ----------
+// One atomic book of which design / vessel each paid order took. A seat is free while
+//   |live Degen Dojo NFTs| + |paid orders whose vessel isn't in Degen Dojo yet| < SEATS   (self-healing once a move lands)
+// jpeg:<design> { design, vessel, wallet, sig, at, price, status: "paid"|"applied", appliedAt? } — the owner's to-do list.
+// A throw in applyJpeg leaves the decision un-applied: processSig applies it again on the next call / scan.
+const DDLIVE = { at: 0, set: null, owners: null };
+async function ddLiveSet({ fresh = false } = {}) {
+  if (!fresh && DDLIVE.set && Date.now() - DDLIVE.at < 60e3) return DDLIVE.set;
+  const set = new Set(), owners = new Set();
+  for (let page = 1; page <= 3; page++) {
+    const r = await rpc("getAssetsByGroup", { groupKey: "collection", groupValue: DD_COLL, page, limit: 1000 });
+    for (const a of r?.items || []) if (!a.burnt) { set.add(a.id); if (a.ownership?.owner) owners.add(a.ownership.owner); }
+    if ((r?.items || []).length < 1000) break;
+  }
+  if (set.size < 100) throw new Error("Degen Dojo came back with " + set.size + " NFTs — reading it again later");
+  DDLIVE.at = Date.now(); DDLIVE.set = set; DDLIVE.owners = owners;
+  return set;
+}
+/** JPEG DOJO holder price: does this wallet hold a Degen Dojo card in its own wallet right now? */
+async function ddHolder(wallet, { fresh = false } = {}) { await ddLiveSet({ fresh }); return DDLIVE.owners.has(wallet); }
+export async function getJpegBook() { return (await ks().get("jpegbook", { type: "json" })) || { designs: {}, vessels: {}, orders: [] }; }
+export async function jpegSeats({ fresh = false } = {}) {
+  const [live, book] = await Promise.all([ddLiveSet({ fresh }), getJpegBook()]);
+  const pending = book.orders.filter((o) => !live.has(o.vessel)).length;
+  return { seats: SEATS, inside: live.size, pending, left: Math.max(0, SEATS - live.size - pending) };
+}
+async function applyJpeg(sig, d) {
+  const prior = await ks().get("refund:" + sig, { type: "json" });   // a re-run keeps the refund it already decided
+  const live = await ddLiveSet({ fresh: true });
+  const done = [], late = [];
+  for (const o of d.orders) {
+    const was = prior?.late?.find((x) => x.design === o.design);
+    if (was) { late.push({ ...o, reason: was.reason }); continue; }
+    let why = null;
+    await casUpdate(ks(), "jpegbook", (b) => {
+      b ||= { designs: {}, vessels: {}, orders: [] };
+      why = null;
+      if (b.designs[o.design] === sig && b.vessels[o.vessel] === sig) return undefined;   // a re-run: already ours
+      if (b.designs[o.design]) { why = "someone else brought this JPEG in first"; return undefined; }
+      if (b.vessels[o.vessel]) { why = "that Rugged Dojo NFT is already carrying another JPEG"; return undefined; }
+      if (o.trade && ((b.credits || {})[d.payer] || 0) < o.trade) { why = "the trade-in credit was already used by another order"; return undefined; }
+      const pending = b.orders.filter((x) => !live.has(x.vessel)).length;
+      if (live.size + pending >= SEATS) { why = "every seat in Degen Dojo was taken when this payment arrived"; return undefined; }
+      b.designs[o.design] = sig; b.vessels[o.vessel] = sig; b.orders = [...b.orders, { design: o.design, vessel: o.vessel, sig }]; b.updatedAt = Date.now();
+      if (o.trade) { b.credits = { ...(b.credits || {}) }; b.credits[d.payer] = (b.credits[d.payer] || 0) - o.trade; }
+      b.brought = { ...(b.brought || {}) }; b.brought[d.payer] = (b.brought[d.payer] || 0) + 1;   // the repeat-collector count
+      return b;
+    });
+    if (why) { late.push({ ...o, reason: why }); continue; }
+    await putIfNew(ks(), "jpeg:" + o.design, { design: o.design, vessel: o.vessel, wallet: d.payer, sig, at: d.at, price: o.price, ...(o.trade ? { trade: o.trade } : {}), ...(o.full ? { full: o.full } : {}), ...(d.off ? { off: d.off } : {}), status: "paid" });
+    done.push(o);
+  }
+  const reserve = {}, ops = {}, direct = {}, unconverted = {};
+  for (const o of done) { const sp = splitRaw(big(o.price), REPAIR_SPLIT); addTo(reserve, ORE_MINT, sp.reserve); addTo(ops, ORE_MINT, sp.ops); addTo(unconverted, ORE_MINT, sp.reserve); }
+  // the extra ORE on top is a tip only when every order went through — if one came too late, it goes back with its price
+  const tip = late.length ? 0n : big(d.leftover);
+  if (tip > 0n) { addTo(reserve, ORE_MINT, tip); addTo(direct, ORE_MINT, tip); addTo(unconverted, ORE_MINT, tip); }
+  await creditTotals({ reserve, ops, direct, unconverted }, sig);
+  const refundRaw = big(d.refundRaw) + late.reduce((s, o) => s + big(o.price), 0n) + (late.length ? big(d.leftover) : 0n);
+  if (refundRaw > 0n && !prior) await putIfNew(ks(), "refund:" + sig, { sig, payer: d.payer, raw: S(refundRaw), mints: [], kind: "jpeg",
+    late: late.map((o) => ({ design: o.design, vessel: o.vessel, reason: o.reason })), refused: d.refused || [], at: d.at, status: "due" });
+  return { brought: done.map((o) => o.design), late: late.map((o) => ({ design: o.design, reason: o.reason })), refundRaw: S(refundRaw) };
+}
+// A trade-in: Rugged Dojo pieces that arrived in the Treasury from their holder with the ddtrade memo → one credit each.
+// A piece already booked as some order's body isn't credited (that order's body left the wallet — the owner decides).
+async function decideTrade(tx, at) {
+  const book = await getJpegBook(), by = {}, skipped = [];
+  for (const [mint, mv] of Object.entries(nftMoves(tx))) {
+    if (mv.post !== TREASURY || !mv.pre || mv.pre === TREASURY) continue;
+    const a = await assetSafe(mint, { fresh: true });
+    if (!a) throw new Transient("couldn't read a traded-in piece");
+    if (collMintOf(a) !== RD_COLL) { skipped.push({ mint, why: "not a Rugged Dojo piece" }); continue; }
+    if (book.vessels?.[mint]) { skipped.push({ mint, why: "booked as a JPEG's body" }); continue; }
+    (by[mv.pre] ||= []).push(mint);
+  }
+  if (!Object.keys(by).length) return { kind: "skip", why: "a ddtrade memo but no Rugged Dojo piece arrived", skipped };
+  return { kind: "trade", at, by, skipped };
+}
+async function applyTrade(sig, d) {
+  const { value } = await casUpdate(ks(), "jpegbook", (b) => {
+    b ||= { designs: {}, vessels: {}, orders: [] };
+    if (b.trades?.[sig]) return undefined;                     // a re-run: already credited
+    b.credits = { ...(b.credits || {}) }; b.trades = { ...(b.trades || {}) };
+    for (const [w, mints] of Object.entries(d.by)) b.credits[w] = (b.credits[w] || 0) + mints.length;
+    b.trades[sig] = { at: d.at, by: d.by }; b.updatedAt = Date.now();
+    return b;
+  });
+  return { credited: Object.fromEntries(Object.entries(d.by).map(([w, m]) => [w, m.length])), credits: Object.fromEntries(Object.keys(d.by).map((w) => [w, value?.credits?.[w] || 0])) };
+}
+export async function jpegCredits(wallet) { return (await getJpegBook()).credits?.[wallet] || 0; }
+/** a wallet's trade-in credits + how many JPEGs it already brought in (the repeat discount) */
+export async function jpegWallet(wallet) { const b = await getJpegBook(); return { credits: b.credits?.[wallet] || 0, brought: b.brought?.[wallet] || 0 }; }
+export async function getJpeg(design) { return await ks().get("jpeg:" + design, { type: "json" }); }
+export async function listJpegOrders() { return (await listJson("jpeg:")).sort((a, b) => (a.at || 0) - (b.at || 0)); }
+export async function jpegActivitySince(t) {
+  const [orders, refs] = await Promise.all([listJson("jpeg:"), listJson("refund:")]);
+  return { brought: orders.filter((o) => (o.at || 0) >= t), refunded: refs.filter((r) => r.kind === "jpeg" && (r.at || 0) >= t) };
+}
+// The owner applied these locally (keeper-apply-jpeg.mjs: White card on S3 + on the Back to Degen Dojo list) → "applied"
+export async function markJpegApplied(designs) {
+  const done = [];
+  for (const id of designs || []) {
+    if (!/^(degen|demon)_\d{4}$/.test(id)) continue;
+    const { value } = await casUpdate(ks(), "jpeg:" + id, (r) => { if (!r || r.status === "applied") return undefined; r.status = "applied"; r.appliedAt = Date.now(); return r; });
+    if (value?.status === "applied") done.push(id);
+  }
+  return done;
 }
 
 // ---------- the Mint cap ----------
@@ -933,7 +1059,7 @@ export async function keeperSummary() {
 // The owner's weekly statement (/payouts): repairs granted, and repair payments refunded, since `t`
 export async function repairActivitySince(t) {
   const [reps, refs] = await Promise.all([listJson("repair:"), listJson("refund:")]);
-  return { granted: reps.filter((r) => (r.at || 0) >= t), refunded: refs.filter((r) => (r.at || 0) >= t) };
+  return { granted: reps.filter((r) => (r.at || 0) >= t), refunded: refs.filter((r) => r.kind !== "jpeg" && (r.at || 0) >= t) };   // JPEG DOJO refunds have their own row
 }
 
 // Repairs the owner applied locally (keeper-apply-repairs.mjs) → "applied"

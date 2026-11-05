@@ -47,6 +47,23 @@
     mints.forEach(function (m) { out.push(ix(MEMO, [acct(holder, true, false)], utf8('ddfix:' + m))); });
     return { ixs: out, amountRaw: amt.toString() };
   }
+  /** JPEG DOJO (2026-11-05): ONE transaction — pay `price` ORE (decimal string) to the Treasury + memo "ddjpeg:<design>:<vessel>".
+   *  The vessel = a Rugged Dojo NFT the holder keeps in their wallet; it takes the JPEG's fighter and walks into Degen Dojo. */
+  function jpegIxs(holder, design, vessel, price, trade) {   // trade = trade-in credits this order uses (JPEG DOJO)
+    trade = Math.max(0, Math.floor(+trade || 0)); if (trade > 999) throw new Error("too many trade-ins");
+    if (!/^(degen|demon)_\d{4}$/.test(design)) throw new Error('bad design id');
+    PK(vessel);   // throws on a bad address
+    var src = ataOf(holder, ORE), dst = ataOf(TREASURY, ORE), amt = oreRaw(price, 1);
+    var data = new Uint8Array(10); data[0] = 12; data.set(u64le(amt), 1); data[9] = ORE_DEC;   // TransferChecked
+    var CB = W3().ComputeBudgetProgram;
+    return { amountRaw: amt.toString(), ixs: [
+      CB.setComputeUnitLimit({ units: 120000 }),
+      CB.setComputeUnitPrice({ microLamports: 200000 }),
+      ix(ATA, [acct(holder, true, true), acct(dst, false, true), acct(TREASURY, false, false), acct(ORE, false, false), acct(SYS, false, false), acct(TOKEN, false, false)], new Uint8Array([1])),   // CreateIdempotent
+      ix(TOKEN, [acct(src, false, true), acct(ORE, false, false), acct(dst, false, true), acct(holder, true, false)], data),
+      ix(MEMO, [acct(holder, true, false)], utf8('ddjpeg:' + design + ':' + vessel + (trade ? ':' + trade : ''))),
+    ] };
+  }
   function batches(list, n) { var out = []; for (var i = 0; i < list.length; i += (n || REPAIR_BATCH)) out.push(list.slice(i, i + (n || REPAIR_BATCH))); return out; }
 
   /** BurnV1 of a 1/1 pNFT by its holder. `rpc(method, params)` reads the token account + verified collection. */
@@ -82,5 +99,5 @@
     return { tx: tx, err: v.err || null, logs: v.logs || [] };
   }
 
-  global.DojoCardTx = { TREASURY: TREASURY, ORE: ORE, REPAIR_BATCH: REPAIR_BATCH, repairIxs: repairIxs, batches: batches, burnIx: burnIx, prepare: prepare, ataOf: ataOf, oreRaw: oreRaw };
+  global.DojoCardTx = { TREASURY: TREASURY, ORE: ORE, REPAIR_BATCH: REPAIR_BATCH, repairIxs: repairIxs, jpegIxs: jpegIxs, batches: batches, burnIx: burnIx, prepare: prepare, ataOf: ataOf, oreRaw: oreRaw };
 })(typeof window !== 'undefined' ? window : globalThis);

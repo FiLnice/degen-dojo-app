@@ -7,8 +7,8 @@
 // Purple = the plain Mint; Green = the Mint Demons; Orange = Mint with gold gear; White = PAID, a repaired piece or a claimed
 // one (White is the beginner's belt: a fighter starting over). When a card fits two the higher wins, except that a paid card
 // is White. THE REPAIR LADDER (owner 2026-11-04): Torn + 0.05 ORE → ALWAYS White (mythics and 1/1s too); a White card paying
-// again (CLIMB_ORE) → its own belt: Black (mythic / 1/1), Orange (gold gear), Green (Demon — owner not sure yet, CLIMB); a plain
-// fighter has no higher belt to climb to, so White is its last step (Purple stays the Mint that never cracked). Brown and Blue are gone (owner 11-03: "remove the brown
+// again (CLIMB_ORE) → its own belt: Black (mythic / 1/1), Orange (gold gear), Green (Demon), Purple (a plain fighter; owner
+// 2026-11-04: "purple someone can get now if they come back … and then pay"), while the 555 has room (CLIMB). Brown and Blue are gone (owner 11-03: "remove the brown
 // border", "if they pay it becomes with white border", "stay at 6").
 // TORN (owner 11-03: "torn just stay as images no cards", "normal OG images without being cards"; the trait value is "Torn"
 // since 11-04, owner: "Belt : Torn", with "None" kept for the pieces of a RUGD collection): a cracked piece is not a
@@ -47,9 +47,12 @@ export const TORN_V = "3d";
 export const tornUrl = (pub, mint) => `${pub}degen/card-cracked/${mint}.png?v=${TORN_V}`;
 export const REPAIR_ORE = 0.05;   // a repair (Torn → White) costs 0.05 ORE per card (owner 2026-11-03, was 0.01)
 export const CLIMB_ORE = 0.05;    // the second payment (White → its own belt), owner 2026-11-04 "when they pay again"
-// The belts a White card can climb to with the second payment. Green (Demons) in or out: owner 11-04 "maybe we don't cap green
-// demons or maybe we do not sure" — in for now (a Demon card has no card number, so it never takes one of the 555 Mint numbers).
-export const CLIMB = new Set(["black", "orange", "green"]);
+// The belts a White card can climb to with the second payment. THE CLIMB WINDOW (owner 2026-11-04): Black + Orange + Green + Purple
+// are capped at 555 together (the 42 Red not counted; everyone else in the Dojo is White, 1,080 seats). A climb is open only while it isn't full (store-keeper-core MINT_CAP: live Mint cards + repairs granted) —
+// "black and orange can be claimed if someone acts before the 555 are filled"; once full, no more climbs, and a new Demon gets
+// Green only if a holder SELLS their belt: the buyer's card takes it, the seller's card becomes White. NOT BUILT yet (the
+// second-payment flow and the belt sale); beltOf only knows `climbed`.
+export const CLIMB = new Set(["black", "orange", "green", "purple"]);
 
 export const MYTHIC_RACE = /^(gods?|devil|ruggers?|derugger|oni senseis|senseis|mutants|rowdy sensei|pirate)$/i;
 export const DEMON_RACE = /^demons?$/i;
@@ -74,7 +77,7 @@ export function beltOf(attrs, { cracked = false, paidRepair = false, claimed = f
   if (cracked || (was === "none" && !paid && !climbed)) return "none";
   const own = MYTHIC_RACE.test(race) || ONE_OF_ONE.test(at.Character || "") ? "black" : DEMON_RACE.test(race) ? "green"
     : vals.some((v) => GOLD_GEAR.test(v)) ? "orange" : "purple";
-  if (climbed) return CLIMB.has(own) ? own : "white";   // the second payment: its own belt, if it has one above White
+  if (climbed) return CLIMB.has(own) ? own : "white";   // the second payment: its own belt (every fighter has one)
   if (paid) return "white";                             // the first payment (or kept White): White for every fighter
   return own;
 }

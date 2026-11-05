@@ -12,6 +12,7 @@
 //   sweep     — Claim (Dojo Sweep) fees and tips (ddsweep: memo)
 //   raffle / gifts — Burn Raffle burns (ddraffle:) and gifts (ddpot:)
 //   repairs   — card repairs (ddfix: memo, 0.05 ORE a card since 2026-11-03, 0.01 before)
+//   jpeg      — JPEG DOJO orders (ddjpeg: memo, the fighter's bounty; refunds of late orders go out with the weekly payout)
 //   whitelabel — whitelabel miner setup fees (ddminer: memo)
 //   coins     — a game-coin purchase the store verified (coin-purchases record for that signature)
 //   direct    — anything else anyone sends straight to the Reserve (tips/donations, other fees)
@@ -52,7 +53,7 @@ const SOL = "So11111111111111111111111111111111111111112";
 const DAY_MS = 86400e3, WEEK_MS = 7 * DAY_MS, HIST_DAYS = 30, HIST_MS = HIST_DAYS * DAY_MS;
 const CACHE_MS = 5 * 60e3, PER_CALL = 200, CONCURRENCY = 4, TIME_BUDGET_MS = 6500;
 const STATE_V = 3;   // v3 = 30 days deep + each tx's full signed change (dd) + resumable gaps; an older state is rebuilt from scratch
-const CLASSIFY_V = 2;   // bump when classify() learns a rule (v2: repairs, whitelabel, publisher wallet): the week's txs are sorted again, history is not re-read
+const CLASSIFY_V = 3;   // bump when classify() learns a rule (v2: repairs, whitelabel, publisher wallet; v3: JPEG DOJO): the week's txs are sorted again, history is not re-read
 /** A balance-changing tx of the last 7 days not yet sorted by the current rules. */
 const unsorted = (it, now) => now - it.t <= WEEK_MS && (it.c === undefined || it.cv !== CLASSIFY_V) && !!it.dd && Object.keys(it.dd).length > 0;
 const TOKEN_PROGRAMS = ["TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"];
@@ -162,6 +163,8 @@ export function classify(tx, wallet) {
   // Burn Raffle gifts (memo ddpot:<round>): 100% the raffle's prize
   if (memos.some((m) => m.startsWith("ddpot:"))) return { src: "gifts", d };
   // card repairs (memo ddfix:…, store-repair) and whitelabel miner setup fees (memo ddminer:<hash>, /create)
+  // JPEG DOJO orders (memo ddjpeg:<design>:<vessel>, store /jpeg-dojo/, 2026-11-05)
+  if (memos.some((m) => m.startsWith("ddjpeg:"))) return { src: "jpeg", d };
   if (memos.some((m) => m.startsWith("ddfix:"))) return { src: "repairs", d };
   if (memos.some((m) => m.startsWith("ddminer:"))) return { src: "whitelabel", d };
   const src = memos.some((m) => m === TIP_MEMO || m.startsWith(TIP_MEMO)) ? "tips"
@@ -170,7 +173,7 @@ export function classify(tx, wallet) {
 }
 
 function aggregate(state, now) {
-  const sources = { royalties: {}, coins: {}, mining: {}, tips: {}, sweep: {}, raffle: {}, gifts: {}, repairs: {}, whitelabel: {}, direct: {}, team: {}, out: {} };
+  const sources = { royalties: {}, coins: {}, mining: {}, tips: {}, sweep: {}, raffle: {}, gifts: {}, repairs: {}, jpeg: {}, whitelabel: {}, direct: {}, team: {}, out: {} };
   const payouts = [];   // every payout of the week, newest first: { s: signature, t, d: net change, to: [{ a, m, v }] }
   for (const [s, it] of Object.entries(state.items)) {
     if (!it.c || now - it.t > WEEK_MS || !sources[it.c.src]) continue;   // "internal" moves aren't shown

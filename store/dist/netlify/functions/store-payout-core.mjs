@@ -1046,6 +1046,7 @@ export function weeklyStatement({ now = Date.now(), reserve = null, viaPreacher 
     { key: "raffle", label: "Burn Raffle burns", note: "the rent holders burned — 88% the raffle's prize, 12% Reserve", ...amt(src.raffle) },
     { key: "gifts", label: "Burn Raffle gifts", note: "added to the raffle's prize by donors — 100% for the winners, no tickets", ...amt(src.gifts) },
     { key: "repairs", label: "Card repairs", note: nCards ? nCards + " card" + (nCards === 1 ? "" : "s") + (repairPrices.length === 1 ? " × " + repairPrices[0] + " ORE" : "") : "", ...amt(repairIn) },
+    { key: "jpeg", label: "JPEG DOJO", note: "fighters brought in from the wall (bounties in ORE) — 88% Reserve, 12% ops", ...amt(src.jpeg) },
     { key: "whitelabel", label: "Whitelabel miner setups", note: "5 ORE each", ...amt(src.whitelabel) },
   ];
   const topUps = { key: "team", label: "Your own top-ups", note: "money you moved in — not income", ...amt(src.team) };
@@ -1070,8 +1071,8 @@ export function weeklyStatement({ now = Date.now(), reserve = null, viaPreacher 
   const raffleLines = open.filter((p) => p.kind === "raffle").map((p) => ({ to: p.wallet, amounts: fromPay(p), usd: +(+p.usd || 0).toFixed(2), note: "raffle round " + p.raffleRound + " · " + ["1st", "2nd", "3rd", "4th", "5th"][(p.rank || 1) - 1] + " · " + (p.tickets || 0) + " ticket" + (p.tickets === 1 ? "" : "s") + giftNote(p) }));
   OUT.push(group("raffle", "Burn Raffle winners", "the raffle's own draw (rent burned by holders + Degen Dojo's seed)", raffleLines,
     { none: raffleLines.length ? null : "No raffle draw to pay right now", swapNote: swapped(raffleLines) ? "SOL parts are swapped to ORE in the same batch" : null }));
-  const refundLines = (keeper.refundsDue || []).map((r) => { const a = clean({ [MINTS.ORE]: fromRaw(r.raw, "ORE") }); return { to: r.payer, amounts: a, usd: usd(a), note: ((r.mints || []).length || 0) + " card(s) paid after the Mint cap was full" }; });
-  OUT.push(group("refunds", "Repair refunds", "repairs paid when every Mint spot was taken", refundLines, { none: refundLines.length ? null : "None" }));
+  const refundLines = (keeper.refundsDue || []).map((r) => { const a = clean({ [MINTS.ORE]: fromRaw(r.raw, "ORE") }); return { to: r.payer, amounts: a, usd: usd(a), note: r.kind === "jpeg" ? "JPEG DOJO order refunded (" + ((r.late || [])[0]?.reason || (r.refused || [])[0]?.reason || "not accepted") + ")" : ((r.mints || []).length || 0) + " card(s) paid after the Mint cap was full" }; });
+  OUT.push(group("refunds", "Refunds", "repairs paid when every Mint spot was taken, JPEG DOJO orders that came too late or were refused", refundLines, { none: refundLines.length ? null : "None" }));
   const claimLines = burnEnabled ? (keeper.claimsDue || []).map((c) => ({ to: c.wallet, amounts: clean({ [STORE_MINT_]: +c.store || 0 }), usd: +(+c.usd || 0).toFixed(2), note: (c.coll || "") + (c.kind === "sent" ? " · sent to the Treasury" : " · burned by the holder") })) : [];
   OUT.push(group("claims", "Burn claims", "a burned card's claim, in stORE", claimLines, { none: burnEnabled ? (claimLines.length ? null : "None") : "Burning is off — no claims" }));
   const opsDue = clean(keeper.ops?.due);

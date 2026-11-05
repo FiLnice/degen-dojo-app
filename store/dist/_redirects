@@ -19,6 +19,7 @@
 /api/auth  /.netlify/functions/auth  200
 /api/vault  /.netlify/functions/vault  200
 /api/repair  /.netlify/functions/repair  200
+/api/jpeg  /.netlify/functions/jpeg  200
 /api/burnclaim  /.netlify/functions/burnclaim  200
 /api/play  /.netlify/functions/play  200
 /api/mebuy  /.netlify/functions/mebuy  200
@@ -35,6 +36,8 @@
 /m/*  /.netlify/functions/miner-page  200
 /wallets  /reserve/  301
 /wallets/*  /reserve/  301
+/jpeg  /jpeg-dojo/  301
+/jpegdojo  /jpeg-dojo/  301
 /claim  /sweep  301
 /claim/*  /sweep  301
 /wizard  /orewizard/  301

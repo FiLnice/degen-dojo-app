@@ -1,0 +1,567 @@
+<!doctype html>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>JPEG DOJO — Outside the Gate · Degen Dojo</title>
+<link rel="canonical" href="https://store.degendojo.xyz/jpeg-dojo/"><meta property="og:type" content="website"><meta property="og:site_name" content="Degen Dojo"><meta property="og:title" content="JPEG DOJO — Outside the Gate · Degen Dojo"><meta property="og:description" content="4,168 Degen Dojo fighters who never got a card, pinned to the wall outside the gate. Pay a fighter's bounty in ORE and they walk into Degen Dojo as a White belt card."><meta property="og:url" content="https://store.degendojo.xyz/jpeg-dojo/"><meta property="og:image" content="https://store.degendojo.xyz/og/jpeg-dojo.jpg"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="600"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="JPEG DOJO — Outside the Gate · Degen Dojo"><meta name="twitter:description" content="4,168 Degen Dojo fighters who never got a card, pinned to the wall outside the gate. Pay a fighter's bounty in ORE and they walk into Degen Dojo as a White belt card."><meta name="twitter:image" content="https://store.degendojo.xyz/og/jpeg-dojo.jpg">
+<meta name="description" content="4,168 Degen Dojo fighters who never got a card, pinned to the wall outside the gate. Pay a fighter's bounty in ORE and they walk into Degen Dojo as a White belt card.">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Teko:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Yuji+Syuku&text=%E6%89%8B%E9%85%8D%E9%96%80%E5%A4%96%E6%87%B8%E8%B3%9E%E9%87%91%E5%85%A5%E9%96%80%E6%B8%88%E9%90%98%E6%B1%82&display=swap" rel="stylesheet">
+<style>
+:root{--night:#0b0912;--bg:#100c08;--pan:#1b1510;--pan2:#241d15;--line:#3a2f22;--gold:#e8b84b;--goldd:#c8962a;--ink:#ece4d6;--ink2:#f6efe2;--mut:#9c8f7d;--grn:#7bb26a;--red:#c1443a;--blood:#9e2a20;
+  --paper:#e9dcc0;--paper2:#d9c7a1;--pink:#2a1c10;--kanji:'Yuji Syuku',serif}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;background:var(--night);color:var(--ink);font-family:Inter,system-ui,sans-serif;overflow-x:hidden}
+a{color:var(--gold)}
+.wrap{max-width:1180px;margin:0 auto;padding:0 16px}
+.btn{display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,var(--goldd),#8b6018);border:none;color:#0a0814;font-family:Cinzel,serif;font-weight:700;font-size:12.5px;letter-spacing:.06em;padding:11px 18px;border-radius:9px;cursor:pointer;white-space:nowrap;text-decoration:none}
+.btn:disabled{opacity:.5;cursor:default}
+.btn.ghost{background:rgba(10,8,6,.55);color:var(--gold);border:1px solid rgba(232,184,75,.55);font-family:Inter;font-weight:600;letter-spacing:0}
+.btn.red{background:linear-gradient(135deg,#c1443a,#7a1a12);color:#fff3e6}
+.fine{color:var(--mut);font-size:12.5px;line-height:1.55}
+.ok{color:var(--grn)}.err{color:#e58b80}
+
+/* ── the gate ── */
+.hero{position:relative;min-height:560px;display:flex;align-items:flex-end;background:#e4dfd4;isolation:isolate}
+.hero::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(11,9,18,.15) 0%,rgba(11,9,18,.35) 45%,rgba(11,9,18,.92) 82%,var(--night) 100%);z-index:-1}
+.hero .glow{position:absolute;width:150px;height:150px;border-radius:50%;background:radial-gradient(circle,rgba(255,190,90,.55),rgba(255,140,40,0) 70%);mix-blend-mode:screen;animation:flick 3.2s infinite ease-in-out;pointer-events:none;z-index:-1}
+.hero .g1{left:24%;top:46%}.hero .g2{right:23%;top:46%;animation-delay:-1.4s}
+@keyframes flick{0%,100%{opacity:.75;transform:scale(1)}40%{opacity:1;transform:scale(1.08)}55%{opacity:.6}70%{opacity:.95}}
+.hero .in{padding:48px 16px 46px;max-width:1180px;margin:0 auto;width:100%}
+.kick{font-family:Cinzel;font-weight:700;letter-spacing:.32em;font-size:12px;color:#f3c977;text-shadow:0 2px 8px #000}
+.kick i{font-style:normal;font-family:var(--kanji);letter-spacing:.1em;margin-left:8px;font-size:15px}
+.jlogo{display:flex;align-items:center;gap:clamp(14px,2.4vw,26px);margin:10px 0 8px}
+.jmark{width:clamp(92px,13vw,150px);height:auto;flex:none;filter:drop-shadow(0 8px 22px rgba(0,0,0,.75))}
+h1.jw{margin:0;font-family:Teko,sans-serif;font-weight:600;font-size:clamp(64px,11vw,132px);line-height:.78;letter-spacing:.06em;color:#f3ead8;text-shadow:0 4px 0 #000,0 10px 30px rgba(0,0,0,.85)}
+h1.jw span{color:#d0283c;margin-left:.22em}
+.jtag{display:block;font-family:Teko,sans-serif;font-weight:600;font-size:clamp(15px,1.9vw,22px);letter-spacing:.42em;color:#e0394d;margin-top:10px;text-shadow:0 2px 8px #000}
+h1.jd{margin:6px 0 4px;font-family:Cinzel,serif;font-weight:900;font-size:clamp(54px,10vw,118px);line-height:.9;letter-spacing:.02em;color:#f6ead0;text-shadow:0 4px 0 #3b1d0c,0 10px 30px rgba(0,0,0,.8)}
+h1.jd span{display:inline-block;margin-left:.18em;padding:0 .14em;background:var(--blood);color:#ffeedd;transform:rotate(-2deg);box-shadow:0 6px 0 #4a0f0a,0 14px 30px rgba(0,0,0,.6);text-shadow:none}
+.lead{max-width:640px;font-size:16px;line-height:1.6;color:#efe4cf;text-shadow:0 2px 10px #000;margin:14px 0 18px}
+.lead b{color:#ffd98a}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}
+.chip{background:rgba(12,9,7,.72);border:1px solid rgba(232,184,75,.35);border-radius:999px;padding:7px 13px;font-size:13px;color:#e9dcc4;backdrop-filter:blur(4px)}
+.chip b{font-family:Teko;font-size:21px;font-weight:600;color:var(--gold);margin-right:4px;vertical-align:-2px}
+.ctas{display:flex;gap:10px;flex-wrap:wrap}
+
+/* ── how it works: three paper slips ── */
+.how{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:26px 0 8px}
+.slip{position:relative;background:var(--pan);border:1px solid var(--line);border-radius:14px;padding:18px 18px 16px 70px;min-height:112px}
+.slip .n{position:absolute;left:16px;top:16px;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-family:Teko;font-size:26px;color:#fff3e6;background:var(--blood);box-shadow:0 0 0 3px rgba(158,42,32,.25)}
+.slip b{display:block;font-family:Cinzel;font-size:14.5px;color:var(--ink2);margin-bottom:4px;letter-spacing:.03em}
+.slip span{font-size:13px;color:var(--mut);line-height:1.5}
+.slip span em{color:#e8d9b8;font-style:normal;font-weight:600}
+
+/* ── the bell ── */
+.bellrow{display:grid;grid-template-columns:260px minmax(0,1fr);gap:26px;align-items:center;margin:34px 0 18px;background:radial-gradient(600px 260px at 70% 50%,rgba(255,170,70,.10),transparent 70%),var(--pan);border:1px solid var(--line);border-radius:18px;padding:22px 26px;overflow:hidden}
+.bellcol{text-align:center}
+.rope{width:6px;height:70px;margin:0 auto;background:repeating-linear-gradient(45deg,#b8873a 0 6px,#7a5420 6px 12px);border-radius:3px}
+.bell{width:120px;height:118px;margin:-4px auto 0;position:relative;cursor:pointer;transform-origin:50% -60px;background:none;border:0;padding:0}
+.bell .bb{position:absolute;inset:0;border-radius:52px 52px 14px 14px;background:linear-gradient(90deg,#6b4a17,#e3b456 38%,#fbe39a 48%,#b8862e 70%,#5a3c10);box-shadow:inset 0 -10px 0 rgba(0,0,0,.25),0 14px 30px rgba(0,0,0,.6)}
+.bell .lip{position:absolute;left:-8px;right:-8px;bottom:-8px;height:16px;border-radius:8px;background:linear-gradient(90deg,#5a3c10,#d9a84a 45%,#5a3c10)}
+.bell .mark{position:absolute;left:50%;top:34px;transform:translateX(-50%);font-family:var(--kanji);font-size:30px;color:#5a3a0e;opacity:.8}
+.bell.ring{animation:swing .9s cubic-bezier(.36,.07,.19,.97)}
+@keyframes swing{0%{transform:rotate(0)}15%{transform:rotate(16deg)}35%{transform:rotate(-13deg)}55%{transform:rotate(9deg)}75%{transform:rotate(-5deg)}100%{transform:rotate(0)}}
+.bellcol .btn{margin-top:22px}
+.bellcol small{display:block;margin-top:8px;color:var(--mut);font-size:12px}
+.stage{min-height:300px;display:flex;align-items:center;gap:22px;flex-wrap:wrap}
+.stage .ph{color:var(--mut);font-size:14px;line-height:1.6;max-width:420px}
+.stage .ph b{font-family:Cinzel;color:var(--ink2);font-size:20px;display:block;margin-bottom:6px}
+.stage .post{width:230px;flex:none;animation:drop .75s cubic-bezier(.2,1.4,.4,1) both}
+@keyframes drop{0%{transform:translateY(-160px) rotate(-14deg);opacity:0}100%{transform:translateY(0) rotate(var(--rot));opacity:1}}
+.stage .pick{flex:1;min-width:220px}
+.stage .pick h3{font-family:Cinzel;font-size:22px;margin:0 0 4px;color:var(--ink2)}
+.stage .pick .fine{margin-bottom:12px}
+
+/* ── the wall ── */
+.wallhead{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap;margin:40px 0 12px}
+.wallhead h2{font-family:Cinzel;font-weight:900;font-size:30px;margin:0;color:var(--ink2);letter-spacing:.03em}
+.wallhead h2 i{font-family:var(--kanji);font-style:normal;color:var(--blood);margin-left:10px;font-size:26px}
+.tools{position:sticky;top:0;z-index:20;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 0;background:linear-gradient(var(--night) 80%,rgba(11,9,18,0))}
+.tabs{display:flex;background:var(--pan);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.tabs button{background:none;border:0;color:var(--mut);font:600 12.5px Inter;padding:9px 13px;cursor:pointer}
+.tabs button.on{background:var(--pan2);color:var(--gold)}
+.tools input,.tools select{background:var(--pan);border:1px solid var(--line);border-radius:10px;color:var(--ink);font:13px Inter;padding:9px 11px;min-width:0}
+.tools input{flex:1 1 200px}
+.tools label{font-size:12.5px;color:var(--mut);display:flex;align-items:center;gap:6px;white-space:nowrap}
+.count{font-size:13px;color:var(--mut)}
+.board{position:relative;padding:34px 26px 40px;border-radius:16px;
+  background:
+   linear-gradient(90deg,rgba(0,0,0,.35) 0 2px,transparent 2px 100%) 0 0/180px 100%,
+   repeating-linear-gradient(90deg,#3b2a1b 0 3px,#33241a 3px 9px,#3d2c1d 9px 13px,#2f2117 13px 22px),
+   #34251a;
+  box-shadow:inset 0 0 0 6px #22170f,inset 0 0 70px rgba(0,0,0,.75),0 20px 50px rgba(0,0,0,.5)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:30px 22px}
+.more{display:block;margin:26px auto 0}
+
+/* a poster */
+.post{--rot:0deg;position:relative;background:
+   radial-gradient(120px 80px at 15% 10%,rgba(120,80,30,.18),transparent 70%),
+   radial-gradient(90px 120px at 90% 85%,rgba(110,70,20,.22),transparent 70%),
+   radial-gradient(60px 40px at 70% 30%,rgba(90,60,20,.10),transparent 70%),
+   linear-gradient(180deg,var(--paper),var(--paper2));
+  color:var(--pink);padding:22px 12px 12px;border-radius:2px;transform:rotate(var(--rot));cursor:pointer;
+  box-shadow:0 1px 0 rgba(255,255,255,.4) inset,0 10px 18px rgba(0,0,0,.55),0 2px 3px rgba(0,0,0,.4);
+  border-radius:3px 2px 4px 2px;
+  transition:transform .18s ease,filter .18s ease}
+.post:hover{transform:rotate(0deg) translateY(-6px) scale(1.035);z-index:2;filter:drop-shadow(0 16px 18px rgba(0,0,0,.55))}
+.pin{position:absolute;left:50%;top:6px;width:14px;height:14px;margin-left:-7px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ff9a8a,#b3261b 55%,#5c0f09);box-shadow:0 3px 4px rgba(0,0,0,.5);z-index:3}
+.post .hd{display:flex;align-items:baseline;justify-content:center;gap:7px;font-family:Cinzel;font-weight:900;letter-spacing:.22em;font-size:13px;color:#4a2510;margin-bottom:7px}
+.post .hd i{font-family:var(--kanji);font-style:normal;letter-spacing:0;font-size:15px;color:var(--blood)}
+.post .art{position:relative;border:3px solid #2b1a0d;outline:1px solid rgba(43,26,13,.4);outline-offset:3px;background:#1a120b;aspect-ratio:1/1;overflow:hidden}
+.post .art img{width:100%;height:100%;object-fit:cover;display:block;filter:sepia(.18) contrast(1.04)}
+.post .nm{margin-top:9px;text-align:center;font-family:Cinzel;font-weight:900;font-size:14px;line-height:1.15;color:#2a160a;min-height:2.3em;display:flex;align-items:center;justify-content:center}
+.post .kd{text-align:center;font-size:10px;letter-spacing:.18em;font-weight:700;color:#7a5a36;margin-top:1px}
+.post .kd.d{color:#8e2318}
+.post .bo{display:flex;align-items:baseline;justify-content:center;gap:6px;margin-top:7px;padding-top:6px;border-top:1px dashed rgba(60,35,15,.35)}
+.post .bo small{font-size:9.5px;letter-spacing:.2em;font-weight:700;color:#6d4c2b}
+.post .bo small i{font-family:var(--kanji);font-style:normal;letter-spacing:0;margin-left:3px;font-size:11px}
+.post .bo b{font-family:Teko;font-size:30px;line-height:.9;color:#7e1c12}
+.post .bo em{font-style:normal;font-family:Teko;font-size:17px;color:#4a2a12}
+.post .st{display:grid;grid-template-columns:repeat(4,1fr);gap:2px;margin-top:6px;text-align:center;font-size:9px;font-weight:700;letter-spacing:.06em;color:#6d4c2b}
+.post .st b{display:block;font-family:Teko;font-size:17px;line-height:1;color:#2a160a;font-weight:600;letter-spacing:0}
+.hanko{position:absolute;right:5px;bottom:5px;z-index:2;width:54px;height:54px;border:3px solid rgba(178,32,22,.85);border-radius:6px;color:rgba(178,32,22,.9);display:grid;place-items:center;text-align:center;font:900 10px/1.05 Cinzel;letter-spacing:.06em;transform:rotate(-10deg);background:rgba(233,220,192,.78)}
+.hanko b{display:block;font-family:Teko;font-size:20px;letter-spacing:0}
+.taken{position:absolute;inset:0;display:grid;place-items:center;z-index:4;pointer-events:none}
+.taken span{border:4px solid rgba(160,25,15,.9);color:rgba(160,25,15,.95);font:900 19px/1 Cinzel;letter-spacing:.12em;padding:8px 12px;transform:rotate(-16deg);background:rgba(233,220,192,.55);text-align:center}
+.taken span i{display:block;font-family:var(--kanji);font-style:normal;font-size:14px;letter-spacing:.2em;margin-top:4px}
+.post.is-taken{cursor:default}.post.is-taken .art img{filter:grayscale(1) contrast(.9) brightness(.8)}
+.empty{text-align:center;color:#d9c7a1;padding:40px 10px;font-size:15px}
+
+/* ── the dossier ── */
+.ov{position:fixed;inset:0;z-index:100;background:rgba(5,4,8,.82);backdrop-filter:blur(3px);display:none;align-items:flex-start;justify-content:center;padding:28px 12px;overflow-y:auto}
+.ov.on{display:flex}
+.dos{position:relative;width:100%;max-width:980px;background:var(--pan);border:1px solid var(--line);border-radius:18px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.6);animation:pop .25s ease both}
+@keyframes pop{from{transform:translateY(14px) scale(.98);opacity:0}to{transform:none;opacity:1}}
+.dos .x{position:absolute;right:12px;top:10px;z-index:3;background:rgba(0,0,0,.5);border:1px solid var(--line);color:var(--ink);width:36px;height:36px;border-radius:50%;font-size:20px;cursor:pointer}
+.dos .l{background:radial-gradient(500px 400px at 50% 30%,#3a2a1c,#1a120b);padding:26px;display:flex;align-items:center;justify-content:center}
+.dos .l .post{width:100%;max-width:380px;cursor:default;--rot:-1deg}
+.dos .l .post:hover{transform:rotate(-1deg);filter:none}
+.dos .r{padding:24px 24px 22px}
+.dos h3{font-family:Cinzel;font-weight:900;font-size:28px;margin:0;color:var(--ink2)}
+.dos .meta{color:var(--mut);font-size:13px;margin:3px 0 14px}
+.bars{display:grid;gap:7px;margin-bottom:14px}
+.bar{display:grid;grid-template-columns:76px 1fr 40px;align-items:center;gap:10px;font-size:12px;color:var(--mut)}
+.bar .t{height:9px;border-radius:5px;background:#2b2219;overflow:hidden}
+.bar .t i{display:block;height:100%;border-radius:5px;background:linear-gradient(90deg,#8b6018,var(--gold))}
+.bar b{font-family:Teko;font-size:19px;color:var(--ink2);text-align:right}
+.move{background:var(--pan2);border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-size:13px;margin-bottom:12px}
+.move small{display:block;color:var(--mut);font-size:10.5px;letter-spacing:.14em;margin-bottom:2px}
+.traits{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px}
+.traits div{background:#15100b;border:1px solid var(--line);border-radius:9px;padding:6px 9px;min-width:0}
+.traits small{display:block;color:var(--mut);font-size:10px;letter-spacing:.1em;text-transform:uppercase}
+.traits span{font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+.bring{border:1px solid rgba(232,184,75,.4);background:linear-gradient(180deg,rgba(232,184,75,.07),rgba(232,184,75,.02));border-radius:14px;padding:14px}
+.bring h4{margin:0 0 6px;font-family:Cinzel;font-size:16px;color:var(--gold)}
+.price{display:flex;align-items:baseline;gap:8px;margin:2px 0 8px}
+.price b{font-family:Teko;font-size:40px;line-height:.9;color:var(--ink2);white-space:nowrap}
+.price span{color:var(--mut);font-size:13px}
+.bodies{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px;margin:10px 0;max-height:260px;overflow-y:auto}
+.body{border:2px solid var(--line);border-radius:10px;background:#15100b;padding:5px;cursor:pointer;text-align:center;font-size:10.5px;color:var(--mut);position:relative}
+.body img{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:6px;display:block;margin-bottom:4px;background:#0d0a06}
+.body.on{border-color:var(--gold);color:var(--ink2)}
+.body.no{opacity:.45;cursor:not-allowed}
+.body .why{font-size:9.5px;color:#e58b80}
+.steps{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.trade{margin:12px 0 4px;padding:11px 12px;border:1px dashed rgba(232,184,75,.45);border-radius:10px;background:rgba(232,184,75,.05);font-size:12.5px;color:var(--mut);line-height:1.5}
+.trade b{color:var(--ink2)}.trade .bodies{max-height:190px}.body.tk{border-color:#7fb36a;color:var(--ink2)}
+.trade .cr{font-family:Teko;font-size:20px;color:var(--gold);vertical-align:-1px}
+.msg{margin-top:10px;font-size:13px;line-height:1.5}
+.foot{margin:46px 0 60px;padding:18px;border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.foot b{display:block;color:var(--ink2);font-size:13.5px;margin-bottom:4px}
+@media(max-width:860px){.how{grid-template-columns:1fr}.bellrow{grid-template-columns:1fr}.dos{grid-template-columns:1fr}.foot{grid-template-columns:1fr}.hero{min-height:500px}}
+
+/* ── the logo's look on the wall (owner 2026-11-05: "align the wanted layout with the logo"): each fighter is a framed JPEG —
+   black frame with a red rim, a beige picture mat with a thin red line, the red sun, Teko lettering — hung on the logo's
+   beige wall. (These rules come after the paper-poster ones and win.) */
+:root{--jr:#b31b2e;--jr2:#d0283c;--jk:#1d1b1c;--jb:#e4dfd4}
+.board{background:radial-gradient(900px 400px at 50% 0%,rgba(255,255,255,.35),transparent 70%),repeating-linear-gradient(0deg,rgba(0,0,0,.018) 0 2px,transparent 2px 5px),var(--jb);
+  box-shadow:inset 0 0 0 8px var(--jk),inset 0 0 0 12px var(--jr),inset 0 0 60px rgba(60,40,20,.25),0 20px 50px rgba(0,0,0,.5);border-radius:22px;padding:40px 30px 44px}
+.grid{gap:30px 24px}
+.post{--rot:0deg;background:var(--jk);border:4px solid var(--jr);border-radius:18px;padding:12px 11px 11px;color:#f3ead8;transform:none;
+  box-shadow:0 12px 22px rgba(40,25,10,.38),0 2px 4px rgba(40,25,10,.35)}
+.post:hover{transform:translateY(-6px) scale(1.03);filter:drop-shadow(0 14px 16px rgba(40,25,10,.35))}
+.pin{display:none}
+.post .hd{justify-content:space-between;align-items:center;font-family:Teko,sans-serif;font-weight:600;font-size:15px;letter-spacing:.34em;color:var(--jr2);margin:0 2px 8px;line-height:1}
+.post .hd i{display:none}
+.post .hd .sun{width:13px;height:13px;border-radius:50%;background:var(--jr);flex:none;box-shadow:0 0 0 2px rgba(179,27,46,.25)}
+.post .art{border:3px solid var(--jr);outline:none;border-radius:6px;background:var(--jb);padding:4px}
+.post .art img{border-radius:3px;filter:none}
+.post .nm{font-family:Teko,sans-serif;font-weight:600;font-size:21px;line-height:.95;letter-spacing:.04em;text-transform:uppercase;color:#f3ead8;margin-top:10px;min-height:2em}
+.post .kd{font-family:Teko,sans-serif;font-size:13px;letter-spacing:.3em;font-weight:500;color:#a99e8c}
+.post .kd.d{color:var(--jr2)}
+.post .bo{border-top:1px solid rgba(208,40,60,.45);margin-top:8px;padding-top:7px}
+.post .bo small{font-family:Teko,sans-serif;font-size:13px;letter-spacing:.3em;font-weight:600;color:var(--jr2)}
+.post .bo small i{display:none}
+.post .bo b{color:#f3ead8;font-weight:600}
+.post .bo em{color:var(--jr2)}
+.post .st{color:#8c8273;font-family:Teko,sans-serif;font-size:12px;letter-spacing:.12em;font-weight:500}
+.post .st b{color:#f3ead8}
+.hanko{border-color:var(--jr);color:var(--jr);background:rgba(228,223,212,.9);font-family:Teko,sans-serif;font-weight:600;font-size:12px;letter-spacing:.2em;border-radius:8px}
+.taken span{border-color:var(--jr);color:var(--jr);background:rgba(228,223,212,.82);font-family:Teko,sans-serif;font-weight:600;font-size:24px;letter-spacing:.18em}
+.post.is-taken .art img{filter:grayscale(1) contrast(.9) brightness(.85)}
+.empty{color:#5c5246}
+
+/* the clean hero: the logo as it is (black + red on beige), no photo, no lantern glow */
+.hero{min-height:0;border-bottom:6px solid var(--jr);box-shadow:inset 0 -2px 0 var(--jk)}
+.hero::before,.hero .glow{display:none}
+.hero .in{padding:58px 16px 50px}
+.hero .kick{color:var(--jr);text-shadow:none;font-family:Teko,sans-serif;font-weight:600;font-size:16px;letter-spacing:.4em}
+.hero h1.jw{color:var(--jk);text-shadow:none}
+.hero h1.jw span{color:var(--jr)}
+.hero .jtag{color:var(--jr);text-shadow:none}
+.hero .jmark{filter:none}
+.hero .lead{color:#2a2624;text-shadow:none}
+.hero .lead b{color:var(--jr)}
+.hero .chip{background:var(--jk);border-color:var(--jr);color:#efe6d6;backdrop-filter:none}
+.hero .chip b{color:#f0495c}
+.hero .btn{background:var(--jr);color:#fff4ec;box-shadow:0 4px 0 #6d0f1b}
+.hero .btn.ghost{background:transparent;color:var(--jk);border:2px solid var(--jk);box-shadow:none}
+/* the poster's buy bar + the dossier's big buttons (owner 2026-11-05: "there is no buy button") */
+.post .cta{margin-top:9px;background:var(--jr);color:#fff4ec;font-family:Teko,sans-serif;font-weight:600;font-size:17px;letter-spacing:.22em;text-align:center;border-radius:8px;padding:5px 0 3px;box-shadow:0 3px 0 #6d0f1b}
+.post:hover .cta{background:var(--jr2)}
+.bring .cbtn{display:inline-block;margin:10px 8px 0 0;font-family:Teko,sans-serif;font-weight:600;font-size:20px;letter-spacing:.16em;padding:9px 20px 6px;border-radius:10px;border:none;cursor:pointer;text-decoration:none;background:#b31b2e;color:#fff4ec;box-shadow:0 4px 0 #6d0f1b}
+.bring .cbtn.ghost{background:transparent;color:inherit;border:2px solid currentColor;box-shadow:none}
+.bring .next{font-size:13px;opacity:.85;margin-top:6px}
+@media(max-width:560px){.jlogo{flex-direction:column;align-items:flex-start;gap:10px}.post .kd{letter-spacing:.12em;font-size:12px;white-space:nowrap}.hero .in{padding:40px 16px 38px}.board{padding:28px 12px 30px}.post{padding:9px 8px 9px;border-width:3px;border-radius:14px}.post .nm{font-size:17px}.post .hd{font-size:12px;letter-spacing:.24em}.jtag{letter-spacing:.28em}.tools{position:static}.tools select{flex:1 1 45%}.tools input{flex-basis:100%}.post .bo small i{display:none}.post .bo b{font-size:25px}.post .bo{gap:4px}.board{padding:26px 12px 30px}.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:22px 12px}.post{padding:20px 8px 10px}.post .nm{font-size:12.5px}.stage .post{width:190px}.hanko{width:44px;height:44px;font-size:8px}.hanko b{font-size:16px}}
+@media(prefers-reduced-motion:reduce){.glow,.bell.ring,.stage .post{animation:none!important}}
+</style>
+
+<style>.dn-ham{display:none}.dn-connect{display:none}.dn-home{display:none}.dn-extra{margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}@media(max-width:640px){.dn-bar{gap:10px!important;padding:10px 14px!important;}.dn-extra{display:none!important;}.dn-connect{display:block!important;}.dn-home{display:block!important;}.dn-ham{display:flex!important;align-items:center;justify-content:center;width:44px;height:44px;border-radius:10px;cursor:pointer;background:rgba(201,151,58,.12);border:1px solid rgba(201,151,58,.45);color:#e8b84b;font-size:22px;line-height:1;margin-left:auto;flex:0 0 auto;}.dn-links{position:absolute!important;top:calc(100% - 2px);right:10px;min-width:214px;flex-direction:column!important;align-items:stretch;gap:5px!important;background:rgba(12,10,18,.98);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(201,151,58,.4);border-radius:12px;padding:9px;box-shadow:0 16px 36px rgba(0,0,0,.6);display:none!important;z-index:80;}.dn-links.dn-open{display:flex!important;}.dn-links a{text-align:left;font-size:13px!important;padding:11px 13px!important;}}</style><div class="dn-bar" style="position:sticky;top:0;z-index:72;background:rgba(10,10,15,.94);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-bottom:1px solid rgba(201,151,58,.18);display:flex;align-items:center;gap:16px;padding:11px 20px;flex-wrap:wrap;font-family:'Cinzel',serif;"><a href="https://degendojo.xyz/" title="Degen Dojo home" style="display:flex;align-items:center;gap:11px;text-decoration:none;color:#efe6d2;"><img src="/dd-mark.jpg" alt="Degen Dojo" style="width:40px;height:40px;border-radius:9px;object-fit:cover;display:block;box-shadow:0 0 0 1px rgba(201,151,58,.35);" onerror="this.style.display='none'"/><div style="text-align:left;"><b style="font-family:'Cinzel',serif;font-size:15px;letter-spacing:.16em;display:block;color:#efe6d2;">DEGEN DOJO</b><small style="font-family:'Cinzel',serif;font-size:9px;letter-spacing:.26em;color:#a99a7e;">JPEG DOJO</small></div></a><nav class="dn-links" style="display:flex;gap:8px;flex-wrap:wrap;"><a href="https://degendojo.xyz/" class="dn-home" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">⛩ Home</a><a href="#" class="dn-connect" onclick="var b=this.closest('.dn-bar').querySelector('.dn-extra button');if(b)b.click();return false;" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#e8b84b;border:1px solid rgba(201,151,58,.5);background:rgba(201,151,58,.12);">🔑 Connect</a><a href="/" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">🏯 Pagoda</a><a href="/market" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">🛒 Market</a><a href="/list" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">🏷 List</a><a href="/jpeg-dojo/" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#e8b84b;border:1px solid rgba(201,151,58,.6);background:rgba(201,151,58,.14);">🖼 JPEG Dojo</a><a href="/play" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">▶ Play</a><a href="/mine" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">⛏ Mine</a><a href="/sweep" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">💰 Claim</a><a href="/launch" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">🚀 Launch</a><a href="/pot" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">🏆 Pot</a><a href="/become-a-preacher" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">📣 Preacher</a></nav><span class="dn-extra"><button id="dojoNavWallet" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#0a0814;background:linear-gradient(135deg,#c8962a,#8b6018);border:none;padding:9px 16px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;">Connect wallet</button></span><button class="dn-ham" type="button" aria-label="Menu" onclick="var n=this.closest('.dn-bar').querySelector('.dn-links');if(n)n.classList.toggle('dn-open');">☰</button></div>
+
+<header class="hero">
+  <div class="glow g1"></div><div class="glow g2"></div>
+  <div class="in">
+    <div class="kick">OUTSIDE THE GATE <i>門外</i></div>
+    <div class="jlogo"><svg class="jmark" viewBox="0 0 640 500" role="img" aria-label="JPEG DOJO logo"><rect x="12" y="12" width="616" height="476" rx="48" fill="#1d1b1c" stroke="#b31b2e" stroke-width="16"/><rect x="74" y="75" width="492" height="351" rx="10" fill="#e4dfd4" stroke="#b31b2e" stroke-width="9"/><circle cx="440" cy="169" r="44" fill="#b31b2e"/><path d="M84 416 L240 234 L330 332 L392 268 L556 414 Z" fill="#1d1b1c" stroke="#b31b2e" stroke-width="8" stroke-linejoin="round"/></svg><div><h1 class="jw">JPEG<span>DOJO</span></h1><span class="jtag">WAITING FOR REAL COLLECTORS</span></div></div>
+    <p class="lead"><b id="nWall">4,168</b> fighters never got a card. No NFT, no belt, no seat inside: just a JPEG pinned to the wall outside the gate. Pay one fighter’s <b>bounty in ORE</b> and they walk through, a <b>White belt card in Degen Dojo</b> that trades in ORE.</p>
+    <div class="chips">
+      <div class="chip"><b id="cWall">4,168</b>on the wall</div>
+      <div class="chip"><b id="cSeats">—</b>seats left inside, of 1,080</div>
+      <div class="chip"><b>0.3</b>ORE, the lowest bounty</div>
+      <div class="chip"><b>−25%</b>if you hold a Degen or Demon, +5% more for every JPEG you bring in (up to −40%)</div>
+    </div>
+    <div class="ctas"><a class="btn" href="#wall">See the wall</a><button class="btn ghost" id="ringTop" type="button">🔔 Ring the bell for a random fighter</button></div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="how" aria-label="How it works">
+    <div class="slip"><div class="n">1</div><b>Pick a poster</b><span>Every fighter has art, traits, stats and a move, but has never been minted. The bounty is their price, in ORE.</span></div>
+    <div class="slip"><div class="n">2</div><b>Lend them a body</b><span>A <em>Rugged Dojo</em> piece you hold becomes the fighter: same NFT in your wallet, new art, new name, new stats.</span></div>
+    <div class="slip"><div class="n">3</div><b>They walk in</b><span>Your piece comes back into <em>Degen Dojo</em> as a <em>White belt</em> card that trades in ORE. It can climb to its own belt later.</span></div>
+  </section>
+
+  <section class="bellrow" id="bell" aria-label="Ring the bell">
+    <div class="bellcol">
+      <div class="rope"></div>
+      <button class="bell" id="bellBtn" type="button" aria-label="Ring the bell"><span class="bb"></span><span class="lip"></span><span class="mark">鐘</span></button>
+      <button class="btn red" id="ringBtn" type="button">🔔 Ring the bell</button>
+      <small>A random fighter from the wall (and your filters). Ringing is free.</small>
+    </div>
+    <div class="stage" id="stage">
+      <div class="ph"><b>Can’t choose?</b>Ring the bell and a random fighter steps out of the crowd. Look them over first: nothing happens until you pay a bounty.</div>
+    </div>
+  </section>
+
+  <div class="wallhead" id="wall">
+    <h2>The Wall<i>手配</i></h2>
+    <div class="count" id="count"></div>
+  </div>
+  <div class="tools">
+    <div class="tabs" id="tabs"><button class="on" data-k="">All</button><button data-k="g">Degens</button><button data-k="d">Demons</button></div>
+    <input id="q" type="search" placeholder="Search a name, weapon, hair…" autocomplete="off">
+    <select id="fBounty" aria-label="Bounty"><option value="">Any bounty</option></select>
+    <select id="fWeapon" aria-label="Weapon"><option value="">Any weapon</option></select>
+    <select id="fBg" aria-label="Background"><option value="">Any background</option></select>
+    <select id="sort" aria-label="Sort">
+      <option value="rank">Rarest first</option><option value="cheap">Lowest bounty</option><option value="dear">Highest bounty</option>
+      <option value="power">Strongest (Power)</option><option value="az">Name A–Z</option><option value="shuffle">Shuffle</option>
+    </select>
+    <label><input type="checkbox" id="hideTaken" checked> Hide brought in</label>
+  </div>
+  <div class="board"><div class="grid" id="grid"></div><div class="empty" id="empty" hidden>No fighter on the wall matches that.</div>
+    <button class="btn ghost more" id="more" hidden type="button">Show more posters</button></div>
+
+  <section class="foot">
+    <div><b>Where the ORE goes</b><span class="fine">88% into the Degen Dojo Reserve, 12% to running the Dojo. See the <a href="/reserve/">Reserve</a>.</span></div>
+    <div><b>First paid, first in</b><span class="fine">Each fighter can be brought in once and each seat taken once. If someone pays for the same fighter first, or the 1,080 seats are full, your ORE is refunded in full at the weekly payout.</span></div>
+    <div><b>When it happens</b><span class="fine">Your piece’s new card is written within a day. The move into Degen Dojo goes out in the next daily batch, signed by the Dojo. You don’t sign anything after paying.</span></div>
+  </section>
+</main>
+
+<div class="ov" id="ov" role="dialog" aria-modal="true" aria-labelledby="dName">
+  <div class="dos">
+    <button class="x" id="dClose" type="button" aria-label="Close">×</button>
+    <div class="l" id="dPoster"></div>
+    <div class="r">
+      <h3 id="dName"></h3>
+      <div class="meta" id="dMeta"></div>
+      <div class="bars" id="dBars"></div>
+      <div class="move" id="dMove"></div>
+      <div class="traits" id="dTraits"></div>
+      <div class="bring" id="dBring"></div>
+    </div>
+  </div>
+</div>
+
+<script src="/buffer.js"></script>
+<script>window.Buffer=window.Buffer||(window.buffer&&window.buffer.Buffer);</script>
+<script src="/web3.js"></script>
+<script src="/dojo-swap.js"></script>
+<script src="/dojo-card-tx.js"></script>
+<script src="/dojo-gift.js"></script>
+<script>
+(function () {
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"'`]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '`': '&#96;' }[c]));
+const safeImg = (u) => { try { const x = new URL(String(u || '')); return x.protocol === 'https:' ? x.href : ''; } catch (e) { return ''; } };
+const S3 = 'https://degendojo.s3.us-west-1.amazonaws.com/degen/forge/';
+const THUMB = (id) => S3 + 'thumb/' + id + '.webp', FULL = (id) => S3 + 'img/' + id + '.png';
+const TREASURY = '5w55F58ia3H71QjBD9bYvNQF2DcNu8K3AfJj9A4WMuWp', ORE = 'oreoU2P8bN6jkk3jbaiVxYnG1dCXcYxwhwyK9jSybcp';
+const STATS = [['ATK', 'Attack', 100], ['DEF', 'Defence', 100], ['HP', 'Hitpoints', 100], ['PWR', 'Power', 200]];
+const TRAIT_ORDER = ['Weapon', 'Clothing', 'Hair', 'Glasses', 'Accessories', 'Background'];
+const PAGE = 48;
+let ALL = [], VIEW = [], shown = 0, TAKEN = new Set(), kind = '', SEATS = null, CUR = null, BODY = null;
+const fmt = (n) => Number(n).toLocaleString('en-US');
+const hash = (s) => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
+const rotOf = (id) => ((hash(id) % 70) / 10 - 3.5).toFixed(1) + 'deg';
+async function rpc(method, params) { const r = await fetch('/api/rpc', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) }); const j = await r.json(); if (j.error) throw new Error(j.error.message || 'RPC error'); return j.result; }
+async function api(path, opts) { const r = await fetch(path, opts); const j = await r.json().catch(() => ({})); if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status)); return j; }
+
+function poster(x, opts) {
+  opts = opts || {};
+  const taken = TAKEN.has(x.id), rare = x.r <= 100;
+  return '<article class="post' + (taken ? ' is-taken' : '') + '" data-id="' + esc(x.id) + '" style="--rot:' + rotOf(x.id) + '"' + (opts.big ? '' : ' tabindex="0"') + '>'
+    + '<i class="pin"></i>'
+    + '<div class="hd">WAITING<i>手配</i><span class="sun"></span></div>'
+    + '<div class="art"><img ' + (opts.big ? 'data-full="' + esc(FULL(x.id)) + '" ' : 'loading="lazy" ') + 'src="' + esc(THUMB(x.id)) + '" alt="' + esc(x.n) + '">'
+    + (rare ? '<div class="hanko">RARE<b>#' + x.r + '</b></div>' : '') + '</div>'
+    + '<div class="nm">' + esc(x.n) + '</div>'
+    + '<div class="kd' + (x.k === 'd' ? ' d' : '') + '">' + (x.k === 'd' ? 'DEMON' : 'DEGEN') + ' · NO. ' + x.no + '</div>'
+    + '<div class="bo"><small>BOUNTY<i>懸賞金</i></small><b>' + x.p + '</b><em>ORE</em></div>'
+    + '<div class="st">' + STATS.map((s, i) => '<span>' + s[0] + '<b>' + x.s[i] + '</b></span>').join('') + '</div>'
+    + (taken ? '<div class="taken"><span>BROUGHT IN<i>入門済</i></span></div>' : (opts.big ? '' : '<div class="cta">BRING IN ›</div>'))
+    + '</article>';
+}
+
+// ── filters ──
+function fillSelects() {
+  const uniq = (f) => [...new Set(ALL.map(f).filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b), 'en', { numeric: true }));
+  $('fBounty').innerHTML += uniq((x) => x.p).sort((a, b) => a - b).map((p) => '<option value="' + p + '">' + p + ' ORE (' + ALL.filter((x) => x.p === p).length + ')</option>').join('');
+  $('fWeapon').innerHTML += uniq((x) => x.t.Weapon).map((v) => '<option>' + esc(v) + '</option>').join('');
+  $('fBg').innerHTML += uniq((x) => x.t.Background).map((v) => '<option>' + esc(v) + '</option>').join('');
+}
+function filtered() {
+  const q = $('q').value.trim().toLowerCase(), b = $('fBounty').value, w = $('fWeapon').value, bg = $('fBg').value, hide = $('hideTaken').checked;
+  return ALL.filter((x) => (!kind || x.k === kind) && (!b || String(x.p) === b) && (!w || x.t.Weapon === w) && (!bg || x.t.Background === bg) && (!hide || !TAKEN.has(x.id))
+    && (!q || (x.n + ' ' + Object.values(x.t).join(' ') + ' ' + x.m + ' ' + x.no).toLowerCase().includes(q)));
+}
+function applyView() {
+  const s = $('sort').value; VIEW = filtered();
+  const by = { rank: (a, b) => a.r - b.r, cheap: (a, b) => a.p - b.p || a.r - b.r, dear: (a, b) => b.p - a.p || a.r - b.r, power: (a, b) => b.s[3] - a.s[3] || a.r - b.r, az: (a, b) => a.n.localeCompare(b.n) || a.r - b.r };
+  if (s === 'shuffle') { for (let i = VIEW.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [VIEW[i], VIEW[j]] = [VIEW[j], VIEW[i]]; } } else VIEW.sort(by[s]);
+  shown = 0; $('grid').innerHTML = ''; more();
+  $('empty').hidden = VIEW.length > 0;
+  $('count').textContent = fmt(VIEW.length) + ' of ' + fmt(ALL.length) + ' fighters';
+}
+function more() {
+  const next = VIEW.slice(shown, shown + PAGE); shown += next.length;
+  $('grid').insertAdjacentHTML('beforeend', next.map((x) => poster(x)).join(''));
+  $('more').hidden = shown >= VIEW.length;
+  if (!$('more').hidden) $('more').textContent = 'Show more posters (' + fmt(VIEW.length - shown) + ' left)';
+}
+$('more').onclick = more;
+if ('IntersectionObserver' in window) new IntersectionObserver((es) => { if (es[0].isIntersecting && !$('more').hidden) more(); }, { rootMargin: '600px' }).observe($('more'));
+let qT; $('q').addEventListener('input', () => { clearTimeout(qT); qT = setTimeout(applyView, 180); });
+for (const id of ['fBounty', 'fWeapon', 'fBg', 'sort', 'hideTaken']) $(id).addEventListener('change', applyView);
+$('tabs').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; kind = b.dataset.k; for (const x of $('tabs').children) x.classList.toggle('on', x === b); applyView(); });
+const byId = (id) => ALL.find((x) => x.id === id);
+$('grid').addEventListener('click', (e) => { const p = e.target.closest('.post'); if (p && !p.classList.contains('is-taken')) openDossier(byId(p.dataset.id)); });
+$('grid').addEventListener('keydown', (e) => { if (e.key !== 'Enter') return; const p = e.target.closest('.post'); if (p && !p.classList.contains('is-taken')) openDossier(byId(p.dataset.id)); });
+
+// ── the bell ──
+function ring() {
+  const pool = filtered().filter((x) => !TAKEN.has(x.id)), list = pool.length ? pool : ALL.filter((x) => !TAKEN.has(x.id));
+  if (!list.length) return;
+  const x = list[Math.floor(Math.random() * list.length)], bell = $('bellBtn');
+  bell.classList.remove('ring'); void bell.offsetWidth; bell.classList.add('ring');
+  $('stage').innerHTML = poster(x) + '<div class="pick"><h3>' + esc(x.n) + ' steps out.</h3><div class="fine">' + (x.k === 'd' ? 'A Demon' : 'A Degen') + ' with ' + esc(x.t.Weapon || 'bare hands')
+    + ', rarity #' + x.r + ' of ' + fmt(ALL.length) + '. Bounty <b style="color:var(--ink2)">' + x.p + ' ORE</b>.</div>'
+    + '<div class="steps"><button class="btn" type="button" data-open="' + esc(x.id) + '">Look them over</button><button class="btn ghost" type="button" data-ring="1">Ring again</button></div></div>';
+  if (window.innerWidth < 860) $('bell').scrollIntoView({ block: 'start' });
+}
+$('ringBtn').onclick = ring; $('bellBtn').onclick = ring;
+$('ringTop').onclick = () => { $('bell').scrollIntoView({ block: 'center' }); setTimeout(ring, 350); };
+$('stage').addEventListener('click', (e) => {
+  if (e.target.closest('[data-ring]')) return ring();
+  const o = e.target.closest('[data-open]') || e.target.closest('.post'); if (o) openDossier(byId(o.dataset.open || o.dataset.id));
+});
+
+// ── the dossier ──
+function openDossier(x) {
+  if (!x) return; CUR = x; BODY = null;
+  $('dPoster').innerHTML = poster(x, { big: true });
+  const big = $('dPoster').querySelector('img[data-full]');   // the small picture at once, the full one when it has loaded
+  if (big) { const f = new Image(); f.onload = () => { if (big.isConnected) big.src = f.src; }; f.src = big.dataset.full; }
+  $('dName').textContent = x.n;
+  $('dMeta').textContent = (x.k === 'd' ? 'Demon' : 'Degen') + ' · No. ' + x.no + ' · rarity #' + x.r + ' of ' + fmt(ALL.length) + ' on the wall';
+  $('dBars').innerHTML = STATS.map((s, i) => '<div class="bar"><span>' + s[1] + '</span><div class="t"><i style="width:' + Math.min(100, Math.round(x.s[i] / s[2] * 100)) + '%"></i></div><b>' + x.s[i] + '</b></div>').join('');
+  $('dMove').innerHTML = '<small>SIGNATURE MOVE</small>' + esc(x.m || '—');
+  $('dTraits').innerHTML = TRAIT_ORDER.filter((k) => x.t[k]).map((k) => '<div><small>' + k + '</small><span title="' + esc(x.t[k]) + '">' + esc(x.t[k]) + '</span></div>').join('');
+  renderBring();
+  $('ov').classList.add('on'); document.body.style.overflow = 'hidden';
+  history.replaceState(null, '', '#' + x.id);
+}
+function closeDossier() { $('ov').classList.remove('on'); document.body.style.overflow = ''; CUR = null; history.replaceState(null, '', location.pathname + location.search); }
+$('dClose').onclick = closeDossier;
+$('ov').addEventListener('click', (e) => { if (e.target === $('ov')) closeDossier(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && $('ov').classList.contains('on')) closeDossier(); });
+
+const connected = () => (window.DOJO_WALLET && window.DOJO_WALLET.pubkey) || null;
+let PIECES = null, PIECES_FOR = null;
+// holder price (owner 2026-11-05): a wallet holding a Degen Dojo card pays HOLDER_OFF % less, rounded up to the cent —
+// the same number the Keeper uses (store-jpeg-core holderPriceRaw); /api/jpeg?owner= says whether this wallet qualifies
+// + repeat collectors (owner 2026-11-05): +5 % for every JPEG the wallet already brought in, max 40 % (store-jpeg-core offFor);
+// /api/jpeg?owner= sends this wallet's own % (off) and its % after one more (next)
+const HOLDER_OFF = 25; let HOLDER = false, OFF = HOLDER_OFF, BROUGHT = 0, NEXT = 30;
+const priceFor = (x) => HOLDER ? Math.ceil(Math.round(x.p * 100) * (100 - OFF) / 100) / 100 : x.p;
+// trade-ins (owner 2026-11-05): each Rugged Dojo piece sent to the Dojo = 1 credit = 0.15 ORE off; every JPEG pays ≥ 0.1 ORE
+let CREDITS = 0, CREDIT_C = 15, MIN_C = 10; const PICK = new Set();
+// pieces cover at most HALF the full bounty; the holder discount comes off the ORE that is left (store-jpeg-core dueRaw)
+const maxTrade = (fullC) => Math.floor(fullC / (2 * CREDIT_C));
+const useOf = (x) => Math.min(CREDITS, maxTrade(Math.round(x.p * 100)));
+const dueOf = (x) => { const rest = Math.round(x.p * 100) - useOf(x) * CREDIT_C; return Math.max(MIN_C, HOLDER ? Math.ceil(rest * (100 - OFF) / 100) : rest) / 100; };
+async function renderBring() {
+  const x = CUR, b = $('dBring'); if (!x) return;
+  const hd = () => '<h4>Bring ' + esc(x.n) + ' into Degen Dojo</h4><div class="price"><b>' + priceFor(x) + ' ORE</b><span>'
+    + (HOLDER ? '<s>' + x.p + '</s> holder price, −' + OFF + '% because you hold a Degen Dojo card' + (BROUGHT ? ' and already brought in ' + BROUGHT + ' JPEG' + (BROUGHT > 1 ? 's' : '') : '') + ' · ' : 'bounty · ')
+    + 'lands as a White belt card' + (x.own ? ', can climb to ' + esc(x.own) + ' later' : '') + '</span></div>';
+  let head = hd();
+  if (TAKEN.has(x.id)) { b.innerHTML = head + '<div class="fine">Someone already brought this fighter in.</div>'; return; }
+  if (SEATS && SEATS.left <= 0) { b.innerHTML = head + '<div class="fine">All 1,080 seats in Degen Dojo are taken right now, so please don’t send ORE. If a seat opens up, this page will show it.</div>'; return; }
+  const me = connected();
+  if (!me) { b.innerHTML = head + '<div class="fine">To bring this fighter in you need a wallet with one <b>Rugged Dojo</b> piece in it (the fighter’s body). Degen Dojo holders pay 25% less, and every JPEG you bring in takes another 5% off the next one (up to 40%).</div>'
+      + '<button class="cbtn" id="connBtn" type="button">Connect wallet</button><a class="cbtn ghost" href="/market#rugged-dojo">Get a Rugged Dojo piece</a>';
+    const cb = $('connBtn'); if (cb) cb.onclick = () => { const n = document.getElementById('dojoNavWallet'); if (n) n.click(); else if (window.DojoWalletPicker) DojoWalletPicker.pick().then((a) => { window.DOJO_WALLET = a; window.dispatchEvent(new Event('dojo-wallet-change')); }).catch(() => {}); };
+    return; }
+  if (PIECES_FOR !== me) {
+    b.innerHTML = head + '<div class="fine">Looking for your Rugged Dojo pieces…</div>';
+    try { const j = await api('/api/jpeg?owner=' + encodeURIComponent(me)); PIECES = j.pieces || []; HOLDER = !!j.holder; CREDITS = +j.credits || 0; OFF = +j.off || HOLDER_OFF; BROUGHT = +j.brought || 0; NEXT = +j.next || Math.min(40, OFF + 5);
+      if (j.credit) CREDIT_C = Math.round(j.credit * 100); if (j.min) MIN_C = Math.round(j.min * 100); PIECES_FOR = me; PICK.clear(); }
+    catch (e) { b.innerHTML = head + '<div class="fine err">Couldn’t read your wallet right now (' + esc(e.message) + '). Try again in a minute.</div>'; return; }
+    if (CUR !== x) return;
+  }
+  head = hd();
+  if (!PIECES.length) {
+    b.innerHTML = head + (CREDITS ? '<div class="fine">Trade-in credit on this wallet: <b>' + CREDITS + '</b>.</div>' : '') + '<div class="fine">This wallet holds no <b>Rugged Dojo</b> piece. The fighter needs one as a body: buy one on the Degen Dojo market (pay in ORE), keep it in this wallet (not listed), then come back.</div>'
+      + '<a class="cbtn" href="/market#rugged-dojo">Get a Rugged Dojo piece</a>';
+    return;
+  }
+  const usable = PIECES.filter((p) => p.ok);
+  if (!BODY && usable.length === 1) BODY = usable[0].mint;
+  b.innerHTML = head
+    + '<div class="fine">Choose the body. This Rugged Dojo piece becomes ' + esc(x.n) + ': same NFT, new art and card.</div>'
+    + '<div class="bodies">' + PIECES.map((p) => '<div class="body' + (p.ok ? '' : ' no') + (BODY === p.mint ? ' on' : '') + '" data-mint="' + esc(p.mint) + '" title="' + esc(p.why || p.name) + '">'
+      + '<img loading="lazy" src="' + esc(safeImg(p.image)) + '" alt="">' + esc(p.name || p.mint.slice(0, 6) + '…') + (p.why ? '<div class="why">' + esc(p.why) + '</div>' : '') + '</div>').join('') + '</div>'
+    + tradeBox(x)
+    + '<div class="steps"><button class="btn" id="payBtn" type="button"' + (BODY ? '' : ' disabled') + '>Pay ' + dueOf(x) + ' ORE' + (useOf(x) ? ' + ' + useOf(x) + ' trade-in' + (useOf(x) > 1 ? 's' : '') : '') + ' · bring them in</button></div>'
+    + (HOLDER && NEXT > OFF ? '<div class="fine next">Your next JPEG after this one: −' + NEXT + '% (every JPEG you bring in adds 5%, up to 40%).</div>' : '')
+    + '<div class="msg" id="payMsg"></div>';
+  b.querySelector('.bodies').onclick = (e) => { const c = e.target.closest('.body'); if (!c || c.classList.contains('no')) return; BODY = c.dataset.mint; renderBring(); };
+  const pb = $('payBtn'); if (pb) pb.onclick = () => pay(x, BODY);
+  const tb = b.querySelector('.trade .bodies'); if (tb) tb.onclick = (e) => { const c = e.target.closest('.body'); if (!c) return; const m = c.dataset.mint;
+    if (PICK.has(m)) PICK.delete(m); else if (PICK.size < tradeRoom(x)) PICK.add(m); renderBring(); };
+  const ts = $('tradeBtn'); if (ts) ts.onclick = () => tradeIn(x);
+}
+// how many more pieces are worth sending for this fighter (beyond the credit already on the wallet)
+const tradeRoom = (x) => Math.max(0, maxTrade(Math.round(x.p * 100)) - CREDITS);
+const spare = () => (PIECES || []).filter((p) => p.ok && p.mint !== BODY);
+function tradeBox(x) {
+  const room = tradeRoom(x), sp = spare();
+  for (const m of [...PICK]) if (!sp.some((p) => p.mint === m) || PICK.size > room) PICK.delete(m);
+  let h = '<div class="trade"><b>Trade in Rugged Dojo pieces.</b> Every piece you send to the Dojo takes <b>' + (CREDIT_C / 100) + ' ORE</b> off the bounty, for up to half of it (' + maxTrade(Math.round(x.p * 100)) + ' piece' + (maxTrade(Math.round(x.p * 100)) === 1 ? '' : 's') + ' for this fighter). The rest is paid in ORE' + (HOLDER ? ', with your holder 25% off' : '') + '.'
+    + (CREDITS ? ' Credit on this wallet: <span class="cr">' + CREDITS + '</span>' + (useOf(x) ? ', ' + useOf(x) + ' used on this fighter.' : '.') : '');
+  if (room && sp.length) h += '<div class="bodies">' + sp.map((p) => '<div class="body' + (PICK.has(p.mint) ? ' tk' : '') + '" data-mint="' + esc(p.mint) + '" title="' + esc(p.name) + '">'
+      + '<img loading="lazy" src="' + esc(safeImg(p.image)) + '" alt="">' + esc(p.name || p.mint.slice(0, 6) + '…') + (PICK.has(p.mint) ? '<div class="why" style="color:#9fd38a">✓ trade in</div>' : '') + '</div>').join('') + '</div>'
+    + '<div class="steps"><button class="btn ghost" id="tradeBtn" type="button"' + (PICK.size ? '' : ' disabled') + '>' + (PICK.size ? 'Send ' + PICK.size + ' piece' + (PICK.size > 1 ? 's' : '') + ' to the Dojo (−' + (Math.round(PICK.size * CREDIT_C) / 100) + ' ORE)' : 'Pick up to ' + room + ' piece' + (room > 1 ? 's' : '') + ' to trade in') + '</button></div>'
+    + '<div class="fine" style="margin-top:6px">Sent pieces stay with the Dojo, and that can’t be undone. Credit you don’t use stays on this wallet for your next fighter.</div><div class="msg" id="tradeMsg"></div>';
+  else if (room && !sp.length) h += ' No other Rugged Dojo piece in this wallet to trade in.';
+  return h + '</div>';
+}
+async function tradeIn(x) {
+  const a = window.DOJO_WALLET, out = $('tradeMsg'), btn = $('tradeBtn'), me = connected();
+  if (!a || !me || !PICK.size) return;
+  btn.disabled = true;
+  try {
+    const items = spare().filter((p) => PICK.has(p.mint)).map((p) => ({ kind: p.std === 'pnft' ? 'pnft' : 'nft', mint: p.mint, to: DojoCardTx.TREASURY, name: p.name }));
+    const plan = await DojoGift.plan(rpc, window.solanaWeb3, me, items, { memo: 'ddtrade:jpeg', onStep: (t) => { out.textContent = t; } });
+    if (!plan.batches.length) throw new Error('none of them can be sent' + (plan.dropped[0] ? ' (' + plan.dropped[0].item.name + ': ' + plan.dropped[0].reason + ')' : ''));
+    const txs = await DojoGift.finalize(rpc, window.solanaWeb3, me, plan.batches);
+    let got = 0;
+    for (let i = 0; i < txs.length; i++) {
+      out.textContent = 'Approve ' + (txs.length > 1 ? (i + 1) + ' of ' + txs.length + ' ' : '') + 'in your wallet…';
+      const r = await a.signAndSendTransaction(txs[i]); const sig = String(r.signature || r);
+      out.textContent = 'Confirming…'; await waitForConfirm(sig);
+      let k = null; for (let t = 0; t < 4 && !k; t++) { try { k = await api('/api/jpeg', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ sig }) }); } catch (e) { await new Promise((z) => setTimeout(z, 2000)); } }
+      if (k && k.credits && k.credits[me] != null) CREDITS = k.credits[me]; else CREDITS += plan.batches[i].items.length;
+      got += plan.batches[i].items.length;
+    }
+    PICK.clear(); PIECES_FOR = null;
+    await renderBring();
+    const o2 = $('payMsg'); if (o2) o2.innerHTML = '<span class="ok">✓ ' + got + ' piece' + (got > 1 ? 's' : '') + ' traded in.</span>' + (plan.dropped.length ? ' ' + plan.dropped.length + ' couldn’t be sent (' + esc(plan.dropped[0].reason) + ').' : '') + ' Now pay the rest.';
+  } catch (e) { out.innerHTML = '<span class="err">' + esc(e.message || String(e)) + '</span>'; btn.disabled = false; }
+}
+window.addEventListener('dojo-wallet-change', () => { PIECES_FOR = null; BODY = null; HOLDER = false; CREDITS = 0; OFF = HOLDER_OFF; BROUGHT = 0; PICK.clear(); if (CUR) renderBring(); });
+
+async function waitForConfirm(sig) { for (let k = 0; k < 40; k++) { const st = await rpc('getSignatureStatuses', [[sig]]); const s = st && st.value && st.value[0]; if (s && (s.confirmationStatus === 'confirmed' || s.confirmationStatus === 'finalized')) { if (s.err) throw new Error('Transaction failed on chain.'); return; } await new Promise((r) => setTimeout(r, 1500)); } throw new Error('Not confirmed yet. Check your wallet’s activity.'); }
+async function pay(x, vessel) {
+  const a = window.DOJO_WALLET, out = $('payMsg'), btn = $('payBtn');
+  if (!a || !a.pubkey) { out.textContent = 'Connect your wallet first.'; return; }
+  if (!vessel) { out.textContent = 'Choose the body first.'; return; }
+  btn.disabled = true;
+  const P = dueOf(x), USE = useOf(x);
+  try {
+    const bal = await rpc('getTokenAccountsByOwner', [a.pubkey, { mint: ORE }, { encoding: 'jsonParsed' }]);
+    const have = ((bal && bal.value) || []).reduce((s, v) => s + Number(v.account.data.parsed.info.tokenAmount.uiAmountString || 0), 0);
+    if (have + 1e-12 < P) {
+      out.innerHTML = 'You have ' + have.toFixed(4) + ' ORE and the bounty is ' + P + ' ORE. ' + (window.DojoSwap ? '<button class="btn ghost" id="getOre" type="button">Get ORE</button>' : '');
+      const g = $('getOre'); if (g) g.onclick = () => DojoSwap.open({ needOre: P - have });
+      btn.disabled = false; return;
+    }
+    out.textContent = 'Checking the payment…';
+    const built = DojoCardTx.jpegIxs(a.pubkey, x.id, vessel, String(P), USE);
+    const prep = await DojoCardTx.prepare(rpc, a.pubkey, built.ixs);
+    if (prep.err) throw new Error('The network refused this payment in a test run (' + JSON.stringify(prep.err) + '). Nothing was sent.');
+    out.textContent = 'Approve in your wallet…';
+    const res = await a.signAndSendTransaction(prep.tx); const sig = res.signature || res;
+    out.textContent = 'Confirming…';
+    await waitForConfirm(sig);
+    const link = ' <a href="https://solscan.io/tx/' + esc(encodeURIComponent(sig)) + '" target="_blank" rel="noopener">Solscan ↗</a>';
+    let r = null; try { r = await api('/api/jpeg', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ sig }) }); } catch (e) { /* the Keeper reads the chain anyway */ }
+    if (r && r.brought && r.brought.includes(x.id)) {
+      TAKEN.add(x.id); CREDITS = Math.max(0, CREDITS - USE);
+      out.innerHTML = '<span class="ok">✓ ' + esc(x.n) + ' is yours.</span> Their card is written within a day and they walk into Degen Dojo in the next daily batch.' + link;
+      btn.textContent = '✓ Brought in';
+    } else if (r && (r.late || []).length) {
+      out.innerHTML = '<span class="err">' + esc(r.late[0].reason) + '.</span> Your ' + esc(r.refundOre || P) + ' ORE is refunded in full at the weekly payout.' + link;
+    } else if (r && (r.refused || []).length) {
+      out.innerHTML = '<span class="err">' + esc(r.refused[0].reason) + '.</span> Your ORE is refunded in full at the weekly payout.' + link;
+    } else {
+      out.innerHTML = '<span class="ok">✓ Paid.</span> The Dojo confirms it within ~10 minutes.' + link;
+    }
+  } catch (e) { out.innerHTML = '<span class="err">' + esc(e.message || 'Failed.') + '</span>'; btn.disabled = false; }
+}
+
+// ── boot ──
+fetch('/jpeg-dojo.json').then((r) => r.json()).then((d) => {
+  ALL = d; $('nWall').textContent = $('cWall').textContent = fmt(ALL.length);
+  fillSelects(); applyView();
+  const h = decodeURIComponent(location.hash.slice(1)); if (/^(degen|demon)_\d{4}$/.test(h)) openDossier(byId(h));
+}).catch(() => { $('empty').hidden = false; $('empty').textContent = 'The wall couldn’t load. Refresh the page.'; });
+api('/api/jpeg').then((j) => {
+  TAKEN = new Set(j.taken || []); SEATS = j.seats || null;
+  if (SEATS) $('cSeats').textContent = fmt(SEATS.left);
+  if (ALL.length) applyView();
+}).catch(() => {});
+})();
+</script>
+<script src="/dojo-credits.js"></script><script src="/dojo-wallet.js"></script><script src="/dojo-profile.js"></script><script src="/mwa.js"></script><script src="/wallet-picker.js"></script><script>/*navwallet-wire*/(function(){var b=document.getElementById('dojoNavWallet');if(!b)return;var A=null,sh=function(p){return p.slice(0,4)+'\u2026'+p.slice(-4);};var G="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#0a0814;background:linear-gradient(135deg,#c8962a,#8b6018);border:none;padding:9px 16px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;",C="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#e8b84b;background:rgba(201,151,58,.12);border:1px solid rgba(201,151,58,.5);padding:9px 14px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;";function set(a){A=a;window.DOJO_WALLET=a||null;window.dispatchEvent(new Event('dojo-wallet-change'));if(a){b.textContent='\u25ce '+sh(a.pubkey);b.setAttribute('style',C);}else{b.textContent='Connect wallet';b.setAttribute('style',G);}document.querySelectorAll('.dn-connect').forEach(function(x){x.textContent=a?'\u25ce '+sh(a.pubkey):'\ud83d\udd11 Connect';});}window.dojoNavSetWallet=set;b.onclick=function(){if(A){var dc=function(){try{A.disconnect&&A.disconnect();}catch(e){}set(null);};if(window.DojoProfile)DojoProfile.menu(b,A.pubkey,dc);else dc();return;}if(window.DojoWalletPicker)DojoWalletPicker.pick().then(set).catch(function(){});};if(window.DojoWalletPicker&&DojoWalletPicker.autoConnect)DojoWalletPicker.autoConnect().then(function(a){if(a&&!A)set(a);});})();</script>

@@ -98,7 +98,7 @@ const ddNav = (sub, active, extra = "") =>
   `<div class="dn-bar" style="position:sticky;top:0;z-index:72;background:rgba(10,10,15,.94);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-bottom:1px solid rgba(201,151,58,.18);display:flex;align-items:center;gap:16px;padding:11px 20px;flex-wrap:wrap;font-family:'Cinzel',serif;">` +
   `<a href="https://degendojo.xyz/" title="Degen Dojo home" style="display:flex;align-items:center;gap:11px;text-decoration:none;color:#efe6d2;"><img src="/dd-mark.jpg" alt="Degen Dojo" style="width:40px;height:40px;border-radius:9px;object-fit:cover;display:block;box-shadow:0 0 0 1px rgba(201,151,58,.35);" onerror="this.style.display='none'"/>` +
   `<div style="text-align:left;"><b style="font-family:'Cinzel',serif;font-size:15px;letter-spacing:.16em;display:block;color:#efe6d2;">DEGEN DOJO</b><small style="font-family:'Cinzel',serif;font-size:9px;letter-spacing:.26em;color:#a99a7e;">${sub}</small></div></a>` +
-  `<nav class="dn-links" style="display:flex;gap:8px;flex-wrap:wrap;"><a href="https://degendojo.xyz/" class="dn-home" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">⛩ Home</a><a href="#" class="dn-connect" onclick="var b=this.closest('.dn-bar').querySelector('.dn-extra button');if(b)b.click();return false;" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#e8b84b;border:1px solid rgba(201,151,58,.5);background:rgba(201,151,58,.12);">🔑 Connect</a>${navPill("/", "🏯 Pagoda", active === "store")}${navPill("/market", "🛒 Market", active === "market")}${navPill("/list", "🏷 List", active === "list")}${navPill("/play", "▶ Play", active === "play")}${navPill("/mine", "⛏ Mine", active === "mine")}${navPill("/sweep", "💰 Claim", active === "sweep")}${navPill("/launch", "🚀 Launch", active === "launch")}${navPill("/pot", "🏆 Pot", active === "pot")}${navPill("/become-a-preacher", "📣 Preacher", active === "preacher")}</nav><span class="dn-extra">${extra}</span>` +
+  `<nav class="dn-links" style="display:flex;gap:8px;flex-wrap:wrap;"><a href="https://degendojo.xyz/" class="dn-home" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#efe6d2;border:1px solid rgba(201,151,58,.32);">⛩ Home</a><a href="#" class="dn-connect" onclick="var b=this.closest('.dn-bar').querySelector('.dn-extra button');if(b)b.click();return false;" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap;color:#e8b84b;border:1px solid rgba(201,151,58,.5);background:rgba(201,151,58,.12);">🔑 Connect</a>${navPill("/", "🏯 Pagoda", active === "store")}${navPill("/market", "🛒 Market", active === "market")}${navPill("/list", "🏷 List", active === "list")}${navPill("/jpeg-dojo/", "🖼 JPEG Dojo", active === "jpeg-dojo")}${navPill("/play", "▶ Play", active === "play")}${navPill("/mine", "⛏ Mine", active === "mine")}${navPill("/sweep", "💰 Claim", active === "sweep")}${navPill("/launch", "🚀 Launch", active === "launch")}${navPill("/pot", "🏆 Pot", active === "pot")}${navPill("/become-a-preacher", "📣 Preacher", active === "preacher")}</nav><span class="dn-extra">${extra}</span>` +
   `<button class="dn-ham" type="button" aria-label="Menu" onclick="var n=this.closest('.dn-bar').querySelector('.dn-links');if(n)n.classList.toggle('dn-open');">☰</button>` +
   `</div>`;   // Market = browse/buy any collection; Launch = mining-drip launchpad (preview); List = sell your Degen
 const walletBtnHtml = `<button id="dojoNavWallet" style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#0a0814;background:linear-gradient(135deg,#c8962a,#8b6018);border:none;padding:9px 16px;border-radius:8px;cursor:pointer;white-space:nowrap;margin-left:auto;">Connect wallet</button>`;
@@ -204,6 +204,18 @@ copyFileSync(`${ROOT}/scripts/store-keeper-core.mjs`, `${OUT}/netlify/functions/
 copyFileSync(`${ROOT}/scripts/belts.mjs`, `${OUT}/netlify/functions/belts.mjs`);   // the belts (owner 2026-11-03): the repair price + Belt names the Keeper reads
 copyFileSync(`${ROOT}/scripts/store-fn-vault.mjs`, `${OUT}/netlify/functions/vault.mjs`);         // /api/vault
 copyFileSync(`${ROOT}/scripts/store-fn-repair.mjs`, `${OUT}/netlify/functions/repair.mjs`);       // /api/repair
+// JPEG DOJO (2026-11-05): /api/jpeg + its rules + the server price list; the wall data + hero art for /jpeg-dojo/
+// (run node scripts/build-jpeg-dojo.mjs --live first: it writes jpeg-dojo.json + jpeg-pool.json from the claim pool)
+copyFileSync(`${ROOT}/scripts/store-fn-jpeg.mjs`, `${OUT}/netlify/functions/jpeg.mjs`);
+copyFileSync(`${ROOT}/scripts/store-jpeg-core.mjs`, `${OUT}/netlify/functions/store-jpeg-core.mjs`);
+copyFileSync(`${ROOT}/scripts/jpeg-pool.json`, `${OUT}/netlify/functions/jpeg-pool.json`);
+copyFileSync(`${ROOT}/scripts/jpeg-dojo.json`, `${OUT}/jpeg-dojo.json`);
+// /market's JPEG DOJO case (2026-11-05): the 400 cheapest designs, light fields only (the full wall is 1.4 MB)
+{ const wall = JSON.parse(readFileSync(`${ROOT}/scripts/jpeg-dojo.json`, "utf8"));
+  const items = [...wall].sort((a, b) => a.p - b.p || a.r - b.r).slice(0, 400).map(({ id, n, p, k, no }) => ({ id, n, p, k, no }));
+  writeFileSync(`${OUT}/jpeg-market.json`, JSON.stringify({ total: wall.length, items })); }
+copyFileSync(`${ROOT}/scripts/site-assets/jpeg-dojo-logo.png`, `${OUT}/jpeg-dojo-logo.png`);
+// (the gate photo hero was dropped 2026-11-05 — the page shows the JPEG DOJO logo on beige instead)
 copyFileSync(`${ROOT}/scripts/store-fn-burnclaim.mjs`, `${OUT}/netlify/functions/burnclaim.mjs`); // /api/burnclaim
 copyFileSync(`${ROOT}/scripts/store-helius-core.mjs`, `${OUT}/netlify/functions/store-helius-core.mjs`);   // Helius batch history (keeper + reserve)
 copyFileSync(`${ROOT}/scripts/store-fn-reserve.mjs`, `${OUT}/netlify/functions/reserve.mjs`);   // /api/reserve — last-7-days inflow by source for the Reserve page
@@ -440,7 +452,7 @@ copyFileSync(`${ROOT}/scripts/dojo-gift.js`, `${OUT}/dojo-gift.js`);       // "A
   const nums = existsSync(cn) ? Object.fromEntries(Object.entries(JSON.parse(readFileSync(cn, "utf8")).byMint || {}).filter(([, v]) => v && v.no != null).map(([m, v]) => [m, v.no]))
     : JSON.parse(readFileSync(`${ROOT}/scripts/mint-to-num.json`, "utf8"));
   writeFileSync(`${OUT}/dd-nums.json`, JSON.stringify(nums)); }
-for (const [src, dir, label] of [["store-repair.html", "repair", "REPAIR"], ["store-sweep.html", "sweep", "SWEEP"], ["store-wizard.html", "orewizard", "WIZARD"], ["store-parties.html", "oreparties", "PARTIES"], ["store-raffle.html", "raffle", "RAFFLE"],["store-privacy.html", "privacy", "PRIVACY"], ["store-terms.html", "terms", "TERMS"]]) {   // /privacy + /terms: the dApp-store / app listing pages
+for (const [src, dir, label] of [["store-repair.html", "repair", "REPAIR"], ["store-jpeg.html", "jpeg-dojo", "JPEG DOJO"], ["store-sweep.html", "sweep", "SWEEP"], ["store-wizard.html", "orewizard", "WIZARD"], ["store-parties.html", "oreparties", "PARTIES"], ["store-raffle.html", "raffle", "RAFFLE"],["store-privacy.html", "privacy", "PRIVACY"], ["store-terms.html", "terms", "TERMS"]]) {   // /privacy + /terms: the dApp-store / app listing pages
   mkdirSync(`${OUT}/${dir}`, { recursive: true });
   copyFileSync(`${ROOT}/scripts/${src}`, `${OUT}/${dir}/index.html`);
   const fp = `${OUT}/${dir}/index.html`;
@@ -515,6 +527,7 @@ writeFileSync(`${OUT}/_redirects`,
   "/api/auth  /.netlify/functions/auth  200\n" +
   "/api/vault  /.netlify/functions/vault  200\n" +
   "/api/repair  /.netlify/functions/repair  200\n" +
+  "/api/jpeg  /.netlify/functions/jpeg  200\n" +
   "/api/burnclaim  /.netlify/functions/burnclaim  200\n" +
   "/api/play  /.netlify/functions/play  200\n" +
   "/api/mebuy  /.netlify/functions/mebuy  200\n" +
@@ -532,6 +545,7 @@ writeFileSync(`${OUT}/_redirects`,
   // framed on a collection's website; it loads that collection's name/25 NFTs from /api/miner?slug=.
   "/m/*  /.netlify/functions/miner-page  200\n" +
   "/wallets  /reserve/  301\n/wallets/*  /reserve/  301\n" +
+  "/jpeg  /jpeg-dojo/  301\n/jpegdojo  /jpeg-dojo/  301\n" +   // (no /jpeg-dojo rule: Netlify matches it with the slash too = a loop)
   // Dojo Sweep's short alias on the STORE only (nothing here used /claim; degendojo.xyz/claim is the main site's gallery)
   "/claim  /sweep  301\n/claim/*  /sweep  301\n" +
   "/wizard  /orewizard/  301\n/wizard/*  /orewizard/  301\n/wizardore  /orewizard/  301\n/wizardore/*  /orewizard/  301\n" +
@@ -703,7 +717,7 @@ execSync("npm install --omit=dev --no-audit --no-fund", { cwd: OUT, stdio: "inhe
 // [file, public path, title, description]; null = keep the page's own. ──
 {
   const BASE = "https://store.degendojo.xyz", OG_IMG = `${BASE}/store-og.png`;
-  const OG_CARD = { "/market": "market", "/list/": "list", "/mine": "mine", "/whitelabel": "whitelabel", "/create": "whitelabel", "/play/": "play", "/play/degen-duel/": "degen-duel", "/dojo-flip/": "dojo-flip", "/play/teto-wars/": "teto-wars", "/play/cluck-fu/": "cluck-fu", "/play/cock-brawl/": "cock-brawl", "/credits": "credits", "/pot/": "pot", "/draw": "draw", "/economy/": "economy", "/repair/": "repair", "/sweep/": "sweep", "/orewizard/": "orewizard", "/oreparties/": "oreparties", "/launch": "launch", "/launch/apply/": "launch", "/become-a-preacher": "preacher", "/reserve/": "reserve" };
+  const OG_CARD = { "/jpeg-dojo/": "jpeg-dojo", "/market": "market", "/list/": "list", "/mine": "mine", "/whitelabel": "whitelabel", "/create": "whitelabel", "/play/": "play", "/play/degen-duel/": "degen-duel", "/dojo-flip/": "dojo-flip", "/play/teto-wars/": "teto-wars", "/play/cluck-fu/": "cluck-fu", "/play/cock-brawl/": "cock-brawl", "/credits": "credits", "/pot/": "pot", "/draw": "draw", "/economy/": "economy", "/repair/": "repair", "/sweep/": "sweep", "/orewizard/": "orewizard", "/oreparties/": "oreparties", "/launch": "launch", "/launch/apply/": "launch", "/become-a-preacher": "preacher", "/reserve/": "reserve" };
   const esc = (s) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
   copyFileSync(`${ROOT}/scripts/store-og.png`, `${OUT}/store-og.png`);
   mkdirSync(`${OUT}/og`, { recursive: true });
@@ -725,6 +739,7 @@ execSync("npm install --omit=dev --no-audit --no-fund", { cwd: OUT, stdio: "inhe
     ["pot/index.html", "/pot/", null, null],
     ["draw.html", "/draw", null, null],
     ["economy/index.html", "/economy/", null, null],
+    ["jpeg-dojo/index.html", "/jpeg-dojo/", "JPEG DOJO — Outside the Gate · Degen Dojo", null],
     ["repair/index.html", "/repair/", null, `Repair a torn Degen Dojo card for ${REPAIR_ORE} ORE: it gets the ${BELT.white.name} belt (${BELT.white.title}) and is kept for good. Only 555 Mint cards can exist.`],
     ["sweep/index.html", "/sweep/", null, null],
     ["orewizard/index.html", "/orewizard/", null, "Plan an ORE mining run: solo odds, split drip, Motherlode share and the real SOL cost, with live market numbers and five mining strategies."],
